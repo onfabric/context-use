@@ -5,7 +5,14 @@
 To run the project, use the following command:
 
 ```bash
-bun run app
+bun dev
+# or also: bun run dev
+```
+
+To build the project, use the following command:
+
+```bash
+bun run build
 ```
 
 ## Code Style
