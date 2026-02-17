@@ -45,8 +45,8 @@ class ProfileBuilder:
 
     def build(self) -> Profile | Person:
         if self.is_actor:
-            return Person(name=self.name, url=self.url)
-        return Profile(name=self.name, url=self.url)
+            return Person(name=self.name, url=self.url)  # type: ignore[reportCallIssue]
+        return Profile(name=self.name, url=self.url)  # type: ignore[reportCallIssue]
 
 
 class CollectionBuilder:

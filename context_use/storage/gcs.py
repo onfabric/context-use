@@ -4,7 +4,9 @@ import io
 from typing import BinaryIO
 
 try:
-    from google.cloud import storage as gcs_storage
+    from google.cloud import (
+        storage as gcs_storage,  # type: ignore[reportAttributeAccessIssue]
+    )
 except ImportError:
     gcs_storage = None  # type: ignore[assignment]
 

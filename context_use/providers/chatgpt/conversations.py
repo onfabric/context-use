@@ -25,7 +25,7 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
-CHATGPT_APPLICATION = Application(name="assistant")
+CHATGPT_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
 CHUNK_SIZE = 500
 
@@ -189,19 +189,19 @@ class ChatGPTConversationsTransformStrategy(TransformStrategy):
                 ctx_kwargs["id"] = f"https://chatgpt.com/c/{conversation_id}"
             context = Collection(**ctx_kwargs)
 
-        message = FibreTextMessage(content=content, context=context)
+        message = FibreTextMessage(content=content, context=context)  # type: ignore[reportCallIssue]
 
         create_time = record.get("create_time")
         published = _safe_timestamp(create_time)
 
         if role == "user":
-            return FibreSendMessage(
+            return FibreSendMessage(  # type: ignore[reportCallIssue]
                 object=message,
                 target=CHATGPT_APPLICATION,
                 published=published,
             )
         elif role == "assistant":
-            return FibreReceiveMessage(
+            return FibreReceiveMessage(  # type: ignore[reportCallIssue]
                 object=message,
                 actor=CHATGPT_APPLICATION,
                 published=published,

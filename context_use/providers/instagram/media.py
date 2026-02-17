@@ -134,7 +134,7 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
                     continue
 
                 ts = record["creation_timestamp"]
-                asat = datetime.fromtimestamp(ts, tz=UTC)
+                asat = datetime.fromtimestamp(float(ts), tz=UTC)  # type: ignore[reportArgumentType]
 
                 unique_key = f"{task.interaction_type}:{payload.unique_key_suffix()}"
                 rows.append(
@@ -162,14 +162,14 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
         uri = record["uri"]
         title = record.get("title", "")
         ts = record["creation_timestamp"]
-        published = datetime.fromtimestamp(ts, tz=UTC)
+        published = datetime.fromtimestamp(float(ts), tz=UTC)  # type: ignore[reportArgumentType]
 
         if media_type == "Video":
-            media_obj = Video(url=uri, name=title or None, published=published)
+            media_obj = Video(url=uri, name=title or None, published=published)  # type: ignore[reportCallIssue]
         else:
-            media_obj = Image(url=uri, name=title or None, published=published)
+            media_obj = Image(url=uri, name=title or None, published=published)  # type: ignore[reportCallIssue]
 
-        return FibreCreateObject(
+        return FibreCreateObject(  # type: ignore[reportCallIssue]
             object=media_obj,
             published=published,
         )

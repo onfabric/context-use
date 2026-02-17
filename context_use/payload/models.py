@@ -10,7 +10,7 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -59,7 +59,7 @@ class Activity(Object):
 
 
 class Collection(Object):
-    type: Literal["Collection"] = Field("Collection", alias="@type")
+    type: Literal["Collection"] = Field("Collection", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
     totalItems: int | None = Field(None, ge=0)
     items: list[Object] | None = None
 
@@ -68,49 +68,49 @@ class Collection(Object):
 
 
 class Note(Object):
-    type: Literal["Note"] = Field("Note", alias="@type")
+    type: Literal["Note"] = Field("Note", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class Image(Object):
-    type: Literal["Image"] = Field("Image", alias="@type")
+    type: Literal["Image"] = Field("Image", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class Video(Object):
-    type: Literal["Video"] = Field("Video", alias="@type")
+    type: Literal["Video"] = Field("Video", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class Profile(Object):
-    type: Literal["Profile"] = Field("Profile", alias="@type")
+    type: Literal["Profile"] = Field("Profile", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class Page(Object):
-    type: Literal["Page"] = Field("Page", alias="@type")
+    type: Literal["Page"] = Field("Page", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 # --- Actor subtypes ---
 
 
 class Person(Object):
-    type: Literal["Person"] = Field("Person", alias="@type")
+    type: Literal["Person"] = Field("Person", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class Application(Object):
-    type: Literal["Application"] = Field("Application", alias="@type")
+    type: Literal["Application"] = Field("Application", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 # --- Activity subtypes ---
 
 
 class Create(Activity):
-    type: Literal["Create"] = Field("Create", alias="@type")
+    type: Literal["Create"] = Field("Create", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class View(Activity):
-    type: Literal["View"] = Field("View", alias="@type")
+    type: Literal["View"] = Field("View", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 class Follow(Activity):
-    type: Literal["Follow"] = Field("Follow", alias="@type")
+    type: Literal["Follow"] = Field("Follow", alias="@type")  # type: ignore[reportIncompatibleVariableOverride]
 
 
 # Rebuild forward refs
@@ -156,7 +156,9 @@ class _BaseFibreMixin:
         return digest[:16]
 
     def to_dict(self) -> dict:
-        json_str = self.model_dump_json(exclude_none=True, by_alias=True)
+        json_str = cast("BaseModel", self).model_dump_json(
+            exclude_none=True, by_alias=True
+        )
         return json.loads(json_str)
 
     def get_preview(self, provider: str | None = None) -> str | None:
@@ -170,9 +172,10 @@ class _BaseFibreMixin:
         return None
 
     def get_asat(self) -> datetime | None:
-        if not self.published:
+        published = cast("Object", self).published
+        if not published:
             return None
-        return self.published
+        return published
 
 
 # --- Fibre Objects ---
@@ -180,10 +183,10 @@ class _BaseFibreMixin:
 
 class FibreTextMessage(Note, _BaseFibreMixin):
     fibreKind: Literal["TextMessage"] = Field("TextMessage", alias="fibre_kind")
-    context: Collection | None = None
+    context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
-        content = self.content or ""
+        content = self.content if isinstance(self.content, str) else ""
         truncated = content[:100] + ("..." if len(content) > 100 else "")
         return f'message "{truncated}"'
 
@@ -195,7 +198,7 @@ class FibreTextMessage(Note, _BaseFibreMixin):
 
 class FibreImage(Image, _BaseFibreMixin):
     fibreKind: Literal["Image"] = Field("Image", alias="fibre_kind")
-    context: Collection | None = None
+    context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "image"
@@ -208,7 +211,7 @@ class FibreImage(Image, _BaseFibreMixin):
 
 class FibreVideo(Video, _BaseFibreMixin):
     fibreKind: Literal["Video"] = Field("Video", alias="fibre_kind")
-    context: Collection | None = None
+    context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "video"
@@ -234,8 +237,8 @@ class FibreCollection(Collection, _BaseFibreMixin):
 
 class FibreCreateObject(Create, _BaseFibreMixin):
     fibreKind: Literal["Create"] = Field("Create", alias="fibre_kind")
-    object: Image | Video
-    target: FibreCollection | None = None
+    object: Image | Video  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    target: FibreCollection | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Posted {self.object.type.lower()}"
@@ -246,9 +249,9 @@ class FibreCreateObject(Create, _BaseFibreMixin):
 
 class FibreSendMessage(Create, _BaseFibreMixin):
     fibreKind: Literal["SendMessage"] = Field("SendMessage", alias="fibre_kind")
-    object: FibreTextMessage | FibreImage | FibreVideo
-    actor: None = None
-    target: Profile | Application
+    object: FibreTextMessage | FibreImage | FibreVideo  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: None = None  # type: ignore[reportIncompatibleVariableOverride]
+    target: Profile | Application  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Sent {self.object._get_preview(provider)} to {self.target.name}"
@@ -262,9 +265,9 @@ class FibreSendMessage(Create, _BaseFibreMixin):
 
 class FibreReceiveMessage(Create, _BaseFibreMixin):
     fibreKind: Literal["ReceiveMessage"] = Field("ReceiveMessage", alias="fibre_kind")
-    object: FibreTextMessage | FibreImage | FibreVideo
-    actor: Profile | Application
-    target: None = None
+    object: FibreTextMessage | FibreImage | FibreVideo  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: Profile | Application  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    target: None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Received {self.object._get_preview(provider)} from {self.actor.name}"
