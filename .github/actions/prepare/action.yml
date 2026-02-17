@@ -1,0 +1,11 @@
+name: Prepare
+description: Prepare environment (e.g. install dependencies)
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v7
+
+    - name: Install deps
+      shell: bash
+      run: uv sync --frozen

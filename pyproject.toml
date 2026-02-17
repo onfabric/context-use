@@ -1,0 +1,76 @@
+[project]
+name = "context-use"
+version = "0.1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = []
+
+[dependency-groups]
+dev = ["pyright>=1.1.408", "ruff>=0.15.1"]
+
+[project.scripts]
+context-use = "context_use.main:main"
+
+[tool.ruff]
+# Same as Black.
+line-length = 88
+indent-width = 4
+
+[tool.pyright]
+typeCheckingMode = "standard"
+include = ["context_use"]
+exclude = [
+    ".venv/",
+    ".venv*/",
+    ".git/",
+    "__pycache__/",
+    "**/site-packages/",
+    "./test_*.py",
+    "./debug_*.py",
+]
+venvPath = "."
+venv = ".venv"
+reportMissingTypeStubs = false
+
+[tool.ruff.lint]
+select = [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+
+[tool.ruff.format]
+# Like Black, use double quotes for strings.
+quote-style = "double"
+# Like Black, indent with spaces, rather than tabs.
+indent-style = "space"
+# Like Black, respect magic trailing commas.
+skip-magic-trailing-comma = false
+# Like Black, automatically detect the appropriate line ending.
+line-ending = "auto"
+# Enable auto-formatting of code examples in docstrings. Markdown,
+# reStructuredText code/literal blocks and doctests are all supported.
+#
+# This is currently disabled by default, but it is planned for this
+# to be opt-out in the future.
+docstring-code-format = false
+# Set the line length limit used when formatting code snippets in
+# docstrings.
+#
+# This only has an effect when the `docstring-code-format` setting is
+# enabled.
+docstring-code-line-length = "dynamic"
+
+[tool.uv]
+package = true
+required-version = ">=0.10.3"

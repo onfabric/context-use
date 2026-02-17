@@ -1,0 +1,8 @@
+{
+    "recommendations": [
+        "anysphere.cursorpyright",
+        "charliermarsh.ruff",
+        "ms-python.python",
+        "editorconfig.editorconfig"
+    ]
+}
