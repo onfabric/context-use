@@ -8,18 +8,25 @@
 """Quick start demo for context_use.
 
 Usage:
-    uv run quickstart.py ~/downloads/chatgpt-export.zip
-    uv run quickstart.py ~/downloads/chatgpt-export.zip ~/downloads/instagram-export.zip
+    uv run quickstart.py --chatgpt ~/downloads/chatgpt-export.zip
+    uv run quickstart.py --instagram ~/downloads/instagram-export.zip
+    uv run quickstart.py --chatgpt ~/chatgpt.zip --instagram ~/instagram.zip
 """
 
-import sys
+import argparse
 
 from context_use import ContextUse
 from context_use.providers.registry import Provider
 
-if len(sys.argv) < 2:
-    print("Usage: uv run quickstart.py <chatgpt-export.zip> [instagram-export.zip]")
-    sys.exit(1)
+parser = argparse.ArgumentParser(description="contextuse quickstart")
+parser.add_argument("--chatgpt", metavar="PATH", help="Path to a ChatGPT export zip")
+parser.add_argument(
+    "--instagram", metavar="PATH", help="Path to an Instagram export zip"
+)
+args = parser.parse_args()
+
+if not args.chatgpt and not args.instagram:
+    parser.error("provide at least one of --chatgpt or --instagram")
 
 ctx = ContextUse.from_config(
     {
@@ -28,21 +35,19 @@ ctx = ContextUse.from_config(
     }
 )
 
-# --- ChatGPT ---
-chatgpt_path = sys.argv[1]
-print(f"Processing ChatGPT archive: {chatgpt_path}")
-result = ctx.process_archive(Provider.CHATGPT, chatgpt_path)
-print(
-    f"  ChatGPT: {result.threads_created} threads from {result.tasks_completed} tasks"
-)
-if result.errors:
-    print(f"  Errors: {result.errors}")
+if args.chatgpt:
+    print(f"Processing ChatGPT archive: {args.chatgpt}")
+    result = ctx.process_archive(Provider.CHATGPT, args.chatgpt)
+    print(
+        f"  ChatGPT: {result.threads_created} threads from "
+        f"{result.tasks_completed} tasks"
+    )
+    if result.errors:
+        print(f"  Errors: {result.errors}")
 
-# --- Instagram (optional) ---
-if len(sys.argv) > 2:
-    instagram_path = sys.argv[2]
-    print(f"\nProcessing Instagram archive: {instagram_path}")
-    result = ctx.process_archive(Provider.INSTAGRAM, instagram_path)
+if args.instagram:
+    print(f"\nProcessing Instagram archive: {args.instagram}")
+    result = ctx.process_archive(Provider.INSTAGRAM, args.instagram)
     print(
         f"  Instagram: {result.threads_created} threads from "
         f"{result.tasks_completed} tasks"
