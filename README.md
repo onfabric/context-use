@@ -14,6 +14,11 @@ Run the project:
 uv run context-use
 ```
 
+Run the tests:
+```bash
+uv run pytest
+```
+
 ## Type Checking
 
 Run the type checker:
