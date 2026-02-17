@@ -5,14 +5,21 @@
 To run the project, use the following command:
 
 ```bash
-bun dev
-# or also: bun run dev
+bun run dev
 ```
 
 To build the project, use the following command:
 
 ```bash
 bun run build
+```
+
+## Type Checking
+
+To check the types, use the following command:
+
+```bash
+bun run typecheck
 ```
 
 ## Code Style
