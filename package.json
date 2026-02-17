@@ -1,0 +1,17 @@
+{
+  "name": "context-use",
+  "module": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --outdir dist",
+    "codestyle:check": "bun run biome check",
+    "codestyle:fix": "bun run biome check --write",
+    "typecheck": "bun run tsc --noEmit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.2",
+    "@types/bun": "latest",
+    "typescript": "^5.9.3"
+  }
+}
