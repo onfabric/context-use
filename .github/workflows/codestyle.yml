@@ -1,0 +1,32 @@
+name: codestyle
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  typecheck:
+    name: typecheck:required
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/prepare
+
+      - name: Check TypeScript
+        run: bun typecheck
+
+  codestyle:
+    name: codestyle:required
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+
+      - uses: ./.github/actions/prepare
+
+      - name: Check Code Style
+        run: bun codestyle:check

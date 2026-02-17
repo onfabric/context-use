@@ -1,13 +1,13 @@
 {
-  "name": "contextuse",
-  "version": "0.1.0",
-  "description": "Configurable ETL library for processing data archives (ChatGPT, Instagram) into structured threads",
+  "name": "context-use",
+  "module": "src/index.ts",
   "type": "module",
-  "main": "src/index.ts",
   "scripts": {
-    "dev": "bun run src/cli.ts",
-    "build": "bun build ./src/cli.ts --compile --outfile contextuse",
-    "test": "bun test"
+    "dev": "bun run src/index.ts",
+    "build": "bun build ./src/index.ts --outdir dist",
+    "codestyle:check": "bun run biome check",
+    "codestyle:fix": "bun run biome check --write",
+    "typecheck": "bun run tsc --noEmit"
   },
   "dependencies": {
     "zod": "^3.23",
@@ -15,11 +15,8 @@
     "stream-json": "^1.9"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.2",
     "@types/bun": "latest",
-    "typescript": "^5.7"
-  },
-  "optionalDependencies": {
-    "postgres": "^3.4"
+    "typescript": "^5.9.3"
   }
 }
-
