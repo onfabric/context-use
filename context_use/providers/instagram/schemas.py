@@ -30,4 +30,3 @@ class InstagramReelsManifest(BaseModel):
     """Top-level schema for ``reels.json``."""
 
     ig_reels_media: list[InstagramReelsEntry]
-

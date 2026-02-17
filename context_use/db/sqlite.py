@@ -14,10 +14,7 @@ class SQLiteBackend(DatabaseBackend):
     """
 
     def __init__(self, path: str = ":memory:") -> None:
-        if path == ":memory:":
-            url = "sqlite:///:memory:"
-        else:
-            url = f"sqlite:///{path}"
+        url = "sqlite:///:memory:" if path == ":memory:" else f"sqlite:///{path}"
         self._engine = create_engine(url, echo=False)
         self._session_factory = sessionmaker(bind=self._engine)
 

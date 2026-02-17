@@ -10,9 +10,9 @@ import hashlib
 import json
 import logging
 from datetime import datetime
-from typing import Annotated, Dict, List, Literal, Optional, Union
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
@@ -32,39 +32,40 @@ class ASType(BaseModel):
 
 class Object(ASType):
     type: str = Field("Object", alias="@type")
-    id: Optional[str] = Field(None, alias="@id")
-    attachment: Optional[Union["Object", List["Object"]]] = None
-    attributedTo: Optional[Union["Object", List["Object"]]] = None
-    content: Optional[Union[str, Dict[str, str]]] = None
-    context: Optional[Union["Object", List["Object"]]] = None
-    name: Optional[Union[str, Dict[str, str]]] = None
-    endTime: Optional[datetime] = None
-    published: Optional[datetime] = None
-    startTime: Optional[datetime] = None
-    summary: Optional[Union[str, Dict[str, str]]] = None
-    updated: Optional[datetime] = None
-    url: Optional[Union[str, List[str]]] = None
-    mediaType: Optional[str] = None
-    duration: Optional[str] = None
+    id: str | None = Field(None, alias="@id")
+    attachment: Object | list[Object] | None = None
+    attributedTo: Object | list[Object] | None = None
+    content: str | dict[str, str] | None = None
+    context: Object | list[Object] | None = None
+    name: str | dict[str, str] | None = None
+    endTime: datetime | None = None
+    published: datetime | None = None
+    startTime: datetime | None = None
+    summary: str | dict[str, str] | None = None
+    updated: datetime | None = None
+    url: str | list[str] | None = None
+    mediaType: str | None = None
+    duration: str | None = None
 
 
 class Activity(Object):
     type: str = Field("Activity", alias="@type")
-    actor: Optional[Union["Object", List["Object"]]] = None
-    object: Optional[Union["Object", List["Object"]]] = None
-    target: Optional[Union["Object", List["Object"]]] = None
-    result: Optional[Union["Object", List["Object"]]] = None
-    origin: Optional[Union["Object", List["Object"]]] = None
-    instrument: Optional[Union["Object", List["Object"]]] = None
+    actor: Object | list[Object] | None = None
+    object: Object | list[Object] | None = None
+    target: Object | list[Object] | None = None
+    result: Object | list[Object] | None = None
+    origin: Object | list[Object] | None = None
+    instrument: Object | list[Object] | None = None
 
 
 class Collection(Object):
     type: Literal["Collection"] = Field("Collection", alias="@type")
-    totalItems: Optional[int] = Field(None, ge=0)
-    items: Optional[List[Object]] = None
+    totalItems: int | None = Field(None, ge=0)
+    items: list[Object] | None = None
 
 
 # --- Object subtypes ---
+
 
 class Note(Object):
     type: Literal["Note"] = Field("Note", alias="@type")
@@ -88,6 +89,7 @@ class Page(Object):
 
 # --- Actor subtypes ---
 
+
 class Person(Object):
     type: Literal["Person"] = Field("Person", alias="@type")
 
@@ -97,6 +99,7 @@ class Application(Object):
 
 
 # --- Activity subtypes ---
+
 
 class Create(Activity):
     type: Literal["Create"] = Field("Create", alias="@type")
@@ -174,9 +177,10 @@ class _BaseFibreMixin:
 
 # --- Fibre Objects ---
 
+
 class FibreTextMessage(Note, _BaseFibreMixin):
     fibreKind: Literal["TextMessage"] = Field("TextMessage", alias="fibre_kind")
-    context: Optional[Collection] = None
+    context: Collection | None = None
 
     def _get_preview(self, provider: str | None) -> str | None:
         content = self.content or ""
@@ -191,7 +195,7 @@ class FibreTextMessage(Note, _BaseFibreMixin):
 
 class FibreImage(Image, _BaseFibreMixin):
     fibreKind: Literal["Image"] = Field("Image", alias="fibre_kind")
-    context: Optional[Collection] = None
+    context: Collection | None = None
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "image"
@@ -204,7 +208,7 @@ class FibreImage(Image, _BaseFibreMixin):
 
 class FibreVideo(Video, _BaseFibreMixin):
     fibreKind: Literal["Video"] = Field("Video", alias="fibre_kind")
-    context: Optional[Collection] = None
+    context: Collection | None = None
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "video"
@@ -227,10 +231,11 @@ class FibreCollection(Collection, _BaseFibreMixin):
 
 # --- Fibre Activities ---
 
+
 class FibreCreateObject(Create, _BaseFibreMixin):
     fibreKind: Literal["Create"] = Field("Create", alias="fibre_kind")
     object: Image | Video
-    target: Optional[FibreCollection] = None
+    target: FibreCollection | None = None
 
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Posted {self.object.type.lower()}"
@@ -274,14 +279,12 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
 # --- Discriminated union ---
 
 FibreByType = Annotated[
-    Union[
-        FibreCreateObject,
-        FibreImage,
-        FibreVideo,
-        FibreCollection,
-        FibreSendMessage,
-        FibreReceiveMessage,
-    ],
+    FibreCreateObject
+    | FibreImage
+    | FibreVideo
+    | FibreCollection
+    | FibreSendMessage
+    | FibreReceiveMessage,
     Field(discriminator="fibreKind"),
 ]
 
@@ -296,4 +299,3 @@ FibreCollection.model_rebuild()
 FibreCreateObject.model_rebuild()
 FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
-

@@ -3,7 +3,9 @@
 
 class ExtractionFailedException(Exception):
     def __init__(self, message: str | None = None):
-        self.message = f"Extraction failed: {message}" if message else "Extraction failed"
+        self.message = (
+            f"Extraction failed: {message}" if message else "Extraction failed"
+        )
         super().__init__(self.message)
 
 
@@ -46,4 +48,3 @@ class UnsupportedProviderError(ValueError):
     """Raised when an unknown provider is requested."""
 
     pass
-

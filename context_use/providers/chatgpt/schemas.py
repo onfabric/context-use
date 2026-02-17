@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -12,12 +10,11 @@ class ChatGPTAuthor(BaseModel):
 
 
 class ChatGPTContent(BaseModel):
-    content_type: Optional[str] = None
-    parts: Optional[list[str]] = None
+    content_type: str | None = None
+    parts: list[str] | None = None
 
 
 class ChatGPTMessage(BaseModel):
     author: ChatGPTAuthor
     content: ChatGPTContent
-    create_time: Optional[float] = None
-
+    create_time: float | None = None

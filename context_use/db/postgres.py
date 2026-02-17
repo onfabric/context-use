@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 try:
-    import psycopg2  # noqa: F401
+    import psycopg2  # noqa: F401  # pyright: ignore[reportMissingModuleSource]
 except ImportError:
     psycopg2 = None  # type: ignore[assignment]
 

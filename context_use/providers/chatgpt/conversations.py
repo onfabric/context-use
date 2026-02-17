@@ -150,9 +150,10 @@ class ChatGPTConversationsTransformStrategy(TransformStrategy):
                 create_time = record.get("create_time")
                 asat = _safe_timestamp(create_time) or datetime.now(UTC)
 
+                unique_key = f"chatgpt_conversations:{payload.unique_key_suffix()}"
                 rows.append(
                     {
-                        "unique_key": f"chatgpt_conversations:{payload.unique_key_suffix()}",
+                        "unique_key": unique_key,
                         "provider": task.provider,
                         "interaction_type": task.interaction_type,
                         "preview": payload.get_preview("ChatGPT") or "",

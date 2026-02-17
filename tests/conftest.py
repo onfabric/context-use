@@ -71,7 +71,8 @@ CHATGPT_CONVERSATIONS = [
                     "content": {
                         "content_type": "text",
                         "parts": [
-                            "You can use open() to read a file. For example: with open('file.txt') as f: data = f.read()"
+                            "You can use open() to read a file. \
+                            For example: with open('file.txt') as f: data = f.read()"
                         ],
                     },
                     "create_time": 1700001001.0,

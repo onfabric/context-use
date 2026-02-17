@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-class OrchestrationStrategy(ABC):
+class OrchestrationStrategy:
     """Decides which ETL tasks to create based on discovered files.
 
     Sub-classes set ``MANIFEST_MAP``: a dict mapping relative file paths
@@ -181,7 +181,10 @@ class ETLPipeline:
             raise UploadFailedException(str(exc)) from exc
 
     def run(self, task: TaskMetadata) -> int:
-        """Run the full extract -> transform -> upload pipeline. Returns count of uploaded threads."""
+        """
+        Run the full extract -> transform -> upload pipeline.
+        Returns count of uploaded threads.
+        """
         logger.info("ETL start: %s/%s", task.provider, task.interaction_type)
 
         raw_batches = self.extract(task)

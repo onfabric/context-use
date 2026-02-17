@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, field, fields as dataclass_fields
+from dataclasses import asdict, dataclass, field
+from dataclasses import fields as dataclass_fields
 from typing import Any
 
 
@@ -35,4 +36,3 @@ class PipelineResult:
     tasks_failed: int = 0
     threads_created: int = 0
     errors: list[str] = field(default_factory=list)
-

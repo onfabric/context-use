@@ -136,9 +136,10 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
                 ts = record["creation_timestamp"]
                 asat = datetime.fromtimestamp(ts, tz=UTC)
 
+                unique_key = f"{task.interaction_type}:{payload.unique_key_suffix()}"
                 rows.append(
                     {
-                        "unique_key": f"{task.interaction_type}:{payload.unique_key_suffix()}",
+                        "unique_key": unique_key,
                         "provider": task.provider,
                         "interaction_type": task.interaction_type,
                         "preview": payload.get_preview(task.provider) or "",

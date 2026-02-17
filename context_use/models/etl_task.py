@@ -9,7 +9,7 @@ from context_use.models.archive import Archive
 from context_use.models.base import Base, TimeStampMixin, _new_uuid
 
 
-class EtlTaskStatus(str, enum.Enum):
+class EtlTaskStatus(enum.StrEnum):
     CREATED = "created"
     EXTRACTING = "extracting"
     TRANSFORMING = "transforming"

@@ -64,7 +64,10 @@ class TestChatGPTExtraction:
         assert "system" not in all_rows["role"].values
 
     def test_row_count(self, chatgpt_storage):
-        """2 conversations: 2 user + 2 assistant = 5 msgs total, but 1 is system → 4 rows."""
+        """
+        2 conversations: 2 user + 2 assistant = 5 msgs total,
+        but 1 is system → 4 rows.
+        """
         storage, key = chatgpt_storage
         strategy = ChatGPTConversationsExtractionStrategy()
         task = TaskMetadata(

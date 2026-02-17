@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator
 
 from sqlalchemy import Engine
 from sqlalchemy.orm import Session
@@ -27,7 +27,7 @@ class DatabaseBackend(ABC):
         ...
 
     @contextmanager
-    def session_scope(self) -> Generator[Session, None, None]:
+    def session_scope(self) -> Generator[Session]:
         """Provide a transactional scope around a series of operations."""
         session = self.get_session()
         try:
@@ -38,4 +38,3 @@ class DatabaseBackend(ABC):
             raise
         finally:
             session.close()
-

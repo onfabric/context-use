@@ -1,4 +1,4 @@
-"""Provider registry -- maps Provider enum values to orchestration / strategy classes."""
+"""Provider registry -- maps Provider enum values to orchestration / strategy classes"""
 
 from __future__ import annotations
 

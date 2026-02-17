@@ -36,4 +36,3 @@ class StorageBackend(ABC):
     def delete(self, key: str) -> None:
         """Delete the given key."""
         ...
-

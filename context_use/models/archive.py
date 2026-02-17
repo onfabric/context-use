@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from context_use.models.etl_task import EtlTask
 
 
-class ArchiveStatus(str, enum.Enum):
+class ArchiveStatus(enum.StrEnum):
     CREATED = "created"
     COMPLETED = "completed"
     FAILED = "failed"
