@@ -1,30 +1,8 @@
-"""ETL task metadata types."""
+"""ETL pipeline result types."""
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from dataclasses import fields as dataclass_fields
-from typing import Any
-
-
-@dataclass
-class TaskMetadata:
-    """Metadata passed through every ETL pipeline step."""
-
-    archive_id: str
-    etl_task_id: str
-    provider: str
-    interaction_type: str
-    filenames: list[str] = field(default_factory=list)
-    tapestry_id: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> TaskMetadata:
-        known = {f.name for f in dataclass_fields(cls)}
-        return cls(**{k: v for k, v in data.items() if k in known})
+from dataclasses import dataclass, field
 
 
 @dataclass

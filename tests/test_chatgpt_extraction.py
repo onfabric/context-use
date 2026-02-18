@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.chatgpt.conversations import (
     ChatGPTConversationsExtractionStrategy,
 )
@@ -21,17 +21,21 @@ def chatgpt_storage(tmp_path: Path):
     return storage, key
 
 
+def _make_task(key: str) -> EtlTask:
+    return EtlTask(
+        archive_id="a1",
+        provider="chatgpt",
+        interaction_type="chatgpt_conversations",
+        source_uri=key,
+        status=EtlTaskStatus.CREATED.value,
+    )
+
+
 class TestChatGPTExtraction:
     def test_extracts_correct_columns(self, chatgpt_storage):
         storage, key = chatgpt_storage
         strategy = ChatGPTConversationsExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="chatgpt",
-            interaction_type="chatgpt_conversations",
-            filenames=[key],
-        )
+        task = _make_task(key)
 
         batches = strategy.extract(task, storage)
         assert len(batches) >= 1
@@ -50,13 +54,7 @@ class TestChatGPTExtraction:
     def test_skips_system_messages(self, chatgpt_storage):
         storage, key = chatgpt_storage
         strategy = ChatGPTConversationsExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="chatgpt",
-            interaction_type="chatgpt_conversations",
-            filenames=[key],
-        )
+        task = _make_task(key)
 
         batches = strategy.extract(task, storage)
         all_rows = batches[0]
@@ -70,13 +68,7 @@ class TestChatGPTExtraction:
         """
         storage, key = chatgpt_storage
         strategy = ChatGPTConversationsExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="chatgpt",
-            interaction_type="chatgpt_conversations",
-            filenames=[key],
-        )
+        task = _make_task(key)
 
         batches = strategy.extract(task, storage)
         total = sum(len(b) for b in batches)

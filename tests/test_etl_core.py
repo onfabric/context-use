@@ -19,7 +19,6 @@ from context_use.etl.core.exceptions import (
     ExtractionFailedException,
     TransformFailedException,
 )
-from context_use.etl.core.types import TaskMetadata
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.storage.disk import DiskStorage
@@ -69,7 +68,7 @@ class FailingTransform(TransformStrategy):
 
 
 @pytest.fixture()
-def task(db: PostgresBackend) -> TaskMetadata:
+def task_with_session(db: PostgresBackend):
     with db.session_scope() as s:
         archive = Archive(provider="test", status=ArchiveStatus.CREATED.value)
         s.add(archive)
@@ -85,31 +84,26 @@ def task(db: PostgresBackend) -> TaskMetadata:
         s.add(etl_task)
         s.flush()
 
-        return TaskMetadata(
-            archive_id=archive.id,
-            etl_task_id=etl_task.id,
-            provider="test",
-            interaction_type="test_type",
-            filenames=["test.json"],
-        )
+        yield etl_task, s
 
 
 class TestETLPipeline:
-    def test_full_run(self, tmp_path, task, db: PostgresBackend):
+    def test_full_run(self, tmp_path, task_with_session):
+        task, session = task_with_session
         storage = DiskStorage(str(tmp_path / "s"))
 
-        with db.session_scope() as session:
-            pipeline = ETLPipeline(
-                extraction=MockExtraction(),
-                transform=MockTransform(),
-                upload=UploadStrategy(),
-                storage=storage,
-                session=session,
-            )
-            count = pipeline.run(task)
-            assert count == 2
+        pipeline = ETLPipeline(
+            extraction=MockExtraction(),
+            transform=MockTransform(),
+            upload=UploadStrategy(),
+            storage=storage,
+            session=session,
+        )
+        count = pipeline.run(task)
+        assert count == 2
 
-    def test_extract_failure(self, tmp_path, task):
+    def test_extract_failure(self, tmp_path, task_with_session):
+        task, _ = task_with_session
         storage = DiskStorage(str(tmp_path / "s"))
 
         pipeline = ETLPipeline(
@@ -120,7 +114,8 @@ class TestETLPipeline:
         with pytest.raises(ExtractionFailedException):
             pipeline.run(task)
 
-    def test_transform_failure(self, tmp_path, task):
+    def test_transform_failure(self, tmp_path, task_with_session):
+        task, _ = task_with_session
         storage = DiskStorage(str(tmp_path / "s"))
 
         pipeline = ETLPipeline(

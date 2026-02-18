@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.instagram.media import (
     InstagramReelsExtractionStrategy,
     InstagramReelsTransformStrategy,
@@ -23,12 +23,12 @@ def ig_stories_raw(tmp_path: Path):
     storage.write(key, json.dumps(INSTAGRAM_STORIES_JSON).encode())
 
     ext = InstagramStoriesExtractionStrategy()
-    task = TaskMetadata(
+    task = EtlTask(
         archive_id="a1",
-        etl_task_id="t1",
         provider="instagram",
         interaction_type="instagram_stories",
-        filenames=[key],
+        source_uri=key,
+        status=EtlTaskStatus.CREATED.value,
     )
     return ext.extract(task, storage), task
 
@@ -40,12 +40,12 @@ def ig_reels_raw(tmp_path: Path):
     storage.write(key, json.dumps(INSTAGRAM_REELS_JSON).encode())
 
     ext = InstagramReelsExtractionStrategy()
-    task = TaskMetadata(
+    task = EtlTask(
         archive_id="a1",
-        etl_task_id="t1",
         provider="instagram",
         interaction_type="instagram_reels",
-        filenames=[key],
+        source_uri=key,
+        status=EtlTaskStatus.CREATED.value,
     )
     return ext.extract(task, storage), task
 

@@ -14,7 +14,7 @@ from context_use.etl.core.exceptions import (
     TransformFailedException,
     UploadFailedException,
 )
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ class ExtractionStrategy(ABC):
     @abstractmethod
     def extract(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         storage: StorageBackend,
     ) -> list[pd.DataFrame]:
         """Return a list of DataFrames containing raw parsed records."""
@@ -83,7 +83,7 @@ class TransformStrategy(ABC):
     @abstractmethod
     def transform(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         batches: list[pd.DataFrame],
     ) -> list[pd.DataFrame]:
         """Return DataFrames with thread columns: unique_key, provider,
@@ -97,7 +97,7 @@ class UploadStrategy:
 
     def upload(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         batches: list[pd.DataFrame],
         session: Session,
     ) -> int:
@@ -108,8 +108,8 @@ class UploadStrategy:
             for _, row in df.iterrows():
                 thread = Thread(
                     unique_key=row["unique_key"],
-                    tapestry_id=task.tapestry_id or None,
-                    etl_task_id=task.etl_task_id,
+                    tapestry_id=task.archive.tapestry_id or None,
+                    etl_task_id=task.id,
                     provider=row["provider"],
                     interaction_type=row["interaction_type"],
                     preview=row["preview"],
@@ -146,7 +146,7 @@ class ETLPipeline:
         self._storage = storage
         self._session = session
 
-    def extract(self, task: TaskMetadata) -> list[pd.DataFrame]:
+    def extract(self, task: EtlTask) -> list[pd.DataFrame]:
         """Step 1: Extract raw records from provider data."""
         if self._storage is None:
             raise RuntimeError("Storage backend not configured")
@@ -157,7 +157,7 @@ class ETLPipeline:
 
     def transform(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         batches: list[pd.DataFrame],
     ) -> list[pd.DataFrame]:
         """Step 2: Transform raw records into thread-shaped DataFrames."""
@@ -168,7 +168,7 @@ class ETLPipeline:
 
     def upload(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         batches: list[pd.DataFrame],
     ) -> int:
         """Step 3: Upload thread records to the database."""
@@ -179,7 +179,7 @@ class ETLPipeline:
         except Exception as exc:
             raise UploadFailedException(str(exc)) from exc
 
-    def run(self, task: TaskMetadata) -> int:
+    def run(self, task: EtlTask) -> int:
         """
         Run the full extract -> transform -> upload pipeline.
         Returns count of uploaded threads.
