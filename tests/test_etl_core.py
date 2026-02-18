@@ -21,6 +21,7 @@ from context_use.etl.core.exceptions import (
 )
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
+from context_use.etl.models.thread import Thread
 from context_use.storage.disk import DiskStorage
 
 
@@ -125,6 +126,33 @@ class TestETLPipeline:
         )
         with pytest.raises(TransformFailedException):
             pipeline.run(task)
+
+    def test_upload_skips_duplicates(self, tmp_path, task_with_session):
+        """Re-uploading the same threads should skip duplicates and not error."""
+        task, session = task_with_session
+        storage = DiskStorage(str(tmp_path / "s"))
+
+        pipeline = ETLPipeline(
+            extraction=MockExtraction(),
+            transform=MockTransform(),
+            upload=UploadStrategy(),
+            storage=storage,
+            session=session,
+        )
+
+        # First run: both rows inserted
+        count1 = pipeline.run(task)
+        assert count1 == 2
+        session.flush()
+
+        # Second run with same data: duplicates skipped
+        count2 = pipeline.run(task)
+        assert count2 == 0
+        session.flush()
+
+        # Only 2 threads in the DB, not 4
+        threads = session.query(Thread).all()
+        assert len(threads) == 2
 
 
 class TestOrchestrationStrategy:

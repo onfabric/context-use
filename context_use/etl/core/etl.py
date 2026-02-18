@@ -97,32 +97,43 @@ class TransformStrategy(ABC):
 class UploadStrategy:
     """Bulk-inserts thread rows into the DB via SQLAlchemy."""
 
+    # TODO: Replace with psql_insert_copy (PostgreSQL COPY + temp table)
+    #  for significantly better bulk-insert performance.
+
     def upload(
         self,
         task: EtlTask,
         batches: list[pd.DataFrame],
         session: Session,
     ) -> int:
+        from sqlalchemy.dialects.postgresql import insert
+
         from context_use.etl.models.thread import Thread
 
         total = 0
         for df in batches:
             for _, row in df.iterrows():
-                thread = Thread(
-                    unique_key=row["unique_key"],
-                    tapestry_id=task.archive.tapestry_id or None,
-                    etl_task_id=task.id,
-                    provider=row["provider"],
-                    interaction_type=row["interaction_type"],
-                    preview=row["preview"],
-                    payload=row["payload"],
-                    source=row.get("source"),
-                    version=row["version"],
-                    asat=row["asat"],
-                    asset_uri=row.get("asset_uri"),
+                stmt = (
+                    insert(Thread)
+                    .values(
+                        unique_key=row["unique_key"],
+                        tapestry_id=task.archive.tapestry_id or None,
+                        etl_task_id=task.id,
+                        provider=row["provider"],
+                        interaction_type=row["interaction_type"],
+                        preview=row["preview"],
+                        payload=row["payload"],
+                        source=row.get("source"),
+                        version=row["version"],
+                        asat=row["asat"],
+                        asset_uri=row.get("asset_uri"),
+                    )
+                    .on_conflict_do_nothing(
+                        index_elements=["unique_key"],
+                    )
                 )
-                session.add(thread)
-                total += 1
+                result = session.execute(stmt)
+                total += result.rowcount  # type: ignore[attr-defined]
         return total
 
 
