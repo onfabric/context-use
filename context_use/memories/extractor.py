@@ -1,9 +1,3 @@
-"""LLM integration for the memoies pipeline.
-
-Follows the same submit/poll pattern as ``AssetDescriptionExtractor``
-in aertex, but delegates to the provider-agnostic ``BatchLLMClient``.
-"""
-
 from __future__ import annotations
 
 import logging

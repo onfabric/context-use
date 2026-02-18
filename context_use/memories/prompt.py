@@ -15,15 +15,12 @@ class Memory(BaseModel):
     """A single memory produced by the LLM."""
 
     content: str = Field(description="A short, meaningful memory in 1-2 sentences")
-    source_thread_ids: list[str] = Field(
-        description="IDs of the threads that this memory is derived from"
-    )
 
 
 class MemorySchema(BaseModel):
     """Top-level response the LLM should return per day."""
 
-    candidates: list[Memory] = Field(description="List of memories for this day")
+    memories: list[Memory] = Field(description="List of memories for this day")
 
     @classmethod
     def json_schema(cls) -> dict:
@@ -46,8 +43,10 @@ Your task is to identify the meaningful **memories** from this day.
 A memory is a concise 1-2 sentence summary that captures something personally
 significant — an event, an experience, or an emotional moment.
 
-Generate between 1 and 5 memories.  Each candidate must reference
-which posts (by their thread_id) it is derived from.
+Describe the memories in detail so that they are necessary for these to be usable as
+context for a LLM that wants to answer questions about the user's life and preferences.
+
+Generate between 1 and 5 memories.
 
 ## Posts from {{DATE}}
 
@@ -59,11 +58,7 @@ Return a JSON object with the following structure:
 
 
 class MemoryPromptBuilder:
-    """Build one ``PromptItem`` per day from a flat list of threads.
-
-    Only threads with ``asset_uri`` set are included (matching the
-    asset-thread focus of the pipeline).
-    """
+    """Build one ``PromptItem`` per day from a flat list of threads."""
 
     def __init__(self, threads: list[Thread]) -> None:
         self.threads = [t for t in threads if t.asset_uri is not None]

@@ -104,7 +104,7 @@ class MemoryBatchManager(BaseBatchManager):
         for day_key, schema in results.items():
             memory_date = date.fromisoformat(day_key)
 
-            for candidate in schema.candidates:
+            for candidate in schema.memories:
                 memory = TapestryMemory(
                     content=candidate.content,
                     from_date=memory_date,
