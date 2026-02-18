@@ -5,13 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import mimetypes
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 from typing import TypeVar
 
 from google import genai
-from google.genai import (
-    errors as genai_errors,
-)
+from google.genai import errors as genai_errors
 from pydantic import BaseModel
 from tenacity import (
     retry,
@@ -26,7 +24,9 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
-MAX_WORKERS = 5
+FILE_POLL_INTERVAL_SECS = 2
+FILE_POLL_MAX_ATTEMPTS = 30
+REQUEST_DELAY_SECS = 4.0
 
 
 class GeminiClient(BatchLLMClient):
@@ -49,37 +49,50 @@ class GeminiClient(BatchLLMClient):
         self._model = model
         self._results_cache: dict[str, dict[str, str]] = {}
 
-    def _upload_file(self, path: str) -> genai.types.File:
-        """Upload a local file via the Gemini File API."""
-        mime_type, _ = mimetypes.guess_type(path)
-        config = {"mime_type": mime_type} if mime_type else None
-        return self._client.files.upload(file=path, config=config)
-
-    def _build_contents(self, item: PromptItem) -> list:
-        """Build a multimodal contents list: uploaded files first, text last.
-
-        The Gemini SDK auto-wraps a flat list into a single user turn,
-        so ``[file1, file2, "text"]`` becomes one ``Content`` with three
-        ``Part`` entries — matching the aertex ``_build_prompt_parts``
-        pattern but for local files.
-        """
-        contents: list = []
-        for path in item.asset_paths:
-            contents.append(self._upload_file(path))
-        contents.append(item.prompt)
-        return contents
-
     @retry(
         retry=retry_if_exception_type(genai_errors.APIError),
         stop=stop_after_attempt(3),
-        wait=wait_exponential_jitter(initial=1, max=10, jitter=2),
+        wait=wait_exponential_jitter(initial=3, max=30, jitter=3),
     )
-    def _generate_one(self, item: PromptItem) -> tuple[str, str]:
+    def _upload_file(self, path: str) -> genai.types.File:
+        """Upload a local file and block until it reaches ACTIVE state."""
+        mime_type, _ = mimetypes.guess_type(path)
+        config = (
+            genai.types.UploadFileConfig(mime_type=mime_type) if mime_type else None
+        )
+        return self._client.files.upload(file=path, config=config)
+
+    def _upload_all(
+        self, prompts: list[PromptItem]
+    ) -> dict[str, list[genai.types.File]]:
+        """Upload all assets for all prompts upfront.
+
+        Returns ``{item_id: [uploaded_file, …]}``.
+        """
+        result: dict[str, list[genai.types.File]] = {}
+        for item in prompts:
+            files = []
+            for path in item.asset_paths:
+                logger.info("Uploading %s", path)
+                files.append(self._upload_file(path))
+            result[item.item_id] = files
+        return result
+
+    @retry(
+        retry=retry_if_exception_type(genai_errors.APIError),
+        stop=stop_after_attempt(5),
+        wait=wait_exponential_jitter(initial=5, max=60, jitter=5),
+    )
+    def _generate_one(
+        self,
+        item: PromptItem,
+        uploaded_files: list[genai.types.File],
+    ) -> tuple[str, str]:
         """Call ``generate_content`` for one prompt item.
 
         Returns ``(item_id, raw_json_text)``.
         """
-        contents = self._build_contents(item)
+        contents: list = [*uploaded_files, item.prompt]
 
         response = self._client.models.generate_content(
             model=self._model,
@@ -100,24 +113,23 @@ class GeminiClient(BatchLLMClient):
         batch_id: str,
         prompts: list[PromptItem],
     ) -> str:
-        """Process all prompts concurrently and cache raw results."""
-        raw: dict[str, str] = {}
+        """Upload all assets once, then generate sequentially."""
+        uploaded = self._upload_all(prompts)
+        logger.info("All files uploaded for batch %s, generating…", batch_id)
 
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-            futures = {
-                pool.submit(self._generate_one, item): item.item_id for item in prompts
-            }
-            for future in as_completed(futures):
-                item_id = futures[future]
-                try:
-                    _, text = future.result()
-                    raw[item_id] = text
-                except Exception:
-                    logger.error(
-                        "Generation failed for %s",
-                        item_id,
-                        exc_info=True,
-                    )
+        raw: dict[str, str] = {}
+        for item in prompts:
+            try:
+                time.sleep(REQUEST_DELAY_SECS)
+                _, text = self._generate_one(item, uploaded[item.item_id])
+                raw[item.item_id] = text
+                logger.info("Generated %s", item.item_id)
+            except Exception:
+                logger.error(
+                    "Generation failed for %s",
+                    item.item_id,
+                    exc_info=True,
+                )
 
         self._results_cache[batch_id] = raw
         logger.info(
