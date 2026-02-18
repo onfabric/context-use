@@ -20,12 +20,6 @@ Test the project:
 uv run pytest
 ```
 
-Run the tests:
-
-```bash
-uv run quickstart.py
-```
-
 ## Type Checking
 
 Run the type checker:
