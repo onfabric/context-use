@@ -53,10 +53,6 @@ def _register_db_defaults() -> None:
     if _DB_FACTORIES:
         return
 
-    from context_use.db.sqlite import SQLiteBackend
-
-    _DB_FACTORIES["sqlite"] = SQLiteBackend
-
     try:
         from context_use.db.postgres import PostgresBackend
 
@@ -89,7 +85,16 @@ def parse_config(
 
         {
             "storage": {"provider": "disk", "config": {"base_path": "/tmp"}},
-            "db": {"provider": "sqlite", "config": {"path": ":memory:"}},
+            "db": {
+              "provider": "postgres",
+              "config": {
+                "host": "localhost",
+                "port": 5432,
+                "database": "context_use",
+                "user": "postgres",
+                "password": "postgres",
+              },
+            },
         }
     """
     storage_cfg = config.get("storage", {})
@@ -100,7 +105,7 @@ def parse_config(
         storage_cfg.get("config", {}),
     )
     db = build_db(
-        db_cfg.get("provider", "sqlite"),
+        db_cfg.get("provider", "postgres"),
         db_cfg.get("config", {}),
     )
 
