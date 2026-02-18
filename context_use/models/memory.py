@@ -7,7 +7,7 @@ from datetime import date
 from sqlalchemy import JSON, Date, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
 
 
 class TapestryMemory(TimeStampMixin, Base):
