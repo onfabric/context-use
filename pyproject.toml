@@ -9,6 +9,8 @@ dependencies = [
     "pydantic>=2.0",
     "pandas>=2.0",
     "ijson>=3.0",
+    "google-genai>=1.63",
+    "tenacity>=9.1.4",
     "psycopg2>=2.9.11",
 ]
 
