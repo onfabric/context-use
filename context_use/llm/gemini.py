@@ -1,14 +1,3 @@
-"""Gemini implementation of BatchLLMClient.
-
-Wraps the Google GenAI batch-generate API.  When ported to aertex this
-can delegate to the existing ``app.core.ai.gemini.Gemini`` class; here
-we keep a thin standalone wrapper.
-
-NOTE: This is a structural stub.  The actual ``google-genai`` calls
-are left as TODO placeholders because the specifics depend on the
-SDK version and auth setup you wire in.
-"""
-
 from __future__ import annotations
 
 import logging

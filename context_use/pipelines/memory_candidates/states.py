@@ -1,4 +1,8 @@
 """Pipeline-specific states for the memory-candidates pipeline."""
+# pyright: reportIncompatibleVariableOverride=false
+# Literal field overrides are the standard Pydantic discriminated-union pattern.
+# pyright flags them as incompatible variable overrides, but this is a false
+# positive for frozen/immutable models.
 
 from __future__ import annotations
 
@@ -26,7 +30,7 @@ MEMORY_POLL_INTERVAL_SECS = 60
 class MemoryGeneratePendingState(CurrentState):
     """LLM batch job submitted — polling for results."""
 
-    status: Literal["MEMORY_GENERATE_PENDING"] = "MEMORY_GENERATE_PENDING"  # type: ignore[reportIncompatibleVariableOverride]
+    status: Literal["MEMORY_GENERATE_PENDING"] = "MEMORY_GENERATE_PENDING"
     job_key: str
     submitted_at: datetime = Field(default_factory=_utc_now)
 
@@ -39,7 +43,7 @@ class MemoryGeneratePendingState(CurrentState):
 class MemoryGenerateCompleteState(NextState):
     """LLM results received and stored in tapestry_memories."""
 
-    status: Literal["MEMORY_GENERATE_COMPLETE"] = "MEMORY_GENERATE_COMPLETE"  # type: ignore[reportIncompatibleVariableOverride]
+    status: Literal["MEMORY_GENERATE_COMPLETE"] = "MEMORY_GENERATE_COMPLETE"
     completed_at: datetime = Field(default_factory=_utc_now)
     memories_count: int = 0
 

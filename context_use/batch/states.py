@@ -1,4 +1,8 @@
 """Base state classes for the batch state machine."""
+# pyright: reportIncompatibleVariableOverride=false
+# Literal field overrides are the standard Pydantic discriminated-union pattern;
+# pyright flags them as incompatible variable overrides, but this is a false
+# positive for frozen/immutable models.
 
 from __future__ import annotations
 
@@ -76,21 +80,21 @@ class StopState(State):
 class CreatedState(NextState):
     """Batch created — ready for processing."""
 
-    status: Literal["CREATED"] = "CREATED"  # type: ignore[reportIncompatibleVariableOverride]
+    status: Literal["CREATED"] = "CREATED"
     timestamp: datetime = Field(default_factory=_utc_now)
 
 
 class CompleteState(StopState):
     """Batch processing finished successfully."""
 
-    status: Literal["COMPLETE"] = "COMPLETE"  # type: ignore[reportIncompatibleVariableOverride]
+    status: Literal["COMPLETE"] = "COMPLETE"
     completed_at: datetime = Field(default_factory=_utc_now)
 
 
 class SkippedState(StopState):
     """Batch skipped — nothing to process."""
 
-    status: Literal["SKIPPED"] = "SKIPPED"  # type: ignore[reportIncompatibleVariableOverride]
+    status: Literal["SKIPPED"] = "SKIPPED"
     skipped_at: datetime = Field(default_factory=_utc_now)
     reason: str
 
@@ -98,7 +102,7 @@ class SkippedState(StopState):
 class FailedState(StopState):
     """Batch failed with an error."""
 
-    status: Literal["FAILED"] = "FAILED"  # type: ignore[reportIncompatibleVariableOverride]
+    status: Literal["FAILED"] = "FAILED"
     error_message: str
     failed_at: datetime = Field(default_factory=_utc_now)
     previous_status: str
