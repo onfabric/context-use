@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.chatgpt.conversations import (
     ChatGPTConversationsExtractionStrategy,
     ChatGPTConversationsTransformStrategy,
@@ -22,12 +22,12 @@ def chatgpt_raw_batches(tmp_path: Path):
     storage.write(key, json.dumps(CHATGPT_CONVERSATIONS).encode())
 
     extraction = ChatGPTConversationsExtractionStrategy()
-    task = TaskMetadata(
+    task = EtlTask(
         archive_id="a1",
-        etl_task_id="t1",
         provider="chatgpt",
         interaction_type="chatgpt_conversations",
-        filenames=[key],
+        source_uri=key,
+        status=EtlTaskStatus.CREATED.value,
     )
     return extraction.extract(task, storage), task
 

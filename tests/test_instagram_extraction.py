@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.instagram.media import (
     InstagramReelsExtractionStrategy,
     InstagramStoriesExtractionStrategy,
@@ -30,17 +30,31 @@ def ig_reels_storage(tmp_path: Path):
     return storage, key
 
 
+def _make_stories_task(key: str) -> EtlTask:
+    return EtlTask(
+        archive_id="a1",
+        provider="instagram",
+        interaction_type="instagram_stories",
+        source_uri=key,
+        status=EtlTaskStatus.CREATED.value,
+    )
+
+
+def _make_reels_task(key: str) -> EtlTask:
+    return EtlTask(
+        archive_id="a1",
+        provider="instagram",
+        interaction_type="instagram_reels",
+        source_uri=key,
+        status=EtlTaskStatus.CREATED.value,
+    )
+
+
 class TestInstagramStoriesExtraction:
     def test_extracts_correct_columns(self, ig_stories_storage):
         storage, key = ig_stories_storage
         strategy = InstagramStoriesExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="instagram",
-            interaction_type="instagram_stories",
-            filenames=[key],
-        )
+        task = _make_stories_task(key)
 
         batches = strategy.extract(task, storage)
         assert len(batches) == 1
@@ -52,13 +66,7 @@ class TestInstagramStoriesExtraction:
     def test_row_count(self, ig_stories_storage):
         storage, key = ig_stories_storage
         strategy = InstagramStoriesExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="instagram",
-            interaction_type="instagram_stories",
-            filenames=[key],
-        )
+        task = _make_stories_task(key)
 
         batches = strategy.extract(task, storage)
         assert len(batches[0]) == 2  # 2 stories in fixture
@@ -66,13 +74,7 @@ class TestInstagramStoriesExtraction:
     def test_media_type_inference(self, ig_stories_storage):
         storage, key = ig_stories_storage
         strategy = InstagramStoriesExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="instagram",
-            interaction_type="instagram_stories",
-            filenames=[key],
-        )
+        task = _make_stories_task(key)
 
         batches = strategy.extract(task, storage)
         df = batches[0]
@@ -85,13 +87,7 @@ class TestInstagramReelsExtraction:
     def test_extracts_and_flattens(self, ig_reels_storage):
         storage, key = ig_reels_storage
         strategy = InstagramReelsExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="instagram",
-            interaction_type="instagram_reels",
-            filenames=[key],
-        )
+        task = _make_reels_task(key)
 
         batches = strategy.extract(task, storage)
         assert len(batches) == 1
@@ -100,13 +96,7 @@ class TestInstagramReelsExtraction:
     def test_reel_is_video(self, ig_reels_storage):
         storage, key = ig_reels_storage
         strategy = InstagramReelsExtractionStrategy()
-        task = TaskMetadata(
-            archive_id="a1",
-            etl_task_id="t1",
-            provider="instagram",
-            interaction_type="instagram_reels",
-            filenames=[key],
-        )
+        task = _make_reels_task(key)
 
         batches = strategy.extract(task, storage)
         assert batches[0]["media_type"].iloc[0] == "Video"

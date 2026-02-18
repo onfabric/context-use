@@ -13,7 +13,7 @@ from context_use.etl.core.exceptions import (
     UnsupportedProviderError,
     UploadFailedException,
 )
-from context_use.etl.core.types import PipelineResult, TaskMetadata
+from context_use.etl.core.types import PipelineResult
 
 __all__ = [
     "ETLPipeline",
@@ -21,7 +21,6 @@ __all__ = [
     "OrchestrationStrategy",
     "TransformStrategy",
     "UploadStrategy",
-    "TaskMetadata",
     "PipelineResult",
     "ArchiveProcessingError",
     "ExtractionFailedException",

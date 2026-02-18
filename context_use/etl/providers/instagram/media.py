@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     FibreCreateObject,
@@ -68,10 +68,10 @@ class InstagramStoriesExtractionStrategy(ExtractionStrategy):
 
     def extract(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         storage: StorageBackend,
     ) -> list[pd.DataFrame]:
-        key = task.filenames[0]
+        key = task.source_uri
 
         raw = storage.read(key)
         manifest = InstagramStoriesManifest.model_validate_json(raw)
@@ -92,10 +92,10 @@ class InstagramReelsExtractionStrategy(ExtractionStrategy):
 
     def extract(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         storage: StorageBackend,
     ) -> list[pd.DataFrame]:
-        key = task.filenames[0]
+        key = task.source_uri
 
         raw = storage.read(key)
         manifest = InstagramReelsManifest.model_validate_json(raw)
@@ -121,7 +121,7 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
 
     def transform(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         batches: list[pd.DataFrame],
     ) -> list[pd.DataFrame]:
         result_batches: list[pd.DataFrame] = []

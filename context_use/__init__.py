@@ -14,7 +14,7 @@ from context_use.etl.core.exceptions import (
     ArchiveProcessingError,
     UnsupportedProviderError,
 )
-from context_use.etl.core.types import PipelineResult, TaskMetadata
+from context_use.etl.core.types import PipelineResult
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.registry import (
@@ -132,14 +132,6 @@ class ContextUse:
                     session.add(etl_task)
                     session.flush()
 
-                    task_meta = TaskMetadata(
-                        archive_id=archive.id,
-                        etl_task_id=etl_task.id,
-                        provider=provider.value,
-                        interaction_type=interaction_type,
-                        filenames=filenames,
-                    )
-
                     try:
                         pipeline = ETLPipeline(
                             extraction=it_cfg.extraction(),
@@ -150,13 +142,13 @@ class ContextUse:
                         )
 
                         etl_task.status = EtlTaskStatus.EXTRACTING.value
-                        raw = pipeline.extract(task_meta)
+                        raw = pipeline.extract(etl_task)
 
                         etl_task.status = EtlTaskStatus.TRANSFORMING.value
-                        thread_batches = pipeline.transform(task_meta, raw)
+                        thread_batches = pipeline.transform(etl_task, raw)
 
                         etl_task.status = EtlTaskStatus.UPLOADING.value
-                        count = pipeline.upload(task_meta, thread_batches)
+                        count = pipeline.upload(etl_task, thread_batches)
 
                         # Mark completed
                         etl_task.status = EtlTaskStatus.COMPLETED.value

@@ -11,7 +11,7 @@ import ijson
 import pandas as pd
 
 from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
-from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     Application,
@@ -57,10 +57,10 @@ class ChatGPTConversationsExtractionStrategy(ExtractionStrategy):
 
     def extract(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         storage: StorageBackend,
     ) -> list[pd.DataFrame]:
-        key = task.filenames[0]
+        key = task.source_uri
 
         stream = storage.open_stream(key)
         batches: list[pd.DataFrame] = []
@@ -135,7 +135,7 @@ class ChatGPTConversationsTransformStrategy(TransformStrategy):
 
     def transform(
         self,
-        task: TaskMetadata,
+        task: EtlTask,
         batches: list[pd.DataFrame],
     ) -> list[pd.DataFrame]:
         result_batches: list[pd.DataFrame] = []
