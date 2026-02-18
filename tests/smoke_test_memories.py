@@ -5,9 +5,11 @@ import logging
 import os
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import cast
 
 from google import genai
 
+from context_use.etl.models.thread import Thread
 from context_use.llm.gemini import GeminiClient
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
@@ -22,7 +24,7 @@ MAX_THREADS = 10
 class FakeThread:
     """Duck-typed Thread for smoke testing without a database."""
 
-    def __init__(self, id: str, preview: str, asset_uri: str, asat: datetime):
+    def __init__(self, id: str, preview: str, asset_uri: str | None, asat: datetime):
         self.id = id
         self.preview = preview
         self.asset_uri = asset_uri
@@ -58,7 +60,7 @@ def load_threads_from_instagram(limit: int = MAX_THREADS) -> list[FakeThread]:
 threads = load_threads_from_instagram()
 print(f"Loaded {len(threads)} threads from Instagram stories")
 
-builder = MemoryPromptBuilder(threads)
+builder = MemoryPromptBuilder(cast(list[Thread], threads))
 prompts = builder.build()
 
 print(f"Built {len(prompts)} prompt(s)")

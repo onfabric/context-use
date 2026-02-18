@@ -44,15 +44,13 @@ indent-width = 4
 
 [tool.pyright]
 typeCheckingMode = "standard"
-include = ["context_use"]
+include = ["context_use", "tests"]
 exclude = [
     ".venv/",
     ".venv*/",
     ".git/",
     "__pycache__/",
     "**/site-packages/",
-    "./test_*.py",
-    "./debug_*.py",
 ]
 venvPath = "."
 venv = ".venv"
