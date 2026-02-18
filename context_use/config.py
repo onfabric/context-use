@@ -3,7 +3,6 @@ from typing import Any
 from context_use.db.base import DatabaseBackend
 from context_use.storage.base import StorageBackend
 
-
 _STORAGE_FACTORIES: dict[str, type] = {}
 _DB_FACTORIES: dict[str, type] = {}
 
