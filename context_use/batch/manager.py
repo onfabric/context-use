@@ -1,13 +1,3 @@
-"""Base batch manager — the portable state-machine orchestrator.
-
-Portable: this file is identical between context-use and aertex.
-The manager never schedules work directly; instead ``try_advance_state``
-returns a ``ScheduleInstruction`` that the **runner** interprets:
-
-    context-use  →  ``AsyncBatchRunner``  (asyncio.sleep loop)
-    aertex       →  Celery ``apply_async(countdown=…)``
-"""
-
 from __future__ import annotations
 
 import logging
@@ -32,11 +22,6 @@ MAX_POLL_ATTEMPTS = 500
 MAX_RETRY_ATTEMPTS = 100
 
 
-# ---------------------------------------------------------------------------
-# Schedule instruction — returned by try_advance_state
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class ScheduleInstruction:
     """What the runner should do after a state transition.
@@ -49,10 +34,6 @@ class ScheduleInstruction:
     stop: bool = False
     countdown: int | None = None
 
-
-# ---------------------------------------------------------------------------
-# Manager registry (category → manager class)
-# ---------------------------------------------------------------------------
 
 _category_manager_registry: dict[BatchCategory, type[BaseBatchManager]] = {}
 
@@ -75,11 +56,6 @@ def get_manager_for_category(category: BatchCategory) -> type[BaseBatchManager]:
     return cls
 
 
-# ---------------------------------------------------------------------------
-# Base manager
-# ---------------------------------------------------------------------------
-
-
 class BaseBatchManager(ABC):
     """State-machine orchestrator for a single batch.
 
@@ -95,13 +71,9 @@ class BaseBatchManager(ABC):
         self.batch = batch
         self.db = db
 
-    # -- Sub-class hook -------------------------------------------------------
-
     @abstractmethod
     async def _transition(self, current_state: State) -> State | None:
         """Return the next state, or ``None`` to stop."""
-
-    # -- Core loop step -------------------------------------------------------
 
     async def try_advance_state(self) -> ScheduleInstruction:
         """Advance one step and return what the runner should do next."""

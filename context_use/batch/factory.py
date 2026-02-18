@@ -1,12 +1,10 @@
-"""Base batch factory — creates Batch rows and dispatches them.
-
-Portable: identical between context-use and aertex.
-"""
+"""Base batch factory — creates Batch rows and dispatches them."""
 
 from __future__ import annotations
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
+from typing import ClassVar
 
 from sqlalchemy.orm import Session
 
@@ -25,20 +23,14 @@ class BaseBatchFactory(ABC):
     * ``cutoff_days``      — optional age filter for threads
     """
 
-    @property
-    @abstractmethod
-    def BATCH_CATEGORIES(self) -> list[BatchCategory]: ...
+    BATCH_CATEGORIES: ClassVar[list[BatchCategory]]
+    """Which categories to create batches for."""
 
-    @property
-    @abstractmethod
-    def cutoff_days(self) -> int | None:
-        """Threads older than this many days are excluded. ``None`` = no cutoff."""
-        ...
+    cutoff_days: ClassVar[float | None]
+    """Threads older than this many days are excluded. ``None`` = no cutoff."""
 
     MAX_THREADS_PER_BATCH = 1000
     BATCH_COUNTDOWN_INTERVAL_SECS = 5
-
-    # -- Thread query (shared by factory + managers) --------------------------
 
     @classmethod
     def _get_batch_eligible_threads_query(
@@ -70,8 +62,6 @@ class BaseBatchFactory(ABC):
             .limit(cls.MAX_THREADS_PER_BATCH)
             .all()
         )
-
-    # -- Batch creation -------------------------------------------------------
 
     @classmethod
     def _create_batches(

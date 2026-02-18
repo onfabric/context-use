@@ -1,8 +1,3 @@
-"""Batch model and state-management mixin.
-
-Portable: swap ``JSON`` → ``JSONB`` and adjust the FK target for Postgres/aertex.
-"""
-
 from __future__ import annotations
 
 import enum
@@ -16,20 +11,12 @@ from sqlalchemy.orm.attributes import flag_modified
 from context_use.batch.states import CreatedState, State
 from context_use.models.base import Base, TimeStampMixin, _new_uuid
 
-# ---------------------------------------------------------------------------
-# Batch categories
-# ---------------------------------------------------------------------------
 
-
-class BatchCategory(str, enum.Enum):
+class BatchCategory(enum.StrEnum):
     """Extensible registry of pipeline categories."""
 
     memory_candidates = "memory_candidates"
 
-
-# ---------------------------------------------------------------------------
-# State parser registry (category → parser function)
-# ---------------------------------------------------------------------------
 
 _batch_state_parsers: dict[BatchCategory, Callable[[dict], State]] = {}
 
@@ -52,11 +39,6 @@ def parse_batch_state(state_dict: dict, category: BatchCategory) -> State:
             f"No state parser registered for batch category: {category.value}"
         )
     return parser(state_dict)
-
-
-# ---------------------------------------------------------------------------
-# State-management mixin
-# ---------------------------------------------------------------------------
 
 
 def _default_created_state() -> list:
@@ -96,7 +78,7 @@ class BatchStateMixin:
 
     def update_state(self, new_state: State) -> None:
         """Prepend *new_state*; replace head if the status is unchanged (polling)."""
-        new_dict = new_state.model_dump(mode="json")  # type: ignore[union-attr]
+        new_dict = new_state.model_dump(mode="json")
 
         if self.states:
             if self.states[0].get("status") == new_dict.get("status"):
@@ -114,12 +96,7 @@ class BatchStateMixin:
 
     @property
     def current_status(self) -> str:
-        return self.current_state.status  # type: ignore[union-attr]
-
-
-# ---------------------------------------------------------------------------
-# Concrete Batch model
-# ---------------------------------------------------------------------------
+        return self.current_state.status
 
 
 class Batch(BatchStateMixin, TimeStampMixin, Base):

@@ -1,18 +1,12 @@
-"""Pipeline-specific states for the memory-candidates pipeline.
-
-State machine:
-    CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE → COMPLETE
-
-Portable: identical between context-use and aertex.
-"""
+"""Pipeline-specific states for the memory-candidates pipeline."""
 
 from __future__ import annotations
 
 import random
 from datetime import datetime
-from typing import Literal, Union
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from context_use.batch.models import BatchCategory, register_batch_state_parser
 from context_use.batch.states import (
@@ -22,16 +16,17 @@ from context_use.batch.states import (
     FailedState,
     NextState,
     SkippedState,
+    State,
     _utc_now,
 )
 
 MEMORY_POLL_INTERVAL_SECS = 60
 
 
-class MemoryGeneratePendingState(BaseModel, CurrentState):
+class MemoryGeneratePendingState(CurrentState):
     """LLM batch job submitted — polling for results."""
 
-    status: Literal["MEMORY_GENERATE_PENDING"] = "MEMORY_GENERATE_PENDING"
+    status: Literal["MEMORY_GENERATE_PENDING"] = "MEMORY_GENERATE_PENDING"  # type: ignore[reportIncompatibleVariableOverride]
     job_key: str
     submitted_at: datetime = Field(default_factory=_utc_now)
 
@@ -41,28 +36,24 @@ class MemoryGeneratePendingState(BaseModel, CurrentState):
         return max(0, MEMORY_POLL_INTERVAL_SECS + jitter)
 
 
-class MemoryGenerateCompleteState(BaseModel, NextState):
+class MemoryGenerateCompleteState(NextState):
     """LLM results received and stored in tapestry_memories."""
 
-    status: Literal["MEMORY_GENERATE_COMPLETE"] = "MEMORY_GENERATE_COMPLETE"
+    status: Literal["MEMORY_GENERATE_COMPLETE"] = "MEMORY_GENERATE_COMPLETE"  # type: ignore[reportIncompatibleVariableOverride]
     completed_at: datetime = Field(default_factory=_utc_now)
     memories_count: int = 0
 
 
-# ---------------------------------------------------------------------------
-# State parser registration
-# ---------------------------------------------------------------------------
+MemoryCandidateBatchState = (
+    CreatedState
+    | MemoryGeneratePendingState
+    | MemoryGenerateCompleteState
+    | CompleteState
+    | SkippedState
+    | FailedState
+)
 
-MemoryCandidateBatchState = Union[
-    CreatedState,
-    MemoryGeneratePendingState,
-    MemoryGenerateCompleteState,
-    CompleteState,
-    SkippedState,
-    FailedState,
-]
-
-_state_map: dict[str, type[BaseModel]] = {
+_state_map: dict[str, type[State]] = {
     "CREATED": CreatedState,
     "MEMORY_GENERATE_PENDING": MemoryGeneratePendingState,
     "MEMORY_GENERATE_COMPLETE": MemoryGenerateCompleteState,
@@ -73,7 +64,7 @@ _state_map: dict[str, type[BaseModel]] = {
 
 
 @register_batch_state_parser(BatchCategory.memory_candidates)
-def parse_memory_candidate_batch_state(state_dict: dict) -> MemoryCandidateBatchState:
+def parse_memory_candidate_batch_state(state_dict: dict) -> State:
     status = state_dict.get("status")
     cls = _state_map.get(status)  # type: ignore[arg-type]
     if cls is None:

@@ -1,16 +1,4 @@
-"""Base state classes for the batch state machine.
-
-Portable: this file is identical between context-use and aertex.
-The state hierarchy controls how the runner (async loop or Celery)
-decides what to do after each transition.
-
-Hierarchy:
-    State (ABC)
-    ├── CurrentState   → runner waits ``poll_next_countdown`` seconds, then re-advances
-    ├── NextState      → runner re-advances immediately
-    ├── RetryState     → runner waits ``retry_countdown`` seconds, then re-advances
-    └── StopState      → runner stops (terminal)
-"""
+"""Base state classes for the batch state machine."""
 
 from __future__ import annotations
 
@@ -18,20 +6,23 @@ from abc import abstractmethod
 from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-# ---------------------------------------------------------------------------
-# Abstract state bases
-# ---------------------------------------------------------------------------
+class State(BaseModel):
+    """Base marker for all states.
 
+    Concrete subclasses MUST define a ``status`` Pydantic field
+    (typically ``status: Literal[...] = ...``).
+    """
 
-class State:
-    """Base marker for all states."""
+    model_config = ConfigDict(frozen=True)
+
+    status: str
 
 
 class CurrentState(State):
@@ -78,41 +69,36 @@ class RetryState(State):
         )
 
 
-class StopState:
+class StopState(State):
     """Terminal state — the runner does not reschedule."""
 
 
-# ---------------------------------------------------------------------------
-# Shared concrete states (used by every pipeline)
-# ---------------------------------------------------------------------------
-
-
-class CreatedState(BaseModel, NextState):
+class CreatedState(NextState):
     """Batch created — ready for processing."""
 
-    status: Literal["CREATED"] = "CREATED"
+    status: Literal["CREATED"] = "CREATED"  # type: ignore[reportIncompatibleVariableOverride]
     timestamp: datetime = Field(default_factory=_utc_now)
 
 
-class CompleteState(BaseModel, StopState):
+class CompleteState(StopState):
     """Batch processing finished successfully."""
 
-    status: Literal["COMPLETE"] = "COMPLETE"
+    status: Literal["COMPLETE"] = "COMPLETE"  # type: ignore[reportIncompatibleVariableOverride]
     completed_at: datetime = Field(default_factory=_utc_now)
 
 
-class SkippedState(BaseModel, StopState):
+class SkippedState(StopState):
     """Batch skipped — nothing to process."""
 
-    status: Literal["SKIPPED"] = "SKIPPED"
+    status: Literal["SKIPPED"] = "SKIPPED"  # type: ignore[reportIncompatibleVariableOverride]
     skipped_at: datetime = Field(default_factory=_utc_now)
     reason: str
 
 
-class FailedState(BaseModel, StopState):
+class FailedState(StopState):
     """Batch failed with an error."""
 
-    status: Literal["FAILED"] = "FAILED"
+    status: Literal["FAILED"] = "FAILED"  # type: ignore[reportIncompatibleVariableOverride]
     error_message: str
     failed_at: datetime = Field(default_factory=_utc_now)
     previous_status: str

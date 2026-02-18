@@ -1,10 +1,4 @@
-"""Batch manager for the memory-candidates pipeline.
-
-State machine:
-    CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE → COMPLETE
-
-Portable: identical between context-use and aertex (only the runner differs).
-"""
+"""Batch manager for the memory-candidates pipeline."""
 
 from __future__ import annotations
 
@@ -50,18 +44,15 @@ class MemoryCandidateBatchManager(BaseBatchManager):
         llm_client: BatchLLMClient,
     ) -> None:
         super().__init__(batch, db)
+        self.batch: Batch = batch
         self.extractor = MemoryCandidateExtractor(llm_client)
         self.batch_factory = MemoryCandidateBatchFactory
-
-    # -- Thread helpers -------------------------------------------------------
 
     def _get_batch_threads(self) -> list[Thread]:
         return self.batch_factory.get_batch_threads(self.batch, self.db)
 
     def _get_asset_threads(self) -> list[Thread]:
         return [t for t in self._get_batch_threads() if t.asset_uri is not None]
-
-    # -- State machine --------------------------------------------------------
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -82,8 +73,6 @@ class MemoryCandidateBatchManager(BaseBatchManager):
                     f"Invalid state for memory-candidates batch: {current_state}"
                 )
 
-    # -- CREATED → PENDING ----------------------------------------------------
-
     def _trigger_memory_generation(self) -> State:
         threads = self._get_asset_threads()
         if not threads:
@@ -97,8 +86,6 @@ class MemoryCandidateBatchManager(BaseBatchManager):
         job_key = self.extractor.submit(self.batch.id, threads)
         return MemoryGeneratePendingState(job_key=job_key)
 
-    # -- PENDING → COMPLETE ---------------------------------------------------
-
     def _check_memory_generation_status(self) -> State:
         job_key = self.batch.current_state.job_key  # type: ignore[union-attr]
         results = self.extractor.get_results(job_key)
@@ -109,15 +96,12 @@ class MemoryCandidateBatchManager(BaseBatchManager):
         count = self._store_memories(results)
         return MemoryGenerateCompleteState(memories_count=count)
 
-    # -- Persistence ----------------------------------------------------------
-
     def _store_memories(
         self,
         results: BatchResults[MemoryCandidateSchema],
     ) -> int:
         """Write memory candidates to the ``tapestry_memories`` table."""
         threads = self._get_batch_threads()
-        thread_map = {t.id: t for t in threads}
 
         # Infer provider/interaction_type from the first thread
         first = threads[0] if threads else None

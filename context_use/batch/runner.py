@@ -1,9 +1,3 @@
-"""Async batch runner — the context-use–specific scheduling layer.
-
-NOT portable: in aertex this file is replaced by Celery task rescheduling.
-Everything else in ``batch/`` is identical between repos.
-"""
-
 from __future__ import annotations
 
 import asyncio
@@ -24,7 +18,7 @@ logger = logging.getLogger(__name__)
 async def run_batch(manager: BaseBatchManager) -> None:
     """Drive a single batch to completion using an async loop.
 
-    Equivalent to the Celery reschedule pattern in aertex::
+    Equivalent for Celery orchestration:
 
         @celery.task
         def try_advance_batch_task(self, batch_id):
