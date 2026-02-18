@@ -35,7 +35,16 @@ class ContextUse:
 
         ctx = ContextUse.from_config({
             "storage": {"provider": "disk", "config": {"base_path": "./data"}},
-            "db":      {"provider": "sqlite", "config": {"path": "./context_use.db"}},
+            "db": {
+                "provider": "postgres",
+                "config": {
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "context_use",
+                    "user": "postgres",
+                    "password": "postgres",
+                },
+            },
         })
         result = ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
     """
@@ -91,15 +100,21 @@ class ContextUse:
             prefix = f"{archive_id}/"
             self._unzip(path, prefix)
 
-            # 3. Discover files & tasks
+            # 3. Store unzipped file list on the archive
             files = self._storage.list_keys(archive_id)
+            with self._db.session_scope() as session:
+                archive_row = session.get(Archive, archive_id)
+                if archive_row:
+                    archive_row.file_uris = files
+
+            # 4. Discover tasks
             orchestrator = provider_cfg.orchestration()
             task_descriptors = orchestrator.discover_tasks(archive_id, files)
 
             if not task_descriptors:
                 logger.warning("No tasks discovered for archive %s", archive_id)
 
-            # 4. Run ETL for each task
+            # 5. Run ETL for each task
             for desc in task_descriptors:
                 interaction_type = desc["interaction_type"]
                 filenames = desc["filenames"]
@@ -118,6 +133,7 @@ class ContextUse:
                         archive_id=archive_id,
                         provider=provider.value,
                         interaction_type=interaction_type,
+                        source_uri=filenames[0],
                         status=EtlTaskStatus.CREATED.value,
                     )
                     session.add(etl_task)
@@ -176,7 +192,7 @@ class ContextUse:
                     result.tasks_failed += 1
                     result.errors.append(str(exc))
 
-            # 5. Mark archive completed
+            # 6. Mark archive completed
             final_status = (
                 ArchiveStatus.COMPLETED
                 if result.tasks_failed == 0

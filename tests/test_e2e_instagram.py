@@ -20,6 +20,7 @@ class TestE2EInstagram:
         # Verify DB state
         with ctx._db.session_scope() as s:
             archive = s.get(Archive, result.archive_id)
+            assert archive is not None
             assert archive.status == ArchiveStatus.COMPLETED.value
 
             tasks = s.query(EtlTask).filter_by(archive_id=result.archive_id).all()
@@ -33,12 +34,12 @@ class TestE2EInstagram:
             threads = s.query(Thread).all()
             assert len(threads) == result.threads_created
 
-            # Check that stories and reels produced threads
             thread_types = {t.interaction_type for t in threads}
             assert "instagram_stories" in thread_types
             assert "instagram_reels" in thread_types
 
-            # All threads should have asset_uri
+            # All threads should have asset_uri as full storage keys
             for thread in threads:
                 assert thread.asset_uri is not None
+                assert thread.asset_uri.startswith(result.archive_id)
                 assert "media/" in thread.asset_uri

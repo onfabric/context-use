@@ -20,6 +20,7 @@ class TestE2EChatGPT:
         # Verify DB state
         with ctx._db.session_scope() as s:
             archive = s.get(Archive, result.archive_id)
+            assert archive is not None
             assert archive.status == ArchiveStatus.COMPLETED.value
             assert archive.provider == "chatgpt"
 

@@ -35,6 +35,7 @@ class EtlTask(TimeStampMixin, Base):
 
     provider: Mapped[str] = mapped_column(String, nullable=False)
     interaction_type: Mapped[str] = mapped_column(String, nullable=False)
+    source_uri: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(
         String,
         nullable=False,
