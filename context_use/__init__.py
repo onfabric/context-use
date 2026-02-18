@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import uuid
 import zipfile
 from pathlib import PurePosixPath
 from typing import Any
@@ -83,133 +82,113 @@ class ContextUse:
 
         provider_cfg = get_provider_config(provider)
 
-        # 1. Create Archive record
-        archive_id = str(uuid.uuid4())
         with self._db.session_scope() as session:
+            # 1. Create Archive record
             archive = Archive(
-                id=archive_id,
                 provider=provider.value,
                 status=ArchiveStatus.CREATED.value,
             )
             session.add(archive)
+            session.flush()
 
-        result = PipelineResult(archive_id=archive_id)
+            result = PipelineResult(archive_id=archive.id)
 
-        try:
-            # 2. Unzip into storage
-            prefix = f"{archive_id}/"
-            self._unzip(path, prefix)
+            try:
+                # 2. Unzip into storage
+                prefix = f"{archive.id}/"
+                self._unzip(path, prefix)
 
-            # 3. Store unzipped file list on the archive
-            files = self._storage.list_keys(archive_id)
-            with self._db.session_scope() as session:
-                archive_row = session.get(Archive, archive_id)
-                if archive_row:
-                    archive_row.file_uris = files
+                # 3. Store unzipped file list on the archive
+                files = self._storage.list_keys(archive.id)
+                archive.file_uris = files
 
-            # 4. Discover tasks
-            orchestrator = provider_cfg.orchestration()
-            task_descriptors = orchestrator.discover_tasks(archive_id, files)
+                # 4. Discover tasks
+                orchestrator = provider_cfg.orchestration()
+                task_descriptors = orchestrator.discover_tasks(archive.id, files)
 
-            if not task_descriptors:
-                logger.warning("No tasks discovered for archive %s", archive_id)
+                if not task_descriptors:
+                    logger.warning("No tasks discovered for archive %s", archive.id)
 
-            # 5. Run ETL for each task
-            for desc in task_descriptors:
-                interaction_type = desc["interaction_type"]
-                filenames = desc["filenames"]
+                # 5. Run ETL for each task
+                for desc in task_descriptors:
+                    interaction_type = desc["interaction_type"]
+                    filenames = desc["filenames"]
 
-                it_cfg = provider_cfg.interaction_types.get(interaction_type)
-                if it_cfg is None:
-                    logger.warning(
-                        "No strategy for interaction_type=%s", interaction_type
-                    )
-                    continue
+                    it_cfg = provider_cfg.interaction_types.get(interaction_type)
+                    if it_cfg is None:
+                        logger.warning(
+                            "No strategy for interaction_type=%s",
+                            interaction_type,
+                        )
+                        continue
 
-                etl_task_id = str(uuid.uuid4())
-                with self._db.session_scope() as session:
                     etl_task = EtlTask(
-                        id=etl_task_id,
-                        archive_id=archive_id,
+                        archive_id=archive.id,
                         provider=provider.value,
                         interaction_type=interaction_type,
                         source_uri=filenames[0],
                         status=EtlTaskStatus.CREATED.value,
                     )
                     session.add(etl_task)
+                    session.flush()
 
-                task_meta = TaskMetadata(
-                    archive_id=archive_id,
-                    etl_task_id=etl_task_id,
-                    provider=provider.value,
-                    interaction_type=interaction_type,
-                    filenames=filenames,
+                    task_meta = TaskMetadata(
+                        archive_id=archive.id,
+                        etl_task_id=etl_task.id,
+                        provider=provider.value,
+                        interaction_type=interaction_type,
+                        filenames=filenames,
+                    )
+
+                    try:
+                        pipeline = ETLPipeline(
+                            extraction=it_cfg.extraction(),
+                            transform=it_cfg.transform(),
+                            upload=UploadStrategy(),
+                            storage=self._storage,
+                            session=session,
+                        )
+
+                        etl_task.status = EtlTaskStatus.EXTRACTING.value
+                        raw = pipeline.extract(task_meta)
+
+                        etl_task.status = EtlTaskStatus.TRANSFORMING.value
+                        thread_batches = pipeline.transform(task_meta, raw)
+
+                        etl_task.status = EtlTaskStatus.UPLOADING.value
+                        count = pipeline.upload(task_meta, thread_batches)
+
+                        # Mark completed
+                        etl_task.status = EtlTaskStatus.COMPLETED.value
+                        etl_task.extracted_count = sum(len(b) for b in raw)
+                        etl_task.transformed_count = sum(len(b) for b in thread_batches)
+                        etl_task.uploaded_count = count
+
+                        result.tasks_completed += 1
+                        result.threads_created += count
+
+                    except Exception as exc:
+                        logger.error(
+                            "ETL failed for %s/%s: %s",
+                            provider,
+                            interaction_type,
+                            exc,
+                        )
+                        etl_task.status = EtlTaskStatus.FAILED.value
+                        result.tasks_failed += 1
+                        result.errors.append(str(exc))
+
+                # 6. Mark archive completed
+                archive.status = (
+                    ArchiveStatus.COMPLETED.value
+                    if result.tasks_failed == 0
+                    else ArchiveStatus.FAILED.value
                 )
 
-                try:
-                    pipeline = ETLPipeline(
-                        extraction=it_cfg.extraction(),
-                        transform=it_cfg.transform(),
-                        upload=UploadStrategy(),
-                        storage=self._storage,
-                        db=self._db,
-                    )
-
-                    # Update status as we go
-                    self._update_etl_task_status(etl_task_id, EtlTaskStatus.EXTRACTING)
-                    raw = pipeline.extract(task_meta)
-
-                    self._update_etl_task_status(
-                        etl_task_id, EtlTaskStatus.TRANSFORMING
-                    )
-                    thread_batches = pipeline.transform(task_meta, raw)
-
-                    self._update_etl_task_status(etl_task_id, EtlTaskStatus.UPLOADING)
-                    count = pipeline.upload(task_meta, thread_batches)
-
-                    # Mark completed
-                    extracted_count = sum(len(b) for b in raw)
-                    transformed_count = sum(len(b) for b in thread_batches)
-                    with self._db.session_scope() as session:
-                        task_row = session.get(EtlTask, etl_task_id)
-                        if task_row:
-                            task_row.status = EtlTaskStatus.COMPLETED.value
-                            task_row.extracted_count = extracted_count
-                            task_row.transformed_count = transformed_count
-                            task_row.uploaded_count = count
-
-                    result.tasks_completed += 1
-                    result.threads_created += count
-
-                except Exception as exc:
-                    logger.error(
-                        "ETL failed for %s/%s: %s",
-                        provider,
-                        interaction_type,
-                        exc,
-                    )
-                    self._update_etl_task_status(etl_task_id, EtlTaskStatus.FAILED)
-                    result.tasks_failed += 1
-                    result.errors.append(str(exc))
-
-            # 6. Mark archive completed
-            final_status = (
-                ArchiveStatus.COMPLETED
-                if result.tasks_failed == 0
-                else ArchiveStatus.FAILED
-            )
-            with self._db.session_scope() as session:
-                archive_row = session.get(Archive, archive_id)
-                if archive_row:
-                    archive_row.status = final_status.value
-
-        except Exception as exc:
-            logger.error("process_archive failed: %s", exc)
-            with self._db.session_scope() as session:
-                archive_row = session.get(Archive, archive_id)
-                if archive_row:
-                    archive_row.status = ArchiveStatus.FAILED.value
-            raise ArchiveProcessingError(str(exc)) from exc
+            except Exception as exc:
+                logger.error("process_archive failed: %s", exc)
+                archive.status = ArchiveStatus.FAILED.value
+                raise ArchiveProcessingError(str(exc)) from exc
 
         return result
 
@@ -228,13 +207,3 @@ class ContextUse:
                 key = f"{prefix}{name}"
                 data = zf.read(info.filename)
                 self._storage.write(key, data)
-
-    def _update_etl_task_status(
-        self,
-        etl_task_id: str,
-        status: EtlTaskStatus,
-    ) -> None:
-        with self._db.session_scope() as session:
-            task = session.get(EtlTask, etl_task_id)
-            if task:
-                task.status = status.value
