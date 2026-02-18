@@ -1,10 +1,4 @@
-"""Prompt template and schemas for memory generation.
-
-The prompt builder groups threads by day and produces one ``PromptItem``
-per day.  Each prompt contains the previews (and optional captions) of
-all asset threads from that day, asking the LLM to generate candidate
-memories.
-"""
+"""Prompt template and schemas for memory generation."""
 
 from __future__ import annotations
 
@@ -15,10 +9,6 @@ from pydantic import BaseModel, Field
 
 from context_use.etl.models.thread import Thread
 from context_use.llm.base import PromptItem
-
-# ---------------------------------------------------------------------------
-# Response schema
-# ---------------------------------------------------------------------------
 
 
 class Memory(BaseModel):
@@ -48,10 +38,6 @@ class MemorySchema(BaseModel):
         return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Prompt template
-# ---------------------------------------------------------------------------
-
 MEMORIES_PROMPT = """\
 You are given a collection of social-media posts from a single day.
 Each post has a preview (text content or caption) and may reference an image or video.
@@ -70,11 +56,6 @@ which posts (by their thread_id) it is derived from.
 ## Output Format
 Return a JSON object with the following structure:
 {{SCHEMA}}"""
-
-
-# ---------------------------------------------------------------------------
-# Prompt builder
-# ---------------------------------------------------------------------------
 
 
 class MemoryPromptBuilder:
