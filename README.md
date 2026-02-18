@@ -14,12 +14,6 @@ Install the pre-commit hooks:
 uv run pre-commit install
 ```
 
-Run the project:
-
-```bash
-uv run context-use
-```
-
 Test the project:
 
 ```bash
