@@ -1,6 +1,9 @@
 name: Tests
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
 
 jobs:
@@ -14,5 +17,4 @@ jobs:
       - uses: ./.github/actions/prepare
 
       - name: Run tests
-        run: uv run pytest tests/
-
+        run: uv run pytest

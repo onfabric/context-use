@@ -38,12 +38,6 @@ Test the project:
 uv run pytest
 ```
 
-Run the tests:
-
-```bash
-uv run pytest
-```
-
 ## Type Checking
 
 Run the type checker:
