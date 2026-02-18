@@ -5,7 +5,6 @@ from context_use.storage.base import StorageBackend
 
 
 class DiskStorage(StorageBackend):
-
     def __init__(self, base_path: str) -> None:
         self._base = Path(base_path)
         self._base.mkdir(parents=True, exist_ok=True)
@@ -44,4 +43,3 @@ class DiskStorage(StorageBackend):
         path = self._resolve(key)
         if path.is_file():
             path.unlink()
-

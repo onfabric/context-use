@@ -18,7 +18,6 @@ class Base(DeclarativeBase):
 
 
 class TimeStampMixin:
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=_utcnow,
@@ -30,4 +29,3 @@ class TimeStampMixin:
         onupdate=_utcnow,
         nullable=False,
     )
-

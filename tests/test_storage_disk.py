@@ -39,4 +39,3 @@ class TestDiskStorage:
         s.write("stream.txt", b"streaming content")
         with s.open_stream("stream.txt") as f:
             assert f.read() == b"streaming content"
-

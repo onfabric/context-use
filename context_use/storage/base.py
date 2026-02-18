@@ -3,7 +3,6 @@ from typing import BinaryIO
 
 
 class StorageBackend(ABC):
-
     @abstractmethod
     def write(self, key: str, data: bytes) -> None: ...
 
@@ -21,4 +20,3 @@ class StorageBackend(ABC):
 
     @abstractmethod
     def delete(self, key: str) -> None: ...
-

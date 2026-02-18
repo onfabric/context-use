@@ -39,8 +39,7 @@ def build_db(provider: str, config: dict[str, Any]) -> DatabaseBackend:
     cls = _DB_FACTORIES.get(provider)
     if cls is None:
         raise ValueError(
-            f"Unknown db provider '{provider}'. "
-            f"Available: {list(_DB_FACTORIES.keys())}"
+            f"Unknown db provider '{provider}'. Available: {list(_DB_FACTORIES.keys())}"
         )
     return cls(**config)
 
@@ -61,4 +60,3 @@ def parse_config(
     )
 
     return storage, db
-

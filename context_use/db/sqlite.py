@@ -6,7 +6,6 @@ from context_use.models.base import Base
 
 
 class SQLiteBackend(DatabaseBackend):
-
     def __init__(self, path: str = ":memory:") -> None:
         url = "sqlite:///:memory:" if path == ":memory:" else f"sqlite:///{path}"
         self._engine = create_engine(url, echo=False)
@@ -20,4 +19,3 @@ class SQLiteBackend(DatabaseBackend):
 
     def init_db(self) -> None:
         Base.metadata.create_all(self._engine)
-

@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 
 class DatabaseBackend(ABC):
-
     @abstractmethod
     def get_engine(self) -> Engine: ...
 
@@ -28,4 +27,3 @@ class DatabaseBackend(ABC):
             raise
         finally:
             session.close()
-
