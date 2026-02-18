@@ -87,8 +87,11 @@ class LLMClient:
                 api_key=self._api_key,
                 messages=_build_messages(item),
                 response_format={
-                    "type": "json_object",
-                    "response_schema": item.response_schema,
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "response",
+                        "schema": item.response_schema,
+                    },
                 },
             ),
         )
