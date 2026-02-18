@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from context_use.core.types import TaskMetadata
-from context_use.providers.instagram.media import (
+from context_use.etl.core.types import TaskMetadata
+from context_use.etl.providers.instagram.media import (
     InstagramReelsExtractionStrategy,
     InstagramReelsTransformStrategy,
     InstagramStoriesExtractionStrategy,

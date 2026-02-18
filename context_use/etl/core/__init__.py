@@ -1,11 +1,11 @@
-from context_use.core.etl import (
+from context_use.etl.core.etl import (
     ETLPipeline,
     ExtractionStrategy,
     OrchestrationStrategy,
     TransformStrategy,
     UploadStrategy,
 )
-from context_use.core.exceptions import (
+from context_use.etl.core.exceptions import (
     ArchiveProcessingError,
     ExtractionFailedException,
     TransformFailedException,
@@ -13,7 +13,7 @@ from context_use.core.exceptions import (
     UnsupportedProviderError,
     UploadFailedException,
 )
-from context_use.core.types import PipelineResult, TaskMetadata
+from context_use.etl.core.types import PipelineResult, TaskMetadata
 
 __all__ = [
     "ETLPipeline",
