@@ -9,13 +9,13 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm.attributes import flag_modified
 
 from context_use.batch.states import CreatedState, State
-from context_use.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
 
 
 class BatchCategory(enum.StrEnum):
     """Extensible registry of pipeline categories."""
 
-    memory_candidates = "memory_candidates"
+    memories = "memories"
 
 
 _batch_state_parsers: dict[BatchCategory, Callable[[dict], State]] = {}

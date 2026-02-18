@@ -1,4 +1,4 @@
-"""Prompt template and schemas for memory-candidate generation.
+"""Prompt template and schemas for memory generation.
 
 The prompt builder groups threads by day and produces one ``PromptItem``
 per day.  Each prompt contains the previews (and optional captions) of
@@ -13,15 +13,15 @@ from datetime import date
 
 from pydantic import BaseModel, Field
 
+from context_use.etl.models.thread import Thread
 from context_use.llm.base import PromptItem
-from context_use.models.thread import Thread
 
 # ---------------------------------------------------------------------------
 # Response schema
 # ---------------------------------------------------------------------------
 
 
-class MemoryCandidate(BaseModel):
+class Memory(BaseModel):
     """A single memory candidate produced by the LLM."""
 
     content: str = Field(description="A short, meaningful memory in 1-2 sentences")
@@ -30,10 +30,10 @@ class MemoryCandidate(BaseModel):
     )
 
 
-class MemoryCandidateSchema(BaseModel):
+class MemorySchema(BaseModel):
     """Top-level response the LLM should return per day."""
 
-    candidates: list[MemoryCandidate] = Field(
+    candidates: list[Memory] = Field(
         description="List of memory candidates for this day"
     )
 
@@ -54,7 +54,7 @@ class MemoryCandidateSchema(BaseModel):
 # Prompt template
 # ---------------------------------------------------------------------------
 
-MEMORY_CANDIDATES_PROMPT = """\
+MEMORIES_PROMPT = """\
 You are given a collection of social-media posts from a single day.
 Each post has a preview (text content or caption) and may reference an image or video.
 
@@ -79,7 +79,7 @@ Return a JSON object with the following structure:
 # ---------------------------------------------------------------------------
 
 
-class MemoryCandidatePromptBuilder:
+class MemoryPromptBuilder:
     """Build one ``PromptItem`` per day from a flat list of threads.
 
     Only threads with ``asset_uri`` set are included (matching the
@@ -94,14 +94,14 @@ class MemoryCandidatePromptBuilder:
         for t in self.threads:
             by_day[t.asat.date()].append(t)
 
-        schema_text = MemoryCandidateSchema.format_schema_for_prompt()
-        response_schema = MemoryCandidateSchema.json_schema()
+        schema_text = MemorySchema.format_schema_for_prompt()
+        response_schema = MemorySchema.json_schema()
 
         items: list[PromptItem] = []
         for day, day_threads in sorted(by_day.items()):
             posts_block = self._format_posts(day_threads)
             prompt = (
-                MEMORY_CANDIDATES_PROMPT.replace("{{DATE}}", day.isoformat())
+                MEMORIES_PROMPT.replace("{{DATE}}", day.isoformat())
                 .replace("{{POSTS}}", posts_block)
                 .replace("{{SCHEMA}}", schema_text)
             )

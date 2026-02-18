@@ -9,8 +9,8 @@ from typing import ClassVar
 from sqlalchemy.orm import Session
 
 from context_use.batch.models import Batch, BatchCategory
-from context_use.models.etl_task import EtlTask
-from context_use.models.thread import Thread
+from context_use.etl.models.etl_task import EtlTask
+from context_use.etl.models.thread import Thread
 
 logger = logging.getLogger(__name__)
 

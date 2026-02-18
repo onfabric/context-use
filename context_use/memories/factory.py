@@ -1,4 +1,4 @@
-"""Batch factory for the memory-candidates pipeline."""
+"""Batch factory for the memoies pipeline."""
 
 from __future__ import annotations
 
@@ -6,11 +6,11 @@ from context_use.batch.factory import BaseBatchFactory
 from context_use.batch.models import BatchCategory
 
 
-class MemoryCandidateBatchFactory(BaseBatchFactory):
-    """Creates batches for the memory-candidates pipeline.
+class MemoryBatchFactory(BaseBatchFactory):
+    """Creates batches for the memoies pipeline.
 
     No cutoff — all threads from the ETL task are eligible.
     """
 
-    BATCH_CATEGORIES = [BatchCategory.memory_candidates]
+    BATCH_CATEGORIES = [BatchCategory.memories]
     cutoff_days = None

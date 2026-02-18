@@ -1,4 +1,4 @@
-"""Batch manager for the memory-candidates pipeline."""
+"""Batch manager for the memoies pipeline."""
 
 from __future__ import annotations
 
@@ -15,13 +15,13 @@ from context_use.batch.states import (
     SkippedState,
     State,
 )
+from context_use.etl.models.thread import Thread
 from context_use.llm.base import BatchLLMClient, BatchResults
-from context_use.models.memory import TapestryMemory
-from context_use.models.thread import Thread
-from context_use.pipelines.memory_candidates.extractor import MemoryCandidateExtractor
-from context_use.pipelines.memory_candidates.factory import MemoryCandidateBatchFactory
-from context_use.pipelines.memory_candidates.prompt import MemoryCandidateSchema
-from context_use.pipelines.memory_candidates.states import (
+from context_use.memories.extractor import MemoryExtractor
+from context_use.memories.factory import MemoryBatchFactory
+from context_use.memories.models import TapestryMemory
+from context_use.memories.prompt import MemorySchema
+from context_use.memories.states import (
     MemoryGenerateCompleteState,
     MemoryGeneratePendingState,
 )
@@ -29,8 +29,8 @@ from context_use.pipelines.memory_candidates.states import (
 logger = logging.getLogger(__name__)
 
 
-@register_batch_manager(BatchCategory.memory_candidates)
-class MemoryCandidateBatchManager(BaseBatchManager):
+@register_batch_manager(BatchCategory.memories)
+class MemoryBatchManager(BaseBatchManager):
     """Generates memory candidates from asset threads grouped by day.
 
     State machine:
@@ -45,8 +45,8 @@ class MemoryCandidateBatchManager(BaseBatchManager):
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
-        self.extractor = MemoryCandidateExtractor(llm_client)
-        self.batch_factory = MemoryCandidateBatchFactory
+        self.extractor = MemoryExtractor(llm_client)
+        self.batch_factory = MemoryBatchFactory
 
     def _get_batch_threads(self) -> list[Thread]:
         return self.batch_factory.get_batch_threads(self.batch, self.db)
@@ -57,7 +57,7 @@ class MemoryCandidateBatchManager(BaseBatchManager):
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
             case CreatedState():
-                logger.info("[%s] Starting memory-candidate generation", self.batch.id)
+                logger.info("[%s] Starting memory generation", self.batch.id)
                 return self._trigger_memory_generation()
 
             case MemoryGeneratePendingState() as state:
@@ -69,9 +69,7 @@ class MemoryCandidateBatchManager(BaseBatchManager):
                 return CompleteState()
 
             case _:
-                raise ValueError(
-                    f"Invalid state for memory-candidates batch: {current_state}"
-                )
+                raise ValueError(f"Invalid state for memoies batch: {current_state}")
 
     def _trigger_memory_generation(self) -> State:
         threads = self._get_asset_threads()
@@ -99,7 +97,7 @@ class MemoryCandidateBatchManager(BaseBatchManager):
 
     def _store_memories(
         self,
-        results: BatchResults[MemoryCandidateSchema],
+        results: BatchResults[MemorySchema],
     ) -> int:
         """Write memory candidates to the ``tapestry_memories`` table."""
         threads = self._get_batch_threads()

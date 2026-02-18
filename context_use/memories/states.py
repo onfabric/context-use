@@ -1,4 +1,4 @@
-"""Pipeline-specific states for the memory-candidates pipeline."""
+"""Pipeline-specific states for the memoies pipeline."""
 # pyright: reportIncompatibleVariableOverride=false
 # Literal field overrides are the standard Pydantic discriminated-union pattern.
 # pyright flags them as incompatible variable overrides, but this is a false
@@ -48,7 +48,7 @@ class MemoryGenerateCompleteState(NextState):
     memories_count: int = 0
 
 
-MemoryCandidateBatchState = (
+MemoryBatchState = (
     CreatedState
     | MemoryGeneratePendingState
     | MemoryGenerateCompleteState
@@ -67,12 +67,12 @@ _state_map: dict[str, type[State]] = {
 }
 
 
-@register_batch_state_parser(BatchCategory.memory_candidates)
+@register_batch_state_parser(BatchCategory.memories)
 def parse_memory_candidate_batch_state(state_dict: dict) -> State:
     status = state_dict.get("status")
     if status is None:
         raise ValueError("State dict missing 'status' key")
     cls = _state_map.get(status)
     if cls is None:
-        raise ValueError(f"Unknown MemoryCandidateBatch state: {status}")
+        raise ValueError(f"Unknown MemoryBatch state: {status}")
     return cls.model_validate(state_dict)
