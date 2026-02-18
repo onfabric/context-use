@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any
 
 import pandas as pd
 from sqlalchemy.orm import Session
@@ -38,12 +37,13 @@ class OrchestrationStrategy:
         self,
         archive_id: str,
         files: list[str],
-    ) -> list[dict[str, Any]]:
-        """Return a list of task descriptors (interaction_type + filenames).
+        provider: str,
+    ) -> list[EtlTask]:
+        """Return transient ``EtlTask`` objects ready to be added to a session.
 
-        Each item is ``{"interaction_type": str, "filenames": [str, ...]}``.
+        Each task corresponds to one matched file from ``MANIFEST_MAP``.
         """
-        tasks: list[dict[str, Any]] = []
+        tasks: list[EtlTask] = []
         prefix = f"{archive_id}/"
         for pattern, interaction_type in self.MANIFEST_MAP.items():
             # Match exactly: {archive_id}/{pattern}
@@ -51,10 +51,12 @@ class OrchestrationStrategy:
             matching = [f for f in files if f == expected]
             if matching:
                 tasks.append(
-                    {
-                        "interaction_type": interaction_type,
-                        "filenames": matching,
-                    }
+                    EtlTask(
+                        archive_id=archive_id,
+                        provider=provider,
+                        interaction_type=interaction_type,
+                        source_uri=matching[0],
+                    )
                 )
         return tasks
 

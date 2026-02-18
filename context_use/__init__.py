@@ -16,7 +16,7 @@ from context_use.etl.core.exceptions import (
 )
 from context_use.etl.core.types import PipelineResult
 from context_use.etl.models.archive import Archive, ArchiveStatus
-from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
+from context_use.etl.models.etl_task import EtlTaskStatus
 from context_use.etl.providers.registry import (
     PROVIDER_REGISTRY,
     Provider,
@@ -104,31 +104,26 @@ class ContextUse:
 
                 # 4. Discover tasks
                 orchestrator = provider_cfg.orchestration()
-                task_descriptors = orchestrator.discover_tasks(archive.id, files)
+                etl_tasks = orchestrator.discover_tasks(
+                    archive.id, files, provider.value
+                )
 
-                if not task_descriptors:
+                if not etl_tasks:
                     logger.warning("No tasks discovered for archive %s", archive.id)
 
                 # 5. Run ETL for each task
-                for desc in task_descriptors:
-                    interaction_type = desc["interaction_type"]
-                    filenames = desc["filenames"]
-
-                    it_cfg = provider_cfg.interaction_types.get(interaction_type)
+                for etl_task in etl_tasks:
+                    it_cfg = provider_cfg.interaction_types.get(
+                        etl_task.interaction_type
+                    )
                     if it_cfg is None:
                         logger.warning(
                             "No strategy for interaction_type=%s",
-                            interaction_type,
+                            etl_task.interaction_type,
                         )
                         continue
 
-                    etl_task = EtlTask(
-                        archive_id=archive.id,
-                        provider=provider.value,
-                        interaction_type=interaction_type,
-                        source_uri=filenames[0],
-                        status=EtlTaskStatus.CREATED.value,
-                    )
+                    etl_task.status = EtlTaskStatus.CREATED.value
                     session.add(etl_task)
                     session.flush()
 
@@ -163,7 +158,7 @@ class ContextUse:
                         logger.error(
                             "ETL failed for %s/%s: %s",
                             provider,
-                            interaction_type,
+                            etl_task.interaction_type,
                             exc,
                         )
                         etl_task.status = EtlTaskStatus.FAILED.value
