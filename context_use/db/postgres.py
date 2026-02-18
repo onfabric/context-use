@@ -10,11 +10,11 @@ from context_use.etl.models.base import Base
 class PostgresBackend(DatabaseBackend):
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 5432,
-        database: str = "context_use",
-        user: str = "postgres",
-        password: str = "",
+        host: str,
+        port: int,
+        database: str,
+        user: str,
+        password: str,
     ) -> None:
         url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
         self._engine = create_engine(url, echo=False)
