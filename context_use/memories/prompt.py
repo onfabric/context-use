@@ -37,11 +37,14 @@ class MemorySchema(BaseModel):
 
 MEMORIES_PROMPT = """\
 You are given a collection of social-media posts from a single day.
-Each post has a preview (text content or caption) and may reference an image or video.
+Each post has a text preview and may include an attached image or video
+(sent as a preceding media part labelled [Image N] in the post list).
 
 Your task is to identify the meaningful **memories** from this day.
 A memory is a concise 1-2 sentence summary that captures something personally
 significant — an event, an experience, or an emotional moment.
+Use both the text previews and the visual content of any attached media to
+inform your understanding.
 
 Describe the memories in detail so that they are necessary for these to be usable as
 context for a LLM that wants to answer questions about the user's life and preferences.
@@ -73,7 +76,7 @@ class MemoryPromptBuilder:
 
         items: list[PromptItem] = []
         for day, day_threads in sorted(by_day.items()):
-            posts_block = self._format_posts(day_threads)
+            posts_block, asset_paths = self._format_posts(day_threads)
             prompt = (
                 MEMORIES_PROMPT.replace("{{DATE}}", day.isoformat())
                 .replace("{{POSTS}}", posts_block)
@@ -84,16 +87,30 @@ class MemoryPromptBuilder:
                     item_id=day.isoformat(),
                     prompt=prompt,
                     response_schema=response_schema,
+                    asset_paths=asset_paths,
                 )
             )
         return items
 
     @staticmethod
-    def _format_posts(threads: list[Thread]) -> str:
-        parts: list[str] = []
+    def _format_posts(
+        threads: list[Thread],
+    ) -> tuple[str, list[str]]:
+        """Format thread previews and collect asset paths.
+
+        Returns ``(text_block, asset_paths)`` where images in
+        *asset_paths* are in the same order as ``[Image N]`` labels
+        in *text_block*.
+        """
+        lines: list[str] = []
+        asset_paths: list[str] = []
+        img_idx = 0
         for t in threads:
-            line = f"- thread_id={t.id} | preview: {t.preview[:200]}"
             if t.asset_uri:
-                line += f" | asset: {t.asset_uri}"
-            parts.append(line)
-        return "\n".join(parts)
+                img_idx += 1
+                line = f"- [Image {img_idx}] {t.preview}"
+                asset_paths.append(t.asset_uri)
+            else:
+                line = f"- {t.preview}"
+            lines.append(line)
+        return "\n".join(lines), asset_paths

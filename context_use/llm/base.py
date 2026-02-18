@@ -1,13 +1,9 @@
-"""Abstract LLM interface for batch processing.
-
-Mirrors the submit/poll pattern used by Gemini batch API, but is
-provider-agnostic so we can swap in OpenAI / Anthropic later.
-"""
+"""Abstract LLM interface for batch processing."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypeVar
 
 from pydantic import BaseModel
@@ -28,13 +24,13 @@ class PromptItem:
         item_id:         Unique key for this item (thread_id, date string, etc.)
         prompt:          The text prompt.
         response_schema: JSON schema dict the LLM should conform to.
-        asset_key:       Optional GCS / storage key for an image or video.
+        asset_paths:     Local file paths for images/videos to include as parts.
     """
 
     item_id: str
     prompt: str
     response_schema: dict
-    asset_key: str | None = None
+    asset_paths: list[str] = field(default_factory=list)
 
 
 class BatchLLMClient(ABC):
