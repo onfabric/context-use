@@ -10,7 +10,7 @@ from typing import cast
 from google import genai
 
 from context_use.etl.models.thread import Thread
-from context_use.llm.gemini import GeminiClient
+from context_use.llm.gemini.real_time import GeminiClient
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
