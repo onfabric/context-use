@@ -5,8 +5,8 @@ import enum
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from context_use.models.archive import Archive
-from context_use.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.etl.models.archive import Archive
+from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
 
 
 class EtlTaskStatus(enum.StrEnum):

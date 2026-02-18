@@ -8,15 +8,15 @@ from datetime import UTC, datetime
 
 import pandas as pd
 
-from context_use.core.etl import ExtractionStrategy, TransformStrategy
-from context_use.core.types import TaskMetadata
-from context_use.payload.models import (
+from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
+from context_use.etl.core.types import TaskMetadata
+from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     FibreCreateObject,
     Image,
     Video,
 )
-from context_use.providers.instagram.schemas import (
+from context_use.etl.providers.instagram.schemas import (
     InstagramMediaItem,
     InstagramReelsManifest,
     InstagramStoriesManifest,

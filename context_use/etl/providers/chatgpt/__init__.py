@@ -1,8 +1,8 @@
-from context_use.providers.chatgpt.conversations import (
+from context_use.etl.providers.chatgpt.conversations import (
     ChatGPTConversationsExtractionStrategy,
     ChatGPTConversationsTransformStrategy,
 )
-from context_use.providers.chatgpt.orchestration import ChatGPTOrchestrationStrategy
+from context_use.etl.providers.chatgpt.orchestration import ChatGPTOrchestrationStrategy
 
 __all__ = [
     "ChatGPTOrchestrationStrategy",

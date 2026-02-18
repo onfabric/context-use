@@ -3,9 +3,9 @@
 import datetime
 
 from context_use.db.sqlite import SQLiteBackend
-from context_use.models.archive import Archive, ArchiveStatus
-from context_use.models.etl_task import EtlTask, EtlTaskStatus
-from context_use.models.thread import Thread
+from context_use.etl.models.archive import Archive, ArchiveStatus
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
+from context_use.etl.models.thread import Thread
 
 
 class TestSQLiteBackend:
