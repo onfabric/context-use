@@ -13,10 +13,11 @@ from context_use.etl.core.exceptions import (
     UnsupportedProviderError,
     UploadFailedException,
 )
-from context_use.etl.core.types import PipelineResult
+from context_use.etl.core.types import ExtractedBatch, PipelineResult
 
 __all__ = [
     "ETLPipeline",
+    "ExtractedBatch",
     "ExtractionStrategy",
     "OrchestrationStrategy",
     "TransformStrategy",

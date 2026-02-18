@@ -11,6 +11,7 @@ from context_use.etl.providers.chatgpt.conversations import (
     ChatGPTConversationsExtractionStrategy,
     ChatGPTConversationsTransformStrategy,
 )
+from context_use.etl.providers.chatgpt.schemas import ChatGPTConversationRecord
 from context_use.storage.disk import DiskStorage
 from tests.conftest import CHATGPT_CONVERSATIONS
 
@@ -81,3 +82,13 @@ class TestChatGPTTransform:
 
         for preview in df["preview"]:
             assert preview, "Preview should not be empty"
+
+    def test_record_schema_matches_extraction(self):
+        assert (
+            ChatGPTConversationsTransformStrategy.record_schema
+            is ChatGPTConversationsExtractionStrategy.record_schema
+        )
+        assert (
+            ChatGPTConversationsTransformStrategy.record_schema
+            is ChatGPTConversationRecord
+        )

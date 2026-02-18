@@ -6,6 +6,7 @@ import logging
 from abc import ABC, abstractmethod
 
 import pandas as pd
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from context_use.etl.core.exceptions import (
@@ -13,6 +14,7 @@ from context_use.etl.core.exceptions import (
     TransformFailedException,
     UploadFailedException,
 )
+from context_use.etl.core.types import ExtractedBatch
 from context_use.etl.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
@@ -62,31 +64,56 @@ class OrchestrationStrategy:
 
 
 class ExtractionStrategy(ABC):
-    """Reads raw provider data from storage and yields DataFrames of raw parsed records.
+    """Reads raw provider data from storage and yields typed record batches.
 
-    Does NOT build ActivityStreams payloads – that is the job of ``TransformStrategy``.
+    Does NOT build ActivityStreams payloads – that is the job of
+    ``TransformStrategy``.
     """
+
+    @property
+    @abstractmethod
+    def record_schema(self) -> type[BaseModel]:
+        """The Pydantic model this strategy produces."""
+        ...
 
     @abstractmethod
     def extract(
         self,
         task: EtlTask,
         storage: StorageBackend,
-    ) -> list[pd.DataFrame]:
-        """Return a list of DataFrames containing raw parsed records."""
+    ) -> list[ExtractedBatch]:
+        """Return a list of ``ExtractedBatch`` containing typed records.
+
+        .. todo::
+
+            For scalability (large archives, aertex integration), evolve
+            the return type from ``list[ExtractedBatch]`` to
+            ``Iterator[ExtractedBatch]`` / ``AsyncIterator[ExtractedBatch]``
+            so that extraction yields batches one at a time and transform
+            can process/discard each before the next arrives, keeping memory
+            bounded regardless of archive size.
+        """
         ...
 
 
 class TransformStrategy(ABC):
-    """Receives raw DataFrames from extract, builds ActivityStreams payloads,
-    computes previews / unique keys / timestamps.  Outputs thread-shaped DataFrames.
+    """Receives typed record batches from extract, builds ActivityStreams
+    payloads, computes previews / unique keys / timestamps.
+
+    Outputs thread-shaped DataFrames for the upload stage.
     """
+
+    @property
+    @abstractmethod
+    def record_schema(self) -> type[BaseModel]:
+        """The Pydantic model this strategy consumes."""
+        ...
 
     @abstractmethod
     def transform(
         self,
         task: EtlTask,
-        batches: list[pd.DataFrame],
+        batches: list[ExtractedBatch],
     ) -> list[pd.DataFrame]:
         """Return DataFrames with thread columns: unique_key, provider,
         interaction_type, preview, payload, source, version, asat, asset_uri.
@@ -153,13 +180,22 @@ class ETLPipeline:
         storage: StorageBackend | None = None,
         session: Session | None = None,
     ) -> None:
+        # Validate record_schema compatibility between E and T
+        if extraction.record_schema is not transform.record_schema:
+            raise TypeError(
+                f"Schema mismatch: {type(extraction).__name__} produces "
+                f"{extraction.record_schema.__name__} but "
+                f"{type(transform).__name__} expects "
+                f"{transform.record_schema.__name__}"
+            )
+
         self._extraction = extraction
         self._transform = transform
         self._upload = upload or UploadStrategy()
         self._storage = storage
         self._session = session
 
-    def extract(self, task: EtlTask) -> list[pd.DataFrame]:
+    def extract(self, task: EtlTask) -> list[ExtractedBatch]:
         """Step 1: Extract raw records from provider data."""
         if self._storage is None:
             raise RuntimeError("Storage backend not configured")
@@ -171,7 +207,7 @@ class ETLPipeline:
     def transform(
         self,
         task: EtlTask,
-        batches: list[pd.DataFrame],
+        batches: list[ExtractedBatch],
     ) -> list[pd.DataFrame]:
         """Step 2: Transform raw records into thread-shaped DataFrames."""
         try:

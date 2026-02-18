@@ -5,11 +5,13 @@ from pathlib import Path
 
 import pytest
 
+from context_use.etl.core.types import ExtractedBatch
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.instagram.media import (
     InstagramReelsExtractionStrategy,
     InstagramStoriesExtractionStrategy,
 )
+from context_use.etl.providers.instagram.schemas import InstagramMediaRecord
 from context_use.storage.disk import DiskStorage
 from tests.conftest import INSTAGRAM_REELS_JSON, INSTAGRAM_STORIES_JSON
 
@@ -51,17 +53,35 @@ def _make_reels_task(key: str) -> EtlTask:
 
 
 class TestInstagramStoriesExtraction:
-    def test_extracts_correct_columns(self, ig_stories_storage):
+    def test_returns_extracted_batches(self, ig_stories_storage):
         storage, key = ig_stories_storage
         strategy = InstagramStoriesExtractionStrategy()
         task = _make_stories_task(key)
 
         batches = strategy.extract(task, storage)
         assert len(batches) == 1
-        df = batches[0]
-        assert {"uri", "creation_timestamp", "title", "media_type", "source"}.issubset(
-            set(df.columns)
-        )
+        assert isinstance(batches[0], ExtractedBatch)
+
+    def test_records_are_typed(self, ig_stories_storage):
+        storage, key = ig_stories_storage
+        strategy = InstagramStoriesExtractionStrategy()
+        task = _make_stories_task(key)
+
+        batches = strategy.extract(task, storage)
+        for record in batches[0].records:
+            assert isinstance(record, InstagramMediaRecord)
+
+    def test_record_fields(self, ig_stories_storage):
+        storage, key = ig_stories_storage
+        strategy = InstagramStoriesExtractionStrategy()
+        task = _make_stories_task(key)
+
+        batches = strategy.extract(task, storage)
+        record = batches[0].records[0]
+        assert record.uri
+        assert record.creation_timestamp > 0
+        assert record.media_type in ("Image", "Video")
+        assert record.source is not None
 
     def test_row_count(self, ig_stories_storage):
         storage, key = ig_stories_storage
@@ -77,8 +97,7 @@ class TestInstagramStoriesExtraction:
         task = _make_stories_task(key)
 
         batches = strategy.extract(task, storage)
-        df = batches[0]
-        types = df["media_type"].tolist()
+        types = [r.media_type for r in batches[0].records]
         assert "Video" in types  # .mp4 file
         assert "Image" in types  # .jpg file
 
@@ -99,4 +118,8 @@ class TestInstagramReelsExtraction:
         task = _make_reels_task(key)
 
         batches = strategy.extract(task, storage)
-        assert batches[0]["media_type"].iloc[0] == "Video"
+        assert batches[0].records[0].media_type == "Video"
+
+    def test_record_schema_declared(self):
+        assert InstagramStoriesExtractionStrategy.record_schema is InstagramMediaRecord
+        assert InstagramReelsExtractionStrategy.record_schema is InstagramMediaRecord

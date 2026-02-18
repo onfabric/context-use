@@ -11,6 +11,7 @@ import ijson
 import pandas as pd
 
 from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
+from context_use.etl.core.types import ExtractedBatch
 from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
@@ -20,7 +21,10 @@ from context_use.etl.payload.models import (
     FibreSendMessage,
     FibreTextMessage,
 )
-from context_use.etl.providers.chatgpt.schemas import ChatGPTMessage
+from context_use.etl.providers.chatgpt.schemas import (
+    ChatGPTConversationRecord,
+    ChatGPTMessage,
+)
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -44,27 +48,29 @@ def _safe_timestamp(ts: float | int | None) -> datetime | None:
 
 
 # ---------------------------------------------------------------------------
-# Extraction – yields DataFrames of raw parsed records
+# Extraction – yields ExtractedBatch[ChatGPTConversationRecord]
 # ---------------------------------------------------------------------------
 
 
 class ChatGPTConversationsExtractionStrategy(ExtractionStrategy):
-    """Reads ``conversations.json``, yields DataFrames of raw message records.
+    """Reads ``conversations.json``, yields batches of typed conversation records.
 
-    Each row contains: role, content, create_time, conversation_id,
-    conversation_title, content_type.
+    Each record contains: role, content, create_time, conversation_id,
+    conversation_title, source.
     """
+
+    record_schema = ChatGPTConversationRecord  # type: ignore[reportAssignmentType]
 
     def extract(
         self,
         task: EtlTask,
         storage: StorageBackend,
-    ) -> list[pd.DataFrame]:
+    ) -> list[ExtractedBatch[ChatGPTConversationRecord]]:
         key = task.source_uri
 
         stream = storage.open_stream(key)
-        batches: list[pd.DataFrame] = []
-        chunk: list[dict] = []
+        batches: list[ExtractedBatch[ChatGPTConversationRecord]] = []
+        chunk: list[ChatGPTConversationRecord] = []
 
         for conversation in ijson.items(stream, "item"):
             conversation_title = conversation.get("title")
@@ -102,22 +108,22 @@ class ChatGPTConversationsExtractionStrategy(ExtractionStrategy):
                     create_time = float(create_time)
 
                 chunk.append(
-                    {
-                        "role": parsed.author.role,
-                        "content": text,
-                        "create_time": create_time,
-                        "conversation_id": conversation_id,
-                        "conversation_title": conversation_title,
-                        "source": json.dumps(message_data, default=str),
-                    }
+                    ChatGPTConversationRecord(
+                        role=parsed.author.role,
+                        content=text,
+                        create_time=create_time,
+                        conversation_id=conversation_id,
+                        conversation_title=conversation_title,
+                        source=json.dumps(message_data, default=str),
+                    )
                 )
 
                 if len(chunk) >= CHUNK_SIZE:
-                    batches.append(pd.DataFrame(chunk))
+                    batches.append(ExtractedBatch(records=chunk))
                     chunk = []
 
         if chunk:
-            batches.append(pd.DataFrame(chunk))
+            batches.append(ExtractedBatch(records=chunk))
 
         stream.close()
         return batches
@@ -129,26 +135,27 @@ class ChatGPTConversationsExtractionStrategy(ExtractionStrategy):
 
 
 class ChatGPTConversationsTransformStrategy(TransformStrategy):
-    """Transforms raw ChatGPT records into thread-shaped DataFrames with
+    """Transforms typed ChatGPT records into thread-shaped DataFrames with
     ActivityStreams payloads.
     """
+
+    record_schema = ChatGPTConversationRecord  # type: ignore[reportAssignmentType]
 
     def transform(
         self,
         task: EtlTask,
-        batches: list[pd.DataFrame],
+        batches: list[ExtractedBatch[ChatGPTConversationRecord]],
     ) -> list[pd.DataFrame]:
         result_batches: list[pd.DataFrame] = []
 
-        for df in batches:
+        for batch in batches:
             rows: list[dict] = []
-            for _, record in df.iterrows():
+            for record in batch.records:
                 payload = self._build_payload(record)
                 if payload is None:
                     continue
 
-                create_time = record.get("create_time")
-                asat = _safe_timestamp(create_time) or datetime.now(UTC)
+                asat = _safe_timestamp(record.create_time) or datetime.now(UTC)
 
                 unique_key = f"chatgpt_conversations:{payload.unique_key_suffix()}"
                 rows.append(
@@ -158,7 +165,7 @@ class ChatGPTConversationsTransformStrategy(TransformStrategy):
                         "interaction_type": task.interaction_type,
                         "preview": payload.get_preview("ChatGPT") or "",
                         "payload": payload.to_dict(),
-                        "source": record.get("source"),
+                        "source": record.source,
                         "version": CURRENT_THREAD_PAYLOAD_VERSION,
                         "asat": asat,
                         "asset_uri": None,
@@ -172,35 +179,29 @@ class ChatGPTConversationsTransformStrategy(TransformStrategy):
 
     @staticmethod
     def _build_payload(
-        record: pd.Series,
+        record: ChatGPTConversationRecord,
     ) -> FibreSendMessage | FibreReceiveMessage | None:
-        role = record["role"]
-        content = record["content"]
-        conversation_title = record.get("conversation_title")
-        conversation_id = record.get("conversation_id")
-
         # Build conversation context
         context = None
-        if conversation_title or conversation_id:
+        if record.conversation_title or record.conversation_id:
             ctx_kwargs: dict = {"type": "Collection"}
-            if conversation_title:
-                ctx_kwargs["name"] = conversation_title
-            if conversation_id:
-                ctx_kwargs["id"] = f"https://chatgpt.com/c/{conversation_id}"
+            if record.conversation_title:
+                ctx_kwargs["name"] = record.conversation_title
+            if record.conversation_id:
+                ctx_kwargs["id"] = f"https://chatgpt.com/c/{record.conversation_id}"
             context = Collection(**ctx_kwargs)
 
-        message = FibreTextMessage(content=content, context=context)  # type: ignore[reportCallIssue]
+        message = FibreTextMessage(content=record.content, context=context)  # type: ignore[reportCallIssue]
 
-        create_time = record.get("create_time")
-        published = _safe_timestamp(create_time)
+        published = _safe_timestamp(record.create_time)
 
-        if role == "user":
+        if record.role == "user":
             return FibreSendMessage(  # type: ignore[reportCallIssue]
                 object=message,
                 target=CHATGPT_APPLICATION,
                 published=published,
             )
-        elif role == "assistant":
+        elif record.role == "assistant":
             return FibreReceiveMessage(  # type: ignore[reportCallIssue]
                 object=message,
                 actor=CHATGPT_APPLICATION,
