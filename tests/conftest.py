@@ -5,12 +5,14 @@ from __future__ import annotations
 import io
 import json
 import zipfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 
 from context_use import ContextUse
 from context_use.db.postgres import PostgresBackend
+from context_use.etl.models.base import Base
 from context_use.storage.disk import DiskStorage
 
 # ---------------------------------------------------------------------------
@@ -177,20 +179,30 @@ def instagram_zip(tmp_path: Path) -> Path:
     return p
 
 
-# ---------------------------------------------------------------------------
-# Pre-configured ContextUse
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture()
-def ctx(tmp_path: Path) -> ContextUse:
-    """Create a ContextUse instance with tmp disk storage and in-memory SQLite."""
-    storage = DiskStorage(base_path=str(tmp_path / "storage"))
-    db = PostgresBackend(
+@pytest.fixture(scope="session")
+def db() -> PostgresBackend:
+    """Used in each test to get a fresh database."""
+    backend = PostgresBackend(
         host="localhost",
         port=5432,
-        database="context_use",
+        database="context_use_tests",
         user="postgres",
         password="postgres",
     )
+    backend.init_db()
+    return backend
+
+
+@pytest.fixture(autouse=True)
+def _clean_tables(db: PostgresBackend) -> Generator[None]:
+    """Used after each test to clean the database."""
+    yield
+    with db.session_scope() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
+
+
+@pytest.fixture()
+def ctx(tmp_path: Path, db: PostgresBackend) -> ContextUse:
+    storage = DiskStorage(base_path=str(tmp_path / "storage"))
     return ContextUse(storage=storage, db=db)

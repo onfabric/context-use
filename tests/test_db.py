@@ -1,24 +1,40 @@
-"""Unit tests for SQLite backend + model CRUD."""
-
 import datetime
+from collections.abc import Generator
 
-from context_use.db.sqlite import SQLiteBackend
+import pytest
+from sqlalchemy import inspect
+
+from context_use.db.postgres import PostgresBackend
 from context_use.etl.models.archive import Archive, ArchiveStatus
+from context_use.etl.models.base import Base
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.models.thread import Thread
 
 
-class TestSQLiteBackend:
-    def _make_db(self):
-        db = SQLiteBackend(path=":memory:")
-        db.init_db()
-        return db
+def _make_db() -> PostgresBackend:
+    db = PostgresBackend(
+        host="localhost",
+        port=5432,
+        database="context_use_tests",
+        user="postgres",
+        password="postgres",
+    )
+    db.init_db()
+    return db
 
+
+@pytest.fixture(autouse=True)
+def _clean_tables() -> Generator[None]:
+    db = _make_db()
+    yield
+    with db.session_scope() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
+
+
+class TestPostgresBackend:
     def test_init_creates_tables(self):
-        db = self._make_db()
-        # Tables should exist
-        from sqlalchemy import inspect
-
+        db = _make_db()
         inspector = inspect(db.get_engine())
         tables = inspector.get_table_names()
         assert "archives" in tables
@@ -26,7 +42,7 @@ class TestSQLiteBackend:
         assert "threads" in tables
 
     def test_archive_crud(self):
-        db = self._make_db()
+        db = _make_db()
         with db.session_scope() as s:
             a = Archive(provider="chatgpt", status=ArchiveStatus.CREATED.value)
             s.add(a)
@@ -40,7 +56,7 @@ class TestSQLiteBackend:
             assert row.status == "created"
 
     def test_etl_task_crud(self):
-        db = self._make_db()
+        db = _make_db()
         with db.session_scope() as s:
             a = Archive(provider="chatgpt", status=ArchiveStatus.CREATED.value)
             s.add(a)
@@ -62,7 +78,7 @@ class TestSQLiteBackend:
             assert row.interaction_type == "chatgpt_conversations"
 
     def test_thread_crud(self):
-        db = self._make_db()
+        db = _make_db()
         with db.session_scope() as s:
             t = Thread(
                 unique_key="test:key",
