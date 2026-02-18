@@ -147,7 +147,11 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
                         "source": record.get("source"),
                         "version": CURRENT_THREAD_PAYLOAD_VERSION,
                         "asat": asat,
-                        "asset_uri": record.get("uri"),
+                        "asset_uri": (
+                            f"{task.archive_id}/{record['uri']}"
+                            if record.get("uri")
+                            else None
+                        ),
                     }
                 )
 

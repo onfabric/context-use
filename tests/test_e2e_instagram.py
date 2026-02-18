@@ -41,7 +41,8 @@ class TestE2EInstagram:
             assert "instagram_stories" in thread_types
             assert "instagram_reels" in thread_types
 
-            # All threads should have asset_uri
+            # All threads should have asset_uri as full storage keys
             for thread in threads:
                 assert thread.asset_uri is not None
+                assert thread.asset_uri.startswith(result.archive_id)
                 assert "media/" in thread.asset_uri

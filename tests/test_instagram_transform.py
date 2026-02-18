@@ -87,6 +87,7 @@ class TestInstagramStoriesTransform:
 
         for uri in df["asset_uri"]:
             assert uri is not None
+            assert uri.startswith(f"{task.archive_id}/")
             assert "media/stories/" in uri
 
 
