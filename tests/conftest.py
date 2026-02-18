@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from context_use import ContextUse
-from context_use.db.sqlite import SQLiteBackend
+from context_use.db.postgres import PostgresBackend
 from context_use.storage.disk import DiskStorage
 
 # ---------------------------------------------------------------------------
@@ -186,5 +186,11 @@ def instagram_zip(tmp_path: Path) -> Path:
 def ctx(tmp_path: Path) -> ContextUse:
     """Create a ContextUse instance with tmp disk storage and in-memory SQLite."""
     storage = DiskStorage(base_path=str(tmp_path / "storage"))
-    db = SQLiteBackend(path=":memory:")
+    db = PostgresBackend(
+        host="localhost",
+        port=5432,
+        database="context_use",
+        user="postgres",
+        password="postgres",
+    )
     return ContextUse(storage=storage, db=db)
