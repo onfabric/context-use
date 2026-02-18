@@ -21,8 +21,9 @@ uv run pytest
 ```
 
 Run the tests:
+
 ```bash
-uv run pytest
+uv run quickstart.py
 ```
 
 ## Type Checking
