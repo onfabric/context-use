@@ -1,10 +1,10 @@
 """End-to-end test: Instagram zip → Thread rows in SQLite."""
 
 from context_use import ContextUse
-from context_use.models.archive import ArchiveStatus
-from context_use.models.etl_task import EtlTaskStatus
-from context_use.models.thread import Thread
-from context_use.providers.registry import Provider
+from context_use.etl.models.archive import Archive, ArchiveStatus
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
+from context_use.etl.models.thread import Thread
+from context_use.etl.providers.registry import Provider
 
 
 class TestE2EInstagram:
@@ -19,9 +19,6 @@ class TestE2EInstagram:
 
         # Verify DB state
         with ctx._db.session_scope() as s:
-            from context_use.models.archive import Archive
-            from context_use.models.etl_task import EtlTask
-
             archive = s.get(Archive, result.archive_id)
             assert archive.status == ArchiveStatus.COMPLETED.value
 

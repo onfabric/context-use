@@ -8,10 +8,21 @@ Install the dependencies:
 uv sync
 ```
 
-Run the project:
+Install the pre-commit hooks:
 
 ```bash
-uv run context-use
+uv run pre-commit install
+```
+
+Test the project:
+
+```bash
+uv run pytest
+```
+
+Run the tests:
+```bash
+uv run pytest
 ```
 
 Run the tests:
