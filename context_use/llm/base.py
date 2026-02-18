@@ -9,7 +9,7 @@ from typing import Any, TypeVar, cast
 
 import litellm
 from litellm.exceptions import APIError
-from litellm.types.utils import ModelResponse
+from litellm.types.utils import Choices, ModelResponse
 from pydantic import BaseModel
 from tenacity import (
     retry,
@@ -18,11 +18,15 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
+from context_use.llm.models import OpenAIModel
+
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
 BatchResults = dict[str, T]
+
+AvailableLlmModels = OpenAIModel
 
 
 @dataclass
@@ -61,8 +65,8 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
 
 
 class LLMClient:
-    def __init__(self, model: str, api_key: str) -> None:
-        self._model = model
+    def __init__(self, model: AvailableLlmModels, api_key: str) -> None:
+        self._model = model.value
         self._api_key = api_key
         self._results_cache: dict[str, dict[str, str]] = {}
 
@@ -89,7 +93,8 @@ class LLMClient:
             ),
         )
 
-        text = response.choices[0].message.content  # type: ignore[union-attr]
+        choices = cast(list[Choices], response.choices)
+        text = choices[0].message.content
         if not text:
             raise ValueError(f"Empty response for item {item.item_id}")
         return item.item_id, text.strip()
