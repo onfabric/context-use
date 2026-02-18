@@ -8,13 +8,13 @@ from typing import Any
 
 import pandas as pd
 
-from context_use.core.exceptions import (
+from context_use.db.base import DatabaseBackend
+from context_use.etl.core.exceptions import (
     ExtractionFailedException,
     TransformFailedException,
     UploadFailedException,
 )
-from context_use.core.types import TaskMetadata
-from context_use.db.base import DatabaseBackend
+from context_use.etl.core.types import TaskMetadata
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -101,7 +101,7 @@ class UploadStrategy:
         batches: list[pd.DataFrame],
         db: DatabaseBackend,
     ) -> int:
-        from context_use.models.thread import Thread
+        from context_use.etl.models.thread import Thread
 
         total = 0
         with db.session_scope() as session:

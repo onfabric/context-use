@@ -5,23 +5,25 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from context_use.core.etl import (
+from context_use.etl.core.etl import (
     ExtractionStrategy,
     OrchestrationStrategy,
     TransformStrategy,
 )
-from context_use.providers.chatgpt.conversations import (
+from context_use.etl.providers.chatgpt.conversations import (
     ChatGPTConversationsExtractionStrategy,
     ChatGPTConversationsTransformStrategy,
 )
-from context_use.providers.chatgpt.orchestration import ChatGPTOrchestrationStrategy
-from context_use.providers.instagram.media import (
+from context_use.etl.providers.chatgpt.orchestration import ChatGPTOrchestrationStrategy
+from context_use.etl.providers.instagram.media import (
     InstagramReelsExtractionStrategy,
     InstagramReelsTransformStrategy,
     InstagramStoriesExtractionStrategy,
     InstagramStoriesTransformStrategy,
 )
-from context_use.providers.instagram.orchestration import InstagramOrchestrationStrategy
+from context_use.etl.providers.instagram.orchestration import (
+    InstagramOrchestrationStrategy,
+)
 
 
 class Provider(StrEnum):

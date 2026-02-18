@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from context_use.core.types import TaskMetadata
-from context_use.providers.chatgpt.conversations import (
+from context_use.etl.core.types import TaskMetadata
+from context_use.etl.providers.chatgpt.conversations import (
     ChatGPTConversationsExtractionStrategy,
 )
 from context_use.storage.disk import DiskStorage

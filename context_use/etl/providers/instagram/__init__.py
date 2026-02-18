@@ -1,10 +1,12 @@
-from context_use.providers.instagram.media import (
+from context_use.etl.providers.instagram.media import (
     InstagramReelsExtractionStrategy,
     InstagramReelsTransformStrategy,
     InstagramStoriesExtractionStrategy,
     InstagramStoriesTransformStrategy,
 )
-from context_use.providers.instagram.orchestration import InstagramOrchestrationStrategy
+from context_use.etl.providers.instagram.orchestration import (
+    InstagramOrchestrationStrategy,
+)
 
 __all__ = [
     "InstagramOrchestrationStrategy",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from context_use.core.etl import OrchestrationStrategy
+from context_use.etl.core.etl import OrchestrationStrategy
 
 
 class ChatGPTOrchestrationStrategy(OrchestrationStrategy):
