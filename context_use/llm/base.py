@@ -4,12 +4,16 @@ import base64
 import json
 import logging
 import mimetypes
+import tempfile
 from dataclasses import dataclass, field
 from typing import Any, TypeVar, cast
 
 import litellm
+from litellm.batches.main import create_batch, retrieve_batch
 from litellm.exceptions import APIError
-from litellm.types.utils import Choices, ModelResponse
+from litellm.files.main import create_file, file_content
+from litellm.types.llms.openai import HttpxBinaryResponseContent, OpenAIFileObject
+from litellm.types.utils import Choices, LiteLLMBatch, ModelResponse
 from pydantic import BaseModel
 from tenacity import (
     retry,
@@ -27,6 +31,8 @@ T = TypeVar("T", bound=BaseModel)
 BatchResults = dict[str, T]
 
 AvailableLlmModels = OpenAIModel
+
+_BATCH_TERMINAL_STATES: set[str] = {"failed", "cancelled", "expired"}
 
 
 @dataclass
@@ -64,11 +70,36 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     return [{"role": "user", "content": parts}]
 
 
+def _build_batch_jsonl_line(
+    item: PromptItem,
+    model: str,
+) -> dict[str, Any]:
+    return {
+        "custom_id": item.item_id,
+        "method": "POST",
+        "url": "/v1/chat/completions",
+        "body": {
+            "model": model,
+            "messages": _build_messages(item),
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "response",
+                    "schema": item.response_schema,
+                },
+            },
+        },
+    }
+
+
 class LLMClient:
     def __init__(self, model: AvailableLlmModels, api_key: str) -> None:
         self._model = model.value
         self._api_key = api_key
-        self._results_cache: dict[str, dict[str, str]] = {}
+
+    @property
+    def _raw_model_name(self) -> str:
+        return self._model.split("/", 1)[-1]
 
     @retry(
         retry=retry_if_exception_type(APIError),
@@ -122,47 +153,123 @@ class LLMClient:
         batch_id: str,
         prompts: list[PromptItem],
     ) -> str:
-        raw: dict[str, str] = {}
-        for item in prompts:
-            try:
-                _, text = self._complete_one(item)
-                raw[item.item_id] = text
-                logger.info("Generated %s", item.item_id)
-            except Exception:
-                logger.error(
-                    "Generation failed for %s",
-                    item.item_id,
-                    exc_info=True,
-                )
+        """Build JSONL, upload to OpenAI, and create a batch job.
 
-        self._results_cache[batch_id] = raw
+        Returns the OpenAI batch ID for polling with ``batch_get_results``.
+        """
+        lines: list[str] = []
+        for item in prompts:
+            line = _build_batch_jsonl_line(item, self._raw_model_name)
+            lines.append(json.dumps(line))
+
+        jsonl_bytes = "\n".join(lines).encode("utf-8")
+
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=True) as tmp:
+            tmp.write(jsonl_bytes)
+            tmp.flush()
+            tmp.seek(0)
+
+            file_obj = cast(
+                OpenAIFileObject,
+                create_file(
+                    file=(f"batch-{batch_id}.jsonl", tmp, "application/jsonl"),
+                    purpose="batch",
+                    custom_llm_provider="openai",
+                    api_key=self._api_key,
+                ),
+            )
+
         logger.info(
-            "Completed %d/%d prompts for batch %s",
-            len(raw),
+            "Uploaded batch file %s (%d prompts) for batch %s",
+            file_obj.id,
             len(prompts),
             batch_id,
         )
-        return batch_id
+
+        batch = cast(
+            LiteLLMBatch,
+            create_batch(
+                completion_window="24h",
+                endpoint="/v1/chat/completions",
+                input_file_id=file_obj.id,
+                custom_llm_provider="openai",
+                api_key=self._api_key,
+            ),
+        )
+
+        logger.info(
+            "Created batch job %s for batch %s (%d prompts)",
+            batch.id,
+            batch_id,
+            len(prompts),
+        )
+        return batch.id
 
     def batch_get_results(
         self,
         job_key: str,
         schema: type[T],
     ) -> BatchResults[T] | None:
-        raw = self._results_cache.pop(job_key, None)
-        if raw is None:
+        """Poll an OpenAI batch job for results.
+
+        Returns ``None`` while the job is still running, parsed
+        ``BatchResults`` when complete, or raises on terminal failure.
+        """
+        batch = cast(
+            LiteLLMBatch,
+            retrieve_batch(
+                batch_id=job_key,
+                custom_llm_provider="openai",
+                api_key=self._api_key,
+            ),
+        )
+
+        if batch.status in _BATCH_TERMINAL_STATES:
+            raise RuntimeError(f"Batch {job_key} ended with status {batch.status}")
+
+        if batch.status != "completed" or not batch.output_file_id:
             return None
 
+        content = cast(
+            HttpxBinaryResponseContent,
+            file_content(
+                file_id=batch.output_file_id,
+                custom_llm_provider="openai",
+                api_key=self._api_key,
+            ),
+        )
+
+        return self._parse_batch_results(content.content, schema)
+
+    def _parse_batch_results(
+        self,
+        raw: bytes,
+        schema: type[T],
+    ) -> BatchResults[T]:
         results: BatchResults[T] = {}
-        for item_id, text in raw.items():
+        for line in raw.decode("utf-8").strip().split("\n"):
+            if not line.strip():
+                continue
             try:
+                data = json.loads(line)
+                custom_id: str | None = data.get("custom_id")
+                text: str = (
+                    data.get("response", {})
+                    .get("body", {})
+                    .get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                    .strip()
+                )
+                if not custom_id or not text:
+                    logger.warning("Skipping result line with missing id or content")
+                    continue
                 parsed = json.loads(text)
-                results[item_id] = schema.model_validate(parsed)
+                results[custom_id] = schema.model_validate(parsed)
             except Exception:
                 logger.error(
-                    "Failed to parse result for %s: %.200s",
-                    item_id,
-                    text,
+                    "Failed to parse batch result line: %.200s",
+                    line,
                     exc_info=True,
                 )
 
