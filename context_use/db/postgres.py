@@ -9,7 +9,7 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from context_use.db.base import DatabaseBackend
-from context_use.models.base import Base
+from context_use.etl.models.base import Base
 
 
 class PostgresBackend(DatabaseBackend):

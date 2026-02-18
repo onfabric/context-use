@@ -10,9 +10,9 @@ from decimal import Decimal
 import ijson
 import pandas as pd
 
-from context_use.core.etl import ExtractionStrategy, TransformStrategy
-from context_use.core.types import TaskMetadata
-from context_use.payload.models import (
+from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
+from context_use.etl.core.types import TaskMetadata
+from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     Application,
     Collection,
@@ -20,7 +20,7 @@ from context_use.payload.models import (
     FibreSendMessage,
     FibreTextMessage,
 )
-from context_use.providers.chatgpt.schemas import ChatGPTMessage
+from context_use.etl.providers.chatgpt.schemas import ChatGPTMessage
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)

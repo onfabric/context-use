@@ -5,7 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from context_use.payload.models import (
+from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     Collection,
     Person,

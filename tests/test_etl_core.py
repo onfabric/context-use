@@ -7,19 +7,19 @@ import datetime
 import pandas as pd
 import pytest
 
-from context_use.core.etl import (
+from context_use.db.sqlite import SQLiteBackend
+from context_use.etl.core.etl import (
     ETLPipeline,
     ExtractionStrategy,
     OrchestrationStrategy,
     TransformStrategy,
     UploadStrategy,
 )
-from context_use.core.exceptions import (
+from context_use.etl.core.exceptions import (
     ExtractionFailedException,
     TransformFailedException,
 )
-from context_use.core.types import TaskMetadata
-from context_use.db.sqlite import SQLiteBackend
+from context_use.etl.core.types import TaskMetadata
 from context_use.storage.disk import DiskStorage
 
 

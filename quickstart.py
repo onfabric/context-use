@@ -16,7 +16,7 @@ Usage:
 import argparse
 
 from context_use import ContextUse
-from context_use.providers.registry import Provider
+from context_use.etl.providers.registry import Provider
 
 parser = argparse.ArgumentParser(description="contextuse quickstart")
 parser.add_argument("--chatgpt", metavar="PATH", help="Path to a ChatGPT export zip")
