@@ -12,3 +12,7 @@ wheels/
 data
 *.db
 *.zip
+
+# Environment files
+.env*
+!.env*.example

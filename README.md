@@ -1,5 +1,23 @@
 # context-use
 
+## Run locally
+
+### Start the local environment
+
+Make sure to have the environment file `.env.docker` with the correct values. See [`env.docker.example`](.env.docker.example).
+
+Then, start the local development environment:
+
+```bash
+./scripts/start-local.sh
+```
+
+### Stop the local environment
+
+```bash
+./scripts/stop-local.sh
+```
+
 ## Development
 
 Install the dependencies:
@@ -16,16 +34,6 @@ uv run pre-commit install
 
 Test the project:
 
-```bash
-uv run pytest
-```
-
-Run the tests:
-```bash
-uv run pytest
-```
-
-Run the tests:
 ```bash
 uv run pytest
 ```
