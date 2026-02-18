@@ -4,10 +4,12 @@ version = "0.1.0"
 description = ""
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "sqlalchemy>=2.0",
+]
 
 [dependency-groups]
-dev = ["pyright>=1.1.408", "ruff>=0.15.1"]
+dev = ["pyright>=1.1.408", "pytest>=8.0", "pytest-cov", "ruff>=0.15.1"]
 
 [project.scripts]
 context-use = "context_use.main:main"
@@ -70,6 +72,9 @@ docstring-code-format = false
 # This only has an effect when the `docstring-code-format` setting is
 # enabled.
 docstring-code-line-length = "dynamic"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.uv]
 package = true
