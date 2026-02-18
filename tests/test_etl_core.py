@@ -133,10 +133,13 @@ class TestOrchestrationStrategy:
             MANIFEST_MAP = {"data.json": "test_task"}
 
         orch = TestOrch()
-        tasks = orch.discover_tasks("a1", ["a1/data.json", "a1/other.txt"])
+        tasks = orch.discover_tasks("a1", ["a1/data.json", "a1/other.txt"], "test")
         assert len(tasks) == 1
-        assert tasks[0]["interaction_type"] == "test_task"
-        assert tasks[0]["filenames"] == ["a1/data.json"]
+        assert isinstance(tasks[0], EtlTask)
+        assert tasks[0].interaction_type == "test_task"
+        assert tasks[0].source_uri == "a1/data.json"
+        assert tasks[0].provider == "test"
+        assert tasks[0].archive_id == "a1"
 
     def test_discover_ignores_suffix_match(self):
         """shared_conversations.json should NOT match conversations.json."""
@@ -148,14 +151,15 @@ class TestOrchestrationStrategy:
         tasks = orch.discover_tasks(
             "a1",
             ["a1/conversations.json", "a1/shared_conversations.json"],
+            "chatgpt",
         )
         assert len(tasks) == 1
-        assert tasks[0]["filenames"] == ["a1/conversations.json"]
+        assert tasks[0].source_uri == "a1/conversations.json"
 
     def test_discover_empty(self):
         class TestOrch(OrchestrationStrategy):
             MANIFEST_MAP = {"data.json": "test_task"}
 
         orch = TestOrch()
-        tasks = orch.discover_tasks("a1", ["a1/other.txt"])
+        tasks = orch.discover_tasks("a1", ["a1/other.txt"], "test")
         assert tasks == []
