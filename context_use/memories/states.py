@@ -68,7 +68,7 @@ _state_map: dict[str, type[State]] = {
 
 
 @register_batch_state_parser(BatchCategory.memories)
-def parse_memory_candidate_batch_state(state_dict: dict) -> State:
+def parse_memory_batch_state(state_dict: dict) -> State:
     status = state_dict.get("status")
     if status is None:
         raise ValueError("State dict missing 'status' key")

@@ -12,5 +12,5 @@ from context_use.memories.manager import (  # noqa: F401
     MemoryBatchManager,
 )
 from context_use.memories.states import (  # noqa: F401
-    parse_memory_candidate_batch_state,
+    parse_memory_batch_state,
 )
