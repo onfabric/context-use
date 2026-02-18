@@ -8,10 +8,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from google import genai
-
 from context_use.etl.models.thread import Thread
-from context_use.llm.gemini.batch import GeminiBatchClient
+from context_use.llm import LLMClient, OpenAIModel
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
@@ -71,9 +69,9 @@ def main() -> None:
     for p in prompts:
         print(f"  {p.item_id}: {len(p.asset_paths)} asset(s)")
 
-    client = GeminiBatchClient(
-        genai_client=genai.Client(api_key=os.environ["GEMINI_API_KEY"]),
-        model="gemini-2.5-flash",
+    client = LLMClient(
+        model=OpenAIModel.GPT_4O,
+        api_key=os.environ["OPENAI_API_KEY"],
     )
 
     job_key = client.batch_submit("smoke-batch-test", prompts)
