@@ -1,6 +1,10 @@
-from context_use.llm.base import BatchLLMClient, PromptItem
+from context_use.llm.base import BatchResults, LLMClient, PromptItem
+from context_use.llm.models import GeminiModel, OpenAIModel
 
 __all__ = [
-    "BatchLLMClient",
+    "BatchResults",
+    "GeminiModel",
+    "LLMClient",
+    "OpenAIModel",
     "PromptItem",
 ]
