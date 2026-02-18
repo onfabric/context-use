@@ -91,4 +91,3 @@ class TestThreadCRUD:
             assert loaded.unique_key == "abc123"
             assert loaded.payload == payload
             assert loaded.asat is not None
-

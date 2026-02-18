@@ -22,9 +22,7 @@ class EtlTaskStatus(StrEnum):
 class EtlTask(TimeStampMixin, Base):
     __tablename__ = "etl_tasks"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=_new_uuid
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
     archive_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("archives.id"), nullable=False
     )
@@ -44,4 +42,3 @@ class EtlTask(TimeStampMixin, Base):
     )
 
     __table_args__ = (Index("ix_etl_tasks_archive_id", "archive_id"),)
-

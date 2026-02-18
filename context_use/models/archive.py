@@ -19,9 +19,7 @@ class ArchiveStatus(StrEnum):
 class Archive(TimeStampMixin, Base):
     __tablename__ = "archives"
 
-    id: Mapped[str] = mapped_column(
-        String(36), primary_key=True, default=_new_uuid
-    )
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_new_uuid)
     provider: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(
         String, nullable=False, default=ArchiveStatus.CREATED

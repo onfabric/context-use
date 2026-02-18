@@ -19,16 +19,10 @@ logger = logging.getLogger(__name__)
 class OrchestrationStrategy:
     MANIFEST_MAP: dict[str, str] = {}
 
-    def discover_tasks(
-        self, archive_id: str, files: list[str]
-    ) -> list[dict]:
+    def discover_tasks(self, archive_id: str, files: list[str]) -> list[dict]:
         discovered: list[dict] = []
         for pattern, interaction_type in self.MANIFEST_MAP.items():
-            matched = [
-                f
-                for f in files
-                if f == f"{archive_id}/{pattern}"
-            ]
+            matched = [f for f in files if f == f"{archive_id}/{pattern}"]
             if matched:
                 discovered.append(
                     {
@@ -114,9 +108,7 @@ class ETLPipeline:
                 f"Transform failed for task {task.etl_task_id}: {exc}"
             ) from exc
 
-    def upload(
-        self, task: TaskMetadata, batches: list[pd.DataFrame]
-    ) -> int:
+    def upload(self, task: TaskMetadata, batches: list[pd.DataFrame]) -> int:
         try:
             return self._upload.upload(task, batches, self._db)
         except Exception as exc:
@@ -128,4 +120,3 @@ class ETLPipeline:
         raw = self.extract(task)
         transformed = self.transform(task, raw)
         return self.upload(task, transformed)
-

@@ -20,4 +20,3 @@ class UnsupportedProviderError(Exception):
 
 class UnknownDataPatternException(Exception):
     pass
-

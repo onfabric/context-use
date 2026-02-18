@@ -36,4 +36,3 @@ class PipelineResult:
     tasks_failed: int = 0
     threads_created: int = 0
     errors: list[str] = field(default_factory=list)
-

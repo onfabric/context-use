@@ -150,4 +150,3 @@ class TestOrchestrationStrategy:
         orch = _TestOrch()
         result = orch.discover_tasks("archive-1", [])
         assert result == []
-
