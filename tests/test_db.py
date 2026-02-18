@@ -67,6 +67,7 @@ class TestPostgresBackend:
                 archive_id=a.id,
                 provider="chatgpt",
                 interaction_type="chatgpt_conversations",
+                source_uri="conversations.json",
                 status=EtlTaskStatus.CREATED.value,
             )
             s.add(t)

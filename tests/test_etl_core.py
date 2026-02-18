@@ -79,6 +79,7 @@ def task(db: PostgresBackend) -> TaskMetadata:
             archive_id=archive.id,
             provider="test",
             interaction_type="test_type",
+            source_uri="test.json",
             status=EtlTaskStatus.CREATED.value,
         )
         s.add(etl_task)

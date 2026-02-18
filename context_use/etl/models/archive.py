@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Index, String
+from sqlalchemy import JSON, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
@@ -33,6 +33,7 @@ class Archive(TimeStampMixin, Base):
         nullable=False,
         default=ArchiveStatus.CREATED.value,
     )
+    file_uris: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     etl_tasks: Mapped[list[EtlTask]] = relationship(
         "EtlTask", back_populates="archive", cascade="all, delete-orphan"
