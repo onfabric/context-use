@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 @register_batch_manager(BatchCategory.memories)
 class MemoryBatchManager(BaseBatchManager):
-    """Generates memory candidates from asset threads grouped by day.
+    """Generates memories from asset threads grouped by day.
 
     State machine:
         CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE → COMPLETE
@@ -99,32 +99,21 @@ class MemoryBatchManager(BaseBatchManager):
         self,
         results: BatchResults[MemorySchema],
     ) -> int:
-        """Write memory candidates to the ``tapestry_memories`` table."""
-        threads = self._get_batch_threads()
-
-        # Infer provider/interaction_type from the first thread
-        first = threads[0] if threads else None
-        provider = first.provider if first else "unknown"
-        interaction_type = first.interaction_type if first else "unknown"
-
+        """Write memories to the ``tapestry_memories`` table."""
         count = 0
         for day_key, schema in results.items():
             memory_date = date.fromisoformat(day_key)
 
             for candidate in schema.candidates:
                 memory = TapestryMemory(
-                    batch_id=self.batch.id,
-                    etl_task_id=self.batch.etl_task_id,
-                    memory_date=memory_date,
                     content=candidate.content,
-                    source_thread_ids=candidate.source_thread_ids,
-                    provider=provider,
-                    interaction_type=interaction_type,
+                    from_date=memory_date,
+                    to_date=memory_date,
                     tapestry_id=self.batch.tapestry_id,
                 )
                 self.db.add(memory)
                 count += 1
 
         self.db.commit()
-        logger.info("[%s] Stored %d memory candidates", self.batch.id, count)
+        logger.info("[%s] Stored %d memories", self.batch.id, count)
         return count

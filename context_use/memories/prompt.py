@@ -22,7 +22,7 @@ from context_use.llm.base import PromptItem
 
 
 class Memory(BaseModel):
-    """A single memory candidate produced by the LLM."""
+    """A single memory produced by the LLM."""
 
     content: str = Field(description="A short, meaningful memory in 1-2 sentences")
     source_thread_ids: list[str] = Field(
@@ -33,9 +33,7 @@ class Memory(BaseModel):
 class MemorySchema(BaseModel):
     """Top-level response the LLM should return per day."""
 
-    candidates: list[Memory] = Field(
-        description="List of memory candidates for this day"
-    )
+    candidates: list[Memory] = Field(description="List of memories for this day")
 
     @classmethod
     def json_schema(cls) -> dict:
@@ -62,7 +60,7 @@ Your task is to identify the meaningful **memories** from this day.
 A memory is a concise 1-2 sentence summary that captures something personally
 significant — an event, an experience, or an emotional moment.
 
-Generate between 1 and 5 memory candidates.  Each candidate must reference
+Generate between 1 and 5 memories.  Each candidate must reference
 which posts (by their thread_id) it is derived from.
 
 ## Posts from {{DATE}}
