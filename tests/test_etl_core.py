@@ -98,36 +98,35 @@ class TestETLPipeline:
     def test_full_run(self, tmp_path, task, db: PostgresBackend):
         storage = DiskStorage(str(tmp_path / "s"))
 
-        pipeline = ETLPipeline(
-            extraction=MockExtraction(),
-            transform=MockTransform(),
-            upload=UploadStrategy(),
-            storage=storage,
-            db=db,
-        )
-        count = pipeline.run(task)
-        assert count == 2
+        with db.session_scope() as session:
+            pipeline = ETLPipeline(
+                extraction=MockExtraction(),
+                transform=MockTransform(),
+                upload=UploadStrategy(),
+                storage=storage,
+                session=session,
+            )
+            count = pipeline.run(task)
+            assert count == 2
 
-    def test_extract_failure(self, tmp_path, task, db: PostgresBackend):
+    def test_extract_failure(self, tmp_path, task):
         storage = DiskStorage(str(tmp_path / "s"))
 
         pipeline = ETLPipeline(
             extraction=FailingExtraction(),
             transform=MockTransform(),
             storage=storage,
-            db=db,
         )
         with pytest.raises(ExtractionFailedException):
             pipeline.run(task)
 
-    def test_transform_failure(self, tmp_path, task, db: PostgresBackend):
+    def test_transform_failure(self, tmp_path, task):
         storage = DiskStorage(str(tmp_path / "s"))
 
         pipeline = ETLPipeline(
             extraction=MockExtraction(),
             transform=FailingTransform(),
             storage=storage,
-            db=db,
         )
         with pytest.raises(TransformFailedException):
             pipeline.run(task)

@@ -7,8 +7,8 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import pandas as pd
+from sqlalchemy.orm import Session
 
-from context_use.db.base import DatabaseBackend
 from context_use.etl.core.exceptions import (
     ExtractionFailedException,
     TransformFailedException,
@@ -99,29 +99,28 @@ class UploadStrategy:
         self,
         task: TaskMetadata,
         batches: list[pd.DataFrame],
-        db: DatabaseBackend,
+        session: Session,
     ) -> int:
         from context_use.etl.models.thread import Thread
 
         total = 0
-        with db.session_scope() as session:
-            for df in batches:
-                for _, row in df.iterrows():
-                    thread = Thread(
-                        unique_key=row["unique_key"],
-                        tapestry_id=task.tapestry_id or None,
-                        etl_task_id=task.etl_task_id,
-                        provider=row["provider"],
-                        interaction_type=row["interaction_type"],
-                        preview=row["preview"],
-                        payload=row["payload"],
-                        source=row.get("source"),
-                        version=row["version"],
-                        asat=row["asat"],
-                        asset_uri=row.get("asset_uri"),
-                    )
-                    session.add(thread)
-                    total += 1
+        for df in batches:
+            for _, row in df.iterrows():
+                thread = Thread(
+                    unique_key=row["unique_key"],
+                    tapestry_id=task.tapestry_id or None,
+                    etl_task_id=task.etl_task_id,
+                    provider=row["provider"],
+                    interaction_type=row["interaction_type"],
+                    preview=row["preview"],
+                    payload=row["payload"],
+                    source=row.get("source"),
+                    version=row["version"],
+                    asat=row["asat"],
+                    asset_uri=row.get("asset_uri"),
+                )
+                session.add(thread)
+                total += 1
         return total
 
 
@@ -139,13 +138,13 @@ class ETLPipeline:
         transform: TransformStrategy,
         upload: UploadStrategy | None = None,
         storage: StorageBackend | None = None,
-        db: DatabaseBackend | None = None,
+        session: Session | None = None,
     ) -> None:
         self._extraction = extraction
         self._transform = transform
         self._upload = upload or UploadStrategy()
         self._storage = storage
-        self._db = db
+        self._session = session
 
     def extract(self, task: TaskMetadata) -> list[pd.DataFrame]:
         """Step 1: Extract raw records from provider data."""
@@ -173,10 +172,10 @@ class ETLPipeline:
         batches: list[pd.DataFrame],
     ) -> int:
         """Step 3: Upload thread records to the database."""
-        if self._db is None:
-            raise RuntimeError("Database backend not configured")
+        if self._session is None:
+            raise RuntimeError("Database session not configured")
         try:
-            return self._upload.upload(task, batches, self._db)
+            return self._upload.upload(task, batches, self._session)
         except Exception as exc:
             raise UploadFailedException(str(exc)) from exc
 
