@@ -60,9 +60,9 @@ class MemoryCandidateBatchManager(BaseBatchManager):
                 logger.info("[%s] Starting memory-candidate generation", self.batch.id)
                 return self._trigger_memory_generation()
 
-            case MemoryGeneratePendingState():
+            case MemoryGeneratePendingState() as state:
                 logger.info("[%s] Polling memory generation", self.batch.id)
-                return self._check_memory_generation_status()
+                return self._check_memory_generation_status(state)
 
             case MemoryGenerateCompleteState():
                 logger.info("[%s] Memory generation complete", self.batch.id)
@@ -86,12 +86,13 @@ class MemoryCandidateBatchManager(BaseBatchManager):
         job_key = self.extractor.submit(self.batch.id, threads)
         return MemoryGeneratePendingState(job_key=job_key)
 
-    def _check_memory_generation_status(self) -> State:
-        job_key = self.batch.current_state.job_key  # type: ignore[union-attr]
-        results = self.extractor.get_results(job_key)
+    def _check_memory_generation_status(
+        self, state: MemoryGeneratePendingState
+    ) -> State:
+        results = self.extractor.get_results(state.job_key)
 
         if results is None:
-            return self.batch.current_state  # still polling
+            return state  # still polling
 
         count = self._store_memories(results)
         return MemoryGenerateCompleteState(memories_count=count)

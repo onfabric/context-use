@@ -70,7 +70,9 @@ _state_map: dict[str, type[State]] = {
 @register_batch_state_parser(BatchCategory.memory_candidates)
 def parse_memory_candidate_batch_state(state_dict: dict) -> State:
     status = state_dict.get("status")
-    cls = _state_map.get(status)  # type: ignore[arg-type]
+    if status is None:
+        raise ValueError("State dict missing 'status' key")
+    cls = _state_map.get(status)
     if cls is None:
         raise ValueError(f"Unknown MemoryCandidateBatch state: {status}")
     return cls.model_validate(state_dict)
