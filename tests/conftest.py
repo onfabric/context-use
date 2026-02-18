@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import zipfile
 from collections.abc import Generator
 from pathlib import Path
@@ -179,15 +180,29 @@ def instagram_zip(tmp_path: Path) -> Path:
     return p
 
 
+class Settings:
+    def __init__(self) -> None:
+        self.host = str(os.getenv("POSTGRES_HOST"))
+        self.port = int(str(os.getenv("POSTGRES_PORT")))
+        self.database = str(os.getenv("POSTGRES_DB"))
+        self.user = str(os.getenv("POSTGRES_USER"))
+        self.password = str(os.getenv("POSTGRES_PASSWORD"))
+
+
 @pytest.fixture(scope="session")
-def db() -> PostgresBackend:
+def settings() -> Settings:
+    return Settings()
+
+
+@pytest.fixture(scope="session")
+def db(settings: Settings) -> PostgresBackend:
     """Used in each test to get a fresh database."""
     backend = PostgresBackend(
-        host="localhost",
-        port=5432,
-        database="context_use_tests",
-        user="postgres",
-        password="postgres",
+        host=settings.host,
+        port=settings.port,
+        database=settings.database,
+        user=settings.user,
+        password=settings.password,
     )
     backend.init_db()
     return backend

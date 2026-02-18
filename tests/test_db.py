@@ -9,23 +9,24 @@ from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.base import Base
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.models.thread import Thread
+from tests.conftest import Settings
 
 
-def _make_db() -> PostgresBackend:
+def _make_db(settings: Settings) -> PostgresBackend:
     db = PostgresBackend(
-        host="localhost",
-        port=5432,
-        database="context_use_tests",
-        user="postgres",
-        password="postgres",
+        host=settings.host,
+        port=settings.port,
+        database=settings.database,
+        user=settings.user,
+        password=settings.password,
     )
     db.init_db()
     return db
 
 
 @pytest.fixture(autouse=True)
-def _clean_tables() -> Generator[None]:
-    db = _make_db()
+def _clean_tables(settings: Settings) -> Generator[None]:
+    db = _make_db(settings)
     yield
     with db.session_scope() as session:
         for table in reversed(Base.metadata.sorted_tables):
@@ -33,16 +34,16 @@ def _clean_tables() -> Generator[None]:
 
 
 class TestPostgresBackend:
-    def test_init_creates_tables(self):
-        db = _make_db()
+    def test_init_creates_tables(self, settings: Settings):
+        db = _make_db(settings)
         inspector = inspect(db.get_engine())
         tables = inspector.get_table_names()
         assert "archives" in tables
         assert "etl_tasks" in tables
         assert "threads" in tables
 
-    def test_archive_crud(self):
-        db = _make_db()
+    def test_archive_crud(self, settings: Settings):
+        db = _make_db(settings)
         with db.session_scope() as s:
             a = Archive(provider="chatgpt", status=ArchiveStatus.CREATED.value)
             s.add(a)
@@ -55,8 +56,8 @@ class TestPostgresBackend:
             assert row.provider == "chatgpt"
             assert row.status == "created"
 
-    def test_etl_task_crud(self):
-        db = _make_db()
+    def test_etl_task_crud(self, settings: Settings):
+        db = _make_db(settings)
         with db.session_scope() as s:
             a = Archive(provider="chatgpt", status=ArchiveStatus.CREATED.value)
             s.add(a)
@@ -77,8 +78,8 @@ class TestPostgresBackend:
             assert row is not None
             assert row.interaction_type == "chatgpt_conversations"
 
-    def test_thread_crud(self):
-        db = _make_db()
+    def test_thread_crud(self, settings: Settings):
+        db = _make_db(settings)
         with db.session_scope() as s:
             t = Thread(
                 unique_key="test:key",
