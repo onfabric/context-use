@@ -27,7 +27,7 @@ class TestE2EErrors:
         dummy.write_bytes(data)
 
         with pytest.raises(UnsupportedProviderError):
-            ctx.process_archive("unknown_provider", str(dummy))
+            ctx.process_archive("unknown_provider", str(dummy))  # pyright: ignore[reportArgumentType]
 
     def test_empty_archive(self, ctx: ContextUse, tmp_path: Path):
         """An archive with no matching manifests should still succeed with 0 tasks."""
