@@ -23,6 +23,7 @@ class TestE2EChatGPT:
             from context_use.etl.models.etl_task import EtlTask
 
             archive = s.get(Archive, result.archive_id)
+            assert archive is not None
             assert archive.status == ArchiveStatus.COMPLETED.value
             assert archive.provider == "chatgpt"
 

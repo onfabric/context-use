@@ -35,7 +35,16 @@ class ContextUse:
 
         ctx = ContextUse.from_config({
             "storage": {"provider": "disk", "config": {"base_path": "./data"}},
-            "db":      {"provider": "sqlite", "config": {"path": "./context_use.db"}},
+            "db": {
+                "provider": "postgres",
+                "config": {
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "context_use",
+                    "user": "postgres",
+                    "password": "postgres",
+                },
+            },
         })
         result = ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
     """

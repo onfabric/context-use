@@ -1,10 +1,5 @@
 from __future__ import annotations
 
-try:
-    import psycopg2  # noqa: F401  # pyright: ignore[reportMissingModuleSource]
-except ImportError:
-    psycopg2 = None  # type: ignore[assignment]
-
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -13,26 +8,14 @@ from context_use.etl.models.base import Base
 
 
 class PostgresBackend(DatabaseBackend):
-    """PostgreSQL database backend.
-
-    Requires ``psycopg2-binary``.  Install via::
-
-        pip install "context_use[postgres]"
-    """
-
     def __init__(
         self,
-        host: str = "localhost",
-        port: int = 5432,
-        database: str = "context_use",
-        user: str = "postgres",
-        password: str = "",
+        host: str,
+        port: int,
+        database: str,
+        user: str,
+        password: str,
     ) -> None:
-        if psycopg2 is None:
-            raise ImportError(
-                "psycopg2-binary is required for PostgresBackend. "
-                "Install with: pip install 'context_use[postgres]'"
-            )
         url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
         self._engine = create_engine(url, echo=False)
         self._session_factory = sessionmaker(bind=self._engine)

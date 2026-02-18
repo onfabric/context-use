@@ -32,10 +32,26 @@ Install the pre-commit hooks:
 uv run pre-commit install
 ```
 
-Test the project:
+## Testing
+
+Make sure to have the environment file `.env.tests` with the correct values. See [`env.tests.example`](.env.tests.example).
+
+Prepare the test environment:
 
 ```bash
-uv run pytest
+./scripts/prepare-tests.sh
+```
+
+Run the tests:
+
+```bash
+./scripts/run-tests.sh
+```
+
+Stop the test environment:
+
+```bash
+./scripts/shutdown-tests.sh
 ```
 
 ## Type Checking

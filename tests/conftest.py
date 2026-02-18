@@ -4,13 +4,16 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import zipfile
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 
 from context_use import ContextUse
-from context_use.db.sqlite import SQLiteBackend
+from context_use.db.postgres import PostgresBackend
+from context_use.etl.models.base import Base
 from context_use.storage.disk import DiskStorage
 
 # ---------------------------------------------------------------------------
@@ -177,14 +180,44 @@ def instagram_zip(tmp_path: Path) -> Path:
     return p
 
 
-# ---------------------------------------------------------------------------
-# Pre-configured ContextUse
-# ---------------------------------------------------------------------------
+class Settings:
+    def __init__(self) -> None:
+        self.host = str(os.getenv("POSTGRES_HOST"))
+        self.port = int(str(os.getenv("POSTGRES_PORT")))
+        self.database = str(os.getenv("POSTGRES_DB"))
+        self.user = str(os.getenv("POSTGRES_USER"))
+        self.password = str(os.getenv("POSTGRES_PASSWORD"))
+
+
+@pytest.fixture(scope="session")
+def settings() -> Settings:
+    return Settings()
+
+
+@pytest.fixture(scope="session")
+def db(settings: Settings) -> PostgresBackend:
+    """Used in each test to get a fresh database."""
+    backend = PostgresBackend(
+        host=settings.host,
+        port=settings.port,
+        database=settings.database,
+        user=settings.user,
+        password=settings.password,
+    )
+    backend.init_db()
+    return backend
+
+
+@pytest.fixture(autouse=True)
+def _clean_tables(db: PostgresBackend) -> Generator[None]:
+    """Used after each test to clean the database."""
+    yield
+    with db.session_scope() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            session.execute(table.delete())
 
 
 @pytest.fixture()
-def ctx(tmp_path: Path) -> ContextUse:
-    """Create a ContextUse instance with tmp disk storage and in-memory SQLite."""
+def ctx(tmp_path: Path, db: PostgresBackend) -> ContextUse:
     storage = DiskStorage(base_path=str(tmp_path / "storage"))
-    db = SQLiteBackend(path=":memory:")
     return ContextUse(storage=storage, db=db)

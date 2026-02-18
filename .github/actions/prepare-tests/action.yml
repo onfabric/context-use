@@ -1,0 +1,21 @@
+name: Prepare Tests
+description: Prepare test environment
+
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/prepare
+
+    - name: Create env file
+      shell: bash
+      run: |
+        # Follows .env.tests.example
+        echo "POSTGRES_HOST=localhost" > .env.tests
+        echo "POSTGRES_PORT=5432" >> .env.tests
+        echo "POSTGRES_DB=context_use_tests" >> .env.tests
+        echo "POSTGRES_USER=postgres" >> .env.tests
+        echo "POSTGRES_PASSWORD=postgres" >> .env.tests
+
+    - name: Start test environment
+      shell: bash
+      run: ./scripts/prepare-tests.sh

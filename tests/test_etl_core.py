@@ -7,7 +7,7 @@ import datetime
 import pandas as pd
 import pytest
 
-from context_use.db.sqlite import SQLiteBackend
+from context_use.db.postgres import PostgresBackend
 from context_use.etl.core.etl import (
     ETLPipeline,
     ExtractionStrategy,
@@ -20,6 +20,8 @@ from context_use.etl.core.exceptions import (
     TransformFailedException,
 )
 from context_use.etl.core.types import TaskMetadata
+from context_use.etl.models.archive import Archive, ArchiveStatus
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.storage.disk import DiskStorage
 
 
@@ -67,21 +69,33 @@ class FailingTransform(TransformStrategy):
 
 
 @pytest.fixture()
-def task():
-    return TaskMetadata(
-        archive_id="a1",
-        etl_task_id="t1",
-        provider="test",
-        interaction_type="test_type",
-        filenames=["test.json"],
-    )
+def task(db: PostgresBackend) -> TaskMetadata:
+    with db.session_scope() as s:
+        archive = Archive(provider="test", status=ArchiveStatus.CREATED.value)
+        s.add(archive)
+        s.flush()
+
+        etl_task = EtlTask(
+            archive_id=archive.id,
+            provider="test",
+            interaction_type="test_type",
+            status=EtlTaskStatus.CREATED.value,
+        )
+        s.add(etl_task)
+        s.flush()
+
+        return TaskMetadata(
+            archive_id=archive.id,
+            etl_task_id=etl_task.id,
+            provider="test",
+            interaction_type="test_type",
+            filenames=["test.json"],
+        )
 
 
 class TestETLPipeline:
-    def test_full_run(self, tmp_path, task):
+    def test_full_run(self, tmp_path, task, db: PostgresBackend):
         storage = DiskStorage(str(tmp_path / "s"))
-        db = SQLiteBackend(":memory:")
-        db.init_db()
 
         pipeline = ETLPipeline(
             extraction=MockExtraction(),
@@ -93,10 +107,8 @@ class TestETLPipeline:
         count = pipeline.run(task)
         assert count == 2
 
-    def test_extract_failure(self, tmp_path, task):
+    def test_extract_failure(self, tmp_path, task, db: PostgresBackend):
         storage = DiskStorage(str(tmp_path / "s"))
-        db = SQLiteBackend(":memory:")
-        db.init_db()
 
         pipeline = ETLPipeline(
             extraction=FailingExtraction(),
@@ -107,10 +119,8 @@ class TestETLPipeline:
         with pytest.raises(ExtractionFailedException):
             pipeline.run(task)
 
-    def test_transform_failure(self, tmp_path, task):
+    def test_transform_failure(self, tmp_path, task, db: PostgresBackend):
         storage = DiskStorage(str(tmp_path / "s"))
-        db = SQLiteBackend(":memory:")
-        db.init_db()
 
         pipeline = ETLPipeline(
             extraction=MockExtraction(),
