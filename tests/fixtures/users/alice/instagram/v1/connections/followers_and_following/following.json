@@ -1,0 +1,23 @@
+{
+  "relationships_following": [
+    {
+      "title": "synthetic_foodblog",
+      "string_list_data": [
+        {
+          "href": "https://www.instagram.com/_u/synthetic_foodblog",
+          "timestamp": 1770897717
+        }
+      ]
+    },
+    {
+      "title": "synthetic_photographer",
+      "string_list_data": [
+        {
+          "href": "https://www.instagram.com/_u/synthetic_photographer",
+          "timestamp": 1770776056
+        }
+      ]
+    }
+  ]
+}
+

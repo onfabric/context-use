@@ -1,8 +1,20 @@
-"""ETL pipeline result types."""
+"""ETL pipeline result and intermediate types."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+from pydantic import BaseModel
+
+
+@dataclass
+class ExtractedBatch[T: BaseModel]:
+    """Typed batch of records flowing from Extract to Transform."""
+
+    records: list[T]
+
+    def __len__(self) -> int:
+        return len(self.records)
 
 
 @dataclass

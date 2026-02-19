@@ -12,6 +12,7 @@ from context_use.etl.providers.instagram.media import (
     InstagramStoriesExtractionStrategy,
     InstagramStoriesTransformStrategy,
 )
+from context_use.etl.providers.instagram.schemas import InstagramMediaRecord
 from context_use.storage.disk import DiskStorage
 from tests.conftest import INSTAGRAM_REELS_JSON, INSTAGRAM_STORIES_JSON
 
@@ -89,6 +90,13 @@ class TestInstagramStoriesTransform:
             assert uri is not None
             assert uri.startswith(f"{task.archive_id}/")
             assert "media/stories/" in uri
+
+    def test_record_schema_matches_extraction(self):
+        assert (
+            InstagramStoriesTransformStrategy.record_schema
+            is InstagramStoriesExtractionStrategy.record_schema
+        )
+        assert InstagramStoriesTransformStrategy.record_schema is InstagramMediaRecord
 
 
 class TestInstagramReelsTransform:

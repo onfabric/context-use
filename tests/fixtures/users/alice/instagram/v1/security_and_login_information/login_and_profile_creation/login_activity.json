@@ -1,0 +1,36 @@
+{
+  "account_history_login_history": [
+    {
+      "title": "2026-02-05T16:42:25+00:00",
+      "media_map_data": {},
+      "string_map_data": {
+        "Cookie name": {
+          "href": "",
+          "value": "*************************Xxx",
+          "timestamp": 0
+        },
+        "IP address": {
+          "href": "",
+          "value": "192.0.2.100",
+          "timestamp": 0
+        },
+        "Port": {
+          "href": "",
+          "value": "58440",
+          "timestamp": 0
+        },
+        "Language code": {
+          "href": "",
+          "value": "en-gb",
+          "timestamp": 0
+        },
+        "Time": {
+          "href": "",
+          "value": "",
+          "timestamp": 1738770145
+        }
+      }
+    }
+  ]
+}
+

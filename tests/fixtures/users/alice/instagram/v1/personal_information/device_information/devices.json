@@ -1,0 +1,37 @@
+{
+  "devices_devices": [
+    {
+      "title": "",
+      "media_map_data": {},
+      "string_map_data": {
+        "Last login": {
+          "href": "",
+          "value": "",
+          "timestamp": 1770309745
+        },
+        "User agent": {
+          "href": "",
+          "value": "Mozilla/5.0 (X11; Linux x86_64; rv:100.0) Gecko/20100101 Firefox/100.0",
+          "timestamp": 0
+        }
+      }
+    },
+    {
+      "title": "",
+      "media_map_data": {},
+      "string_map_data": {
+        "Last login": {
+          "href": "",
+          "value": "",
+          "timestamp": 1769000000
+        },
+        "User agent": {
+          "href": "",
+          "value": "Instagram 300.0.0.0.0 Android (34/14; 420dpi; 1080x2400; SyntheticCorp; Synthetic Phone X; synphone; qcom; en_US; 000000000)",
+          "timestamp": 0
+        }
+      }
+    }
+  ]
+}
+

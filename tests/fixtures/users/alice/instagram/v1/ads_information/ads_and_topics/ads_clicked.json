@@ -1,0 +1,20 @@
+{
+  "timestamp": 1771189528,
+  "media": [],
+  "label_values": [
+    {
+      "label": "Action"
+    },
+    {
+      "label": "Title",
+      "value": "Synthetic Ad Title"
+    },
+    {
+      "label": "URL",
+      "value": "https://www.instagram.com/p/SYNTHETIC_AD/",
+      "href": "https://www.instagram.com/p/SYNTHETIC_AD/"
+    }
+  ],
+  "fbid": "00000000000000000:0000000000000000:000000000000000000:3:AdsHistoryData"
+}
+

@@ -30,3 +30,17 @@ class InstagramReelsManifest(BaseModel):
     """Top-level schema for ``reels.json``."""
 
     ig_reels_media: list[InstagramReelsEntry]
+
+
+class InstagramMediaRecord(BaseModel):
+    """Enriched extraction output for Instagram media (stories, reels, posts).
+
+    Shared across ``instagram_stories``, ``instagram_reels``, and
+    (future) ``instagram_posts`` interaction types.
+    """
+
+    uri: str
+    creation_timestamp: int
+    title: str = ""
+    media_type: str  # "Image" or "Video", inferred from URI extension
+    source: str | None = None

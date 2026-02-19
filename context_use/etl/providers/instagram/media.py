@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 import pandas as pd
 
 from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
+from context_use.etl.core.types import ExtractedBatch
 from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
@@ -18,6 +19,7 @@ from context_use.etl.payload.models import (
 )
 from context_use.etl.providers.instagram.schemas import (
     InstagramMediaItem,
+    InstagramMediaRecord,
     InstagramReelsManifest,
     InstagramStoriesManifest,
 )
@@ -42,18 +44,18 @@ def _infer_media_type(uri: str) -> str:
 def _items_to_records(
     items: list[InstagramMediaItem],
     source_file: str,
-) -> list[dict]:
-    """Convert a list of InstagramMediaItem into flat dicts for a DataFrame."""
-    records: list[dict] = []
+) -> list[InstagramMediaRecord]:
+    """Convert a list of InstagramMediaItem into InstagramMediaRecord instances."""
+    records: list[InstagramMediaRecord] = []
     for item in items:
         records.append(
-            {
-                "uri": item.uri,
-                "creation_timestamp": item.creation_timestamp,
-                "title": item.title,
-                "media_type": _infer_media_type(item.uri),
-                "source": json.dumps({"file": source_file, "uri": item.uri}),
-            }
+            InstagramMediaRecord(
+                uri=item.uri,
+                creation_timestamp=item.creation_timestamp,
+                title=item.title,
+                media_type=_infer_media_type(item.uri),
+                source=json.dumps({"file": source_file, "uri": item.uri}),
+            )
         )
     return records
 
@@ -64,13 +66,15 @@ def _items_to_records(
 
 
 class InstagramStoriesExtractionStrategy(ExtractionStrategy):
-    """Reads ``stories.json`` and yields DataFrames of raw story records."""
+    """Reads ``stories.json`` and yields batches of typed media records."""
+
+    record_schema = InstagramMediaRecord  # type: ignore[reportAssignmentType]
 
     def extract(
         self,
         task: EtlTask,
         storage: StorageBackend,
-    ) -> list[pd.DataFrame]:
+    ) -> list[ExtractedBatch[InstagramMediaRecord]]:
         key = task.source_uri
 
         raw = storage.read(key)
@@ -79,7 +83,7 @@ class InstagramStoriesExtractionStrategy(ExtractionStrategy):
         records = _items_to_records(manifest.ig_stories, key)
         if not records:
             return []
-        return [pd.DataFrame(records)]
+        return [ExtractedBatch(records=records)]
 
 
 # ---------------------------------------------------------------------------
@@ -88,13 +92,15 @@ class InstagramStoriesExtractionStrategy(ExtractionStrategy):
 
 
 class InstagramReelsExtractionStrategy(ExtractionStrategy):
-    """Reads ``reels.json`` and yields DataFrames of raw reel records."""
+    """Reads ``reels.json`` and yields batches of typed media records."""
+
+    record_schema = InstagramMediaRecord  # type: ignore[reportAssignmentType]
 
     def extract(
         self,
         task: EtlTask,
         storage: StorageBackend,
-    ) -> list[pd.DataFrame]:
+    ) -> list[ExtractedBatch[InstagramMediaRecord]]:
         key = task.source_uri
 
         raw = storage.read(key)
@@ -108,7 +114,7 @@ class InstagramReelsExtractionStrategy(ExtractionStrategy):
         records = _items_to_records(all_items, key)
         if not records:
             return []
-        return [pd.DataFrame(records)]
+        return [ExtractedBatch(records=records)]
 
 
 # ---------------------------------------------------------------------------
@@ -119,22 +125,23 @@ class InstagramReelsExtractionStrategy(ExtractionStrategy):
 class _InstagramMediaTransformStrategy(TransformStrategy):
     """Shared transform logic for Instagram media (stories and reels)."""
 
+    record_schema = InstagramMediaRecord  # type: ignore[reportAssignmentType]
+
     def transform(
         self,
         task: EtlTask,
-        batches: list[pd.DataFrame],
+        batches: list[ExtractedBatch[InstagramMediaRecord]],
     ) -> list[pd.DataFrame]:
         result_batches: list[pd.DataFrame] = []
 
-        for df in batches:
+        for batch in batches:
             rows: list[dict] = []
-            for _, record in df.iterrows():
+            for record in batch.records:
                 payload = self._build_payload(record, task.provider)
                 if payload is None:
                     continue
 
-                ts = record["creation_timestamp"]
-                asat = datetime.fromtimestamp(float(ts), tz=UTC)  # type: ignore[reportArgumentType]
+                asat = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
 
                 unique_key = f"{task.interaction_type}:{payload.unique_key_suffix()}"
                 rows.append(
@@ -144,13 +151,11 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
                         "interaction_type": task.interaction_type,
                         "preview": payload.get_preview(task.provider) or "",
                         "payload": payload.to_dict(),
-                        "source": record.get("source"),
+                        "source": record.source,
                         "version": CURRENT_THREAD_PAYLOAD_VERSION,
                         "asat": asat,
                         "asset_uri": (
-                            f"{task.archive_id}/{record['uri']}"
-                            if record.get("uri")
-                            else None
+                            f"{task.archive_id}/{record.uri}" if record.uri else None
                         ),
                     }
                 )
@@ -161,17 +166,20 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
         return result_batches
 
     @staticmethod
-    def _build_payload(record: pd.Series, provider: str) -> FibreCreateObject | None:
-        media_type = record["media_type"]
-        uri = record["uri"]
-        title = record.get("title", "")
-        ts = record["creation_timestamp"]
-        published = datetime.fromtimestamp(float(ts), tz=UTC)  # type: ignore[reportArgumentType]
+    def _build_payload(
+        record: InstagramMediaRecord,
+        provider: str,
+    ) -> FibreCreateObject | None:
+        published = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
 
-        if media_type == "Video":
-            media_obj = Video(url=uri, name=title or None, published=published)  # type: ignore[reportCallIssue]
+        if record.media_type == "Video":
+            media_obj = Video(
+                url=record.uri, name=record.title or None, published=published
+            )  # type: ignore[reportCallIssue]
         else:
-            media_obj = Image(url=uri, name=title or None, published=published)  # type: ignore[reportCallIssue]
+            media_obj = Image(
+                url=record.uri, name=record.title or None, published=published
+            )  # type: ignore[reportCallIssue]
 
         return FibreCreateObject(  # type: ignore[reportCallIssue]
             object=media_obj,

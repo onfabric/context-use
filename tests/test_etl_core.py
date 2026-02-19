@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,36 +22,46 @@ from context_use.etl.core.exceptions import (
     ExtractionFailedException,
     TransformFailedException,
 )
+from context_use.etl.core.types import ExtractedBatch
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.models.thread import Thread
 from context_use.storage.disk import DiskStorage
 
 
+class MockRecord(BaseModel):
+    role: str
+    content: str
+
+
 class MockExtraction(ExtractionStrategy):
+    record_schema = MockRecord  # type: ignore[reportAssignmentType]
+
     def extract(self, task, storage):
         return [
-            pd.DataFrame(
-                [
-                    {"role": "user", "content": "hi"},
-                    {"role": "assistant", "content": "hello"},
+            ExtractedBatch(
+                records=[
+                    MockRecord(role="user", content="hi"),
+                    MockRecord(role="assistant", content="hello"),
                 ]
             )
         ]
 
 
 class MockTransform(TransformStrategy):
+    record_schema = MockRecord  # type: ignore[reportAssignmentType]
+
     def transform(self, task, batches):
         rows = []
-        for df in batches:
-            for _, r in df.iterrows():
+        for batch in batches:
+            for record in batch.records:
                 rows.append(
                     {
-                        "unique_key": f"mock:{r['content']}",
+                        "unique_key": f"mock:{record.content}",
                         "provider": task.provider,
                         "interaction_type": task.interaction_type,
-                        "preview": r["content"],
-                        "payload": {"text": r["content"]},
+                        "preview": record.content,
+                        "payload": {"text": record.content},
                         "source": None,
                         "version": "1.0.0",
                         "asat": datetime.datetime.now(datetime.UTC),
@@ -61,13 +72,28 @@ class MockTransform(TransformStrategy):
 
 
 class FailingExtraction(ExtractionStrategy):
+    record_schema = MockRecord  # type: ignore[reportAssignmentType]
+
     def extract(self, task, storage):
         raise RuntimeError("boom")
 
 
 class FailingTransform(TransformStrategy):
+    record_schema = MockRecord  # type: ignore[reportAssignmentType]
+
     def transform(self, task, batches):
         raise RuntimeError("kaboom")
+
+
+class OtherRecord(BaseModel):
+    value: int
+
+
+class MismatchedTransform(TransformStrategy):
+    record_schema = OtherRecord  # type: ignore[reportAssignmentType]
+
+    def transform(self, task, batches):
+        return []
 
 
 type TaskWithSession = tuple[EtlTask, AsyncSession]
@@ -166,6 +192,24 @@ class TestETLPipeline:
         result = await session.execute(select(Thread))
         threads = result.scalars().all()
         assert len(threads) == 2
+
+    def test_schema_mismatch_raises(self, tmp_path):
+        """Pairing E and T with different record_schema should raise TypeError."""
+        with pytest.raises(TypeError, match="Schema mismatch"):
+            ETLPipeline(
+                extraction=MockExtraction(),
+                transform=MismatchedTransform(),
+            )
+
+    def test_missing_record_schema_raises(self):
+        """Forgetting record_schema should raise TypeError at instantiation."""
+        with pytest.raises(TypeError, match="abstract method"):
+
+            class BadExtraction(ExtractionStrategy):
+                def extract(self, task, storage):
+                    return []
+
+            BadExtraction()  # type: ignore[reportAbstractUsage]
 
 
 class TestOrchestrationStrategy:

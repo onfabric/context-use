@@ -1,0 +1,65 @@
+{
+  "profile_user": [
+    {
+      "title": "User information",
+      "media_map_data": {
+        "Profile photo": {
+          "uri": "media/profile/202406/dog_beret.jpg",
+          "creation_timestamp": 1719578748,
+          "media_metadata": {
+            "camera_metadata": {
+              "has_camera_metadata": false
+            }
+          },
+          "title": "",
+          "cross_post_source": {
+            "source_app": "FB"
+          }
+        }
+      },
+      "string_map_data": {
+        "Email address": {
+          "href": "",
+          "value": "alice.synthetic@example.com",
+          "timestamp": 0
+        },
+        "Phone number confirmed": {
+          "href": "",
+          "value": "False",
+          "timestamp": 0
+        },
+        "Username": {
+          "href": "",
+          "value": "alice_synthetic",
+          "timestamp": 0
+        },
+        "Name": {
+          "href": "",
+          "value": "Alice Synthetic",
+          "timestamp": 0
+        },
+        "Bio": {
+          "href": "",
+          "value": "Just a synthetic test account \u2728",
+          "timestamp": 0
+        },
+        "Gender": {
+          "href": "",
+          "value": "Female",
+          "timestamp": 0
+        },
+        "Date of birth": {
+          "href": "",
+          "value": "1990-06-15",
+          "timestamp": 0
+        },
+        "Private account": {
+          "href": "",
+          "value": "False",
+          "timestamp": 0
+        }
+      }
+    }
+  ]
+}
+
