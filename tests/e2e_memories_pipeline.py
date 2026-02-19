@@ -45,6 +45,9 @@ async def main() -> None:
     parser.add_argument(
         "--instagram", required=True, metavar="PATH", help="Path to Instagram zip"
     )
+    parser.add_argument(
+        "--yolo", action="store_true", help="Use GPT-5.2 instead of GPT-4o"
+    )
     args = parser.parse_args()
 
     storage = DiskStorage(base_path=STORAGE_BASE_PATH)
@@ -100,10 +103,12 @@ async def main() -> None:
 
     # ---- Step 3: run memory pipeline ----
     print("\n=== Step 3: Run memory pipeline ===")
+    model = OpenAIModel.GPT_5_2 if args.yolo else OpenAIModel.GPT_4O
+    print(f"Using model: {model}")
     llm_client = LLMClient(
-        model=OpenAIModel.GPT_4O,
+        model=model,
         api_key=os.environ["OPENAI_API_KEY"],
-        embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
+        embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     )
 
     await run_batches(
