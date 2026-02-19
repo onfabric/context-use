@@ -15,8 +15,6 @@ from context_use.etl.providers.instagram.schemas import InstagramMediaRecord
 from context_use.storage.disk import DiskStorage
 from tests.conftest import INSTAGRAM_REELS_JSON, INSTAGRAM_STORIES_JSON
 
-# -- fixtures ----------------------------------------------------------------
-
 
 @pytest.fixture()
 def ig_stories_storage(tmp_path: Path):
@@ -52,9 +50,6 @@ def _make_reels_task(key: str) -> EtlTask:
         source_uri=key,
         status=EtlTaskStatus.CREATED.value,
     )
-
-
-# -- Stories: extract --------------------------------------------------------
 
 
 class TestInstagramStoriesPipeExtract:
@@ -102,9 +97,6 @@ class TestInstagramStoriesPipeExtract:
 
     def test_record_schema_declared(self):
         assert InstagramStoriesPipe.record_schema is InstagramMediaRecord
-
-
-# -- Stories: transform (via run) --------------------------------------------
 
 
 class TestInstagramStoriesPipeTransform:
@@ -182,9 +174,6 @@ class TestInstagramStoriesPipeTransform:
         )
 
 
-# -- Reels: extract ----------------------------------------------------------
-
-
 class TestInstagramReelsPipeExtract:
     """Tests for the Reels extract phase (individual record yielding)."""
 
@@ -206,9 +195,6 @@ class TestInstagramReelsPipeExtract:
 
     def test_record_schema_declared(self):
         assert InstagramReelsPipe.record_schema is InstagramMediaRecord
-
-
-# -- Reels: transform (via run) ----------------------------------------------
 
 
 class TestInstagramReelsPipeTransform:
