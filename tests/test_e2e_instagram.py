@@ -1,4 +1,4 @@
-"""End-to-end test: Instagram zip → Thread rows in SQLite."""
+from sqlalchemy import select
 
 from context_use import ContextUse
 from context_use.etl.models.archive import Archive, ArchiveStatus
@@ -8,8 +8,8 @@ from context_use.etl.providers.registry import Provider
 
 
 class TestE2EInstagram:
-    def test_full_flow(self, ctx: ContextUse, instagram_zip):
-        result = ctx.process_archive(Provider.INSTAGRAM, str(instagram_zip))
+    async def test_full_flow(self, ctx: ContextUse, instagram_zip):
+        result = await ctx.process_archive(Provider.INSTAGRAM, str(instagram_zip))
 
         # Should complete both stories and reels tasks
         assert result.tasks_completed == 2
@@ -18,12 +18,15 @@ class TestE2EInstagram:
         assert len(result.errors) == 0
 
         # Verify DB state
-        with ctx._db.session_scope() as s:
-            archive = s.get(Archive, result.archive_id)
+        async with ctx._db.session_scope() as s:
+            archive = await s.get(Archive, result.archive_id)
             assert archive is not None
             assert archive.status == ArchiveStatus.COMPLETED.value
 
-            tasks = s.query(EtlTask).filter_by(archive_id=result.archive_id).all()
+            task_result = await s.execute(
+                select(EtlTask).where(EtlTask.archive_id == result.archive_id)
+            )
+            tasks = task_result.scalars().all()
             interaction_types = {t.interaction_type for t in tasks}
             assert "instagram_stories" in interaction_types
             assert "instagram_reels" in interaction_types
@@ -31,7 +34,8 @@ class TestE2EInstagram:
             for t in tasks:
                 assert t.status == EtlTaskStatus.COMPLETED.value
 
-            threads = s.query(Thread).all()
+            thread_result = await s.execute(select(Thread))
+            threads = thread_result.scalars().all()
             assert len(threads) == result.threads_created
 
             thread_types = {t.interaction_type for t in threads}

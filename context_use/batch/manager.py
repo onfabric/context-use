@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.models import BatchCategory, BatchStateMixin
 from context_use.batch.states import (
@@ -63,7 +63,7 @@ class BaseBatchManager(ABC):
     ``current_state → new_state | None``.
     """
 
-    def __init__(self, batch: BatchStateMixin, db: Session) -> None:
+    def __init__(self, batch: BatchStateMixin, db: AsyncSession) -> None:
         if not isinstance(batch, BatchStateMixin):
             raise TypeError(
                 f"batch must be a BatchStateMixin, got {type(batch).__name__}"
@@ -114,7 +114,7 @@ class BaseBatchManager(ABC):
 
             # Persist
             self.batch.update_state(new_state)
-            self.db.commit()
+            await self.db.commit()
 
             # Build scheduling instruction
             if isinstance(new_state, StopState):
@@ -138,7 +138,7 @@ class BaseBatchManager(ABC):
             raise ValueError(f"Unknown state base class for {new_state}")
 
         except Exception as exc:
-            self.db.rollback()
+            await self.db.rollback()
             logger.error(
                 "[%s] Error advancing state: %s", self.batch.id, exc, exc_info=True
             )
@@ -148,5 +148,5 @@ class BaseBatchManager(ABC):
                     previous_status=self.batch.current_status,
                 )
             )
-            self.db.commit()
+            await self.db.commit()
             return ScheduleInstruction(stop=True)

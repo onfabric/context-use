@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import asyncio
 
 from context_use import ContextUse
 from context_use.etl.providers.registry import Provider
@@ -28,40 +29,46 @@ args = parser.parse_args()
 if not args.chatgpt and not args.instagram:
     parser.error("provide at least one of --chatgpt or --instagram")
 
-ctx = ContextUse.from_config(
-    {
-        "storage": {"provider": "disk", "config": {"base_path": "./data"}},
-        "db": {
-            "provider": "postgres",
-            "config": {
-                "host": "localhost",
-                "port": 5432,
-                "database": "context_use",
-                "user": "postgres",
-                "password": "postgres",
+
+async def main() -> None:
+    ctx = ContextUse.from_config(
+        {
+            "storage": {"provider": "disk", "config": {"base_path": "./data"}},
+            "db": {
+                "provider": "postgres",
+                "config": {
+                    "host": "localhost",
+                    "port": 5432,
+                    "database": "context_use",
+                    "user": "postgres",
+                    "password": "postgres",
+                },
             },
-        },
-    }
-)
-
-if args.chatgpt:
-    print(f"Processing ChatGPT archive: {args.chatgpt}")
-    result = ctx.process_archive(Provider.CHATGPT, args.chatgpt)
-    print(
-        f"  ChatGPT: {result.threads_created} threads from "
-        f"{result.tasks_completed} tasks"
+        }
     )
-    if result.errors:
-        print(f"  Errors: {result.errors}")
+    await ctx.init_db()
 
-if args.instagram:
-    print(f"\nProcessing Instagram archive: {args.instagram}")
-    result = ctx.process_archive(Provider.INSTAGRAM, args.instagram)
-    print(
-        f"  Instagram: {result.threads_created} threads from "
-        f"{result.tasks_completed} tasks"
-    )
-    if result.errors:
-        print(f"  Errors: {result.errors}")
+    if args.chatgpt:
+        print(f"Processing ChatGPT archive: {args.chatgpt}")
+        result = await ctx.process_archive(Provider.CHATGPT, args.chatgpt)
+        print(
+            f"  ChatGPT: {result.threads_created} threads from "
+            f"{result.tasks_completed} tasks"
+        )
+        if result.errors:
+            print(f"  Errors: {result.errors}")
 
-print("\nDone! Data stored in ./context_use.db and ./data/")
+    if args.instagram:
+        print(f"\nProcessing Instagram archive: {args.instagram}")
+        result = await ctx.process_archive(Provider.INSTAGRAM, args.instagram)
+        print(
+            f"  Instagram: {result.threads_created} threads from "
+            f"{result.tasks_completed} tasks"
+        )
+        if result.errors:
+            print(f"  Errors: {result.errors}")
+
+    print("\nDone! Data stored in ./context_use.db and ./data/")
+
+
+asyncio.run(main())

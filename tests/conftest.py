@@ -6,7 +6,7 @@ import io
 import json
 import os
 import zipfile
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 from pathlib import Path
 
 import pytest
@@ -194,9 +194,8 @@ def settings() -> Settings:
     return Settings()
 
 
-@pytest.fixture(scope="session")
-def db(settings: Settings) -> PostgresBackend:
-    """Used in each test to get a fresh database."""
+@pytest.fixture()
+async def db(settings: Settings) -> AsyncGenerator[PostgresBackend]:
     backend = PostgresBackend(
         host=settings.host,
         port=settings.port,
@@ -204,17 +203,18 @@ def db(settings: Settings) -> PostgresBackend:
         user=settings.user,
         password=settings.password,
     )
-    backend.init_db()
-    return backend
+    await backend.init_db()
+    yield backend
+    await backend.get_engine().dispose()
 
 
 @pytest.fixture(autouse=True)
-def _clean_tables(db: PostgresBackend) -> Generator[None]:
+async def _clean_tables(db: PostgresBackend) -> AsyncGenerator[None]:
     """Used after each test to clean the database."""
     yield
-    with db.session_scope() as session:
+    async with db.session_scope() as session:
         for table in reversed(Base.metadata.sorted_tables):
-            session.execute(table.delete())
+            await session.execute(table.delete())
 
 
 @pytest.fixture()

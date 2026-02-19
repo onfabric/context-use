@@ -45,13 +45,13 @@ class ContextUse:
                 },
             },
         })
-        result = ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
+        await ctx.init_db()
+        result = await ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
     """
 
     def __init__(self, storage: StorageBackend, db: DatabaseBackend) -> None:
         self._storage = storage
         self._db = db
-        self._db.init_db()
 
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> ContextUse:
@@ -59,11 +59,14 @@ class ContextUse:
         storage, db = parse_config(config)
         return cls(storage=storage, db=db)
 
+    async def init_db(self) -> None:
+        await self._db.init_db()
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def process_archive(
+    async def process_archive(
         self,
         provider: Provider,
         path: str,
@@ -82,14 +85,14 @@ class ContextUse:
 
         provider_cfg = get_provider_config(provider)
 
-        with self._db.session_scope() as session:
+        async with self._db.session_scope() as session:
             # 1. Create Archive record
             archive = Archive(
                 provider=provider.value,
                 status=ArchiveStatus.CREATED.value,
             )
             session.add(archive)
-            session.flush()
+            await session.flush()
 
             result = PipelineResult(archive_id=archive.id)
 
@@ -124,8 +127,9 @@ class ContextUse:
                         continue
 
                     etl_task.status = EtlTaskStatus.CREATED.value
+                    etl_task.archive = archive
                     session.add(etl_task)
-                    session.flush()
+                    await session.flush()
 
                     try:
                         pipeline = ETLPipeline(
@@ -143,7 +147,7 @@ class ContextUse:
                         thread_batches = pipeline.transform(etl_task, raw)
 
                         etl_task.status = EtlTaskStatus.UPLOADING.value
-                        count = pipeline.upload(etl_task, thread_batches)
+                        count = await pipeline.upload(etl_task, thread_batches)
 
                         # Mark completed
                         etl_task.status = EtlTaskStatus.COMPLETED.value

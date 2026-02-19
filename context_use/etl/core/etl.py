@@ -1,4 +1,4 @@
-"""ETL pipeline core – strategy ABCs and the synchronous ETLPipeline runner."""
+"""ETL pipeline core – strategy ABCs and the pipeline runner."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.etl.core.exceptions import (
     ExtractionFailedException,
@@ -127,11 +127,11 @@ class UploadStrategy:
     # TODO: Replace with psql_insert_copy (PostgreSQL COPY + temp table)
     #  for significantly better bulk-insert performance.
 
-    def upload(
+    async def upload(
         self,
         task: EtlTask,
         batches: list[pd.DataFrame],
-        session: Session,
+        session: AsyncSession,
     ) -> int:
         from sqlalchemy.dialects.postgresql import insert
 
@@ -159,7 +159,7 @@ class UploadStrategy:
                         index_elements=["unique_key"],
                     )
                 )
-                result = session.execute(stmt)
+                result = await session.execute(stmt)
                 total += result.rowcount  # type: ignore[attr-defined]
         return total
 
@@ -170,15 +170,13 @@ class UploadStrategy:
 
 
 class ETLPipeline:
-    """Synchronous ETL pipeline that composes the three strategies."""
-
     def __init__(
         self,
         extraction: ExtractionStrategy,
         transform: TransformStrategy,
         upload: UploadStrategy | None = None,
         storage: StorageBackend | None = None,
-        session: Session | None = None,
+        session: AsyncSession | None = None,
     ) -> None:
         # Validate record_schema compatibility between E and T
         if extraction.record_schema is not transform.record_schema:
@@ -196,7 +194,6 @@ class ETLPipeline:
         self._session = session
 
     def extract(self, task: EtlTask) -> list[ExtractedBatch]:
-        """Step 1: Extract raw records from provider data."""
         if self._storage is None:
             raise RuntimeError("Storage backend not configured")
         try:
@@ -209,30 +206,25 @@ class ETLPipeline:
         task: EtlTask,
         batches: list[ExtractedBatch],
     ) -> list[pd.DataFrame]:
-        """Step 2: Transform raw records into thread-shaped DataFrames."""
         try:
             return self._transform.transform(task, batches)
         except Exception as exc:
             raise TransformFailedException(str(exc)) from exc
 
-    def upload(
+    async def upload(
         self,
         task: EtlTask,
         batches: list[pd.DataFrame],
     ) -> int:
-        """Step 3: Upload thread records to the database."""
         if self._session is None:
             raise RuntimeError("Database session not configured")
         try:
-            return self._upload.upload(task, batches, self._session)
+            return await self._upload.upload(task, batches, self._session)
         except Exception as exc:
             raise UploadFailedException(str(exc)) from exc
 
-    def run(self, task: EtlTask) -> int:
-        """
-        Run the full extract -> transform -> upload pipeline.
-        Returns count of uploaded threads.
-        """
+    async def run(self, task: EtlTask) -> int:
+        """Run the full extract → transform → upload pipeline."""
         logger.info("ETL start: %s/%s", task.provider, task.interaction_type)
 
         raw_batches = self.extract(task)
@@ -241,7 +233,7 @@ class ETLPipeline:
         thread_batches = self.transform(task, raw_batches)
         logger.info("Transformed %d batches", len(thread_batches))
 
-        count = self.upload(task, thread_batches)
+        count = await self.upload(task, thread_batches)
         logger.info("Uploaded %d threads", count)
 
         return count
