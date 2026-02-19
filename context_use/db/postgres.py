@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from context_use.db.base import DatabaseBackend
@@ -27,4 +27,7 @@ class PostgresBackend(DatabaseBackend):
         return self._session_factory()
 
     def init_db(self) -> None:
+        with self._engine.connect() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
         Base.metadata.create_all(self._engine)
