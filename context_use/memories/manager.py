@@ -69,19 +69,19 @@ class MemoryBatchManager(BaseBatchManager):
         match current_state:
             case CreatedState():
                 logger.info("[%s] Starting memory generation", self.batch.id)
-                return self._trigger_memory_generation()
+                return await self._trigger_memory_generation()
 
             case MemoryGeneratePendingState() as state:
                 logger.info("[%s] Polling memory generation", self.batch.id)
-                return self._check_memory_generation_status(state)
+                return await self._check_memory_generation_status(state)
 
             case MemoryGenerateCompleteState():
                 logger.info("[%s] Starting memory embedding", self.batch.id)
-                return self._trigger_embedding()
+                return await self._trigger_embedding()
 
             case MemoryEmbedPendingState() as state:
                 logger.info("[%s] Polling memory embedding", self.batch.id)
-                return self._check_embedding_status(state)
+                return await self._check_embedding_status(state)
 
             case MemoryEmbedCompleteState():
                 logger.info("[%s] Memory embedding complete", self.batch.id)
@@ -90,7 +90,7 @@ class MemoryBatchManager(BaseBatchManager):
             case _:
                 raise ValueError(f"Invalid state for memories batch: {current_state}")
 
-    def _trigger_memory_generation(self) -> State:
+    async def _trigger_memory_generation(self) -> State:
         threads = self._get_asset_threads()
         if not threads:
             return SkippedState(reason="No asset threads for memory generation")
@@ -100,13 +100,13 @@ class MemoryBatchManager(BaseBatchManager):
             self.batch.id,
             len(threads),
         )
-        job_key = self.extractor.submit(self.batch.id, threads)
+        job_key = await self.extractor.submit(self.batch.id, threads)
         return MemoryGeneratePendingState(job_key=job_key)
 
-    def _check_memory_generation_status(
+    async def _check_memory_generation_status(
         self, state: MemoryGeneratePendingState
     ) -> State:
-        results = self.extractor.get_results(state.job_key)
+        results = await self.extractor.get_results(state.job_key)
 
         if results is None:
             return state  # still polling
@@ -147,7 +147,7 @@ class MemoryBatchManager(BaseBatchManager):
             .all()
         )
 
-    def _trigger_embedding(self) -> State:
+    async def _trigger_embedding(self) -> State:
         memories = self._get_unembedded_memories()
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
@@ -159,11 +159,11 @@ class MemoryBatchManager(BaseBatchManager):
             self.batch.id,
             len(items),
         )
-        job_key = self.llm_client.embed_batch_submit(self.batch.id, items)
+        job_key = await self.llm_client.embed_batch_submit(self.batch.id, items)
         return MemoryEmbedPendingState(job_key=job_key)
 
-    def _check_embedding_status(self, state: MemoryEmbedPendingState) -> State:
-        results = self.llm_client.embed_batch_get_results(state.job_key)
+    async def _check_embedding_status(self, state: MemoryEmbedPendingState) -> State:
+        results = await self.llm_client.embed_batch_get_results(state.job_key)
 
         if results is None:
             return state  # still polling
