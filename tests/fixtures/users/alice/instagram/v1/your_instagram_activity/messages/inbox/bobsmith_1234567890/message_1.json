@@ -1,0 +1,41 @@
+{
+  "participants": [
+    {
+      "name": "bobsmith"
+    },
+    {
+      "name": "alice_synthetic"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "alice_synthetic",
+      "timestamp_ms": 1725022880969,
+      "content": "Hey Bob, are we still on for coffee tomorrow?",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "bobsmith",
+      "timestamp_ms": 1725010478922,
+      "content": "Yes! Let's meet at the usual place at 3pm.",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "alice_synthetic",
+      "timestamp_ms": 1724900000000,
+      "content": "Sounds great, see you there!",
+      "share": {
+        "link": "https://www.instagram.com/stories/alice_synthetic/1234567890123456789"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "bobsmith",
+  "is_still_participant": true,
+  "thread_path": "inbox/bobsmith_1234567890",
+  "magic_words": []
+}
+

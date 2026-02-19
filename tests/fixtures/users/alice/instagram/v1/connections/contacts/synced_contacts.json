@@ -1,0 +1,28 @@
+{
+  "contacts_contact_info": [
+    {
+      "string_map_data": {
+        "First Name": {
+          "value": "Bob"
+        },
+        "Last Name": {
+          "value": "Smith"
+        },
+        "Contact Information": {
+          "value": "+15555550100"
+        }
+      }
+    },
+    {
+      "string_map_data": {
+        "First Name": {
+          "value": "Carol"
+        },
+        "Contact Information": {
+          "value": "+15555550101"
+        }
+      }
+    }
+  ]
+}
+

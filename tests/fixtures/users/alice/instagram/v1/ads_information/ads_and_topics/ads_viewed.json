@@ -1,0 +1,30 @@
+[
+  {
+    "timestamp": 1770753730,
+    "media": [],
+    "label_values": [
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_VIEW/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_VIEW/"
+      },
+      {
+        "dict": [
+          {
+            "dict": [
+              {
+                "label": "URL",
+                "value": "https://example.com"
+              },
+              {
+                "label": "Title",
+                "value": "Example Site"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
+

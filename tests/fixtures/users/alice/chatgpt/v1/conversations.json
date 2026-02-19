@@ -1,0 +1,72 @@
+[
+  {
+    "title": "Hello World",
+    "conversation_id": "conv-001",
+    "mapping": {
+      "msg-1": {
+        "message": {
+          "author": {"role": "user"},
+          "content": {"content_type": "text", "parts": ["Hi there!"]},
+          "create_time": 1700000000.0
+        }
+      },
+      "msg-2": {
+        "message": {
+          "author": {"role": "assistant"},
+          "content": {
+            "content_type": "text",
+            "parts": ["Hello! How can I help you?"]
+          },
+          "create_time": 1700000001.0
+        }
+      },
+      "msg-3": {
+        "message": {
+          "author": {"role": "system"},
+          "content": {
+            "content_type": "text",
+            "parts": ["You are a helpful assistant."]
+          },
+          "create_time": 1700000002.0
+        }
+      }
+    }
+  },
+  {
+    "title": "Python Help",
+    "conversation_id": "conv-002",
+    "mapping": {
+      "msg-4": {
+        "message": {
+          "author": {"role": "user"},
+          "content": {
+            "content_type": "text",
+            "parts": ["How do I read a file in Python?"]
+          },
+          "create_time": 1700001000.0
+        }
+      },
+      "msg-5": {
+        "message": {
+          "author": {"role": "assistant"},
+          "content": {
+            "content_type": "text",
+            "parts": ["You can use open() to read a file. For example: with open('file.txt') as f: data = f.read()"]
+          },
+          "create_time": 1700001001.0
+        }
+      },
+      "msg-6": {
+        "message": {
+          "author": {"role": "user"},
+          "content": {
+            "content_type": "text",
+            "parts": ["Thanks!"]
+          },
+          "create_time": 1700001002.0
+        }
+      }
+    }
+  }
+]
+

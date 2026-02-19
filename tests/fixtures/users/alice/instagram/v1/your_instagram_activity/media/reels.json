@@ -1,0 +1,41 @@
+{
+  "ig_reels_media": [
+    {
+      "media": [
+        {
+          "uri": "media/reels/202506/guitar_strum.mp4",
+          "creation_timestamp": 1750896174,
+          "media_metadata": {
+            "video_metadata": {
+              "subtitles": {
+                "uri": "media/reels/202506/guitar_strum.srt",
+                "creation_timestamp": 1750896174
+              },
+              "exif_data": [
+                {
+                  "latitude": 51.5074,
+                  "longitude": -0.1278
+                },
+                {
+                  "device_id": "android-0000000000000000",
+                  "camera_position": "unknown",
+                  "source_type": "4"
+                }
+              ]
+            },
+            "camera_metadata": {
+              "has_camera_metadata": false
+            }
+          },
+          "title": "Synthetic reel about playing guitar at an open mic",
+          "cross_post_source": {
+            "source_app": "FB"
+          },
+          "dubbing_info": [],
+          "media_variants": []
+        }
+      ]
+    }
+  ]
+}
+

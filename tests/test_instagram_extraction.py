@@ -69,7 +69,7 @@ class TestInstagramStoriesExtraction:
         task = _make_stories_task(key)
 
         batches = strategy.extract(task, storage)
-        assert len(batches[0]) == 2  # 2 stories in fixture
+        assert len(batches[0]) == 3  # 3 stories in fixture
 
     def test_media_type_inference(self, ig_stories_storage):
         storage, key = ig_stories_storage
