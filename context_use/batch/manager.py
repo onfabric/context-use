@@ -77,6 +77,8 @@ class BaseBatchManager(ABC):
 
     async def try_advance_state(self) -> ScheduleInstruction:
         """Advance one step and return what the runner should do next."""
+        batch_id = self.batch.id
+        current_status = self.batch.current_status
         try:
             current_state = self.batch.current_state
             new_state = await self._transition(current_state)
@@ -89,9 +91,7 @@ class BaseBatchManager(ABC):
                 current_state
             ):
                 new_state = new_state.increment_poll_count()
-                logger.info(
-                    "[%s] Polling (attempt %d)", self.batch.id, new_state.poll_count
-                )
+                logger.info("[%s] Polling (attempt %d)", batch_id, new_state.poll_count)
                 if new_state.poll_count >= MAX_POLL_ATTEMPTS:
                     raise RuntimeError(
                         f"Polling exceeded {MAX_POLL_ATTEMPTS} attempts. "
@@ -103,9 +103,7 @@ class BaseBatchManager(ABC):
                 current_state
             ):
                 new_state = new_state.increment_retry_count()
-                logger.info(
-                    "[%s] Retry (attempt %d)", self.batch.id, new_state.retry_count
-                )
+                logger.info("[%s] Retry (attempt %d)", batch_id, new_state.retry_count)
                 if new_state.retry_count > MAX_RETRY_ATTEMPTS:
                     raise RuntimeError(
                         f"Retry exceeded {MAX_RETRY_ATTEMPTS} attempts. "
@@ -118,34 +116,32 @@ class BaseBatchManager(ABC):
 
             # Build scheduling instruction
             if isinstance(new_state, StopState):
-                logger.info("[%s] Terminal state: %s", self.batch.id, new_state.status)
+                logger.info("[%s] Terminal state: %s", batch_id, new_state.status)
                 return ScheduleInstruction(stop=True)
 
             if isinstance(new_state, CurrentState):
                 countdown = new_state.poll_next_countdown
-                logger.info("[%s] Poll in %ds", self.batch.id, countdown)
+                logger.info("[%s] Poll in %ds", batch_id, countdown)
                 return ScheduleInstruction(countdown=countdown)
 
             if isinstance(new_state, RetryState):
                 countdown = new_state.retry_countdown
-                logger.info("[%s] Retry in %ds", self.batch.id, countdown)
+                logger.info("[%s] Retry in %ds", batch_id, countdown)
                 return ScheduleInstruction(countdown=countdown)
 
             if isinstance(new_state, NextState):
-                logger.info("[%s] Advancing immediately", self.batch.id)
+                logger.info("[%s] Advancing immediately", batch_id)
                 return ScheduleInstruction(countdown=None)
 
             raise ValueError(f"Unknown state base class for {new_state}")
 
         except Exception as exc:
             await self.db.rollback()
-            logger.error(
-                "[%s] Error advancing state: %s", self.batch.id, exc, exc_info=True
-            )
+            logger.error("[%s] Error advancing state: %s", batch_id, exc, exc_info=True)
             self.batch.update_state(
                 FailedState(
                     error_message=str(exc),
-                    previous_status=self.batch.current_status,
+                    previous_status=current_status,
                 )
             )
             await self.db.commit()
