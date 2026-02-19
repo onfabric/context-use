@@ -15,7 +15,7 @@ from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
 
-DATA_ROOT = Path("data/616493c0-d385-42bc-96ce-ea2a7b90c49d")
+DATA_ROOT = Path("data/daf8d3b3-832a-4716-ad30-5ece77a53e80")
 STORIES_JSON = DATA_ROOT / "your_instagram_activity/media/stories.json"
 
 MAX_THREADS = 10
