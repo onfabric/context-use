@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import cast
 
 from context_use.etl.models.thread import Thread
-from context_use.llm import LLMClient, OpenAIModel
+from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +68,7 @@ for p in prompts:
 client = LLMClient(
     model=OpenAIModel.GPT_4O,
     api_key=os.environ["OPENAI_API_KEY"],
+    embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
 )
 
 job_key = client.batch_submit("test-batch", prompts)

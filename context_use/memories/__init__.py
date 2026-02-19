@@ -1,4 +1,4 @@
-"""Memoriess pipeline.
+"""Memories pipeline.
 
 Import this module to register the batch state parser and manager
 for ``BatchCategory.memories``.

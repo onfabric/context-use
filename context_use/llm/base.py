@@ -22,15 +22,17 @@ from tenacity import (
     wait_exponential_jitter,
 )
 
-from context_use.llm.models import OpenAIModel
+from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
 BatchResults = dict[str, T]
+EmbedBatchResults = dict[str, list[float]]
 
 AvailableLlmModels = OpenAIModel
+AvailableEmbeddingModels = OpenAIEmbeddingModel
 
 _BATCH_TERMINAL_STATES: set[str] = {"failed", "cancelled", "expired"}
 
@@ -50,6 +52,19 @@ class PromptItem:
     prompt: str
     response_schema: dict
     asset_paths: list[str] = field(default_factory=list)
+
+
+@dataclass
+class EmbedItem:
+    """A single text to embed.
+
+    Attributes:
+        item_id: Unique key (e.g. memory UUID).
+        text:    The text to embed.
+    """
+
+    item_id: str
+    text: str
 
 
 def _encode_file_as_data_url(path: str) -> str:
@@ -97,9 +112,31 @@ def _build_batch_jsonl_line(
     }
 
 
+def _build_embed_batch_jsonl_line(
+    item: EmbedItem,
+    model: AvailableEmbeddingModels,
+) -> dict[str, Any]:
+    model_name = model.value.split("/", 1)[-1]
+    return {
+        "custom_id": item.item_id,
+        "method": "POST",
+        "url": "/v1/embeddings",
+        "body": {
+            "model": model_name,
+            "input": item.text,
+        },
+    }
+
+
 class LLMClient:
-    def __init__(self, model: AvailableLlmModels, api_key: str) -> None:
+    def __init__(
+        self,
+        model: AvailableLlmModels,
+        api_key: str,
+        embedding_model: AvailableEmbeddingModels,
+    ) -> None:
         self._model = model
+        self._embedding_model = embedding_model
         self._api_key = api_key
 
     @retry(
@@ -264,6 +301,131 @@ class LLMClient:
             except Exception:
                 logger.error(
                     "Failed to parse batch result line: %.200s",
+                    line,
+                    exc_info=True,
+                )
+
+        return results
+
+    def embed_batch_submit(
+        self,
+        batch_id: str,
+        items: list[EmbedItem],
+    ) -> str:
+        """Build embedding JSONL, upload, and create a batch job.
+
+        Returns the OpenAI batch ID for polling with
+        ``embed_batch_get_results``.
+        """
+        lines = [
+            json.dumps(_build_embed_batch_jsonl_line(item, self._embedding_model))
+            for item in items
+        ]
+        jsonl_bytes = "\n".join(lines).encode("utf-8")
+
+        with tempfile.NamedTemporaryFile(suffix=".jsonl", delete=True) as tmp:
+            tmp.write(jsonl_bytes)
+            tmp.flush()
+            tmp.seek(0)
+
+            file_obj = cast(
+                OpenAIFileObject,
+                create_file(
+                    file=(
+                        f"embed-batch-{batch_id}.jsonl",
+                        tmp,
+                        "application/jsonl",
+                    ),
+                    purpose="batch",
+                    custom_llm_provider="openai",
+                    api_key=self._api_key,
+                ),
+            )
+
+        logger.info(
+            "Uploaded embed batch file %s (%d items) for batch %s",
+            file_obj.id,
+            len(items),
+            batch_id,
+        )
+
+        batch = cast(
+            LiteLLMBatch,
+            create_batch(
+                completion_window="24h",
+                endpoint="/v1/embeddings",
+                input_file_id=file_obj.id,
+                custom_llm_provider="openai",
+                api_key=self._api_key,
+            ),
+        )
+
+        logger.info(
+            "Created embed batch job %s for batch %s (%d items)",
+            batch.id,
+            batch_id,
+            len(items),
+        )
+        return batch.id
+
+    def embed_batch_get_results(
+        self,
+        job_key: str,
+    ) -> EmbedBatchResults | None:
+        """Poll an OpenAI embedding batch job.
+
+        Returns ``None`` while still running, or a dict mapping each
+        ``item_id`` to its embedding vector.
+        """
+        batch = cast(
+            LiteLLMBatch,
+            retrieve_batch(
+                batch_id=job_key,
+                custom_llm_provider="openai",
+                api_key=self._api_key,
+            ),
+        )
+
+        if batch.status in _BATCH_TERMINAL_STATES:
+            raise RuntimeError(
+                f"Embed batch {job_key} ended with status {batch.status}"
+            )
+
+        if batch.status != "completed" or not batch.output_file_id:
+            return None
+
+        content = cast(
+            HttpxBinaryResponseContent,
+            file_content(
+                file_id=batch.output_file_id,
+                custom_llm_provider="openai",
+                api_key=self._api_key,
+            ),
+        )
+
+        return self._parse_embed_batch_results(content.content)
+
+    def _parse_embed_batch_results(
+        self,
+        raw: bytes,
+    ) -> EmbedBatchResults:
+        results: EmbedBatchResults = {}
+        for line in raw.decode("utf-8").strip().split("\n"):
+            if not line.strip():
+                continue
+            try:
+                data = json.loads(line)
+                custom_id: str | None = data.get("custom_id")
+                embedding_data: list[dict] = (
+                    data.get("response", {}).get("body", {}).get("data", [])
+                )
+                if not custom_id or not embedding_data:
+                    logger.warning("Skipping embed result line with missing id or data")
+                    continue
+                results[custom_id] = embedding_data[0]["embedding"]
+            except Exception:
+                logger.error(
+                    "Failed to parse embed batch result line: %.200s",
                     line,
                     exc_info=True,
                 )
