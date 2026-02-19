@@ -14,7 +14,6 @@ from context_use.llm import EmbedItem, LLMClient, OpenAIEmbeddingModel, OpenAIMo
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 DATA_ROOT = Path("data/616493c0-d385-42bc-96ce-ea2a7b90c49d")
 STORIES_JSON = DATA_ROOT / "your_instagram_activity/media/stories.json"
