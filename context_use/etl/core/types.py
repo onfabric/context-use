@@ -9,11 +9,7 @@ from pydantic import BaseModel
 
 @dataclass
 class ExtractedBatch[T: BaseModel]:
-    """Typed batch of records flowing from Extract to Transform.
-
-    Replaces untyped ``pd.DataFrame`` at the E→T boundary, giving both
-    stages a shared, validated Pydantic record contract.
-    """
+    """Typed batch of records flowing from Extract to Transform."""
 
     records: list[T]
 
