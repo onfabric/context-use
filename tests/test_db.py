@@ -2,7 +2,7 @@ import datetime
 from collections.abc import Generator
 
 import pytest
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from context_use.db.postgres import PostgresBackend
 from context_use.etl.models.archive import Archive, ArchiveStatus
@@ -41,6 +41,14 @@ class TestPostgresBackend:
         assert "archives" in tables
         assert "etl_tasks" in tables
         assert "threads" in tables
+
+    def test_vector_extension_enabled(self, settings: Settings):
+        db = _make_db(settings)
+        with db.session_scope() as s:
+            row = s.execute(
+                text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
+            ).one_or_none()
+            assert row is not None, "pgvector extension is not enabled"
 
     def test_archive_crud(self, settings: Settings):
         db = _make_db(settings)
