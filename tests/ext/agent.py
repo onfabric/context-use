@@ -38,7 +38,7 @@ async def run_query(query: str) -> str:
         api_key=SecretStr(api_key) if api_key else None,
     )
 
-    agent = MCPAgent(llm=llm, client=client, max_steps=5)
+    agent = MCPAgent(llm=llm, client=client, max_steps=30)
 
     try:
         result = await agent.run(query)

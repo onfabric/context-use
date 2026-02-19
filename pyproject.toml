@@ -40,6 +40,7 @@ packages = ["context_use"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+collect_ignore_glob = ["tests/ext/*"]
 asyncio_mode = "auto"
 
 [tool.ruff]
@@ -56,6 +57,7 @@ exclude = [
     ".git/",
     "__pycache__/",
     "**/site-packages/",
+    "tests/ext/",
 ]
 venvPath = "."
 venv = ".venv"
