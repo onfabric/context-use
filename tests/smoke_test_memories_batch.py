@@ -4,7 +4,6 @@ import asyncio
 import json
 import logging
 import os
-import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -68,7 +67,7 @@ async def poll_batch(poll_fn, description: str):
         if result is not None:
             return result
         print(f"  [{attempt}/{POLL_MAX_ATTEMPTS}] {description} still running…")
-        time.sleep(POLL_INTERVAL_SECS)
+        await asyncio.sleep(POLL_INTERVAL_SECS)
     return None
 
 
@@ -87,18 +86,6 @@ async def main() -> None:
         api_key=os.environ["OPENAI_API_KEY"],
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
     )
-
-    job_key = await client.batch_submit("smoke-batch-test", prompts)
-    print(f"\nBatch job submitted: {job_key}")
-    print(f"Polling every {POLL_INTERVAL_SECS}s (max {POLL_MAX_ATTEMPTS} attempts)…")
-
-    results = None
-    for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
-        results = await client.batch_get_results(job_key, MemorySchema)
-        if results is not None:
-            break
-        print(f"  [{attempt}/{POLL_MAX_ATTEMPTS}] still running…")
-        time.sleep(POLL_INTERVAL_SECS)
 
     # --- Step 1: Generate memories via batch ---
     print("\n=== Step 1: Memory generation ===")
