@@ -11,6 +11,7 @@ from context_use.batch.manager import (
     get_manager_for_category,
 )
 from context_use.batch.models import Batch, BatchCategory
+from context_use.batch.policy import ImmediateRunPolicy, RunPolicy
 
 logger = logging.getLogger(__name__)
 
@@ -60,3 +61,32 @@ async def run_batches(
 
     if tasks:
         await asyncio.gather(*tasks)
+
+
+async def run_pipeline(
+    batches: list[Batch],
+    db: AsyncSession,
+    *,
+    policy: RunPolicy | None = None,
+    manager_kwargs: dict | None = None,
+) -> None:
+    """Top-level entry point: check policy then process batches.
+
+    ``policy`` defaults to ``ImmediateRunPolicy`` (always allows, no
+    tracking).  Hosted deployments can supply a ``ManagedRunPolicy``
+    that enforces mutual exclusion and records pipeline runs.
+    """
+    policy = policy or ImmediateRunPolicy()
+
+    run_id = await policy.acquire()
+    if run_id is None:
+        logger.info("Pipeline run rejected by policy — skipping")
+        return
+
+    try:
+        await run_batches(batches, db=db, manager_kwargs=manager_kwargs)
+    except Exception:
+        await policy.release(run_id, success=False)
+        raise
+    else:
+        await policy.release(run_id, success=True)

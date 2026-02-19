@@ -17,7 +17,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from context_use import ContextUse
-from context_use.batch.runner import run_batches
+from context_use.batch.grouper import WindowConfig, WindowGrouper
+from context_use.batch.runner import run_pipeline
 from context_use.db.postgres import PostgresBackend
 from context_use.etl.models.base import Base
 from context_use.etl.models.etl_task import EtlTask
@@ -28,7 +29,6 @@ from context_use.memories.manager import (
     MemoryBatchManager,  # noqa: F401 (registers via decorator)
 )
 from context_use.memories.models import TapestryMemory
-from context_use.memories.prompt import WindowConfig
 from context_use.storage.disk import DiskStorage
 
 logging.basicConfig(level=logging.INFO)
@@ -38,10 +38,10 @@ STORAGE_BASE_PATH = "./data"
 
 
 async def clean_db(db: PostgresBackend) -> None:
-    async with db.session_scope() as session:
-        for table in reversed(Base.metadata.sorted_tables):
-            await session.execute(table.delete())
-    logger.info("Cleaned all tables")
+    async with db.get_engine().begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Dropped and recreated all tables")
 
 
 async def main() -> None:
@@ -100,11 +100,26 @@ async def main() -> None:
     tasks = tasks.scalars().all()
     print(f"Found {len(tasks)} ETL task(s)")
 
+    window_config = WindowConfig(
+        window_days=args.window_days,
+        overlap_days=args.overlap_days,
+    )
+    grouper = WindowGrouper(window_config)
+
+    print(
+        f"Window config: {window_config.window_days}d window, "
+        f"{window_config.overlap_days}d overlap, "
+        f"step={window_config.step_days}d, "
+        f"memories={window_config.effective_min_memories}-"
+        f"{window_config.effective_max_memories}"
+    )
+
     all_batches = []
     for task in tasks:
         batches = await MemoryBatchFactory.create_batches(
             etl_task_id=task.id,
             db=session,
+            grouper=grouper,
         )
         all_batches.extend(batches)
 
@@ -125,19 +140,7 @@ async def main() -> None:
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     )
 
-    window_config = WindowConfig(
-        window_days=args.window_days,
-        overlap_days=args.overlap_days,
-    )
-    print(
-        f"Window config: {window_config.window_days}d window, "
-        f"{window_config.overlap_days}d overlap, "
-        f"step={window_config.step_days}d, "
-        f"memories={window_config.effective_min_memories}-"
-        f"{window_config.effective_max_memories}"
-    )
-
-    await run_batches(
+    await run_pipeline(
         all_batches,
         db=session,
         manager_kwargs={

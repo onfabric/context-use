@@ -1,46 +1,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
-from datetime import date, timedelta
+from dataclasses import dataclass, field
+from datetime import date
 
 from pydantic import BaseModel, Field
 
+from context_use.batch.grouper import WindowConfig, decode_window_key
 from context_use.etl.models.thread import Thread
 from context_use.llm.base import PromptItem
-
-
-@dataclass(frozen=True)
-class WindowConfig:
-    """Controls the sliding-window used to group interactions into prompts.
-
-    Defaults reproduce the legacy 1-day / no-overlap behaviour.
-    """
-
-    window_days: int = 5
-    overlap_days: int = 1
-    max_memories: int | None = None
-    min_memories: int | None = None
-
-    def __post_init__(self) -> None:
-        if self.overlap_days >= self.window_days:
-            raise ValueError("overlap_days must be smaller than window_days")
-
-    @property
-    def step_days(self) -> int:
-        return self.window_days - self.overlap_days
-
-    @property
-    def effective_max_memories(self) -> int:
-        if self.max_memories is not None:
-            return self.max_memories
-        return max(5, self.window_days * 3)
-
-    @property
-    def effective_min_memories(self) -> int:
-        if self.min_memories is not None:
-            return self.min_memories
-        return max(1, self.window_days)
 
 
 class Memory(BaseModel):
@@ -63,6 +31,22 @@ class MemorySchema(BaseModel):
     @classmethod
     def json_schema(cls) -> dict:
         return cls.model_json_schema()
+
+
+@dataclass
+class GroupContext:
+    """Everything the prompt builder needs for one group.
+
+    For the initial (static archive) run, only ``group_key`` and
+    ``new_threads`` are populated.  The ``prior_memories`` and
+    ``recent_threads`` fields are used by the delta path (hosted)
+    to give the LLM context from previously processed data.
+    """
+
+    group_key: str
+    new_threads: list[Thread]
+    prior_memories: list[str] = field(default_factory=list)
+    recent_threads: list[Thread] = field(default_factory=list)
 
 
 MEMORIES_PROMPT = """\
@@ -117,6 +101,7 @@ night).
 - Do not narrate the medium ("in my Instagram story") — describe the \
 experience, not the post.
 
+{{CONTEXT}}\
 {{POSTS}}
 
 ## Output format
@@ -127,63 +112,36 @@ Return a JSON object with a ``memories`` array. Each memory has:
 """
 
 
-def _compute_windows(
-    threads: list[Thread],
-    config: WindowConfig,
-) -> list[tuple[date, date, list[Thread]]]:
-    """Produce ``(window_start, window_end, threads)`` tuples."""
-    if not threads:
-        return []
-
-    sorted_threads = sorted(threads, key=lambda t: t.asat)
-    min_date = sorted_threads[0].asat.date()
-    max_date = sorted_threads[-1].asat.date()
-
-    windows: list[tuple[date, date, list[Thread]]] = []
-    window_start = min_date
-
-    while window_start <= max_date:
-        window_end = window_start + timedelta(days=config.window_days - 1)
-        window_threads = [
-            t for t in sorted_threads if window_start <= t.asat.date() <= window_end
-        ]
-        if window_threads:
-            windows.append((window_start, window_end, window_threads))
-        window_start += timedelta(days=config.step_days)
-
-    return windows
-
-
-def encode_window_key(from_date: date, to_date: date) -> str:
-    return f"{from_date.isoformat()}/{to_date.isoformat()}"
-
-
-def decode_window_key(key: str) -> tuple[date, date]:
-    from_str, to_str = key.split("/")
-    return date.fromisoformat(from_str), date.fromisoformat(to_str)
-
-
 class MemoryPromptBuilder:
-    """Build one ``PromptItem`` per window from a flat list of threads."""
+    """Build one ``PromptItem`` per group from a list of GroupContexts."""
 
     def __init__(
         self,
-        threads: list[Thread],
+        contexts: list[GroupContext],
         config: WindowConfig | None = None,
     ) -> None:
-        self.threads = [t for t in threads if t.asset_uri is not None]
+        self.contexts = contexts
         self.config = config or WindowConfig()
 
     def build(self) -> list[PromptItem]:
-        windows = _compute_windows(self.threads, self.config)
         response_schema = MemorySchema.json_schema()
 
         items: list[PromptItem] = []
-        for window_start, window_end, window_threads in windows:
-            posts_block, asset_paths = self._format_posts(window_threads)
+        for ctx in self.contexts:
+            threads_with_assets = [
+                t for t in ctx.new_threads if t.asset_uri is not None
+            ]
+            if not threads_with_assets:
+                continue
+
+            from_date, to_date = decode_window_key(ctx.group_key)
+            posts_block, asset_paths = self._format_posts(threads_with_assets)
+            context_block = self._format_context(ctx)
+
             prompt = (
-                MEMORIES_PROMPT.replace("{{FROM_DATE}}", window_start.isoformat())
-                .replace("{{TO_DATE}}", window_end.isoformat())
+                MEMORIES_PROMPT.replace("{{FROM_DATE}}", from_date.isoformat())
+                .replace("{{TO_DATE}}", to_date.isoformat())
+                .replace("{{CONTEXT}}", context_block)
                 .replace("{{POSTS}}", posts_block)
                 .replace(
                     "{{MIN_MEMORIES}}",
@@ -197,13 +155,48 @@ class MemoryPromptBuilder:
 
             items.append(
                 PromptItem(
-                    item_id=encode_window_key(window_start, window_end),
+                    item_id=ctx.group_key,
                     prompt=prompt,
                     response_schema=response_schema,
                     asset_paths=asset_paths,
                 )
             )
         return items
+
+    @staticmethod
+    def _format_context(ctx: GroupContext) -> str:
+        """Build an optional context preamble from prior memories / recent threads.
+
+        Returns an empty string when there is no prior context (initial run),
+        keeping the prompt identical to the non-delta path.
+        """
+        if not ctx.prior_memories and not ctx.recent_threads:
+            return ""
+
+        sections: list[str] = []
+
+        if ctx.prior_memories:
+            memories_text = "\n".join(f"- {m}" for m in ctx.prior_memories)
+            sections.append(
+                "## Previously extracted memories\n"
+                "These memories have already been extracted from earlier "
+                "interactions. Use them for continuity but do NOT repeat "
+                "or rephrase them — only produce NEW memories from the "
+                "new messages below.\n\n"
+                f"{memories_text}"
+            )
+
+        if ctx.recent_threads:
+            lines: list[str] = []
+            for t in sorted(ctx.recent_threads, key=lambda t: t.asat):
+                ts = t.asat.strftime("%H:%M")
+                lines.append(f"- [{ts}] {t.preview}")
+            sections.append(
+                "## Recent messages (for context only — already processed)\n"
+                + "\n".join(lines)
+            )
+
+        return "\n\n".join(sections) + "\n\n"
 
     @staticmethod
     def _format_posts(
