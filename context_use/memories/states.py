@@ -24,7 +24,7 @@ from context_use.batch.states import (
     _utc_now,
 )
 
-MEMORY_POLL_INTERVAL_SECS = 60
+MEMORY_POLL_INTERVAL_SECS = 10
 
 
 class MemoryGeneratePendingState(CurrentState):

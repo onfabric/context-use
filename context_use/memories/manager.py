@@ -28,6 +28,7 @@ from context_use.memories.states import (
     MemoryGenerateCompleteState,
     MemoryGeneratePendingState,
 )
+from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +47,12 @@ class MemoryBatchManager(BaseBatchManager):
         batch: Batch,
         db: AsyncSession,
         llm_client: LLMClient,
+        storage: StorageBackend,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
+        self.storage = storage
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
 
@@ -57,8 +60,12 @@ class MemoryBatchManager(BaseBatchManager):
         return await self.batch_factory.get_batch_threads(self.batch, self.db)
 
     async def _get_asset_threads(self) -> list[Thread]:
-        threads = await self._get_batch_threads()
-        return [t for t in threads if t.asset_uri is not None]
+        batch_threads = await self._get_batch_threads()
+        threads = [t for t in batch_threads if t.asset_uri is not None]
+        for t in threads:
+            if t.asset_uri:
+                t.asset_uri = self.storage.resolve_local_path(t.asset_uri)
+        return threads
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
