@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Raw archive schemas (model the JSON structure inside the zip)
-# ---------------------------------------------------------------------------
-
 
 class InstagramMediaItem(BaseModel):
     """A single media item (story frame, reel clip, etc.)."""
@@ -34,11 +30,6 @@ class InstagramReelsManifest(BaseModel):
     """Top-level schema for ``reels.json``."""
 
     ig_reels_media: list[InstagramReelsEntry]
-
-
-# ---------------------------------------------------------------------------
-# Extraction output record (E→T contract)
-# ---------------------------------------------------------------------------
 
 
 class InstagramMediaRecord(BaseModel):

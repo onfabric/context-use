@@ -4,10 +4,6 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-# ---------------------------------------------------------------------------
-# Raw archive schemas (model the nested JSON inside conversations.json)
-# ---------------------------------------------------------------------------
-
 
 class ChatGPTAuthor(BaseModel):
     role: str
@@ -22,11 +18,6 @@ class ChatGPTMessage(BaseModel):
     author: ChatGPTAuthor
     content: ChatGPTContent
     create_time: float | None = None
-
-
-# ---------------------------------------------------------------------------
-# Extraction output record (E→T contract)
-# ---------------------------------------------------------------------------
 
 
 class ChatGPTConversationRecord(BaseModel):
