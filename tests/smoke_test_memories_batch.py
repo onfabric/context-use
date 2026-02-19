@@ -11,12 +11,14 @@ from typing import cast
 
 from context_use.etl.models.thread import Thread
 from context_use.llm import EmbedItem, LLMClient, OpenAIEmbeddingModel, OpenAIModel
+from context_use.memories.profile import ProfileContext
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
 
 DATA_ROOT = Path("data/616493c0-d385-42bc-96ce-ea2a7b90c49d")
 STORIES_JSON = DATA_ROOT / "your_instagram_activity/media/stories.json"
+PROFILE_IMAGE_PATH = "data/profile/profile.jpeg"
 
 MAX_THREADS = 10
 POLL_INTERVAL_SECS = 30
@@ -75,7 +77,9 @@ def main() -> None:
     threads = load_threads_from_instagram()
     print(f"Loaded {len(threads)} threads from Instagram stories")
 
-    builder = MemoryPromptBuilder(cast(list[Thread], threads))
+    profile = ProfileContext(face_image_path=PROFILE_IMAGE_PATH)
+
+    builder = MemoryPromptBuilder(cast(list[Thread], threads), profile=profile)
     prompts = builder.build()
     print(f"Built {len(prompts)} prompt(s)")
     for p in prompts:

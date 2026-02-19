@@ -20,6 +20,7 @@ from context_use.llm.base import BatchResults, EmbedBatchResults, EmbedItem, LLM
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.models import TapestryMemory
+from context_use.memories.profile import ProfileContext
 from context_use.memories.prompt import MemorySchema
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
@@ -45,10 +46,12 @@ class MemoryBatchManager(BaseBatchManager):
         batch: Batch,
         db: Session,
         llm_client: LLMClient,
+        profile: ProfileContext | None = None,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
+        self.profile = profile
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
 
@@ -93,7 +96,7 @@ class MemoryBatchManager(BaseBatchManager):
             self.batch.id,
             len(threads),
         )
-        job_key = self.extractor.submit(self.batch.id, threads)
+        job_key = self.extractor.submit(self.batch.id, threads, profile=self.profile)
         return MemoryGeneratePendingState(job_key=job_key)
 
     def _check_memory_generation_status(
