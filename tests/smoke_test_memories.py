@@ -75,10 +75,11 @@ job_key = client.batch_submit("test-batch", prompts)
 results = client.batch_get_results(job_key, MemorySchema)
 
 if results:
-    print(f"\nMemories generated for {len(results)} day(s):")
-    for day, schema in sorted(results.items()):
-        print(f"\n  {day}:")
+    print(f"\nMemories generated from {len(results)} window(s):")
+    for window_key, schema in sorted(results.items()):
+        print(f"\n  Window {window_key}:")
         for m in schema.memories:
-            print(f"    - {m.content}")
+            date_range = m.from_date if m.from_date == m.to_date else f"{m.from_date} → {m.to_date}"
+            print(f"    [{date_range}] {m.content}")
 else:
     print("\nNo results returned.")

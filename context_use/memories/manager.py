@@ -116,14 +116,12 @@ class MemoryBatchManager(BaseBatchManager):
     ) -> int:
         """Write memories to the ``tapestry_memories`` table."""
         count = 0
-        for day_key, schema in results.items():
-            memory_date = date.fromisoformat(day_key)
-
+        for _window_key, schema in results.items():
             for memory in schema.memories:
                 row = TapestryMemory(
                     content=memory.content,
-                    from_date=memory_date,
-                    to_date=memory_date,
+                    from_date=date.fromisoformat(memory.from_date),
+                    to_date=date.fromisoformat(memory.to_date),
                     tapestry_id=self.batch.tapestry_id,
                 )
                 self.db.add(row)

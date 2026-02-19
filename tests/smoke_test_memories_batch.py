@@ -20,7 +20,7 @@ DATA_ROOT = Path("data/616493c0-d385-42bc-96ce-ea2a7b90c49d")
 STORIES_JSON = DATA_ROOT / "your_instagram_activity/media/stories.json"
 PROFILE_IMAGE_PATH = "data/profile/profile.jpeg"
 
-MAX_THREADS = 10
+MAX_THREADS = 20
 POLL_INTERVAL_SECS = 30
 POLL_MAX_ATTEMPTS = 60
 
@@ -106,11 +106,15 @@ def main() -> None:
         return
 
     all_memories: list[tuple[str, str]] = []
-    print(f"\nMemories generated for {len(results)} day(s):")
-    for day, schema in sorted(results.items()):
-        print(f"\n  {day}:")
+    print(f"\nMemories generated from {len(results)} window(s):")
+    for window_key, schema in sorted(results.items()):
+        print(f"\n  Window {window_key}:")
         for m in schema.memories:
-            print(f"    - {m.content}")
+            if m.from_date == m.to_date:
+                date_range = m.from_date
+            else:
+                date_range = f"{m.from_date} → {m.to_date}"
+            print(f"    [{date_range}] {m.content}")
             all_memories.append((str(uuid.uuid4()), m.content))
 
     # --- Step 2: Embed memories via batch ---

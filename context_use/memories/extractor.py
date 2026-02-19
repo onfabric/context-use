@@ -25,14 +25,14 @@ class MemoryExtractor:
         threads: list[Thread],
         profile: ProfileContext | None = None,
     ) -> str:
-        """Build day-grouped prompts and submit as a batch job.
+        """Build windowed prompts and submit as a batch job.
 
         Returns the ``job_key`` for polling.
         """
         builder = MemoryPromptBuilder(threads, profile=profile)
         prompts: list[PromptItem] = builder.build()
         logger.info(
-            "[%s] Submitting %d day-prompts for %d threads",
+            "[%s] Submitting %d window-prompts for %d threads",
             batch_id,
             len(prompts),
             len(threads),
