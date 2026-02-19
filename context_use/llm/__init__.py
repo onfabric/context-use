@@ -1,6 +1,9 @@
-from context_use.llm.base import BatchLLMClient, PromptItem
+from context_use.llm.base import BatchResults, LLMClient, PromptItem
+from context_use.llm.models import OpenAIModel
 
 __all__ = [
-    "BatchLLMClient",
+    "BatchResults",
+    "LLMClient",
+    "OpenAIModel",
     "PromptItem",
 ]

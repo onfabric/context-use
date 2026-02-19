@@ -16,7 +16,7 @@ from context_use.batch.states import (
     State,
 )
 from context_use.etl.models.thread import Thread
-from context_use.llm.base import BatchLLMClient, BatchResults
+from context_use.llm.base import BatchResults, LLMClient
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.models import TapestryMemory
@@ -41,7 +41,7 @@ class MemoryBatchManager(BaseBatchManager):
         self,
         batch: Batch,
         db: Session,
-        llm_client: BatchLLMClient,
+        llm_client: LLMClient,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
