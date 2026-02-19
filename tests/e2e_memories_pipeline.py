@@ -62,7 +62,8 @@ async def main() -> None:
     ctx = ContextUse(storage=storage, db=db)
 
     # ---- Step 0: clean slate ----
-    print("\n=== Step 0: Cleaning DB ===")
+    print("\n=== Step 0: Initializing & cleaning DB ===")
+    await db.init_db()
     await clean_db(db)
 
     # ---- Step 1: ETL ----
