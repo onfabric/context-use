@@ -12,6 +12,7 @@ dependencies = [
     "tenacity>=9.1.4",
     "psycopg2>=2.9.11",
     "litellm>=1.81.13",
+    "pgvector>=0.4.2",
 ]
 
 [project.optional-dependencies]

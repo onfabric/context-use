@@ -48,10 +48,33 @@ class MemoryGenerateCompleteState(NextState):
     memories_count: int = 0
 
 
+class MemoryEmbedPendingState(CurrentState):
+    """Embedding batch job submitted — polling for results."""
+
+    status: Literal["MEMORY_EMBED_PENDING"] = "MEMORY_EMBED_PENDING"
+    job_key: str
+    submitted_at: datetime = Field(default_factory=_utc_now)
+
+    @property
+    def poll_next_countdown(self) -> int:
+        jitter = random.randint(-10, 10)
+        return max(0, MEMORY_POLL_INTERVAL_SECS + jitter)
+
+
+class MemoryEmbedCompleteState(NextState):
+    """Embeddings received and stored on tapestry_memories."""
+
+    status: Literal["MEMORY_EMBED_COMPLETE"] = "MEMORY_EMBED_COMPLETE"
+    completed_at: datetime = Field(default_factory=_utc_now)
+    embedded_count: int = 0
+
+
 MemoryBatchState = (
     CreatedState
     | MemoryGeneratePendingState
     | MemoryGenerateCompleteState
+    | MemoryEmbedPendingState
+    | MemoryEmbedCompleteState
     | CompleteState
     | SkippedState
     | FailedState
@@ -61,6 +84,8 @@ _state_map: dict[str, type[State]] = {
     "CREATED": CreatedState,
     "MEMORY_GENERATE_PENDING": MemoryGeneratePendingState,
     "MEMORY_GENERATE_COMPLETE": MemoryGenerateCompleteState,
+    "MEMORY_EMBED_PENDING": MemoryEmbedPendingState,
+    "MEMORY_EMBED_COMPLETE": MemoryEmbedCompleteState,
     "COMPLETE": CompleteState,
     "SKIPPED": SkippedState,
     "FAILED": FailedState,

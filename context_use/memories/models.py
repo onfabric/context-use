@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from datetime import date
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import Date, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
+
+EMBEDDING_DIMENSIONS = 1536
 
 
 class TapestryMemory(TimeStampMixin, Base):
@@ -33,6 +36,11 @@ class TapestryMemory(TimeStampMixin, Base):
 
     from_date: Mapped[date] = mapped_column(Date, nullable=False)
     to_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    embedding: Mapped[list[float] | None] = mapped_column(
+        Vector(EMBEDDING_DIMENSIONS),
+        nullable=True,
+    )
 
     __table_args__ = (
         Index("idx_tapestry_memories_tapestry_id", "tapestry_id"),
