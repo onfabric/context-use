@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
 
-EMBEDDING_DIMENSIONS = 1536
+EMBEDDING_DIMENSIONS = 3072
 
 
 class TapestryMemory(TimeStampMixin, Base):
