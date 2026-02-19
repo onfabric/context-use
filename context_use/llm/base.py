@@ -97,14 +97,15 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
 
 def _build_batch_jsonl_line(
     item: PromptItem,
-    model: str,
+    model: AvailableLlmModels,
 ) -> dict[str, Any]:
+    model_name = model.value.split("/", 1)[-1]
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": model,
+            "model": model_name,
             "messages": _build_messages(item),
             "response_format": _build_response_format(item),
         },
@@ -113,14 +114,15 @@ def _build_batch_jsonl_line(
 
 def _build_embed_batch_jsonl_line(
     item: EmbedItem,
-    model: str,
+    model: AvailableEmbeddingModels,
 ) -> dict[str, Any]:
+    model_name = model.value.split("/", 1)[-1]
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/embeddings",
         "body": {
-            "model": model,
+            "model": model_name,
             "input": item.text,
         },
     }
@@ -133,17 +135,9 @@ class LLMClient:
         api_key: str,
         embedding_model: AvailableEmbeddingModels,
     ) -> None:
-        self._model = model.value
+        self._model = model
+        self._embedding_model = embedding_model
         self._api_key = api_key
-        self._embedding_model = embedding_model.value
-
-    @property
-    def _raw_model_name(self) -> str:
-        return self._model.split("/", 1)[-1]
-
-    @property
-    def _raw_embedding_model_name(self) -> str:
-        return self._embedding_model.split("/", 1)[-1]
 
     @retry(
         retry=retry_if_exception_type(APIError),
@@ -197,7 +191,7 @@ class LLMClient:
         """
         lines: list[str] = []
         for item in prompts:
-            line = _build_batch_jsonl_line(item, self._raw_model_name)
+            line = _build_batch_jsonl_line(item, self._model)
             lines.append(json.dumps(line))
 
         jsonl_bytes = "\n".join(lines).encode("utf-8")
@@ -323,9 +317,8 @@ class LLMClient:
         Returns the OpenAI batch ID for polling with
         ``embed_batch_get_results``.
         """
-        model_name = self._raw_embedding_model_name
         lines = [
-            json.dumps(_build_embed_batch_jsonl_line(item, model_name))
+            json.dumps(_build_embed_batch_jsonl_line(item, self._embedding_model))
             for item in items
         ]
         jsonl_bytes = "\n".join(lines).encode("utf-8")
