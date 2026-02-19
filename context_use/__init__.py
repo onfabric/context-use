@@ -9,7 +9,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.config import parse_config
 from context_use.db.base import DatabaseBackend
-from context_use.etl.core.etl import ETLPipeline, UploadStrategy
 from context_use.etl.core.exceptions import (
     ArchiveProcessingError,
     UnsupportedProviderError,
@@ -21,7 +20,6 @@ from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.registry import (
     PROVIDER_REGISTRY,
-    InteractionTypeConfig,
     Provider,
     get_provider_config,
 )
@@ -101,8 +99,7 @@ class ContextUse:
                 files = self._storage.list_keys(archive.id)
                 archive.file_uris = files
 
-                orchestrator = provider_cfg.orchestration()
-                etl_tasks = orchestrator.discover_tasks(
+                etl_tasks = provider_cfg.discover_tasks(
                     archive.id, files, provider.value
                 )
 
@@ -110,28 +107,14 @@ class ContextUse:
                     logger.warning("No tasks discovered for archive %s", archive.id)
 
                 for etl_task in etl_tasks:
-                    it_cfg = provider_cfg.interaction_types.get(
-                        etl_task.interaction_type
-                    )
-                    if it_cfg is None:
-                        logger.warning(
-                            "No strategy for interaction_type=%s",
-                            etl_task.interaction_type,
-                        )
-                        continue
-
                     etl_task.status = EtlTaskStatus.CREATED.value
                     etl_task.archive = archive
                     session.add(etl_task)
                     await session.flush()
 
                     try:
-                        if it_cfg.pipe is not None:
-                            count = await self._run_pipe(
-                                it_cfg.pipe(), etl_task, session
-                            )
-                        else:
-                            count = await self._run_legacy(it_cfg, etl_task, session)
+                        pipe_cls = provider_cfg.get_pipe(etl_task.interaction_type)
+                        count = await self._run_pipe(pipe_cls(), etl_task, session)
 
                         etl_task.status = EtlTaskStatus.COMPLETED.value
                         etl_task.uploaded_count = count
@@ -169,44 +152,13 @@ class ContextUse:
         etl_task: EtlTask,
         session: AsyncSession,
     ) -> int:
-        """Execute an ETL task using the new Pipe + Loader path."""
+        """Execute an ETL task using a Pipe + Loader."""
         loader = DbLoader(session=session)
         etl_task.status = EtlTaskStatus.EXTRACTING.value
         count = await loader.load(pipe.run(etl_task, self._storage), etl_task)
 
         etl_task.extracted_count = pipe.extracted_count
         etl_task.transformed_count = pipe.transformed_count
-        return count
-
-    async def _run_legacy(
-        self,
-        it_cfg: InteractionTypeConfig,
-        etl_task: EtlTask,
-        session: AsyncSession,
-    ) -> int:
-        """Execute an ETL task using the old ETLPipeline path."""
-        assert it_cfg.extraction is not None, "Legacy path requires extraction strategy"
-        assert it_cfg.transform is not None, "Legacy path requires transform strategy"
-
-        pipeline = ETLPipeline(
-            extraction=it_cfg.extraction(),
-            transform=it_cfg.transform(),
-            upload=UploadStrategy(),
-            storage=self._storage,
-            session=session,
-        )
-
-        etl_task.status = EtlTaskStatus.EXTRACTING.value
-        raw = pipeline.extract(etl_task)
-
-        etl_task.status = EtlTaskStatus.TRANSFORMING.value
-        thread_batches = pipeline.transform(etl_task, raw)
-
-        etl_task.status = EtlTaskStatus.UPLOADING.value
-        count = await pipeline.upload(etl_task, thread_batches)
-
-        etl_task.extracted_count = sum(len(b) for b in raw)
-        etl_task.transformed_count = sum(len(b) for b in thread_batches)
         return count
 
     def _unzip(self, zip_path: str, prefix: str) -> None:
