@@ -11,7 +11,7 @@ from context_use.etl.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
 
-class Pipe[R: BaseModel](ABC):
+class Pipe[Record: BaseModel](ABC):
     """Base class for all interaction-type ETL pipes.
 
     A Pipe encapsulates the **Extract** and **Transform** steps for a
@@ -43,21 +43,21 @@ class Pipe[R: BaseModel](ABC):
     """Relative file path inside the zip archive this pipe reads from."""
 
     record_schema: ClassVar[type[BaseModel]]
-    """Runtime-accessible record type.  Must match the type parameter ``R``.
+    """Runtime-accessible record type.  Must match the type parameter ``Record``.
 
     Python's generic type parameters are erased at runtime, so this
     ClassVar is needed for runtime introspection (e.g. registry
     validation, schema checks).  Subclasses should set this to the
-    same model used as ``R``.
+    same model used as ``Record``.
     """
 
     @abstractmethod
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[R]:
+    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[Record]:
         """Parse raw archive data and yield validated records."""
         ...
 
     @abstractmethod
-    def transform(self, record: R, task: EtlTask) -> ThreadRow:
+    def transform(self, record: Record, task: EtlTask) -> ThreadRow:
         """Convert one extracted record into a :class:`ThreadRow`."""
         ...
 
