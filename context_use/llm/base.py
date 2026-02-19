@@ -60,6 +60,16 @@ def _encode_file_as_data_url(path: str) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
+def _build_response_format(item: PromptItem) -> dict:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "response",
+            "schema": item.response_schema,
+        },
+    }
+
+
 def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = []
     for path in item.asset_paths:
@@ -72,34 +82,25 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
 
 def _build_batch_jsonl_line(
     item: PromptItem,
-    model: str,
+    model: AvailableLlmModels,
 ) -> dict[str, Any]:
+    model_name = model.value.split("/", 1)[-1]
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": model,
+            "model": model_name,
             "messages": _build_messages(item),
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "response",
-                    "schema": item.response_schema,
-                },
-            },
+            "response_format": _build_response_format(item),
         },
     }
 
 
 class LLMClient:
     def __init__(self, model: AvailableLlmModels, api_key: str) -> None:
-        self._model = model.value
+        self._model = model
         self._api_key = api_key
-
-    @property
-    def _raw_model_name(self) -> str:
-        return self._model.split("/", 1)[-1]
 
     @retry(
         retry=retry_if_exception_type(APIError),
@@ -117,13 +118,7 @@ class LLMClient:
                 model=self._model,
                 api_key=self._api_key,
                 messages=_build_messages(item),
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "response",
-                        "schema": item.response_schema,
-                    },
-                },
+                response_format=_build_response_format(item),
             ),
         )
 
@@ -159,7 +154,7 @@ class LLMClient:
         """
         lines: list[str] = []
         for item in prompts:
-            line = _build_batch_jsonl_line(item, self._raw_model_name)
+            line = _build_batch_jsonl_line(item, self._model)
             lines.append(json.dumps(line))
 
         jsonl_bytes = "\n".join(lines).encode("utf-8")
