@@ -9,18 +9,9 @@ from dataclasses import dataclass, field
 from typing import Any, TypeVar, cast
 
 import litellm
-from litellm.batches.main import create_batch, retrieve_batch
-from litellm.exceptions import APIError
-from litellm.files.main import create_file, file_content
 from litellm.types.llms.openai import HttpxBinaryResponseContent, OpenAIFileObject
-from litellm.types.utils import Choices, LiteLLMBatch, ModelResponse
+from litellm.types.utils import LiteLLMBatch
 from pydantic import BaseModel
-from tenacity import (
-    retry,
-    retry_if_exception_type,
-    stop_after_attempt,
-    wait_exponential_jitter,
-)
 
 from context_use.llm.models import OpenAIModel
 
@@ -102,48 +93,7 @@ class LLMClient:
         self._model = model
         self._api_key = api_key
 
-    @retry(
-        retry=retry_if_exception_type(APIError),
-        stop=stop_after_attempt(5),
-        wait=wait_exponential_jitter(initial=5, max=60, jitter=5),
-    )
-    def _complete_one(self, item: PromptItem) -> tuple[str, str]:
-        """Call the LLM for a single prompt item.
-
-        Returns ``(item_id, raw_json_text)``.
-        """
-        response = cast(
-            ModelResponse,
-            litellm.completion(
-                model=self._model,
-                api_key=self._api_key,
-                messages=_build_messages(item),
-                response_format=_build_response_format(item),
-            ),
-        )
-
-        choices = cast(list[Choices], response.choices)
-        text = choices[0].message.content
-        if not text:
-            raise ValueError(f"Empty response for item {item.item_id}")
-        return item.item_id, text.strip()
-
-    def complete(
-        self,
-        messages: list[dict[str, Any]],
-        **kwargs: Any,
-    ) -> ModelResponse:
-        return cast(
-            ModelResponse,
-            litellm.completion(
-                model=self._model,
-                api_key=self._api_key,
-                messages=messages,
-                **kwargs,
-            ),
-        )
-
-    def batch_submit(
+    async def batch_submit(
         self,
         batch_id: str,
         prompts: list[PromptItem],
@@ -166,7 +116,7 @@ class LLMClient:
 
             file_obj = cast(
                 OpenAIFileObject,
-                create_file(
+                await litellm.acreate_file(
                     file=(f"batch-{batch_id}.jsonl", tmp, "application/jsonl"),
                     purpose="batch",
                     custom_llm_provider="openai",
@@ -183,7 +133,7 @@ class LLMClient:
 
         batch = cast(
             LiteLLMBatch,
-            create_batch(
+            await litellm.acreate_batch(
                 completion_window="24h",
                 endpoint="/v1/chat/completions",
                 input_file_id=file_obj.id,
@@ -200,7 +150,7 @@ class LLMClient:
         )
         return batch.id
 
-    def batch_get_results(
+    async def batch_get_results(
         self,
         job_key: str,
         schema: type[T],
@@ -212,7 +162,7 @@ class LLMClient:
         """
         batch = cast(
             LiteLLMBatch,
-            retrieve_batch(
+            await litellm.aretrieve_batch(
                 batch_id=job_key,
                 custom_llm_provider="openai",
                 api_key=self._api_key,
@@ -227,7 +177,7 @@ class LLMClient:
 
         content = cast(
             HttpxBinaryResponseContent,
-            file_content(
+            await litellm.afile_content(
                 file_id=batch.output_file_id,
                 custom_llm_provider="openai",
                 api_key=self._api_key,

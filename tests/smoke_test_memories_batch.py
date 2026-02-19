@@ -1,5 +1,6 @@
 """Smoke-test: load real Instagram data → MemoryPromptBuilder → GeminiBatchClient."""
 
+import asyncio
 import json
 import logging
 import os
@@ -59,7 +60,7 @@ def load_threads_from_instagram(limit: int = MAX_THREADS) -> list[FakeThread]:
     return threads
 
 
-def main() -> None:
+async def main() -> None:
     threads = load_threads_from_instagram()
     print(f"Loaded {len(threads)} threads from Instagram stories")
 
@@ -74,13 +75,13 @@ def main() -> None:
         api_key=os.environ["OPENAI_API_KEY"],
     )
 
-    job_key = client.batch_submit("smoke-batch-test", prompts)
+    job_key = await client.batch_submit("smoke-batch-test", prompts)
     print(f"\nBatch job submitted: {job_key}")
     print(f"Polling every {POLL_INTERVAL_SECS}s (max {POLL_MAX_ATTEMPTS} attempts)…")
 
     results = None
     for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
-        results = client.batch_get_results(job_key, MemorySchema)
+        results = await client.batch_get_results(job_key, MemorySchema)
         if results is not None:
             break
         print(f"  [{attempt}/{POLL_MAX_ATTEMPTS}] still running…")
@@ -97,4 +98,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

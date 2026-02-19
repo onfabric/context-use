@@ -58,11 +58,11 @@ class MemoryBatchManager(BaseBatchManager):
         match current_state:
             case CreatedState():
                 logger.info("[%s] Starting memory generation", self.batch.id)
-                return self._trigger_memory_generation()
+                return await self._trigger_memory_generation()
 
             case MemoryGeneratePendingState() as state:
                 logger.info("[%s] Polling memory generation", self.batch.id)
-                return self._check_memory_generation_status(state)
+                return await self._check_memory_generation_status(state)
 
             case MemoryGenerateCompleteState():
                 logger.info("[%s] Memory generation complete", self.batch.id)
@@ -71,7 +71,7 @@ class MemoryBatchManager(BaseBatchManager):
             case _:
                 raise ValueError(f"Invalid state for memoies batch: {current_state}")
 
-    def _trigger_memory_generation(self) -> State:
+    async def _trigger_memory_generation(self) -> State:
         threads = self._get_asset_threads()
         if not threads:
             return SkippedState(reason="No asset threads for memory generation")
@@ -81,13 +81,13 @@ class MemoryBatchManager(BaseBatchManager):
             self.batch.id,
             len(threads),
         )
-        job_key = self.extractor.submit(self.batch.id, threads)
+        job_key = await self.extractor.submit(self.batch.id, threads)
         return MemoryGeneratePendingState(job_key=job_key)
 
-    def _check_memory_generation_status(
+    async def _check_memory_generation_status(
         self, state: MemoryGeneratePendingState
     ) -> State:
-        results = self.extractor.get_results(state.job_key)
+        results = await self.extractor.get_results(state.job_key)
 
         if results is None:
             return state  # still polling
