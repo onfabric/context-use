@@ -126,7 +126,37 @@ class InstagramMessagesPipe(Pipe[InstagramDirectMessage]):
         record: InstagramDirectMessage,
         task: EtlTask,
     ) -> ThreadRow:
-        # ... build payload, return ThreadRow ...
+        published = datetime.fromtimestamp(record.timestamp_ms / 1000.0, tz=UTC)
+
+        context = Collection(
+            name=record.thread_title,
+            id=record.thread_path,
+        )
+        message = FibreTextMessage(content=record.content, context=context)
+
+        # Determine direction: messages from the archive owner are sent,
+        # everything else is received.
+        if record.sender_name == "alice_synthetic":
+            target = Application(name=record.thread_title)
+            payload = FibreSendMessage(
+                object=message, target=target, published=published,
+            )
+        else:
+            actor = Application(name=record.sender_name)
+            payload = FibreReceiveMessage(
+                object=message, actor=actor, published=published,
+            )
+
+        return ThreadRow(
+            unique_key=f"{self.interaction_type}:{payload.unique_key_suffix()}",
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=payload.get_preview("Instagram") or "",
+            payload=payload.to_dict(),
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
+            asat=published,
+            source=record.source,
+        )
 ```
 
 #### Required ClassVars
@@ -153,10 +183,24 @@ Every `Pipe` subclass **must** set these five class variables:
 - **Input:** one `Record` (from `extract()`) and the `EtlTask`.
 - **Output:** one `ThreadRow`.
 - Build an ActivityStreams payload (a Fibre model from `context_use.etl.payload.models`).
-- Call `payload.to_dict()` for the `payload` field, `payload.get_preview(provider)` for `preview`, and `payload.unique_key_suffix()` for the key suffix.
-- Set `unique_key` as `f"{self.interaction_type}:{suffix}"`.
-- Set `version` to `CURRENT_THREAD_PAYLOAD_VERSION`.
-- Set `asat` to the record's timestamp (as a timezone-aware `datetime`).
+- Return a `ThreadRow` with **all required fields**:
+
+| Field | How to set it |
+|-------|---------------|
+| `unique_key` | `f"{self.interaction_type}:{payload.unique_key_suffix()}"` |
+| `provider` | `self.provider` |
+| `interaction_type` | `self.interaction_type` |
+| `preview` | `payload.get_preview(provider)` — human-readable one-liner |
+| `payload` | `payload.to_dict()` |
+| `version` | `CURRENT_THREAD_PAYLOAD_VERSION` |
+| `asat` | The record's timestamp as a timezone-aware `datetime` |
+
+Optional fields:
+
+| Field | When to set it |
+|-------|----------------|
+| `source` | `record.source` — raw JSON for audit/debug (set whenever the record carries a `source` field) |
+| `asset_uri` | `f"{task.archive_id}/{record.uri}"` — set for media pipes so the Loader can locate the binary asset in storage |
 
 #### `run()` — Do Not Override
 
@@ -357,6 +401,41 @@ def test_something(self, pipe_fixture):
 
 ---
 
+## ThreadRow Reference
+
+`ThreadRow` (`context_use.etl.core.types`) is the plain value object that flows from `Pipe.transform()` to the Loader:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `unique_key` | `str` | ✓ | Globally unique key, formatted as `{interaction_type}:{hash}` |
+| `provider` | `str` | ✓ | Provider identifier — must match `Pipe.provider` |
+| `interaction_type` | `str` | ✓ | Interaction type — must match `Pipe.interaction_type` |
+| `preview` | `str` | ✓ | Human-readable one-liner (shown in search results) |
+| `payload` | `dict` | ✓ | ActivityStreams payload dict (from `fibre.to_dict()`) — must contain `fibre_kind` |
+| `version` | `str` | ✓ | Payload schema version — use `CURRENT_THREAD_PAYLOAD_VERSION` |
+| `asat` | `datetime` | ✓ | Timezone-aware timestamp of the original interaction |
+| `source` | `str \| None` | | Raw JSON of the original record, for audit/debug |
+| `asset_uri` | `str \| None` | | Storage key for an associated binary asset (image, video) |
+
+Infrastructure fields (`id`, `tapestry_id`, `etl_task_id`, timestamps) are added by the Loader when persisting — pipes never set them.
+
+---
+
+## EtlTask Reference
+
+`EtlTask` (`context_use.etl.models.etl_task`) is passed to both `extract()` and `transform()`. Fields most relevant to pipe authors:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_uri` | `str` | Storage key for the archive file to read (e.g. `archive/conversations.json`) |
+| `archive_id` | `str` | Archive identifier — used to construct `asset_uri` for media pipes |
+| `provider` | `str` | Provider identifier (same as `Pipe.provider`) |
+| `interaction_type` | `str` | Interaction type (same as `Pipe.interaction_type`) |
+
+Other fields (`id`, `status`, `extracted_count`, `transformed_count`, `uploaded_count`) are managed by the framework and Loader.
+
+---
+
 ## Extending Payload Models
 
 Payload models live in `context_use/etl/payload/models.py`. They follow [ActivityStreams 2.0](https://www.w3.org/TR/activitystreams-core/) conventions.
@@ -411,7 +490,12 @@ If you genuinely need a new kind:
    ]
    ```
 
-The mixin provides `unique_key_suffix()`, `to_dict()`, and `get_preview()` for free.
+The mixin provides these methods for free:
+
+- `unique_key_suffix()` — deterministic SHA-256 hash of the serialised payload (first 16 hex chars).
+- `to_dict()` — serialise to a plain dict (via `model_dump_json`, excluding `None` values, using aliases).
+- `get_preview(provider)` — delegates to `_get_preview()`; catches exceptions and returns `None` on error.
+- `get_asat()` — extracts the `published` datetime from the payload, if set.
 
 ---
 
@@ -439,7 +523,24 @@ PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
 
 ### Adding a new provider
 
-1. Add a member to the `Provider` enum:
+1. Create the provider package under `context_use/etl/providers/<provider>/`:
+
+   - `__init__.py` — re-export public symbols:
+
+     ```python
+     from context_use.etl.providers.spotify.history import SpotifyListeningHistoryPipe
+     from context_use.etl.providers.spotify.schemas import SpotifyListenRecord
+
+     __all__ = [
+         "SpotifyListenRecord",
+         "SpotifyListeningHistoryPipe",
+     ]
+     ```
+
+   - `schemas.py` — Pydantic record model(s)
+   - One or more pipe modules (e.g. `history.py`)
+
+2. Add a member to the `Provider` enum:
 
    ```python
    class Provider(StrEnum):
@@ -448,7 +549,7 @@ PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
        SPOTIFY = "spotify"  # new
    ```
 
-2. Add a `ProviderConfig` entry to `PROVIDER_REGISTRY`:
+3. Add a `ProviderConfig` entry to `PROVIDER_REGISTRY`:
 
    ```python
    Provider.SPOTIFY: ProviderConfig(
@@ -475,6 +576,44 @@ class ChatGPTConversationsPipeV2(ChatGPTConversationsPipe):
 `transform()` is inherited when the `record_schema` stays the same. Register both versions if archives from both formats need to be supported simultaneously.
 
 Key distinction: `archive_version` tracks the **provider's export format** (bumps when they change their zip structure). `ThreadRow.version` tracks the **payload schema** version (`CURRENT_THREAD_PAYLOAD_VERSION`). They are independent.
+
+---
+
+## Shared Base Class Pattern
+
+When a provider has multiple interaction types that share the same `record_schema` and `transform()` logic, extract the shared code into a private base class. Only the concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered.
+
+The Instagram media pipes use this pattern:
+
+```python
+class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
+    """Shared transform logic for stories and reels."""
+
+    provider = "instagram"
+    archive_version = "v1"
+    record_schema = InstagramMediaRecord
+
+    def transform(self, record, task) -> ThreadRow:
+        # shared payload-building logic ...
+
+
+class InstagramStoriesPipe(_InstagramMediaPipe):
+    interaction_type = "instagram_stories"
+    archive_path_pattern = "your_instagram_activity/media/stories.json"
+
+    def extract(self, task, storage) -> Iterator[InstagramMediaRecord]:
+        # stories-specific parsing ...
+
+
+class InstagramReelsPipe(_InstagramMediaPipe):
+    interaction_type = "instagram_reels"
+    archive_path_pattern = "your_instagram_activity/media/reels.json"
+
+    def extract(self, task, storage) -> Iterator[InstagramMediaRecord]:
+        # reels-specific parsing ...
+```
+
+Only `InstagramStoriesPipe` and `InstagramReelsPipe` are registered in `PROVIDER_REGISTRY`; the private base class is not.
 
 ---
 
