@@ -6,11 +6,9 @@ import logging
 import mimetypes
 import tempfile
 from dataclasses import dataclass, field
-from typing import Any, TypeVar, cast
+from typing import Any, TypeVar
 
 import litellm
-from litellm.types.llms.openai import HttpxBinaryResponseContent, OpenAIFileObject
-from litellm.types.utils import LiteLLMBatch
 from pydantic import BaseModel
 
 from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
@@ -151,14 +149,11 @@ class LLMClient:
             tmp.flush()
             tmp.seek(0)
 
-            file_obj = cast(
-                OpenAIFileObject,
-                await litellm.acreate_file(
-                    file=(f"batch-{batch_id}.jsonl", tmp, "application/jsonl"),
-                    purpose="batch",
-                    custom_llm_provider="openai",
-                    api_key=self._api_key,
-                ),
+            file_obj = await litellm.acreate_file(
+                file=(f"batch-{batch_id}.jsonl", tmp, "application/jsonl"),
+                purpose="batch",
+                custom_llm_provider="openai",
+                api_key=self._api_key,
             )
 
         logger.info(
@@ -168,15 +163,12 @@ class LLMClient:
             batch_id,
         )
 
-        batch = cast(
-            LiteLLMBatch,
-            await litellm.acreate_batch(
-                completion_window="24h",
-                endpoint="/v1/chat/completions",
-                input_file_id=file_obj.id,
-                custom_llm_provider="openai",
-                api_key=self._api_key,
-            ),
+        batch = await litellm.acreate_batch(
+            completion_window="24h",
+            endpoint="/v1/chat/completions",
+            input_file_id=file_obj.id,
+            custom_llm_provider="openai",
+            api_key=self._api_key,
         )
 
         logger.info(
@@ -197,13 +189,10 @@ class LLMClient:
         Returns ``None`` while the job is still running, parsed
         ``BatchResults`` when complete, or raises on terminal failure.
         """
-        batch = cast(
-            LiteLLMBatch,
-            await litellm.aretrieve_batch(
-                batch_id=job_key,
-                custom_llm_provider="openai",
-                api_key=self._api_key,
-            ),
+        batch = await litellm.aretrieve_batch(
+            batch_id=job_key,
+            custom_llm_provider="openai",
+            api_key=self._api_key,
         )
 
         if batch.status in _BATCH_TERMINAL_STATES:
@@ -212,13 +201,10 @@ class LLMClient:
         if batch.status != "completed" or not batch.output_file_id:
             return None
 
-        content = cast(
-            HttpxBinaryResponseContent,
-            await litellm.afile_content(
-                file_id=batch.output_file_id,
-                custom_llm_provider="openai",
-                api_key=self._api_key,
-            ),
+        content = await litellm.afile_content(
+            file_id=batch.output_file_id,
+            custom_llm_provider="openai",
+            api_key=self._api_key,
         )
 
         return self._parse_batch_results(content.content, schema)
@@ -278,18 +264,15 @@ class LLMClient:
             tmp.flush()
             tmp.seek(0)
 
-            file_obj = cast(
-                OpenAIFileObject,
-                await litellm.acreate_file(
-                    file=(
-                        f"embed-batch-{batch_id}.jsonl",
-                        tmp,
-                        "application/jsonl",
-                    ),
-                    purpose="batch",
-                    custom_llm_provider="openai",
-                    api_key=self._api_key,
+            file_obj = await litellm.acreate_file(
+                file=(
+                    f"embed-batch-{batch_id}.jsonl",
+                    tmp,
+                    "application/jsonl",
                 ),
+                purpose="batch",
+                custom_llm_provider="openai",
+                api_key=self._api_key,
             )
 
         logger.info(
@@ -299,15 +282,12 @@ class LLMClient:
             batch_id,
         )
 
-        batch = cast(
-            LiteLLMBatch,
-            await litellm.acreate_batch(
-                completion_window="24h",
-                endpoint="/v1/embeddings",
-                input_file_id=file_obj.id,
-                custom_llm_provider="openai",
-                api_key=self._api_key,
-            ),
+        batch = await litellm.acreate_batch(
+            completion_window="24h",
+            endpoint="/v1/embeddings",
+            input_file_id=file_obj.id,
+            custom_llm_provider="openai",
+            api_key=self._api_key,
         )
 
         logger.info(
@@ -327,13 +307,10 @@ class LLMClient:
         Returns ``None`` while still running, or a dict mapping each
         ``item_id`` to its embedding vector.
         """
-        batch = cast(
-            LiteLLMBatch,
-            await litellm.aretrieve_batch(
-                batch_id=job_key,
-                custom_llm_provider="openai",
-                api_key=self._api_key,
-            ),
+        batch = await litellm.aretrieve_batch(
+            batch_id=job_key,
+            custom_llm_provider="openai",
+            api_key=self._api_key,
         )
 
         if batch.status in _BATCH_TERMINAL_STATES:
@@ -344,13 +321,10 @@ class LLMClient:
         if batch.status != "completed" or not batch.output_file_id:
             return None
 
-        content = cast(
-            HttpxBinaryResponseContent,
-            await litellm.afile_content(
-                file_id=batch.output_file_id,
-                custom_llm_provider="openai",
-                api_key=self._api_key,
-            ),
+        content = await litellm.afile_content(
+            file_id=batch.output_file_id,
+            custom_llm_provider="openai",
+            api_key=self._api_key,
         )
 
         return self._parse_embed_batch_results(content.content)
