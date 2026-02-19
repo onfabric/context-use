@@ -1,5 +1,3 @@
-"""Provider registry -- maps Provider enum values to orchestration / strategy classes"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -42,10 +40,6 @@ class ProviderConfig:
     orchestration: type[OrchestrationStrategy]
     interaction_types: dict[str, InteractionTypeConfig]
 
-
-# ---------------------------------------------------------------------------
-# Registry
-# ---------------------------------------------------------------------------
 
 PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
     Provider.CHATGPT: ProviderConfig(

@@ -1,5 +1,3 @@
-"""Payload builders (ported from aertex)."""
-
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

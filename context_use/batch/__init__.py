@@ -25,7 +25,6 @@ from context_use.batch.states import (
 )
 
 __all__ = [
-    # States
     "State",
     "CurrentState",
     "NextState",
@@ -35,19 +34,15 @@ __all__ = [
     "CompleteState",
     "SkippedState",
     "FailedState",
-    # Models
     "Batch",
     "BatchCategory",
     "BatchStateMixin",
     "register_batch_state_parser",
-    # Manager
     "BaseBatchManager",
     "ScheduleInstruction",
     "get_manager_for_category",
     "register_batch_manager",
-    # Factory
     "BaseBatchFactory",
-    # Runner
     "run_batch",
     "run_batches",
 ]

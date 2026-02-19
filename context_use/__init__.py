@@ -1,5 +1,3 @@
-"""context_use – configurable ETL library for processing data archives."""
-
 from __future__ import annotations
 
 import logging
@@ -62,10 +60,6 @@ class ContextUse:
     async def init_db(self) -> None:
         await self._db.init_db()
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     async def process_archive(
         self,
         provider: Provider,
@@ -86,7 +80,6 @@ class ContextUse:
         provider_cfg = get_provider_config(provider)
 
         async with self._db.session_scope() as session:
-            # 1. Create Archive record
             archive = Archive(
                 provider=provider.value,
                 status=ArchiveStatus.CREATED.value,
@@ -97,15 +90,12 @@ class ContextUse:
             result = PipelineResult(archive_id=archive.id)
 
             try:
-                # 2. Unzip into storage
                 prefix = f"{archive.id}/"
                 self._unzip(path, prefix)
 
-                # 3. Store unzipped file list on the archive
                 files = self._storage.list_keys(archive.id)
                 archive.file_uris = files
 
-                # 4. Discover tasks
                 orchestrator = provider_cfg.orchestration()
                 etl_tasks = orchestrator.discover_tasks(
                     archive.id, files, provider.value
@@ -114,7 +104,6 @@ class ContextUse:
                 if not etl_tasks:
                     logger.warning("No tasks discovered for archive %s", archive.id)
 
-                # 5. Run ETL for each task
                 for etl_task in etl_tasks:
                     it_cfg = provider_cfg.interaction_types.get(
                         etl_task.interaction_type
@@ -149,7 +138,6 @@ class ContextUse:
                         etl_task.status = EtlTaskStatus.UPLOADING.value
                         count = await pipeline.upload(etl_task, thread_batches)
 
-                        # Mark completed
                         etl_task.status = EtlTaskStatus.COMPLETED.value
                         etl_task.extracted_count = sum(len(b) for b in raw)
                         etl_task.transformed_count = sum(len(b) for b in thread_batches)
@@ -169,7 +157,6 @@ class ContextUse:
                         result.tasks_failed += 1
                         result.errors.append(str(exc))
 
-                # 6. Mark archive completed
                 archive.status = (
                     ArchiveStatus.COMPLETED.value
                     if result.tasks_failed == 0
@@ -183,17 +170,12 @@ class ContextUse:
 
         return result
 
-    # ------------------------------------------------------------------
-    # Internals
-    # ------------------------------------------------------------------
-
     def _unzip(self, zip_path: str, prefix: str) -> None:
         """Extract a zip archive into storage under *prefix*."""
         with zipfile.ZipFile(zip_path, "r") as zf:
             for info in zf.infolist():
                 if info.is_dir():
                     continue
-                # Normalise path separators
                 name = PurePosixPath(info.filename).as_posix()
                 key = f"{prefix}{name}"
                 data = zf.read(info.filename)

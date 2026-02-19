@@ -1,5 +1,3 @@
-"""Shared test fixtures: synthetic archive data, zip builder, pre-configured ctx."""
-
 from __future__ import annotations
 
 import io

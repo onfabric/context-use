@@ -7,7 +7,6 @@ from context_use.etl.payload.builders import (
 from context_use.etl.payload.core import FibreTypeAdapter, make_thread_payload
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
-    # AS core types
     Application,
     Collection,
     FibreByType,

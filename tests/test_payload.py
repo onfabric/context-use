@@ -1,5 +1,3 @@
-"""Unit tests for ActivityStreams payload models and make_thread_payload."""
-
 import datetime
 
 from context_use.etl.payload.core import make_thread_payload

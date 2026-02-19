@@ -1,5 +1,3 @@
-"""Batch factory for the memories pipeline."""
-
 from __future__ import annotations
 
 from context_use.batch.factory import BaseBatchFactory
