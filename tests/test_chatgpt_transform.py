@@ -1,5 +1,3 @@
-"""Tests for ChatGPT transform strategy."""
-
 import json
 from pathlib import Path
 

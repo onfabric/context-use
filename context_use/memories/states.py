@@ -1,4 +1,3 @@
-"""Pipeline-specific states for the memories pipeline."""
 # pyright: reportIncompatibleVariableOverride=false
 # Literal field overrides are the standard Pydantic discriminated-union pattern.
 # pyright flags them as incompatible variable overrides, but this is a false

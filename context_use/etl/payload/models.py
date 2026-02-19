@@ -1,9 +1,3 @@
-"""ActivityStreams 2.0 core + Fibre models (ported from aertex).
-
-This is a self-contained, minimal copy that covers the types used by the
-ChatGPT and Instagram providers.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -15,10 +9,6 @@ from typing import Annotated, Literal, cast
 from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# ActivityStreams 2.0 Core
-# ---------------------------------------------------------------------------
 
 
 class ASType(BaseModel):
@@ -127,11 +117,6 @@ Application.model_rebuild()
 Create.model_rebuild()
 View.model_rebuild()
 Follow.model_rebuild()
-
-
-# ---------------------------------------------------------------------------
-# Fibre mixin + models
-# ---------------------------------------------------------------------------
 
 
 CURRENT_THREAD_PAYLOAD_VERSION: str = "1.0.0"

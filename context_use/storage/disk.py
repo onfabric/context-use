@@ -16,8 +16,6 @@ class DiskStorage(StorageBackend):
     def _resolve(self, key: str) -> Path:
         return self._base / key
 
-    # ---- interface ----
-
     def write(self, key: str, data: bytes) -> None:
         path = self._resolve(key)
         path.parent.mkdir(parents=True, exist_ok=True)

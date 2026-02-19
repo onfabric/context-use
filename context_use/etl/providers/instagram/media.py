@@ -1,5 +1,3 @@
-"""Instagram stories + reels extraction and transform strategies."""
-
 from __future__ import annotations
 
 import json
@@ -26,11 +24,6 @@ from context_use.etl.providers.instagram.schemas import (
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# helpers
-# ---------------------------------------------------------------------------
 
 
 def _infer_media_type(uri: str) -> str:
@@ -60,11 +53,6 @@ def _items_to_records(
     return records
 
 
-# ---------------------------------------------------------------------------
-# Stories Extraction
-# ---------------------------------------------------------------------------
-
-
 class InstagramStoriesExtractionStrategy(ExtractionStrategy):
     """Reads ``stories.json`` and yields batches of typed media records."""
 
@@ -84,11 +72,6 @@ class InstagramStoriesExtractionStrategy(ExtractionStrategy):
         if not records:
             return []
         return [ExtractedBatch(records=records)]
-
-
-# ---------------------------------------------------------------------------
-# Reels Extraction
-# ---------------------------------------------------------------------------
 
 
 class InstagramReelsExtractionStrategy(ExtractionStrategy):
@@ -115,11 +98,6 @@ class InstagramReelsExtractionStrategy(ExtractionStrategy):
         if not records:
             return []
         return [ExtractedBatch(records=records)]
-
-
-# ---------------------------------------------------------------------------
-# Shared Transform (stories + reels)
-# ---------------------------------------------------------------------------
 
 
 class _InstagramMediaTransformStrategy(TransformStrategy):

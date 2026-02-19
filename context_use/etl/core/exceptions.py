@@ -1,6 +1,3 @@
-"""Custom exceptions for ETL pipeline operations."""
-
-
 class ExtractionFailedException(Exception):
     def __init__(self, message: str | None = None):
         self.message = (

@@ -1,5 +1,3 @@
-"""ETL pipeline core – strategy ABCs and the pipeline runner."""
-
 from __future__ import annotations
 
 import logging
@@ -19,11 +17,6 @@ from context_use.etl.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Strategy ABCs
-# ---------------------------------------------------------------------------
 
 
 class OrchestrationStrategy:
@@ -162,11 +155,6 @@ class UploadStrategy:
                 result = await session.execute(stmt)
                 total += result.rowcount  # type: ignore[attr-defined]
         return total
-
-
-# ---------------------------------------------------------------------------
-# Pipeline runner
-# ---------------------------------------------------------------------------
 
 
 class ETLPipeline:

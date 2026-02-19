@@ -1,15 +1,9 @@
-"""Configuration validation and backend factory."""
-
 from __future__ import annotations
 
 from typing import Any
 
 from context_use.db.base import DatabaseBackend
 from context_use.storage.base import StorageBackend
-
-# ---------------------------------------------------------------------------
-# Storage factories
-# ---------------------------------------------------------------------------
 
 _STORAGE_FACTORIES: dict[str, type] = {}
 
@@ -42,10 +36,6 @@ def build_storage(provider: str, config: dict[str, Any]) -> StorageBackend:
     return cls(**config)
 
 
-# ---------------------------------------------------------------------------
-# DB factories
-# ---------------------------------------------------------------------------
-
 _DB_FACTORIES: dict[str, type] = {}
 
 
@@ -69,11 +59,6 @@ def build_db(provider: str, config: dict[str, Any]) -> DatabaseBackend:
             f"Unknown db provider '{provider}'. Available: {list(_DB_FACTORIES.keys())}"
         )
     return cls(**config)
-
-
-# ---------------------------------------------------------------------------
-# Top-level config dict → backends
-# ---------------------------------------------------------------------------
 
 
 def parse_config(

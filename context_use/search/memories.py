@@ -1,9 +1,3 @@
-"""Reusable memory search — semantic, time-range, or both.
-
-This module contains the core search logic with no optional dependencies
-so it can be exposed through any server framework (mcp-use, FastMCP, etc.).
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass

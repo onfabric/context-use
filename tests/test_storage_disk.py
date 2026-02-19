@@ -1,5 +1,3 @@
-"""Unit tests for DiskStorage."""
-
 from pathlib import Path
 
 from context_use.storage.disk import DiskStorage

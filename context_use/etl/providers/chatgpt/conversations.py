@@ -1,5 +1,3 @@
-"""ChatGPT conversations extraction + transform strategies."""
-
 from __future__ import annotations
 
 import json
@@ -45,11 +43,6 @@ def _safe_timestamp(ts: float | int | None) -> datetime | None:
     if ts > _MAX_SECONDS_EPOCH:
         ts /= 1000.0
     return datetime.fromtimestamp(ts, tz=UTC)
-
-
-# ---------------------------------------------------------------------------
-# Extraction – yields ExtractedBatch[ChatGPTConversationRecord]
-# ---------------------------------------------------------------------------
 
 
 class ChatGPTConversationsExtractionStrategy(ExtractionStrategy):
@@ -127,11 +120,6 @@ class ChatGPTConversationsExtractionStrategy(ExtractionStrategy):
 
         stream.close()
         return batches
-
-
-# ---------------------------------------------------------------------------
-# Transform – builds thread-shaped DataFrames
-# ---------------------------------------------------------------------------
 
 
 class ChatGPTConversationsTransformStrategy(TransformStrategy):

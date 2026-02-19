@@ -1,5 +1,3 @@
-"""Pydantic schemas for the real Instagram archive format."""
-
 from __future__ import annotations
 
 from pydantic import BaseModel

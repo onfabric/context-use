@@ -1,5 +1,3 @@
-"""Base batch factory — creates Batch rows and dispatches them."""
-
 from __future__ import annotations
 
 import logging

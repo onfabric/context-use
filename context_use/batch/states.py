@@ -1,4 +1,3 @@
-"""Base state classes for the batch state machine."""
 # pyright: reportIncompatibleVariableOverride=false
 # Literal field overrides are the standard Pydantic discriminated-union pattern;
 # pyright flags them as incompatible variable overrides, but this is a false

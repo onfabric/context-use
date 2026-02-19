@@ -1,5 +1,3 @@
-"""ChatGPT orchestration strategy."""
-
 from __future__ import annotations
 
 from context_use.etl.core.etl import OrchestrationStrategy

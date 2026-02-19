@@ -36,8 +36,6 @@ class GCSStorage(StorageBackend):
     def _full_key(self, key: str) -> str:
         return f"{self._prefix}{key}"
 
-    # ---- interface ----
-
     def write(self, key: str, data: bytes) -> None:
         blob = self._bucket.blob(self._full_key(key))
         blob.upload_from_string(data)

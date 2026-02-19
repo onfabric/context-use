@@ -1,5 +1,3 @@
-"""Tests for Instagram extraction strategies."""
-
 import json
 from pathlib import Path
 

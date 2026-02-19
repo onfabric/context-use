@@ -1,5 +1,3 @@
-"""Thread payload utilities (ported from aertex)."""
-
 from __future__ import annotations
 
 from pydantic import TypeAdapter
