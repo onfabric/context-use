@@ -1,9 +1,9 @@
 """Smoke-test: Instagram data → memory generation (batch) → embedding (batch)."""
 
+import asyncio
 import json
 import logging
 import os
-import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -59,19 +59,19 @@ def load_threads_from_instagram(limit: int = MAX_THREADS) -> list[FakeThread]:
     return threads
 
 
-def poll_batch(poll_fn, description: str):
+async def poll_batch(poll_fn, description: str):
     """Poll *poll_fn* until it returns a non-None result."""
     print(f"Polling every {POLL_INTERVAL_SECS}s (max {POLL_MAX_ATTEMPTS} attempts)…")
     for attempt in range(1, POLL_MAX_ATTEMPTS + 1):
-        result = poll_fn()
+        result = await poll_fn()
         if result is not None:
             return result
         print(f"  [{attempt}/{POLL_MAX_ATTEMPTS}] {description} still running…")
-        time.sleep(POLL_INTERVAL_SECS)
+        await asyncio.sleep(POLL_INTERVAL_SECS)
     return None
 
 
-def main() -> None:
+async def main() -> None:
     threads = load_threads_from_instagram()
     print(f"Loaded {len(threads)} threads from Instagram stories")
 
@@ -89,10 +89,10 @@ def main() -> None:
 
     # --- Step 1: Generate memories via batch ---
     print("\n=== Step 1: Memory generation ===")
-    gen_job = client.batch_submit("smoke-batch-test", prompts)
+    gen_job = await client.batch_submit("smoke-batch-test", prompts)
     print(f"Batch job submitted: {gen_job}")
 
-    results = poll_batch(
+    results = await poll_batch(
         lambda: client.batch_get_results(gen_job, MemorySchema),
         "generation",
     )
@@ -113,10 +113,10 @@ def main() -> None:
     print(f"\n=== Step 2: Embedding {len(all_memories)} memories ===")
     embed_items = [EmbedItem(item_id=mid, text=text) for mid, text in all_memories]
 
-    embed_job = client.embed_batch_submit("smoke-embed-test", embed_items)
+    embed_job = await client.embed_batch_submit("smoke-embed-test", embed_items)
     print(f"Embed batch job submitted: {embed_job}")
 
-    embeddings = poll_batch(
+    embeddings = await poll_batch(
         lambda: client.embed_batch_get_results(embed_job),
         "embedding",
     )
@@ -135,4 +135,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

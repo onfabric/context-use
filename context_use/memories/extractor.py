@@ -18,7 +18,7 @@ class MemoryExtractor:
     def __init__(self, llm_client: LLMClient) -> None:
         self.llm_client = llm_client
 
-    def submit(self, batch_id: str, threads: list[Thread]) -> str:
+    async def submit(self, batch_id: str, threads: list[Thread]) -> str:
         """Build day-grouped prompts and submit as a batch job.
 
         Returns the ``job_key`` for polling.
@@ -31,11 +31,11 @@ class MemoryExtractor:
             len(prompts),
             len(threads),
         )
-        return self.llm_client.batch_submit(batch_id, prompts)
+        return await self.llm_client.batch_submit(batch_id, prompts)
 
-    def get_results(
+    async def get_results(
         self,
         job_key: str,
     ) -> BatchResults[MemorySchema] | None:
         """Poll for results. Returns ``None`` while still processing."""
-        return self.llm_client.batch_get_results(job_key, MemorySchema)
+        return await self.llm_client.batch_get_results(job_key, MemorySchema)
