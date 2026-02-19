@@ -272,9 +272,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "asyncpg", specifier = ">=0.31.0" },
     { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=2.10.0,<3" },
-    { name = "greenlet", specifier = ">=3.0" },
+    { name = "greenlet", specifier = ">=3.3.1" },
     { name = "ijson", specifier = ">=3.0" },
     { name = "litellm", specifier = ">=1.81.13" },
     { name = "pandas", specifier = ">=2.0" },
