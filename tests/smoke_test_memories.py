@@ -1,5 +1,4 @@
-"""Smoke-test: load real Instagram data → MemoryPromptBuilder → GeminiClient."""
-
+import asyncio
 import json
 import logging
 import os
@@ -7,10 +6,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 
-from google import genai
-
 from context_use.etl.models.thread import Thread
-from context_use.llm.gemini.real_time import GeminiClient
+from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.prompt import MemoryPromptBuilder, MemorySchema
 
 logging.basicConfig(level=logging.INFO)
@@ -67,19 +64,26 @@ print(f"Built {len(prompts)} prompt(s)")
 for p in prompts:
     print(f"  {p.item_id}: {len(p.asset_paths)} asset(s)")
 
-client = GeminiClient(
-    genai_client=genai.Client(api_key=os.environ["GEMINI_API_KEY"]),
-    model="gemini-2.5-flash",
+client = LLMClient(
+    model=OpenAIModel.GPT_4O,
+    api_key=os.environ["OPENAI_API_KEY"],
+    embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
 )
 
-job_key = client.batch_submit("test-batch", prompts)
-results = client.batch_get_results(job_key, MemorySchema)
 
-if results:
-    print(f"\nMemories generated for {len(results)} day(s):")
-    for day, schema in sorted(results.items()):
-        print(f"\n  {day}:")
-        for m in schema.memories:
-            print(f"    - {m.content}")
-else:
-    print("\nNo results returned.")
+async def main() -> None:
+    job_key = await client.batch_submit("test-batch", prompts)
+    results = await client.batch_get_results(job_key, MemorySchema)
+
+    if results:
+        print(f"\nMemories generated for {len(results)} day(s):")
+        for day, schema in sorted(results.items()):
+            print(f"\n  {day}:")
+            for m in schema.memories:
+                print(f"    - {m.content}")
+    else:
+        print("\nNo results returned.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
