@@ -11,6 +11,8 @@ import asyncio
 import logging
 import os
 
+from sqlalchemy import select
+
 from context_use import ContextUse
 from context_use.batch.runner import run_batches
 from context_use.db.postgres import PostgresBackend
@@ -31,10 +33,10 @@ logger = logging.getLogger(__name__)
 STORAGE_BASE_PATH = "./data"
 
 
-def clean_db(db: PostgresBackend) -> None:
-    with db.session_scope() as session:
+async def clean_db(db: PostgresBackend) -> None:
+    async with db.session_scope() as session:
         for table in reversed(Base.metadata.sorted_tables):
-            session.execute(table.delete())
+            await session.execute(table.delete())
     logger.info("Cleaned all tables")
 
 
@@ -58,11 +60,11 @@ async def main() -> None:
 
     # ---- Step 0: clean slate ----
     print("\n=== Step 0: Cleaning DB ===")
-    clean_db(db)
+    await clean_db(db)
 
     # ---- Step 1: ETL ----
     print("\n=== Step 1: ETL ===")
-    result = ctx.process_archive(Provider.INSTAGRAM, args.instagram)
+    result = await ctx.process_archive(Provider.INSTAGRAM, args.instagram)
     print(
         f"Archive {result.archive_id}: "
         f"{result.threads_created} threads, "
@@ -75,12 +77,15 @@ async def main() -> None:
     print("\n=== Step 2: Create batches ===")
     session = db.get_session()
 
-    tasks = session.query(EtlTask).filter_by(archive_id=result.archive_id).all()
+    stmt = select(EtlTask).where(EtlTask.archive_id == result.archive_id)
+
+    tasks = await session.execute(stmt)
+    tasks = tasks.scalars().all()
     print(f"Found {len(tasks)} ETL task(s)")
 
     all_batches = []
     for task in tasks:
-        batches = MemoryBatchFactory.create_batches(
+        batches = await MemoryBatchFactory.create_batches(
             etl_task_id=task.id,
             db=session,
         )
@@ -90,7 +95,7 @@ async def main() -> None:
 
     if not all_batches:
         print("No batches to process — exiting.")
-        session.close()
+        await session.close()
         return
 
     # ---- Step 3: run memory pipeline ----
@@ -113,13 +118,15 @@ async def main() -> None:
     # ---- Step 4: report ----
     print("\n=== Results ===")
     session.expire_all()
-    memories = session.query(TapestryMemory).all()
+    stmt = select(TapestryMemory)
+    memories = await session.execute(stmt)
+    memories = memories.scalars().all()
     print(f"{len(memories)} memories in DB:")
     for m in memories:
         has_emb = m.embedding is not None
         print(f"  [{m.from_date}] {m.content[:100]}  (embedded={has_emb})")
 
-    session.close()
+    await session.close()
     print("\nDone.")
 
 
