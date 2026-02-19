@@ -19,7 +19,7 @@ from context_use.llm.base import BatchResults, EmbedBatchResults, EmbedItem, LLM
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.models import TapestryMemory
-from context_use.memories.prompt import MemorySchema
+from context_use.memories.prompt import MemorySchema, WindowConfig
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
     MemoryEmbedPendingState,
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @register_batch_manager(BatchCategory.memories)
 class MemoryBatchManager(BaseBatchManager):
-    """Generates and embeds memories from asset threads grouped by day.
+    """Generates and embeds memories from asset threads grouped by time window.
 
     State machine:
         CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE
@@ -46,12 +46,14 @@ class MemoryBatchManager(BaseBatchManager):
         db: AsyncSession,
         llm_client: LLMClient,
         storage: StorageBackend,
+        window_config: WindowConfig | None = None,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
-        self.extractor = MemoryExtractor(llm_client)
+        self.window_config = window_config or WindowConfig()
+        self.extractor = MemoryExtractor(llm_client, self.window_config)
         self.batch_factory = MemoryBatchFactory
 
     async def _get_batch_threads(self) -> list[Thread]:
@@ -120,14 +122,12 @@ class MemoryBatchManager(BaseBatchManager):
     ) -> int:
         """Write memories to the ``tapestry_memories`` table."""
         count = 0
-        for day_key, schema in results.items():
-            memory_date = date.fromisoformat(day_key)
-
+        for _window_key, schema in results.items():
             for memory in schema.memories:
                 row = TapestryMemory(
                     content=memory.content,
-                    from_date=memory_date,
-                    to_date=memory_date,
+                    from_date=date.fromisoformat(memory.from_date),
+                    to_date=date.fromisoformat(memory.to_date),
                     tapestry_id=self.batch.tapestry_id,
                 )
                 self.db.add(row)

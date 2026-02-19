@@ -5,6 +5,9 @@ from context_use.memories.factory import (  # noqa: F401
 from context_use.memories.manager import (  # noqa: F401
     MemoryBatchManager,
 )
+from context_use.memories.prompt import (  # noqa: F401
+    WindowConfig,
+)
 from context_use.memories.states import (  # noqa: F401
     parse_memory_batch_state,
 )
