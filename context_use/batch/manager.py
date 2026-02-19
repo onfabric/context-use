@@ -91,9 +91,7 @@ class BaseBatchManager(ABC):
                 current_state
             ):
                 new_state = new_state.increment_poll_count()
-                logger.info(
-                    "[%s] Polling (attempt %d)", batch_id, new_state.poll_count
-                )
+                logger.info("[%s] Polling (attempt %d)", batch_id, new_state.poll_count)
                 if new_state.poll_count >= MAX_POLL_ATTEMPTS:
                     raise RuntimeError(
                         f"Polling exceeded {MAX_POLL_ATTEMPTS} attempts. "
@@ -105,9 +103,7 @@ class BaseBatchManager(ABC):
                 current_state
             ):
                 new_state = new_state.increment_retry_count()
-                logger.info(
-                    "[%s] Retry (attempt %d)", batch_id, new_state.retry_count
-                )
+                logger.info("[%s] Retry (attempt %d)", batch_id, new_state.retry_count)
                 if new_state.retry_count > MAX_RETRY_ATTEMPTS:
                     raise RuntimeError(
                         f"Retry exceeded {MAX_RETRY_ATTEMPTS} attempts. "
@@ -141,9 +137,7 @@ class BaseBatchManager(ABC):
 
         except Exception as exc:
             await self.db.rollback()
-            logger.error(
-                "[%s] Error advancing state: %s", batch_id, exc, exc_info=True
-            )
+            logger.error("[%s] Error advancing state: %s", batch_id, exc, exc_info=True)
             self.batch.update_state(
                 FailedState(
                     error_message=str(exc),
