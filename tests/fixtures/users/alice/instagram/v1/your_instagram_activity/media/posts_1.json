@@ -1,0 +1,36 @@
+[
+  {
+    "media": [
+      {
+        "uri": "media/posts/202409/pasta_flatlay.jpg",
+        "creation_timestamp": 1725373798,
+        "media_metadata": {
+          "photo_metadata": {
+            "exif_data": [
+              {
+                "latitude": 48.8566,
+                "longitude": 2.3522
+              },
+              {
+                "scene_capture_type": "standard",
+                "software": "HDR+ 1.0.000000000zd",
+                "device_id": "android-0000000000000000",
+                "date_time_digitized": "2024:09:03 14:23:18",
+                "date_time_original": "2024:09:03 14:23:18",
+                "source_type": "4"
+              }
+            ]
+          },
+          "camera_metadata": {
+            "has_camera_metadata": false
+          }
+        },
+        "title": "Homemade pasta for dinner",
+        "cross_post_source": {
+          "source_app": "FB"
+        }
+      }
+    ]
+  }
+]
+

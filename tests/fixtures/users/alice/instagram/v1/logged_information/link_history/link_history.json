@@ -1,0 +1,25 @@
+[
+  {
+    "timestamp": 1771189538,
+    "media": [],
+    "label_values": [
+      {
+        "label": "Website link that you visited",
+        "value": "https://example.com/article/synthetic-article"
+      },
+      {
+        "label": "Title of website page that you visited",
+        "value": "Synthetic Article | Example"
+      },
+      {
+        "label": "Website session start time",
+        "value": "Feb 15, 2026 1:05:28pm"
+      },
+      {
+        "label": "Website session end time",
+        "value": "Feb 15, 2026 1:06:00pm"
+      }
+    ]
+  }
+]
+

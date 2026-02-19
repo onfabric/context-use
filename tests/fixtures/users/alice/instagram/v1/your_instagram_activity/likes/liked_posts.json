@@ -1,0 +1,25 @@
+{
+  "likes_media_likes": [
+    {
+      "title": "synthetic_foodblog",
+      "string_list_data": [
+        {
+          "href": "https://www.instagram.com/reel/XXXXXXXXXXX/",
+          "value": "\ud83d\udc4d",
+          "timestamp": 1770775983
+        }
+      ]
+    },
+    {
+      "title": "synthetic_traveler",
+      "string_list_data": [
+        {
+          "href": "https://www.instagram.com/p/YYYYYYYYYYY/",
+          "value": "\ud83d\udc4d",
+          "timestamp": 1770683481
+        }
+      ]
+    }
+  ]
+}
+

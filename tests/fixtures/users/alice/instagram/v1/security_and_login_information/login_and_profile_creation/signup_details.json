@@ -1,0 +1,36 @@
+{
+  "account_history_registration_info": [
+    {
+      "title": "",
+      "media_map_data": {},
+      "string_map_data": {
+        "Username": {
+          "href": "",
+          "value": "alice_synthetic",
+          "timestamp": 0
+        },
+        "IP address": {
+          "href": "",
+          "value": "192.0.2.50",
+          "timestamp": 0
+        },
+        "Time": {
+          "href": "",
+          "value": "",
+          "timestamp": 1589100000
+        },
+        "Email": {
+          "href": "",
+          "value": "alice.synthetic@example.com",
+          "timestamp": 0
+        },
+        "Phone number": {
+          "href": "",
+          "value": "+15555550199",
+          "timestamp": 0
+        }
+      }
+    }
+  ]
+}
+

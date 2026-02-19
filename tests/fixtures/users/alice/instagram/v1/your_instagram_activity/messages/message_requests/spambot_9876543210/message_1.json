@@ -1,0 +1,24 @@
+{
+  "participants": [
+    {
+      "name": "spambot_account"
+    },
+    {
+      "name": "alice_synthetic"
+    }
+  ],
+  "messages": [
+    {
+      "sender_name": "spambot_account",
+      "timestamp_ms": 1724500000000,
+      "content": "Check out this amazing offer!!!",
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    }
+  ],
+  "title": "spambot_account",
+  "is_still_participant": false,
+  "thread_path": "message_requests/spambot_9876543210",
+  "magic_words": []
+}
+

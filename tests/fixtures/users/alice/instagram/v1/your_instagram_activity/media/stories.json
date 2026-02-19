@@ -1,0 +1,81 @@
+{
+  "ig_stories": [
+    {
+      "uri": "media/stories/202512/beach_waves.mp4",
+      "creation_timestamp": 1765390423,
+      "media_metadata": {
+        "video_metadata": {
+          "exif_data": [
+            {
+              "device_id": "android-0000000000000000",
+              "camera_position": "unknown",
+              "date_time_original": "20251210T181138.000Z",
+              "source_type": "4"
+            }
+          ]
+        },
+        "camera_metadata": {
+          "has_camera_metadata": true
+        }
+      },
+      "title": "",
+      "cross_post_source": {
+        "source_app": "FB"
+      },
+      "dubbing_info": [],
+      "media_variants": []
+    },
+    {
+      "uri": "media/stories/202303/bookshop.jpg",
+      "creation_timestamp": 1679000000,
+      "media_metadata": {
+        "photo_metadata": {
+          "exif_data": [
+            {
+              "latitude": 51.5074,
+              "longitude": -0.1278
+            }
+          ]
+        },
+        "camera_metadata": {
+          "has_camera_metadata": false
+        }
+      },
+      "title": "Synthetic Story",
+      "cross_post_source": {
+        "source_app": "FB"
+      },
+      "dubbing_info": [],
+      "media_variants": []
+    },
+    {
+      "uri": "media/stories/202512/winter_lights.jpg",
+      "creation_timestamp": 1765400000,
+      "media_metadata": {
+        "photo_metadata": {
+          "exif_data": [
+            {
+              "latitude": 48.8566,
+              "longitude": 2.3522
+            },
+            {
+              "scene_capture_type": "standard",
+              "device_id": "android-0000000000000000",
+              "source_type": "4"
+            }
+          ]
+        },
+        "camera_metadata": {
+          "has_camera_metadata": false
+        }
+      },
+      "title": "Another Synthetic Story",
+      "cross_post_source": {
+        "source_app": "FB"
+      },
+      "dubbing_info": [],
+      "media_variants": []
+    }
+  ]
+}
+

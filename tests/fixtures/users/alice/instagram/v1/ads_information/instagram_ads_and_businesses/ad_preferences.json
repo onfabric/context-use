@@ -1,0 +1,26 @@
+{
+  "media": [],
+  "label_values": [
+    {
+      "label": "Removed categories",
+      "vec": []
+    },
+    {
+      "dict": [
+        {
+          "dict": [
+            {
+              "label": "Event",
+              "value": "Report an Ad"
+            },
+            {
+              "label": "Date",
+              "value": "2025-01-15"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,15 @@
+{
+  "apps_and_websites_off_meta_activity": [
+    {
+      "name": "example.com",
+      "events": [
+        {
+          "id": 100000000000000,
+          "type": "PAGE_VIEW",
+          "timestamp": 1771188060
+        }
+      ]
+    }
+  ]
+}
+
