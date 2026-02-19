@@ -6,7 +6,8 @@ import logging
 from abc import ABC
 from typing import ClassVar
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.models import Batch, BatchCategory
 from context_use.etl.models.etl_task import EtlTask
@@ -33,45 +34,48 @@ class BaseBatchFactory(ABC):
     BATCH_COUNTDOWN_INTERVAL_SECS = 5
 
     @classmethod
-    def _get_batch_eligible_threads_query(
+    def _get_batch_eligible_threads_stmt(
         cls,
         etl_task_id: str,
-        db: Session,
     ):
-        """Base query for threads eligible for batching.
+        """Base select statement for threads eligible for batching.
 
         Ordered by ``(asat, id)`` for deterministic OFFSET/LIMIT assignment.
         """
         from datetime import UTC, datetime, timedelta
 
-        query = db.query(Thread).filter(Thread.etl_task_id == etl_task_id)
+        stmt = select(Thread).where(Thread.etl_task_id == etl_task_id)
 
         if cls.cutoff_days is not None:
             cutoff = datetime.now(UTC) - timedelta(days=cls.cutoff_days)
-            query = query.filter(Thread.asat >= cutoff)
+            stmt = stmt.where(Thread.asat >= cutoff)
 
-        return query.order_by(Thread.asat, Thread.id)
+        return stmt.order_by(Thread.asat, Thread.id)
 
     @classmethod
-    def get_batch_threads(cls, batch: Batch, db: Session) -> list[Thread]:
+    async def get_batch_threads(cls, batch: Batch, db: AsyncSession) -> list[Thread]:
         """Get threads for a specific batch via OFFSET/LIMIT."""
         offset = (batch.batch_number - 1) * cls.MAX_THREADS_PER_BATCH
-        return (
-            cls._get_batch_eligible_threads_query(batch.etl_task_id, db)
+        stmt = (
+            cls._get_batch_eligible_threads_stmt(batch.etl_task_id)
             .offset(offset)
             .limit(cls.MAX_THREADS_PER_BATCH)
-            .all()
         )
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
 
     @classmethod
-    def _create_batches(
+    async def _create_batches(
         cls,
         etl_task_id: str,
-        db: Session,
+        db: AsyncSession,
         tapestry_id: str | None = None,
     ) -> list[Batch]:
         """Create Batch rows for each category, splitting by MAX_THREADS_PER_BATCH."""
-        etl_task = db.query(EtlTask).filter(EtlTask.id == etl_task_id).first()
+        etl_task_result = await db.execute(
+            select(EtlTask).where(EtlTask.id == etl_task_id)
+        )
+        etl_task = etl_task_result.scalars().first()
         if not etl_task:
             logger.error("ETL task %s not found", etl_task_id)
             return []
@@ -82,7 +86,11 @@ class BaseBatchFactory(ABC):
             )
             return []
 
-        total = cls._get_batch_eligible_threads_query(etl_task_id, db).count()
+        count_stmt = select(func.count()).select_from(
+            cls._get_batch_eligible_threads_stmt(etl_task_id).subquery()
+        )
+        total_result = await db.execute(count_stmt)
+        total = total_result.scalar_one()
         if total == 0:
             logger.info("[%s] No eligible threads for batching", etl_task_id)
             return []
@@ -110,14 +118,14 @@ class BaseBatchFactory(ABC):
                 db.add(batch_model)
                 batch_models.append(batch_model)
 
-        db.commit()
+        await db.commit()
         return batch_models
 
     @classmethod
-    def create_batches(
+    async def create_batches(
         cls,
         etl_task_id: str,
-        db: Session,
+        db: AsyncSession,
         tapestry_id: str | None = None,
     ) -> list[Batch]:
         """Public entry point: create batches for an ETL task.
@@ -125,7 +133,7 @@ class BaseBatchFactory(ABC):
         Returns the list of Batch rows (already committed).
         The caller (runner) is responsible for dispatching them.
         """
-        return cls._create_batches(
+        return await cls._create_batches(
             etl_task_id=etl_task_id,
             db=db,
             tapestry_id=tapestry_id,

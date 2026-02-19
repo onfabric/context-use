@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.manager import (
     BaseBatchManager,
@@ -40,7 +40,7 @@ async def run_batch(manager: BaseBatchManager) -> None:
 
 async def run_batches(
     batches: list[Batch],
-    db: Session,
+    db: AsyncSession,
     *,
     manager_kwargs: dict | None = None,
 ) -> None:

@@ -1,7 +1,12 @@
 from __future__ import annotations
 
-from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
 from context_use.db.base import DatabaseBackend
 from context_use.etl.models.base import Base
@@ -16,18 +21,17 @@ class PostgresBackend(DatabaseBackend):
         user: str,
         password: str,
     ) -> None:
-        url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
-        self._engine = create_engine(url, echo=False)
-        self._session_factory = sessionmaker(bind=self._engine)
+        url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
+        self._engine = create_async_engine(url, echo=False)
+        self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
 
-    def get_engine(self) -> Engine:
+    def get_engine(self) -> AsyncEngine:
         return self._engine
 
-    def get_session(self) -> Session:
+    def get_session(self) -> AsyncSession:
         return self._session_factory()
 
-    def init_db(self) -> None:
-        with self._engine.connect() as conn:
-            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            conn.commit()
-        Base.metadata.create_all(self._engine)
+    async def init_db(self) -> None:
+        async with self._engine.begin() as conn:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            await conn.run_sync(Base.metadata.create_all)
