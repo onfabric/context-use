@@ -75,6 +75,16 @@ def _encode_file_as_data_url(path: str) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
+def _build_response_format(item: PromptItem) -> dict:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "response",
+            "schema": item.response_schema,
+        },
+    }
+
+
 def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = []
     for path in item.asset_paths:
@@ -96,13 +106,7 @@ def _build_batch_jsonl_line(
         "body": {
             "model": model,
             "messages": _build_messages(item),
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {
-                    "name": "response",
-                    "schema": item.response_schema,
-                },
-            },
+            "response_format": _build_response_format(item),
         },
     }
 
@@ -157,13 +161,7 @@ class LLMClient:
                 model=self._model,
                 api_key=self._api_key,
                 messages=_build_messages(item),
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {
-                        "name": "response",
-                        "schema": item.response_schema,
-                    },
-                },
+                response_format=_build_response_format(item),
             ),
         )
 

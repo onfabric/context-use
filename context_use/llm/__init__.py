@@ -3,7 +3,6 @@ from context_use.llm.base import (
     EmbedBatchResults,
     EmbedItem,
     LLMClient,
-    PromptItem,
 )
 from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 
@@ -14,5 +13,4 @@ __all__ = [
     "LLMClient",
     "OpenAIEmbeddingModel",
     "OpenAIModel",
-    "PromptItem",
 ]
