@@ -39,8 +39,15 @@ class Pipe[Record: BaseModel](ABC):
     *payload schema* version (``CURRENT_THREAD_PAYLOAD_VERSION``).
     """
 
-    archive_path: ClassVar[str]
-    """Relative file path inside the zip archive this pipe reads from."""
+    archive_path_pattern: ClassVar[str]
+    """``fnmatch`` glob for the relative path inside the zip archive.
+
+    Patterns without wildcards behave as exact matches (backward-compatible).
+    Patterns with wildcards (e.g. ``inbox/*/message_1.json``) match multiple
+    files; ``discover_tasks`` creates **one EtlTask per matched file**, so
+    each pipe's ``extract()`` always reads a single file via
+    ``task.source_uri``.
+    """
 
     record_schema: ClassVar[type[BaseModel]]
     """Runtime-accessible record type.  Must match the type parameter ``Record``.

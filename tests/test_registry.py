@@ -21,7 +21,7 @@ class FakePipeA(Pipe[_FakeRecord]):
     provider = "test"
     interaction_type = "test_alpha"
     archive_version = "v1"
-    archive_path = "data.json"
+    archive_path_pattern = "data.json"
     record_schema = _FakeRecord
 
     def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[_FakeRecord]:
@@ -43,7 +43,7 @@ class FakePipeB(Pipe[_FakeRecord]):
     provider = "test"
     interaction_type = "test_beta"
     archive_version = "v1"
-    archive_path = "nested/other.json"
+    archive_path_pattern = "nested/other.json"
     record_schema = _FakeRecord
 
     def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[_FakeRecord]:
@@ -52,6 +52,30 @@ class FakePipeB(Pipe[_FakeRecord]):
     def transform(self, record: _FakeRecord, task: EtlTask) -> ThreadRow:
         return ThreadRow(
             unique_key=f"b:{record.value}",
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=record.value,
+            payload={"v": record.value},
+            version="1.0.0",
+            asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+        )
+
+
+class FakePipeGlob(Pipe[_FakeRecord]):
+    """Pipe with a wildcard ``archive_path_pattern`` for fan-out tests."""
+
+    provider = "test"
+    interaction_type = "test_glob"
+    archive_version = "v1"
+    archive_path_pattern = "inbox/*/message_1.json"
+    record_schema = _FakeRecord
+
+    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[_FakeRecord]:
+        yield _FakeRecord(value="g")
+
+    def transform(self, record: _FakeRecord, task: EtlTask) -> ThreadRow:
+        return ThreadRow(
+            unique_key=f"g:{record.value}",
             provider=self.provider,
             interaction_type=self.interaction_type,
             preview=record.value,
@@ -96,6 +120,48 @@ class TestDiscoverTasks:
         )
         assert len(tasks) == 1
         assert tasks[0].source_uri == "a1/data.json"
+
+    def test_glob_pattern_creates_one_task_per_match(self):
+        """Wildcard pattern fans out to one EtlTask per matched file."""
+        cfg = ProviderConfig(pipes=[FakePipeGlob])
+        files = [
+            "a1/inbox/alice/message_1.json",
+            "a1/inbox/bob/message_1.json",
+            "a1/inbox/carol/message_1.json",
+        ]
+        tasks = cfg.discover_tasks("a1", files, "test")
+
+        assert len(tasks) == 3
+        uris = {t.source_uri for t in tasks}
+        assert uris == set(files)
+        for t in tasks:
+            assert t.interaction_type == "test_glob"
+            assert t.provider == "test"
+            assert t.archive_id == "a1"
+
+    def test_glob_pattern_no_match(self):
+        """Wildcard pattern yields no tasks when nothing matches."""
+        cfg = ProviderConfig(pipes=[FakePipeGlob])
+        tasks = cfg.discover_tasks("a1", ["a1/inbox/readme.txt"], "test")
+        assert tasks == []
+
+    def test_glob_pattern_mixed_with_exact(self):
+        """Exact-match and glob-match pipes coexist in one config."""
+        cfg = ProviderConfig(pipes=[FakePipeA, FakePipeGlob])
+        files = [
+            "a1/data.json",
+            "a1/inbox/alice/message_1.json",
+            "a1/inbox/bob/message_1.json",
+        ]
+        tasks = cfg.discover_tasks("a1", files, "test")
+
+        assert len(tasks) == 3
+        types = {t.interaction_type for t in tasks}
+        assert types == {"test_alpha", "test_glob"}
+        alpha_tasks = [t for t in tasks if t.interaction_type == "test_alpha"]
+        glob_tasks = [t for t in tasks if t.interaction_type == "test_glob"]
+        assert len(alpha_tasks) == 1
+        assert len(glob_tasks) == 2
 
 
 class TestGetPipe:
