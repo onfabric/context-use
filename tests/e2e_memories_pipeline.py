@@ -38,7 +38,7 @@ def clean_db(db: PostgresBackend) -> None:
     logger.info("Cleaned all tables")
 
 
-def main() -> None:
+async def main() -> None:
     parser = argparse.ArgumentParser(description="E2E memories pipeline")
     parser.add_argument(
         "--instagram", required=True, metavar="PATH", help="Path to Instagram zip"
@@ -101,15 +101,13 @@ def main() -> None:
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_SMALL,
     )
 
-    asyncio.run(
-        run_batches(
-            all_batches,
-            db=session,
-            manager_kwargs={
-                "llm_client": llm_client,
-                "storage": storage,
-            },
-        )
+    await run_batches(
+        all_batches,
+        db=session,
+        manager_kwargs={
+            "llm_client": llm_client,
+            "storage": storage,
+        },
     )
 
     # ---- Step 4: report ----
@@ -126,4 +124,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
