@@ -1,5 +1,5 @@
 import datetime
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
 import pytest
 from sqlalchemy import inspect, text
@@ -12,7 +12,7 @@ from context_use.etl.models.thread import Thread
 from tests.conftest import Settings
 
 
-def _make_db(settings: Settings) -> PostgresBackend:
+async def _make_db(settings: Settings) -> PostgresBackend:
     db = PostgresBackend(
         host=settings.host,
         port=settings.port,
@@ -20,56 +20,61 @@ def _make_db(settings: Settings) -> PostgresBackend:
         user=settings.user,
         password=settings.password,
     )
-    db.init_db()
+    await db.init_db()
     return db
 
 
 @pytest.fixture(autouse=True)
-def _clean_tables(settings: Settings) -> Generator[None]:
-    db = _make_db(settings)
+async def _clean_tables(settings: Settings) -> AsyncGenerator[None]:
+    db = await _make_db(settings)
     yield
-    with db.session_scope() as session:
+    async with db.session_scope() as session:
         for table in reversed(Base.metadata.sorted_tables):
-            session.execute(table.delete())
+            await session.execute(table.delete())
 
 
 class TestPostgresBackend:
-    def test_init_creates_tables(self, settings: Settings):
-        db = _make_db(settings)
-        inspector = inspect(db.get_engine())
-        tables = inspector.get_table_names()
+    async def test_init_creates_tables(self, settings: Settings):
+        db = await _make_db(settings)
+        engine = db.get_engine()
+        async with engine.connect() as conn:
+            tables = await conn.run_sync(
+                lambda sync_conn: inspect(sync_conn).get_table_names()
+            )
         assert "archives" in tables
         assert "etl_tasks" in tables
         assert "threads" in tables
 
-    def test_vector_extension_enabled(self, settings: Settings):
-        db = _make_db(settings)
-        with db.session_scope() as s:
-            row = s.execute(
-                text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
+    async def test_vector_extension_enabled(self, settings: Settings):
+        db = await _make_db(settings)
+        async with db.session_scope() as s:
+            row = (
+                await s.execute(
+                    text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")
+                )
             ).one_or_none()
             assert row is not None, "pgvector extension is not enabled"
 
-    def test_archive_crud(self, settings: Settings):
-        db = _make_db(settings)
-        with db.session_scope() as s:
+    async def test_archive_crud(self, settings: Settings):
+        db = await _make_db(settings)
+        async with db.session_scope() as s:
             a = Archive(provider="chatgpt", status=ArchiveStatus.CREATED.value)
             s.add(a)
-            s.flush()
+            await s.flush()
             aid = a.id
 
-        with db.session_scope() as s:
-            row = s.get(Archive, aid)
+        async with db.session_scope() as s:
+            row = await s.get(Archive, aid)
             assert row is not None
             assert row.provider == "chatgpt"
             assert row.status == "created"
 
-    def test_etl_task_crud(self, settings: Settings):
-        db = _make_db(settings)
-        with db.session_scope() as s:
+    async def test_etl_task_crud(self, settings: Settings):
+        db = await _make_db(settings)
+        async with db.session_scope() as s:
             a = Archive(provider="chatgpt", status=ArchiveStatus.CREATED.value)
             s.add(a)
-            s.flush()
+            await s.flush()
 
             t = EtlTask(
                 archive_id=a.id,
@@ -79,17 +84,17 @@ class TestPostgresBackend:
                 status=EtlTaskStatus.CREATED.value,
             )
             s.add(t)
-            s.flush()
+            await s.flush()
             tid = t.id
 
-        with db.session_scope() as s:
-            row = s.get(EtlTask, tid)
+        async with db.session_scope() as s:
+            row = await s.get(EtlTask, tid)
             assert row is not None
             assert row.interaction_type == "chatgpt_conversations"
 
-    def test_thread_crud(self, settings: Settings):
-        db = _make_db(settings)
-        with db.session_scope() as s:
+    async def test_thread_crud(self, settings: Settings):
+        db = await _make_db(settings)
+        async with db.session_scope() as s:
             t = Thread(
                 unique_key="test:key",
                 provider="chatgpt",
@@ -100,11 +105,11 @@ class TestPostgresBackend:
                 asat=datetime.datetime.now(datetime.UTC),
             )
             s.add(t)
-            s.flush()
+            await s.flush()
             tid = t.id
 
-        with db.session_scope() as s:
-            row = s.get(Thread, tid)
+        async with db.session_scope() as s:
+            row = await s.get(Thread, tid)
             assert row is not None
             assert row.unique_key == "test:key"
             assert row.payload == {"type": "Create"}

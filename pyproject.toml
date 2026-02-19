@@ -10,7 +10,8 @@ dependencies = [
     "pandas>=2.0",
     "ijson>=3.0",
     "tenacity>=9.1.4",
-    "psycopg2>=2.9.11",
+    "asyncpg>=0.30.0",
+    "greenlet>=3.0",
     "litellm>=1.81.13",
     "pgvector>=0.4.2",
 ]
@@ -25,6 +26,7 @@ dev = [
     "ruff>=0.15.1",
     "pytest>=8.0",
     "pytest-cov",
+    "pytest-asyncio",
     "pre-commit>=4.5.1",
 ]
 
@@ -37,6 +39,7 @@ packages = ["context_use"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
 [tool.ruff]
 # Same as Black.

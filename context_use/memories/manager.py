@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 from datetime import date
 
-from sqlalchemy.orm import Session
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
 from context_use.batch.models import Batch, BatchCategory
@@ -43,7 +44,7 @@ class MemoryBatchManager(BaseBatchManager):
     def __init__(
         self,
         batch: Batch,
-        db: Session,
+        db: AsyncSession,
         llm_client: LLMClient,
     ) -> None:
         super().__init__(batch, db)
@@ -52,11 +53,12 @@ class MemoryBatchManager(BaseBatchManager):
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
 
-    def _get_batch_threads(self) -> list[Thread]:
-        return self.batch_factory.get_batch_threads(self.batch, self.db)
+    async def _get_batch_threads(self) -> list[Thread]:
+        return await self.batch_factory.get_batch_threads(self.batch, self.db)
 
-    def _get_asset_threads(self) -> list[Thread]:
-        return [t for t in self._get_batch_threads() if t.asset_uri is not None]
+    async def _get_asset_threads(self) -> list[Thread]:
+        threads = await self._get_batch_threads()
+        return [t for t in threads if t.asset_uri is not None]
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -84,7 +86,7 @@ class MemoryBatchManager(BaseBatchManager):
                 raise ValueError(f"Invalid state for memories batch: {current_state}")
 
     async def _trigger_memory_generation(self) -> State:
-        threads = self._get_asset_threads()
+        threads = await self._get_asset_threads()
         if not threads:
             return SkippedState(reason="No asset threads for memory generation")
 
@@ -104,10 +106,10 @@ class MemoryBatchManager(BaseBatchManager):
         if results is None:
             return state  # still polling
 
-        count = self._store_memories(results)
+        count = await self._store_memories(results)
         return MemoryGenerateCompleteState(memories_count=count)
 
-    def _store_memories(
+    async def _store_memories(
         self,
         results: BatchResults[MemorySchema],
     ) -> int:
@@ -126,22 +128,21 @@ class MemoryBatchManager(BaseBatchManager):
                 self.db.add(row)
                 count += 1
 
-        self.db.commit()
+        await self.db.commit()
         logger.info("[%s] Stored %d memories", self.batch.id, count)
         return count
 
-    def _get_unembedded_memories(self) -> list[TapestryMemory]:
-        return (
-            self.db.query(TapestryMemory)
-            .filter(
+    async def _get_unembedded_memories(self) -> list[TapestryMemory]:
+        result = await self.db.execute(
+            select(TapestryMemory).where(
                 TapestryMemory.tapestry_id == self.batch.tapestry_id,
                 TapestryMemory.embedding.is_(None),
             )
-            .all()
         )
+        return list(result.scalars().all())
 
     async def _trigger_embedding(self) -> State:
-        memories = self._get_unembedded_memories()
+        memories = await self._get_unembedded_memories()
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
 
@@ -161,14 +162,14 @@ class MemoryBatchManager(BaseBatchManager):
         if results is None:
             return state  # still polling
 
-        count = self._store_embeddings(results)
+        count = await self._store_embeddings(results)
         return MemoryEmbedCompleteState(embedded_count=count)
 
-    def _store_embeddings(self, results: EmbedBatchResults) -> int:
+    async def _store_embeddings(self, results: EmbedBatchResults) -> int:
         """Write embedding vectors back onto existing memory rows."""
         count = 0
         for memory_id, vector in results.items():
-            memory = self.db.get(TapestryMemory, memory_id)
+            memory = await self.db.get(TapestryMemory, memory_id)
             if memory is None:
                 logger.warning(
                     "[%s] Memory %s not found, skipping embedding",
@@ -179,6 +180,6 @@ class MemoryBatchManager(BaseBatchManager):
             memory.embedding = vector
             count += 1
 
-        self.db.commit()
+        await self.db.commit()
         logger.info("[%s] Stored %d embeddings", self.batch.id, count)
         return count
