@@ -36,3 +36,8 @@ class StorageBackend(ABC):
     def delete(self, key: str) -> None:
         """Delete the given key."""
         ...
+
+    @abstractmethod
+    def resolve_local_path(self, key: str) -> str:
+        """Return an absolute local filesystem path for *key*."""
+        ...
