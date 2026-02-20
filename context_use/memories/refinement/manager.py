@@ -14,7 +14,11 @@ from context_use.batch.states import (
     SkippedState,
     State,
 )
-from context_use.llm.base import EmbedBatchResults, EmbedItem, LLMClient
+from context_use.llm.base import LLMClient
+from context_use.memories.embedding import (
+    store_memory_embeddings,
+    submit_memory_embeddings,
+)
 from context_use.memories.models import MemoryStatus, TapestryMemory
 from context_use.memories.refinement.discovery import discover_refinement_clusters
 from context_use.memories.refinement.prompt import (
@@ -23,6 +27,7 @@ from context_use.memories.refinement.prompt import (
 )
 from context_use.memories.refinement.states import (
     RefinementCompleteState,
+    RefinementCreatedState,
     RefinementDiscoverState,
     RefinementEmbedCompleteState,
     RefinementEmbedPendingState,
@@ -58,9 +63,13 @@ class RefinementBatchManager(BaseBatchManager):
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
-            case CreatedState():
+            case RefinementCreatedState() as state:
                 logger.info("[%s] Starting refinement discovery", self.batch.id)
-                return await self._discover()
+                return await self._discover(state.seed_memory_ids)
+
+            case CreatedState():
+                logger.info("[%s] Starting refinement (legacy)", self.batch.id)
+                return await self._discover(self._get_seed_memory_ids_legacy())
 
             case RefinementDiscoverState() as state:
                 logger.info("[%s] Submitting refinement prompts", self.batch.id)
@@ -85,8 +94,7 @@ class RefinementBatchManager(BaseBatchManager):
             case _:
                 raise ValueError(f"Invalid state for refinement batch: {current_state}")
 
-    async def _discover(self) -> State:
-        seed_ids = self._get_seed_memory_ids()
+    async def _discover(self, seed_ids: list[str]) -> State:
         if not seed_ids:
             return SkippedState(reason="No seed memory IDs for refinement")
 
@@ -105,8 +113,8 @@ class RefinementBatchManager(BaseBatchManager):
             cluster_count=len(clusters),
         )
 
-    def _get_seed_memory_ids(self) -> list[str]:
-        """Extract seed memory IDs from the batch's initial state metadata."""
+    def _get_seed_memory_ids_legacy(self) -> list[str]:
+        """Extract seed memory IDs from raw state dicts (pre-RefinementCreatedState)."""
         for state_dict in reversed(self.batch.states):
             seed_ids = state_dict.get("seed_memory_ids")
             if seed_ids:
@@ -166,7 +174,6 @@ class RefinementBatchManager(BaseBatchManager):
                     content=refined.content,
                     from_date=date.fromisoformat(refined.from_date),
                     to_date=date.fromisoformat(refined.to_date),
-                    tapestry_id=self.batch.tapestry_id,
                     status=MemoryStatus.active.value,
                     source_memory_ids=refined.source_ids,
                 )
@@ -196,7 +203,6 @@ class RefinementBatchManager(BaseBatchManager):
     async def _get_unembedded_refined_memories(self) -> list[TapestryMemory]:
         result = await self.db.execute(
             select(TapestryMemory).where(
-                TapestryMemory.tapestry_id == self.batch.tapestry_id,
                 TapestryMemory.status == MemoryStatus.active.value,
                 TapestryMemory.source_memory_ids.isnot(None),
                 TapestryMemory.embedding.is_(None),
@@ -209,14 +215,9 @@ class RefinementBatchManager(BaseBatchManager):
         if not memories:
             return RefinementEmbedCompleteState(embedded_count=0)
 
-        items = [EmbedItem(item_id=m.id, text=m.content) for m in memories]
-
-        logger.info(
-            "[%s] Submitting embed batch for %d refined memories",
-            self.batch.id,
-            len(items),
+        job_key = await submit_memory_embeddings(
+            memories, self.batch.id, self.llm_client
         )
-        job_key = await self.llm_client.embed_batch_submit(self.batch.id, items)
         return RefinementEmbedPendingState(job_key=job_key)
 
     async def _check_embedding_status(
@@ -224,25 +225,7 @@ class RefinementBatchManager(BaseBatchManager):
     ) -> State:
         results = await self.llm_client.embed_batch_get_results(state.job_key)
         if results is None:
-            return state  # still polling
+            return state
 
-        count = await self._store_embeddings(results)
+        count = await store_memory_embeddings(results, self.batch.id, self.db)
         return RefinementEmbedCompleteState(embedded_count=count)
-
-    async def _store_embeddings(self, results: EmbedBatchResults) -> int:
-        count = 0
-        for memory_id, vector in results.items():
-            memory = await self.db.get(TapestryMemory, memory_id)
-            if memory is None:
-                logger.warning(
-                    "[%s] Refined memory %s not found, skipping embedding",
-                    self.batch.id,
-                    memory_id,
-                )
-                continue
-            memory.embedding = vector
-            count += 1
-
-        await self.db.commit()
-        logger.info("[%s] Stored %d refined embeddings", self.batch.id, count)
-        return count

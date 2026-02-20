@@ -42,7 +42,6 @@ class DbLoader(Loader):
                 insert(Thread)
                 .values(
                     unique_key=row.unique_key,
-                    tapestry_id=task.archive.tapestry_id or None,
                     etl_task_id=task.id,
                     provider=row.provider,
                     interaction_type=row.interaction_type,

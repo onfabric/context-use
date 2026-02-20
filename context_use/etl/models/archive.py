@@ -27,7 +27,6 @@ class Archive(TimeStampMixin, Base):
         default=_new_uuid,
     )
     provider: Mapped[str] = mapped_column(String, nullable=False)
-    tapestry_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     status: Mapped[str] = mapped_column(
         String,
         nullable=False,
@@ -39,7 +38,4 @@ class Archive(TimeStampMixin, Base):
         "EtlTask", back_populates="archive", cascade="all, delete-orphan"
     )
 
-    __table_args__ = (
-        Index("idx_archives_provider", "provider"),
-        Index("idx_archives_tapestry_id", "tapestry_id"),
-    )
+    __table_args__ = (Index("idx_archives_provider", "provider"),)

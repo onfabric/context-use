@@ -107,7 +107,6 @@ class BaseBatchFactory(ABC):
         etl_task_id: str,
         db: AsyncSession,
         grouper: ThreadGrouper,
-        tapestry_id: str | None = None,
     ) -> list[Batch]:
         etl_task_result = await db.execute(
             select(EtlTask).where(EtlTask.id == etl_task_id)
@@ -152,7 +151,6 @@ class BaseBatchFactory(ABC):
                     etl_task_id=etl_task_id,
                     batch_number=batch_num,
                     category=category.value,
-                    tapestry_id=tapestry_id,
                 )
                 db.add(batch)
                 await db.flush()
@@ -178,7 +176,6 @@ class BaseBatchFactory(ABC):
         etl_task_id: str,
         db: AsyncSession,
         grouper: ThreadGrouper,
-        tapestry_id: str | None = None,
     ) -> list[Batch]:
         """Public entry point: group threads, bin-pack, and create batches.
 
@@ -188,5 +185,4 @@ class BaseBatchFactory(ABC):
             etl_task_id=etl_task_id,
             db=db,
             grouper=grouper,
-            tapestry_id=tapestry_id,
         )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from context_use.etl.models.base import _new_uuid
+from context_use.db.models import _new_uuid
 
 
 class RunPolicy(ABC):

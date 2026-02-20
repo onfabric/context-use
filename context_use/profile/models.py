@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, String, Text
+from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.db.models import Base, TimeStampMixin, _new_uuid
 
 
 class TapestryProfile(TimeStampMixin, Base):
     """A user profile distilled from memories.
 
-    One row per tapestry, replaced on each regeneration.  ``content``
-    holds free-form markdown produced by the LLM.
+    Replaced on each regeneration. ``content`` holds free-form markdown
+    produced by the LLM.
     """
 
     __tablename__ = "tapestry_profiles"
@@ -21,12 +21,6 @@ class TapestryProfile(TimeStampMixin, Base):
         String(36),
         primary_key=True,
         default=_new_uuid,
-    )
-
-    tapestry_id: Mapped[str] = mapped_column(
-        String(36),
-        unique=True,
-        nullable=False,
     )
 
     content: Mapped[str] = mapped_column(
@@ -45,4 +39,4 @@ class TapestryProfile(TimeStampMixin, Base):
         comment="Number of active memories used to generate this profile",
     )
 
-    __table_args__ = (Index("idx_tapestry_profiles_tapestry_id", "tapestry_id"),)
+    __table_args__: tuple = ()

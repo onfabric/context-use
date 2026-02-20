@@ -17,7 +17,6 @@ DEFAULT_LOOKBACK_MONTHS = 6
 
 
 async def generate_profile(
-    tapestry_id: str | None,
     db: AsyncSession,
     llm_client: LLMClient,
     *,
@@ -29,11 +28,10 @@ async def generate_profile(
     Loads recent active memories, builds a prompt (including the existing
     profile if present), calls the LLM, and upserts the profile row.
     """
-    memories = await _load_recent_memories(tapestry_id, db, lookback_months)
+    memories = await _load_recent_memories(db, lookback_months)
 
     logger.info(
-        "[%s] Generating profile from %d memories (lookback=%d months)",
-        tapestry_id,
+        "Generating profile from %d memories (lookback=%d months)",
         len(memories),
         lookback_months,
     )
@@ -54,7 +52,6 @@ async def generate_profile(
         profile = current_profile
     else:
         profile = TapestryProfile(
-            tapestry_id=tapestry_id or "__default__",
             content=content,
             generated_at=now,
             memory_count=len(memories),
@@ -64,8 +61,7 @@ async def generate_profile(
     await db.flush()
 
     logger.info(
-        "[%s] Profile generated (%d chars, %d memories)",
-        tapestry_id,
+        "Profile generated (%d chars, %d memories)",
         len(content),
         len(memories),
     )
@@ -73,7 +69,6 @@ async def generate_profile(
 
 
 async def _load_recent_memories(
-    tapestry_id: str | None,
     db: AsyncSession,
     lookback_months: int,
 ) -> list[TapestryMemory]:
@@ -83,8 +78,6 @@ async def _load_recent_memories(
         TapestryMemory.status == MemoryStatus.active.value,
         TapestryMemory.from_date >= cutoff,
     )
-    if tapestry_id is not None:
-        stmt = stmt.where(TapestryMemory.tapestry_id == tapestry_id)
 
     result = await db.execute(stmt.order_by(TapestryMemory.from_date))
     return list(result.scalars().all())

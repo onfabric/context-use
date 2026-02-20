@@ -81,7 +81,6 @@ async def main() -> None:
 
         print(f"\nGenerating profile (lookback={args.lookback} months)...")
         profile = await generate_profile(
-            None,
             session,
             llm_client,
             lookback_months=args.lookback,

@@ -10,8 +10,8 @@ from pathlib import Path
 import pytest
 
 from context_use import ContextUse
+from context_use.db.models import Base
 from context_use.db.postgres import PostgresBackend
-from context_use.etl.models.base import Base
 from context_use.storage.disk import DiskStorage
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -72,11 +72,11 @@ def instagram_zip(tmp_path: Path) -> Path:
 
 class Settings:
     def __init__(self) -> None:
-        self.host = str(os.getenv("POSTGRES_HOST"))
-        self.port = int(str(os.getenv("POSTGRES_PORT")))
-        self.database = str(os.getenv("POSTGRES_DB"))
-        self.user = str(os.getenv("POSTGRES_USER"))
-        self.password = str(os.getenv("POSTGRES_PASSWORD"))
+        self.host = os.getenv("POSTGRES_HOST", "localhost")
+        self.port = int(os.getenv("POSTGRES_PORT", "5432"))
+        self.database = os.getenv("POSTGRES_DB", "context_use_test")
+        self.user = os.getenv("POSTGRES_USER", "postgres")
+        self.password = os.getenv("POSTGRES_PASSWORD", "postgres")
 
 
 @pytest.fixture(scope="session")
@@ -86,6 +86,7 @@ def settings() -> Settings:
 
 @pytest.fixture()
 async def db(settings: Settings) -> AsyncGenerator[PostgresBackend]:
+    """Create a DB backend with table cleanup before and after each test."""
     backend = PostgresBackend(
         host=settings.host,
         port=settings.port,
@@ -94,17 +95,18 @@ async def db(settings: Settings) -> AsyncGenerator[PostgresBackend]:
         password=settings.password,
     )
     await backend.init_db()
-    yield backend
-    await backend.get_engine().dispose()
 
-
-@pytest.fixture(autouse=True)
-async def _clean_tables(db: PostgresBackend) -> AsyncGenerator[None]:
-    """Used after each test to clean the database."""
-    yield
-    async with db.session_scope() as session:
+    async with backend.session_scope() as session:
         for table in reversed(Base.metadata.sorted_tables):
             await session.execute(table.delete())
+
+    yield backend
+
+    async with backend.session_scope() as session:
+        for table in reversed(Base.metadata.sorted_tables):
+            await session.execute(table.delete())
+
+    await backend.get_engine().dispose()
 
 
 @pytest.fixture()
