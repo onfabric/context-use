@@ -1,7 +1,9 @@
-"""E2E: Instagram zip → ETL → batch creation → memory generation → embedding → DB.
+"""E2E: archive zip → ETL → batch creation → memory generation → embedding → DB.
 
 Usage:
     uv run tests/e2e_memories_pipeline.py --instagram data/your-instagram-export.zip
+    uv run tests/e2e_memories_pipeline.py --chatgpt data/your-chatgpt-export.zip
+    uv run tests/e2e_memories_pipeline.py --instagram ig.zip --chatgpt chatgpt.zip
 """
 
 from __future__ import annotations
@@ -16,8 +18,8 @@ from pathlib import Path
 
 from sqlalchemy import select
 
+import context_use.memories.providers  # noqa: F401 (registers memory configs)
 from context_use import ContextUse
-from context_use.batch.grouper import WindowConfig, WindowGrouper
 from context_use.batch.runner import run_pipeline
 from context_use.db.postgres import PostgresBackend
 from context_use.etl.models.base import Base
@@ -29,6 +31,7 @@ from context_use.memories.manager import (
     MemoryBatchManager,  # noqa: F401 (registers via decorator)
 )
 from context_use.memories.models import TapestryMemory
+from context_use.memories.registry import get_memory_config
 from context_use.storage.disk import DiskStorage
 
 logging.basicConfig(level=logging.INFO)
@@ -46,9 +49,8 @@ async def clean_db(db: PostgresBackend) -> None:
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="E2E memories pipeline")
-    parser.add_argument(
-        "--instagram", required=True, metavar="PATH", help="Path to Instagram zip"
-    )
+    parser.add_argument("--instagram", metavar="PATH", help="Path to Instagram zip")
+    parser.add_argument("--chatgpt", metavar="PATH", help="Path to ChatGPT zip")
     parser.add_argument(
         "--yolo", action="store_true", help="Use GPT-5.2 instead of GPT-4o"
     )
@@ -62,6 +64,15 @@ async def main() -> None:
         help="Overlap between windows (default: 1)",
     )
     args = parser.parse_args()
+
+    archives: list[tuple[Provider, str]] = []
+    if args.instagram:
+        archives.append((Provider.INSTAGRAM, args.instagram))
+    if args.chatgpt:
+        archives.append((Provider.CHATGPT, args.chatgpt))
+
+    if not archives:
+        parser.error("At least one of --instagram or --chatgpt is required")
 
     storage = DiskStorage(base_path=STORAGE_BASE_PATH)
     db = PostgresBackend(
@@ -81,49 +92,42 @@ async def main() -> None:
 
     # ---- Step 1: ETL ----
     print("\n=== Step 1: ETL ===")
-    result = await ctx.process_archive(Provider.INSTAGRAM, args.instagram)
-    print(
-        f"Archive {result.archive_id}: "
-        f"{result.threads_created} threads, "
-        f"{result.tasks_completed} task(s) completed"
-    )
-    if result.errors:
-        print(f"  Errors: {result.errors}")
+    all_archive_ids: list[str] = []
+    for provider, path in archives:
+        result = await ctx.process_archive(provider, path)
+        all_archive_ids.append(result.archive_id)
+        print(
+            f"[{provider.value}] Archive {result.archive_id}: "
+            f"{result.threads_created} threads, "
+            f"{result.tasks_completed} task(s) completed"
+        )
+        if result.errors:
+            print(f"  Errors: {result.errors}")
 
     # ---- Step 2: create batches ----
     print("\n=== Step 2: Create batches ===")
     session = db.get_session()
 
-    stmt = select(EtlTask).where(EtlTask.archive_id == result.archive_id)
-
-    tasks = await session.execute(stmt)
-    tasks = tasks.scalars().all()
+    stmt = select(EtlTask).where(EtlTask.archive_id.in_(all_archive_ids))
+    tasks = (await session.execute(stmt)).scalars().all()
     print(f"Found {len(tasks)} ETL task(s)")
-
-    window_config = WindowConfig(
-        window_days=args.window_days,
-        overlap_days=args.overlap_days,
-    )
-    grouper = WindowGrouper(window_config)
-
-    print(
-        f"Window config: {window_config.window_days}d window, "
-        f"{window_config.overlap_days}d overlap, "
-        f"step={window_config.step_days}d, "
-        f"memories={window_config.effective_min_memories}-"
-        f"{window_config.effective_max_memories}"
-    )
 
     all_batches = []
     for task in tasks:
+        config = get_memory_config(task.interaction_type)
+        grouper = config.create_grouper()
         batches = await MemoryBatchFactory.create_batches(
             etl_task_id=task.id,
             db=session,
             grouper=grouper,
         )
         all_batches.extend(batches)
+        print(
+            f"  [{task.interaction_type}] {len(batches)} batch(es) "
+            f"(grouper: {type(grouper).__name__})"
+        )
 
-    print(f"Created {len(all_batches)} batch(es)")
+    print(f"Created {len(all_batches)} batch(es) total")
 
     if not all_batches:
         print("No batches to process — exiting.")
@@ -146,7 +150,6 @@ async def main() -> None:
         manager_kwargs={
             "llm_client": llm_client,
             "storage": storage,
-            "window_config": window_config,
         },
     )
 
