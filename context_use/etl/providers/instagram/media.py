@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Iterator
 from datetime import UTC, datetime
 
-import pandas as pd
-
-from context_use.etl.core.etl import ExtractionStrategy, TransformStrategy
-from context_use.etl.core.types import ExtractedBatch
+from context_use.etl.core.pipe import Pipe
+from context_use.etl.core.types import ThreadRow
 from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
@@ -37,111 +36,51 @@ def _infer_media_type(uri: str) -> str:
 def _items_to_records(
     items: list[InstagramMediaItem],
     source_file: str,
-) -> list[InstagramMediaRecord]:
-    """Convert a list of InstagramMediaItem into InstagramMediaRecord instances."""
-    records: list[InstagramMediaRecord] = []
+) -> Iterator[InstagramMediaRecord]:
+    """Convert InstagramMediaItems into InstagramMediaRecord instances."""
     for item in items:
-        records.append(
-            InstagramMediaRecord(
-                uri=item.uri,
-                creation_timestamp=item.creation_timestamp,
-                title=item.title,
-                media_type=_infer_media_type(item.uri),
-                source=json.dumps({"file": source_file, "uri": item.uri}),
-            )
+        yield InstagramMediaRecord(
+            uri=item.uri,
+            creation_timestamp=item.creation_timestamp,
+            title=item.title,
+            media_type=_infer_media_type(item.uri),
+            source=json.dumps({"file": source_file, "uri": item.uri}),
         )
-    return records
 
 
-class InstagramStoriesExtractionStrategy(ExtractionStrategy):
-    """Reads ``stories.json`` and yields batches of typed media records."""
+class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
+    """Shared transform logic for Instagram media (stories and reels).
 
-    record_schema = InstagramMediaRecord  # type: ignore[reportAssignmentType]
+    Subclasses implement :meth:`extract` to parse their specific
+    manifest format; :meth:`transform` is inherited.
+    """
 
-    def extract(
-        self,
-        task: EtlTask,
-        storage: StorageBackend,
-    ) -> list[ExtractedBatch[InstagramMediaRecord]]:
-        key = task.source_uri
-
-        raw = storage.read(key)
-        manifest = InstagramStoriesManifest.model_validate_json(raw)
-
-        records = _items_to_records(manifest.ig_stories, key)
-        if not records:
-            return []
-        return [ExtractedBatch(records=records)]
-
-
-class InstagramReelsExtractionStrategy(ExtractionStrategy):
-    """Reads ``reels.json`` and yields batches of typed media records."""
-
-    record_schema = InstagramMediaRecord  # type: ignore[reportAssignmentType]
-
-    def extract(
-        self,
-        task: EtlTask,
-        storage: StorageBackend,
-    ) -> list[ExtractedBatch[InstagramMediaRecord]]:
-        key = task.source_uri
-
-        raw = storage.read(key)
-        manifest = InstagramReelsManifest.model_validate_json(raw)
-
-        # Flatten nested media lists
-        all_items: list[InstagramMediaItem] = []
-        for entry in manifest.ig_reels_media:
-            all_items.extend(entry.media)
-
-        records = _items_to_records(all_items, key)
-        if not records:
-            return []
-        return [ExtractedBatch(records=records)]
-
-
-class _InstagramMediaTransformStrategy(TransformStrategy):
-    """Shared transform logic for Instagram media (stories and reels)."""
-
-    record_schema = InstagramMediaRecord  # type: ignore[reportAssignmentType]
+    provider = "instagram"
+    archive_version = "v1"
+    record_schema = InstagramMediaRecord
 
     def transform(
         self,
+        record: InstagramMediaRecord,
         task: EtlTask,
-        batches: list[ExtractedBatch[InstagramMediaRecord]],
-    ) -> list[pd.DataFrame]:
-        result_batches: list[pd.DataFrame] = []
+    ) -> ThreadRow:
+        payload = self._build_payload(record, task.provider)
+        assert payload is not None, f"Unexpected None payload for uri={record.uri!r}"
 
-        for batch in batches:
-            rows: list[dict] = []
-            for record in batch.records:
-                payload = self._build_payload(record, task.provider)
-                if payload is None:
-                    continue
+        asat = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
+        unique_key = f"{task.interaction_type}:{payload.unique_key_suffix()}"
 
-                asat = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
-
-                unique_key = f"{task.interaction_type}:{payload.unique_key_suffix()}"
-                rows.append(
-                    {
-                        "unique_key": unique_key,
-                        "provider": task.provider,
-                        "interaction_type": task.interaction_type,
-                        "preview": payload.get_preview(task.provider) or "",
-                        "payload": payload.to_dict(),
-                        "source": record.source,
-                        "version": CURRENT_THREAD_PAYLOAD_VERSION,
-                        "asat": asat,
-                        "asset_uri": (
-                            f"{task.archive_id}/{record.uri}" if record.uri else None
-                        ),
-                    }
-                )
-
-            if rows:
-                result_batches.append(pd.DataFrame(rows))
-
-        return result_batches
+        return ThreadRow(
+            unique_key=unique_key,
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=payload.get_preview(task.provider) or "",
+            payload=payload.to_dict(),
+            source=record.source,
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
+            asat=asat,
+            asset_uri=(f"{task.archive_id}/{record.uri}" if record.uri else None),
+        )
 
     @staticmethod
     def _build_payload(
@@ -165,13 +104,48 @@ class _InstagramMediaTransformStrategy(TransformStrategy):
         )
 
 
-class InstagramStoriesTransformStrategy(_InstagramMediaTransformStrategy):
-    """Transform strategy for Instagram stories."""
+class InstagramStoriesPipe(_InstagramMediaPipe):
+    """ETL pipe for Instagram stories.
 
-    pass
+    Reads ``stories.json``, yields individual
+    :class:`InstagramMediaRecord` instances, and transforms each
+    into a :class:`ThreadRow` with an ActivityStreams payload.
+    """
+
+    interaction_type = "instagram_stories"
+    archive_path = "your_instagram_activity/media/stories.json"
+
+    def extract(
+        self,
+        task: EtlTask,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramMediaRecord]:
+        raw = storage.read(task.source_uri)
+        manifest = InstagramStoriesManifest.model_validate_json(raw)
+        yield from _items_to_records(manifest.ig_stories, task.source_uri)
 
 
-class InstagramReelsTransformStrategy(_InstagramMediaTransformStrategy):
-    """Transform strategy for Instagram reels."""
+class InstagramReelsPipe(_InstagramMediaPipe):
+    """ETL pipe for Instagram reels.
 
-    pass
+    Reads ``reels.json``, flattens nested media lists, yields individual
+    :class:`InstagramMediaRecord` instances, and transforms each
+    into a :class:`ThreadRow` with an ActivityStreams payload.
+    """
+
+    interaction_type = "instagram_reels"
+    archive_path = "your_instagram_activity/media/reels.json"
+
+    def extract(
+        self,
+        task: EtlTask,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramMediaRecord]:
+        raw = storage.read(task.source_uri)
+        manifest = InstagramReelsManifest.model_validate_json(raw)
+
+        all_items: list[InstagramMediaItem] = []
+        for entry in manifest.ig_reels_media:
+            all_items.extend(entry.media)
+
+        yield from _items_to_records(all_items, task.source_uri)

@@ -13,7 +13,9 @@ from context_use.etl.core.exceptions import (
     UnsupportedProviderError,
     UploadFailedException,
 )
-from context_use.etl.core.types import ExtractedBatch, PipelineResult
+from context_use.etl.core.loader import DbLoader, Loader
+from context_use.etl.core.pipe import Pipe
+from context_use.etl.core.types import ExtractedBatch, PipelineResult, ThreadRow
 
 __all__ = [
     "ETLPipeline",
@@ -23,6 +25,10 @@ __all__ = [
     "TransformStrategy",
     "UploadStrategy",
     "PipelineResult",
+    "Pipe",
+    "ThreadRow",
+    "Loader",
+    "DbLoader",
     "ArchiveProcessingError",
     "ExtractionFailedException",
     "TransformFailedException",
