@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.memories.models import (
@@ -67,9 +67,7 @@ async def search_memories(
         )
         columns.append(distance_col)
 
-    stmt = select(*columns).where(
-        TapestryMemory.status == MemoryStatus.active.value
-    )
+    stmt = select(*columns).where(TapestryMemory.status == MemoryStatus.active.value)
 
     if query_vec is not None:
         stmt = stmt.where(TapestryMemory.embedding.isnot(None))
@@ -80,7 +78,7 @@ async def search_memories(
         stmt = stmt.where(TapestryMemory.to_date <= to_date)
 
     if query_vec is not None:
-        stmt = stmt.order_by(text("distance"))
+        stmt = stmt.order_by(distance_col)
     else:
         stmt = stmt.order_by(TapestryMemory.from_date.desc())
 

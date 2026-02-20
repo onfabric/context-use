@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.models.etl_task import EtlTask
 
+BULK_INSERT_BATCH_SIZE = 500
+
 
 class Loader(ABC):
     """Consumes :class:`ThreadRow` instances and persists them."""
@@ -23,39 +25,48 @@ class Loader(ABC):
 
 
 class DbLoader(Loader):
-    """Inserts :class:`ThreadRow` instances directly into Postgres."""
-
-    # TODO: Replace row-at-a-time inserts with psql_insert_copy
-    #  (PostgreSQL COPY + temp table) for better bulk-insert performance.
+    """Inserts :class:`ThreadRow` instances into Postgres in batches."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def load(self, rows: Iterable[ThreadRow], task: EtlTask) -> int:
-        from sqlalchemy.dialects.postgresql import insert
-
         from context_use.etl.models.thread import Thread
 
         total = 0
+        batch: list[dict] = []
+
         for row in rows:
-            stmt = (
-                insert(Thread)
-                .values(
-                    unique_key=row.unique_key,
-                    etl_task_id=task.id,
-                    provider=row.provider,
-                    interaction_type=row.interaction_type,
-                    preview=row.preview,
-                    payload=row.payload,
-                    source=row.source,
-                    version=row.version,
-                    asat=row.asat,
-                    asset_uri=row.asset_uri,
-                )
-                .on_conflict_do_nothing(
-                    index_elements=["unique_key"],
-                )
+            batch.append(
+                {
+                    "unique_key": row.unique_key,
+                    "etl_task_id": task.id,
+                    "provider": row.provider,
+                    "interaction_type": row.interaction_type,
+                    "preview": row.preview,
+                    "payload": row.payload,
+                    "source": row.source,
+                    "version": row.version,
+                    "asat": row.asat,
+                    "asset_uri": row.asset_uri,
+                }
             )
-            result = await self._session.execute(stmt)
-            total += result.rowcount  # type: ignore[attr-defined]
+            if len(batch) >= BULK_INSERT_BATCH_SIZE:
+                total += await self._flush_batch(Thread, batch)
+                batch = []
+
+        if batch:
+            total += await self._flush_batch(Thread, batch)
+
         return total
+
+    async def _flush_batch(self, model, batch: list[dict]) -> int:
+        from sqlalchemy.dialects.postgresql import insert
+
+        stmt = (
+            insert(model)
+            .values(batch)
+            .on_conflict_do_nothing(index_elements=["unique_key"])
+        )
+        result = await self._session.execute(stmt)
+        return result.rowcount  # type: ignore[return-value]
