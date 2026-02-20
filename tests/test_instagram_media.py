@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.etl.providers.instagram.media import (
+from context_use.providers.instagram.media import (
     InstagramReelsPipe,
     InstagramStoriesPipe,
 )

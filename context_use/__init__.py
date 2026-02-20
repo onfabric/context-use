@@ -2,11 +2,15 @@ from __future__ import annotations
 
 import logging
 import zipfile
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import context_use.memories.manager  # noqa: F401 — registers MemoryBatchManager
+from context_use.batch.runner import run_pipeline
 from context_use.config import parse_config
 from context_use.db.base import DatabaseBackend
 from context_use.etl.core.exceptions import (
@@ -18,14 +22,28 @@ from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import PipelineResult
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
-from context_use.etl.providers.registry import (
+from context_use.memories.factory import MemoryBatchFactory
+from context_use.providers.registry import (
     PROVIDER_REGISTRY,
     Provider,
+    get_memory_config,
     get_provider_config,
 )
 from context_use.storage.base import StorageBackend
 
+if TYPE_CHECKING:
+    from context_use.llm.base import LLMClient
+
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class MemoriesResult:
+    """Result returned from :meth:`ContextUse.generate_memories`."""
+
+    tasks_processed: int = 0
+    batches_created: int = 0
+    errors: list[str] = field(default_factory=list)
 
 
 class ContextUse:
@@ -143,6 +161,65 @@ class ContextUse:
                 logger.error("process_archive failed: %s", exc)
                 archive.status = ArchiveStatus.FAILED.value
                 raise ArchiveProcessingError(str(exc)) from exc
+
+        return result
+
+    async def generate_memories(
+        self,
+        archive_ids: list[str],
+        llm_client: LLMClient,
+    ) -> MemoriesResult:
+        """Create batches from ETL results and run the memory pipeline.
+
+        Looks up completed ETL tasks for the given archives, groups their
+        threads according to each interaction type's ``MemoryConfig``,
+        creates batches, and drives them through the memory state machine
+        (generate → embed → complete).
+
+        Args:
+            archive_ids: Archive IDs from prior ``process_archive()`` calls.
+            llm_client: LLM client for memory generation and embedding.
+
+        Returns:
+            A :class:`MemoriesResult` summarising the work done.
+        """
+        result = MemoriesResult()
+
+        async with self._db.session_scope() as session:
+            stmt = select(EtlTask).where(EtlTask.archive_id.in_(archive_ids))
+            tasks = list((await session.execute(stmt)).scalars().all())
+            result.tasks_processed = len(tasks)
+
+            all_batches = []
+            for task in tasks:
+                try:
+                    config = get_memory_config(task.interaction_type)
+                except KeyError:
+                    logger.info(
+                        "No memory config for %s — skipping",
+                        task.interaction_type,
+                    )
+                    continue
+
+                grouper = config.create_grouper()
+                batches = await MemoryBatchFactory.create_batches(
+                    etl_task_id=task.id,
+                    db=session,
+                    grouper=grouper,
+                )
+                all_batches.extend(batches)
+
+            result.batches_created = len(all_batches)
+
+            if all_batches:
+                await run_pipeline(
+                    all_batches,
+                    db=session,
+                    manager_kwargs={
+                        "llm_client": llm_client,
+                        "storage": self._storage,
+                    },
+                )
 
         return result
 

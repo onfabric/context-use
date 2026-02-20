@@ -5,6 +5,7 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
+from context_use.batch.grouper import WindowGrouper
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.models.etl_task import EtlTask
@@ -14,12 +15,15 @@ from context_use.etl.payload.models import (
     Image,
     Video,
 )
-from context_use.etl.providers.instagram.schemas import (
+from context_use.memories.config import MemoryConfig
+from context_use.memories.prompt.media import MediaMemoryPromptBuilder
+from context_use.providers.instagram.schemas import (
     InstagramMediaItem,
     InstagramMediaRecord,
     InstagramReelsManifest,
     InstagramStoriesManifest,
 )
+from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -149,3 +153,19 @@ class InstagramReelsPipe(_InstagramMediaPipe):
             all_items.extend(entry.media)
 
         yield from _items_to_records(all_items, task.source_uri)
+
+
+_MEDIA_MEMORY_CONFIG = MemoryConfig(
+    prompt_builder=MediaMemoryPromptBuilder,
+    grouper=WindowGrouper,
+)
+
+STORIES_CONFIG = InteractionConfig(
+    pipe=InstagramStoriesPipe,
+    memory=_MEDIA_MEMORY_CONFIG,
+)
+
+REELS_CONFIG = InteractionConfig(
+    pipe=InstagramReelsPipe,
+    memory=_MEDIA_MEMORY_CONFIG,
+)

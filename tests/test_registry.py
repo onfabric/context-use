@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.models.etl_task import EtlTask
-from context_use.etl.providers.registry import ProviderConfig
+from context_use.providers.types import InteractionConfig, ProviderConfig
 from context_use.storage.base import StorageBackend
 
 
@@ -87,7 +87,12 @@ class FakePipeGlob(Pipe[_FakeRecord]):
 
 @pytest.fixture()
 def cfg() -> ProviderConfig:
-    return ProviderConfig(pipes=[FakePipeA, FakePipeB])
+    return ProviderConfig(
+        interactions=[
+            InteractionConfig(pipe=FakePipeA),
+            InteractionConfig(pipe=FakePipeB),
+        ]
+    )
 
 
 class TestDiscoverTasks:
@@ -123,7 +128,7 @@ class TestDiscoverTasks:
 
     def test_glob_pattern_creates_one_task_per_match(self):
         """Wildcard pattern fans out to one EtlTask per matched file."""
-        cfg = ProviderConfig(pipes=[FakePipeGlob])
+        cfg = ProviderConfig(interactions=[InteractionConfig(pipe=FakePipeGlob)])
         files = [
             "a1/inbox/alice/message_1.json",
             "a1/inbox/bob/message_1.json",
@@ -141,13 +146,18 @@ class TestDiscoverTasks:
 
     def test_glob_pattern_no_match(self):
         """Wildcard pattern yields no tasks when nothing matches."""
-        cfg = ProviderConfig(pipes=[FakePipeGlob])
+        cfg = ProviderConfig(interactions=[InteractionConfig(pipe=FakePipeGlob)])
         tasks = cfg.discover_tasks("a1", ["a1/inbox/readme.txt"], "test")
         assert tasks == []
 
     def test_glob_pattern_mixed_with_exact(self):
         """Exact-match and glob-match pipes coexist in one config."""
-        cfg = ProviderConfig(pipes=[FakePipeA, FakePipeGlob])
+        cfg = ProviderConfig(
+            interactions=[
+                InteractionConfig(pipe=FakePipeA),
+                InteractionConfig(pipe=FakePipeGlob),
+            ]
+        )
         files = [
             "a1/data.json",
             "a1/inbox/alice/message_1.json",

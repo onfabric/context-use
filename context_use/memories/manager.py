@@ -22,13 +22,13 @@ from context_use.memories.prompt import (
     GroupContext,
     MemorySchema,
 )
-from context_use.memories.registry import get_memory_config
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
     MemoryEmbedPendingState,
     MemoryGenerateCompleteState,
     MemoryGeneratePendingState,
 )
+from context_use.providers.registry import get_memory_config
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)

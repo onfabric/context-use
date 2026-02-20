@@ -4,7 +4,7 @@ from context_use import ContextUse
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.models.thread import Thread
-from context_use.etl.providers.registry import Provider
+from context_use.providers.registry import Provider
 
 
 class TestE2EChatGPT:
