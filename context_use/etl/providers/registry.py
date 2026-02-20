@@ -8,16 +8,14 @@ from context_use.etl.core.etl import (
     OrchestrationStrategy,
     TransformStrategy,
 )
+from context_use.etl.core.pipe import Pipe
 from context_use.etl.providers.chatgpt.conversations import (
-    ChatGPTConversationsExtractionStrategy,
-    ChatGPTConversationsTransformStrategy,
+    ChatGPTConversationsPipe,
 )
 from context_use.etl.providers.chatgpt.orchestration import ChatGPTOrchestrationStrategy
 from context_use.etl.providers.instagram.media import (
-    InstagramReelsExtractionStrategy,
-    InstagramReelsTransformStrategy,
-    InstagramStoriesExtractionStrategy,
-    InstagramStoriesTransformStrategy,
+    InstagramReelsPipe,
+    InstagramStoriesPipe,
 )
 from context_use.etl.providers.instagram.orchestration import (
     InstagramOrchestrationStrategy,
@@ -31,8 +29,9 @@ class Provider(StrEnum):
 
 @dataclass
 class InteractionTypeConfig:
-    extraction: type[ExtractionStrategy]
-    transform: type[TransformStrategy]
+    extraction: type[ExtractionStrategy] | None = None
+    transform: type[TransformStrategy] | None = None
+    pipe: type[Pipe] | None = None
 
 
 @dataclass
@@ -46,8 +45,7 @@ PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
         orchestration=ChatGPTOrchestrationStrategy,
         interaction_types={
             "chatgpt_conversations": InteractionTypeConfig(
-                extraction=ChatGPTConversationsExtractionStrategy,
-                transform=ChatGPTConversationsTransformStrategy,
+                pipe=ChatGPTConversationsPipe,
             ),
         },
     ),
@@ -55,12 +53,10 @@ PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
         orchestration=InstagramOrchestrationStrategy,
         interaction_types={
             "instagram_stories": InteractionTypeConfig(
-                extraction=InstagramStoriesExtractionStrategy,
-                transform=InstagramStoriesTransformStrategy,
+                pipe=InstagramStoriesPipe,
             ),
             "instagram_reels": InteractionTypeConfig(
-                extraction=InstagramReelsExtractionStrategy,
-                transform=InstagramReelsTransformStrategy,
+                pipe=InstagramReelsPipe,
             ),
         },
     ),

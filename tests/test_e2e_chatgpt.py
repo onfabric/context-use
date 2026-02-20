@@ -32,6 +32,9 @@ class TestE2EChatGPT:
             assert tasks[0].interaction_type == "chatgpt_conversations"
             assert tasks[0].status == EtlTaskStatus.COMPLETED.value
             assert tasks[0].uploaded_count > 0
+            assert tasks[0].extracted_count > 0
+            assert tasks[0].transformed_count > 0
+            assert tasks[0].extracted_count >= tasks[0].transformed_count
 
             thread_result = await s.execute(select(Thread))
             threads = thread_result.scalars().all()

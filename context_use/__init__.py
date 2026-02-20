@@ -5,6 +5,8 @@ import zipfile
 from pathlib import PurePosixPath
 from typing import Any
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from context_use.config import parse_config
 from context_use.db.base import DatabaseBackend
 from context_use.etl.core.etl import ETLPipeline, UploadStrategy
@@ -12,11 +14,14 @@ from context_use.etl.core.exceptions import (
     ArchiveProcessingError,
     UnsupportedProviderError,
 )
+from context_use.etl.core.loader import DbLoader
+from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import PipelineResult
 from context_use.etl.models.archive import Archive, ArchiveStatus
-from context_use.etl.models.etl_task import EtlTaskStatus
+from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.registry import (
     PROVIDER_REGISTRY,
+    InteractionTypeConfig,
     Provider,
     get_provider_config,
 )
@@ -121,26 +126,14 @@ class ContextUse:
                     await session.flush()
 
                     try:
-                        pipeline = ETLPipeline(
-                            extraction=it_cfg.extraction(),
-                            transform=it_cfg.transform(),
-                            upload=UploadStrategy(),
-                            storage=self._storage,
-                            session=session,
-                        )
-
-                        etl_task.status = EtlTaskStatus.EXTRACTING.value
-                        raw = pipeline.extract(etl_task)
-
-                        etl_task.status = EtlTaskStatus.TRANSFORMING.value
-                        thread_batches = pipeline.transform(etl_task, raw)
-
-                        etl_task.status = EtlTaskStatus.UPLOADING.value
-                        count = await pipeline.upload(etl_task, thread_batches)
+                        if it_cfg.pipe is not None:
+                            count = await self._run_pipe(
+                                it_cfg.pipe(), etl_task, session
+                            )
+                        else:
+                            count = await self._run_legacy(it_cfg, etl_task, session)
 
                         etl_task.status = EtlTaskStatus.COMPLETED.value
-                        etl_task.extracted_count = sum(len(b) for b in raw)
-                        etl_task.transformed_count = sum(len(b) for b in thread_batches)
                         etl_task.uploaded_count = count
 
                         result.tasks_completed += 1
@@ -169,6 +162,52 @@ class ContextUse:
                 raise ArchiveProcessingError(str(exc)) from exc
 
         return result
+
+    async def _run_pipe(
+        self,
+        pipe: Pipe,
+        etl_task: EtlTask,
+        session: AsyncSession,
+    ) -> int:
+        """Execute an ETL task using the new Pipe + Loader path."""
+        loader = DbLoader(session=session)
+        etl_task.status = EtlTaskStatus.EXTRACTING.value
+        count = await loader.load(pipe.run(etl_task, self._storage), etl_task)
+
+        etl_task.extracted_count = pipe.extracted_count
+        etl_task.transformed_count = pipe.transformed_count
+        return count
+
+    async def _run_legacy(
+        self,
+        it_cfg: InteractionTypeConfig,
+        etl_task: EtlTask,
+        session: AsyncSession,
+    ) -> int:
+        """Execute an ETL task using the old ETLPipeline path."""
+        assert it_cfg.extraction is not None, "Legacy path requires extraction strategy"
+        assert it_cfg.transform is not None, "Legacy path requires transform strategy"
+
+        pipeline = ETLPipeline(
+            extraction=it_cfg.extraction(),
+            transform=it_cfg.transform(),
+            upload=UploadStrategy(),
+            storage=self._storage,
+            session=session,
+        )
+
+        etl_task.status = EtlTaskStatus.EXTRACTING.value
+        raw = pipeline.extract(etl_task)
+
+        etl_task.status = EtlTaskStatus.TRANSFORMING.value
+        thread_batches = pipeline.transform(etl_task, raw)
+
+        etl_task.status = EtlTaskStatus.UPLOADING.value
+        count = await pipeline.upload(etl_task, thread_batches)
+
+        etl_task.extracted_count = sum(len(b) for b in raw)
+        etl_task.transformed_count = sum(len(b) for b in thread_batches)
+        return count
 
     def _unzip(self, zip_path: str, prefix: str) -> None:
         """Extract a zip archive into storage under *prefix*."""
