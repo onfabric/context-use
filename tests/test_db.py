@@ -4,9 +4,9 @@ from collections.abc import AsyncGenerator
 import pytest
 from sqlalchemy import inspect, text
 
+from context_use.db.models import Base
 from context_use.db.postgres import PostgresBackend
 from context_use.etl.models.archive import Archive, ArchiveStatus
-from context_use.etl.models.base import Base
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.models.thread import Thread
 from tests.conftest import Settings

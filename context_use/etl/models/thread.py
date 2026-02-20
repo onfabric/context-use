@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.db.models import Base, TimeStampMixin, _new_uuid
 from context_use.etl.payload.core import make_thread_payload
 
 

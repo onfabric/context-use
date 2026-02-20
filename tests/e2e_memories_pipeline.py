@@ -19,8 +19,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from context_use import ContextUse
+from context_use.db.models import Base
 from context_use.db.postgres import PostgresBackend
-from context_use.etl.models.base import Base
 from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.models import TapestryMemory
 from context_use.providers.registry import Provider

@@ -20,8 +20,8 @@ from pathlib import Path
 
 from sqlalchemy import func, select
 
+from context_use.db.models import Base
 from context_use.db.postgres import PostgresBackend
-from context_use.etl.models.base import Base
 from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.models import MemoryStatus, TapestryMemory
 from context_use.profile.generator import generate_profile

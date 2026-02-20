@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import date
 
 from sqlalchemy import select
@@ -15,6 +16,7 @@ from context_use.batch.states import (
     State,
 )
 from context_use.llm.base import BatchResults, LLMClient
+from context_use.memories.config import MemoryConfig
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
@@ -32,7 +34,6 @@ from context_use.memories.states import (
     MemoryGenerateCompleteState,
     MemoryGeneratePendingState,
 )
-from context_use.providers.registry import get_memory_config
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,8 @@ logger = logging.getLogger(__name__)
 class MemoryBatchManager(BaseBatchManager):
     """Generates and embeds memories from grouped threads.
 
-    The prompt strategy is resolved automatically from the batch's
-    interaction type.
+    The prompt strategy is resolved via an injected
+    ``memory_config_resolver`` callable (interaction_type → MemoryConfig).
 
     State machine:
         CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE
@@ -56,11 +57,13 @@ class MemoryBatchManager(BaseBatchManager):
         db: AsyncSession,
         llm_client: LLMClient,
         storage: StorageBackend,
+        memory_config_resolver: Callable[[str], MemoryConfig],
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
+        self._memory_config_resolver = memory_config_resolver
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
 
@@ -115,7 +118,7 @@ class MemoryBatchManager(BaseBatchManager):
             return SkippedState(reason="No threads for memory generation")
 
         interaction_type = all_threads[0].interaction_type
-        config = get_memory_config(interaction_type)
+        config = self._memory_config_resolver(interaction_type)
         builder = config.create_prompt_builder(contexts)
 
         if not builder.has_content():

@@ -319,6 +319,7 @@ class ContextUse:
                     manager_kwargs={
                         "llm_client": llm,
                         "storage": self._storage,
+                        "memory_config_resolver": get_memory_config,
                     },
                 )
 
