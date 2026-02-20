@@ -66,6 +66,17 @@ class Pipe[Record: BaseModel](ABC):
 
         Yields :class:`ThreadRow` instances one at a time, keeping memory
         bounded.  Not intended to be overridden.
+
+        After the iterator is fully consumed, :attr:`extracted_count` and
+        :attr:`transformed_count` reflect the totals.
         """
+        self.extracted_count: int = 0
+        self.transformed_count: int = 0
         for record in self.extract(task, storage):
-            yield self.transform(record, task)
+            self.extracted_count += 1
+            row = self.transform(record, task)
+            # Today transform() always returns a ThreadRow, but when it
+            # evolves to -> ThreadRow | None (Phase A5), this guard is ready.
+            if row is not None:
+                self.transformed_count += 1
+                yield row
