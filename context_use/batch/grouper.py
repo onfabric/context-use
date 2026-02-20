@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
@@ -95,3 +96,36 @@ class WindowGrouper(ThreadGrouper):
             window_start += timedelta(days=self.config.step_days)
 
         return groups
+
+
+class CollectionGrouper(ThreadGrouper):
+    """Groups threads by their collection ID."""
+
+    def group(self, threads: list[Thread]) -> list[ThreadGroup]:
+        if not threads:
+            return []
+
+        buckets: dict[str, list[Thread]] = defaultdict(list)
+        for t in threads:
+            cid = self._extract_collection_id(t)
+            if cid:
+                buckets[cid].append(t)
+
+        return [
+            ThreadGroup(
+                group_key=key,
+                threads=sorted(ts, key=lambda t: t.asat),
+            )
+            for key, ts in buckets.items()
+        ]
+
+    @staticmethod
+    def _extract_collection_id(thread: Thread) -> str | None:
+        # TODO(mez): port collection_id property of threads from aertex
+        payload = thread.payload
+        obj = payload.get("object", {})
+        if isinstance(obj, dict):
+            context = obj.get("context", {})
+            if isinstance(context, dict):
+                return context.get("@id")
+        return None
