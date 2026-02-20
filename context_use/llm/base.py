@@ -77,9 +77,12 @@ def _build_response_format(item: PromptItem) -> dict:
 def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = []
     for path in item.asset_paths:
-        parts.append(
-            {"type": "image_url", "image_url": {"url": _encode_file_as_data_url(path)}}
-        )
+        try:
+            data_url = _encode_file_as_data_url(path)
+        except FileNotFoundError:
+            logger.warning("Skipping missing asset: %s", path)
+            continue
+        parts.append({"type": "image_url", "image_url": {"url": data_url}})
     parts.append({"type": "text", "text": item.prompt})
     return [{"role": "user", "content": parts}]
 
