@@ -113,7 +113,7 @@ class InstagramStoriesPipe(_InstagramMediaPipe):
     """
 
     interaction_type = "instagram_stories"
-    archive_path = "your_instagram_activity/media/stories.json"
+    archive_path_pattern = "your_instagram_activity/media/stories.json"
 
     def extract(
         self,
@@ -134,7 +134,7 @@ class InstagramReelsPipe(_InstagramMediaPipe):
     """
 
     interaction_type = "instagram_reels"
-    archive_path = "your_instagram_activity/media/reels.json"
+    archive_path_pattern = "your_instagram_activity/media/reels.json"
 
     def extract(
         self,

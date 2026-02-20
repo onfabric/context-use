@@ -30,7 +30,7 @@ class MockPipe(Pipe[MockRecord]):
     provider = "test"
     interaction_type = "test_conversations"
     archive_version = "v1"
-    archive_path = "conversations.json"
+    archive_path_pattern = "conversations.json"
     record_schema = MockRecord
 
     def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[MockRecord]:
@@ -55,7 +55,7 @@ class DroppingPipe(Pipe[MockRecord]):
     provider = "test"
     interaction_type = "test_conversations"
     archive_version = "v1"
-    archive_path = "conversations.json"
+    archive_path_pattern = "conversations.json"
     record_schema = MockRecord
 
     def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[MockRecord]:
@@ -140,7 +140,7 @@ class TestPipe:
                 provider = "test"
                 interaction_type = "test"
                 archive_version = "v1"
-                archive_path = "data.json"
+                archive_path_pattern = "data.json"
                 record_schema = MockRecord
 
                 # Missing extract and transform
@@ -201,7 +201,7 @@ class TestPipe:
         assert MockPipe.provider == "test"
         assert MockPipe.interaction_type == "test_conversations"
         assert MockPipe.archive_version == "v1"
-        assert MockPipe.archive_path == "conversations.json"
+        assert MockPipe.archive_path_pattern == "conversations.json"
         assert MockPipe.record_schema is MockRecord
 
 
