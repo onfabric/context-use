@@ -284,9 +284,7 @@ class ContextUse:
                 groups = grouper.group(type_threads)
                 all_groups.extend(groups)
 
-            all_batches = await MemoryBatchFactory.create_batches(
-                all_groups, session
-            )
+            all_batches = await MemoryBatchFactory.create_batches(all_groups, session)
 
         result.batches_created = len(all_batches)
 
@@ -328,8 +326,8 @@ class ContextUse:
         # Phase 1: batch creation in its own transactional session.
         refinement_batches = []
         async with self._db.session_scope() as session:
-            refinement_batches = (
-                await RefinementBatchFactory.create_refinement_batches(db=session)
+            refinement_batches = await RefinementBatchFactory.create_refinement_batches(
+                db=session
             )
 
         result.batches_created = len(refinement_batches)

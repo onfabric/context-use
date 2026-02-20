@@ -88,8 +88,7 @@ class BaseBatchFactory:
         thread_count = sum(len(t) for g in groups for t in [g.threads])
 
         logger.info(
-            "Creating %d batch(es) × %d categories "
-            "(%d threads, %d groups)",
+            "Creating %d batch(es) × %d categories (%d threads, %d groups)",
             len(packed),
             len(cls.BATCH_CATEGORIES),
             thread_count,
