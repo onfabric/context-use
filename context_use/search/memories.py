@@ -8,7 +8,11 @@ from sqlalchemy import select, text
 
 from context_use.db.base import DatabaseBackend
 from context_use.llm.models import OpenAIEmbeddingModel
-from context_use.memories.models import EMBEDDING_DIMENSIONS, TapestryMemory
+from context_use.memories.models import (
+    EMBEDDING_DIMENSIONS,
+    MemoryStatus,
+    TapestryMemory,
+)
 
 
 @dataclass(frozen=True)
@@ -68,7 +72,9 @@ async def search_memories(
             )
             columns.append(distance_col)
 
-        stmt = select(*columns)
+        stmt = select(*columns).where(
+            TapestryMemory.status == MemoryStatus.active.value
+        )
 
         if query_vec is not None:
             stmt = stmt.where(TapestryMemory.embedding.isnot(None))

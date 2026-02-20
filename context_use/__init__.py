@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import context_use.memories.manager  # noqa: F401 — registers MemoryBatchManager
+import context_use.memories.refinement.manager  # noqa: F401 — registers RefinementBatchManager
 from context_use.batch.runner import run_pipeline
 from context_use.config import parse_config
 from context_use.db.base import DatabaseBackend
@@ -23,6 +24,7 @@ from context_use.etl.core.types import PipelineResult
 from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.memories.factory import MemoryBatchFactory
+from context_use.memories.refinement.factory import RefinementBatchFactory
 from context_use.providers.registry import (
     PROVIDER_REGISTRY,
     Provider,
@@ -220,6 +222,18 @@ class ContextUse:
                         "storage": self._storage,
                     },
                 )
+
+                refinement_batches = (
+                    await RefinementBatchFactory.create_from_memory_batches(
+                        completed_batches=all_batches, db=session
+                    )
+                )
+                if refinement_batches:
+                    await run_pipeline(
+                        refinement_batches,
+                        db=session,
+                        manager_kwargs={"llm_client": llm_client},
+                    )
 
         return result
 
