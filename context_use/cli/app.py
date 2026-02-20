@@ -150,7 +150,7 @@ async def cmd_init(args: argparse.Namespace) -> None:
     # Init DB
     try:
         ctx = _build_ctx(cfg)
-        await ctx.init_db()
+        await ctx.reset_db()
         out.success("Database tables created")
     except Exception as exc:
         out.warn(f"Could not initialise database: {exc}")

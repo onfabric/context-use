@@ -86,13 +86,21 @@ class ContextUse:
         return self._llm_client
 
     async def init_db(self) -> None:
-        """Create all database tables."""
+        """Create missing database tables (non-destructive)."""
+        self._register_models()
+        await self._db.init_db()
+
+    async def reset_db(self) -> None:
+        """Drop all tables and recreate from scratch."""
+        self._register_models()
+        await self._db.reset_db()
+
+    @staticmethod
+    def _register_models() -> None:
         import context_use.batch.models  # noqa: F401
         import context_use.etl.models  # noqa: F401
         import context_use.memories.models  # noqa: F401
         import context_use.profile.models  # noqa: F401
-
-        await self._db.init_db()
 
     # ── ETL ──────────────────────────────────────────────────────────
 
