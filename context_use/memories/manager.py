@@ -6,7 +6,6 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from context_use.batch.grouper import WindowConfig
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
 from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.states import (
@@ -19,7 +18,11 @@ from context_use.llm.base import BatchResults, EmbedBatchResults, EmbedItem, LLM
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.models import TapestryMemory
-from context_use.memories.prompt import GroupContext, MemorySchema
+from context_use.memories.prompt import (
+    GroupContext,
+    MemorySchema,
+)
+from context_use.memories.registry import get_memory_config
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
     MemoryEmbedPendingState,
@@ -33,7 +36,10 @@ logger = logging.getLogger(__name__)
 
 @register_batch_manager(BatchCategory.memories)
 class MemoryBatchManager(BaseBatchManager):
-    """Generates and embeds memories from asset threads grouped by the grouper.
+    """Generates and embeds memories from grouped threads.
+
+    The prompt strategy is resolved automatically from the batch's
+    interaction type.
 
     State machine:
         CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE
@@ -46,14 +52,12 @@ class MemoryBatchManager(BaseBatchManager):
         db: AsyncSession,
         llm_client: LLMClient,
         storage: StorageBackend,
-        window_config: WindowConfig | None = None,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
-        self.window_config = window_config or WindowConfig()
-        self.extractor = MemoryExtractor(llm_client, self.window_config)
+        self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
 
     async def _get_group_contexts(self) -> list[GroupContext]:
@@ -102,17 +106,29 @@ class MemoryBatchManager(BaseBatchManager):
         if not contexts:
             return SkippedState(reason="No groups for memory generation")
 
-        has_assets = any(t.asset_uri for ctx in contexts for t in ctx.new_threads)
-        if not has_assets:
-            return SkippedState(reason="No asset threads for memory generation")
+        all_threads = [t for ctx in contexts for t in ctx.new_threads]
+        if not all_threads:
+            return SkippedState(reason="No threads for memory generation")
+
+        interaction_type = all_threads[0].interaction_type
+        config = get_memory_config(interaction_type)
+        builder = config.create_prompt_builder(contexts)
+
+        if not builder.has_content():
+            return SkippedState(reason="No processable content for memory generation")
+
+        prompts = builder.build()
+        if not prompts:
+            return SkippedState(reason="Prompt builder produced no prompts")
 
         logger.info(
-            "[%s] Submitting batch job for %d groups (%d total threads)",
+            "[%s] Submitting batch job for %d groups (%d prompts, %d total threads)",
             self.batch.id,
             len(contexts),
-            sum(len(ctx.new_threads) for ctx in contexts),
+            len(prompts),
+            len(all_threads),
         )
-        job_key = await self.extractor.submit(self.batch.id, contexts)
+        job_key = await self.extractor.submit(self.batch.id, prompts)
         return MemoryGeneratePendingState(job_key=job_key)
 
     async def _check_memory_generation_status(

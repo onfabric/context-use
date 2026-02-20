@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 
@@ -95,3 +96,25 @@ class WindowGrouper(ThreadGrouper):
             window_start += timedelta(days=self.config.step_days)
 
         return groups
+
+
+class CollectionGrouper(ThreadGrouper):
+    """Groups threads by their collection ID."""
+
+    def group(self, threads: list[Thread]) -> list[ThreadGroup]:
+        if not threads:
+            return []
+
+        buckets: dict[str, list[Thread]] = defaultdict(list)
+        for t in threads:
+            cid = t.get_collection()
+            if cid:
+                buckets[cid].append(t)
+
+        return [
+            ThreadGroup(
+                group_key=key,
+                threads=sorted(ts, key=lambda t: t.asat),
+            )
+            for key, ts in buckets.items()
+        ]
