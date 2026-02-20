@@ -8,13 +8,17 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import json
 import logging
 import os
+from datetime import UTC, datetime
+from pathlib import Path
 
 from sqlalchemy import select
 
 from context_use import ContextUse
-from context_use.batch.runner import run_batches
+from context_use.batch.grouper import WindowConfig, WindowGrouper
+from context_use.batch.runner import run_pipeline
 from context_use.db.postgres import PostgresBackend
 from context_use.etl.models.base import Base
 from context_use.etl.models.etl_task import EtlTask
@@ -34,10 +38,10 @@ STORAGE_BASE_PATH = "./data"
 
 
 async def clean_db(db: PostgresBackend) -> None:
-    async with db.session_scope() as session:
-        for table in reversed(Base.metadata.sorted_tables):
-            await session.execute(table.delete())
-    logger.info("Cleaned all tables")
+    async with db.get_engine().begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("Dropped and recreated all tables")
 
 
 async def main() -> None:
@@ -47,6 +51,15 @@ async def main() -> None:
     )
     parser.add_argument(
         "--yolo", action="store_true", help="Use GPT-5.2 instead of GPT-4o"
+    )
+    parser.add_argument(
+        "--window-days", type=int, default=5, help="Window size in days (default: 5)"
+    )
+    parser.add_argument(
+        "--overlap-days",
+        type=int,
+        default=1,
+        help="Overlap between windows (default: 1)",
     )
     args = parser.parse_args()
 
@@ -87,11 +100,26 @@ async def main() -> None:
     tasks = tasks.scalars().all()
     print(f"Found {len(tasks)} ETL task(s)")
 
+    window_config = WindowConfig(
+        window_days=args.window_days,
+        overlap_days=args.overlap_days,
+    )
+    grouper = WindowGrouper(window_config)
+
+    print(
+        f"Window config: {window_config.window_days}d window, "
+        f"{window_config.overlap_days}d overlap, "
+        f"step={window_config.step_days}d, "
+        f"memories={window_config.effective_min_memories}-"
+        f"{window_config.effective_max_memories}"
+    )
+
     all_batches = []
     for task in tasks:
         batches = await MemoryBatchFactory.create_batches(
             etl_task_id=task.id,
             db=session,
+            grouper=grouper,
         )
         all_batches.extend(batches)
 
@@ -112,28 +140,45 @@ async def main() -> None:
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     )
 
-    await run_batches(
+    await run_pipeline(
         all_batches,
         db=session,
         manager_kwargs={
             "llm_client": llm_client,
             "storage": storage,
+            "window_config": window_config,
         },
     )
 
-    # ---- Step 4: report ----
+    # ---- Step 4: report & dump ----
     print("\n=== Results ===")
     session.expire_all()
-    stmt = select(TapestryMemory)
-    memories = await session.execute(stmt)
-    memories = memories.scalars().all()
+    result = await session.execute(
+        select(TapestryMemory).order_by(
+            TapestryMemory.from_date, TapestryMemory.to_date
+        )
+    )
+    memories = result.scalars().all()
     print(f"{len(memories)} memories in DB:")
     for m in memories:
-        has_emb = m.embedding is not None
-        print(f"  [{m.from_date}] {m.content[:100]}  (embedded={has_emb})")
+        print(f"  [{m.from_date}] {m.content[:100]}")
+
+    rows = [
+        {
+            "content": m.content,
+            "from_date": m.from_date.isoformat(),
+            "to_date": m.to_date.isoformat(),
+        }
+        for m in memories
+    ]
+    out_dir = Path("data/memories")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    out_path = out_dir / f"memories_{ts}.json"
+    out_path.write_text(json.dumps(rows, indent=2, ensure_ascii=False))
+    print(f"\nWrote {len(rows)} memories to {out_path}")
 
     await session.close()
-    print("\nDone.")
 
 
 if __name__ == "__main__":

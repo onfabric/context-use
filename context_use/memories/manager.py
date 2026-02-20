@@ -6,6 +6,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from context_use.batch.grouper import WindowConfig
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
 from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.states import (
@@ -14,12 +15,11 @@ from context_use.batch.states import (
     SkippedState,
     State,
 )
-from context_use.etl.models.thread import Thread
 from context_use.llm.base import BatchResults, EmbedBatchResults, EmbedItem, LLMClient
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.models import TapestryMemory
-from context_use.memories.prompt import MemorySchema
+from context_use.memories.prompt import GroupContext, MemorySchema
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
     MemoryEmbedPendingState,
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 @register_batch_manager(BatchCategory.memories)
 class MemoryBatchManager(BaseBatchManager):
-    """Generates and embeds memories from asset threads grouped by day.
+    """Generates and embeds memories from asset threads grouped by the grouper.
 
     State machine:
         CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE
@@ -46,24 +46,31 @@ class MemoryBatchManager(BaseBatchManager):
         db: AsyncSession,
         llm_client: LLMClient,
         storage: StorageBackend,
+        window_config: WindowConfig | None = None,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
-        self.extractor = MemoryExtractor(llm_client)
+        self.window_config = window_config or WindowConfig()
+        self.extractor = MemoryExtractor(llm_client, self.window_config)
         self.batch_factory = MemoryBatchFactory
 
-    async def _get_batch_threads(self) -> list[Thread]:
-        return await self.batch_factory.get_batch_threads(self.batch, self.db)
-
-    async def _get_asset_threads(self) -> list[Thread]:
-        batch_threads = await self._get_batch_threads()
-        threads = [t for t in batch_threads if t.asset_uri is not None]
-        for t in threads:
-            if t.asset_uri:
-                t.asset_uri = self.storage.resolve_local_path(t.asset_uri)
-        return threads
+    async def _get_group_contexts(self) -> list[GroupContext]:
+        """Load groups from BatchThread and build GroupContexts."""
+        groups = await self.batch_factory.get_batch_groups(self.batch, self.db)
+        contexts: list[GroupContext] = []
+        for group in groups:
+            for t in group.threads:
+                if t.asset_uri:
+                    t.asset_uri = self.storage.resolve_local_path(t.asset_uri)
+            contexts.append(
+                GroupContext(
+                    group_key=group.group_key,
+                    new_threads=group.threads,
+                )
+            )
+        return contexts
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -91,16 +98,21 @@ class MemoryBatchManager(BaseBatchManager):
                 raise ValueError(f"Invalid state for memories batch: {current_state}")
 
     async def _trigger_memory_generation(self) -> State:
-        threads = await self._get_asset_threads()
-        if not threads:
+        contexts = await self._get_group_contexts()
+        if not contexts:
+            return SkippedState(reason="No groups for memory generation")
+
+        has_assets = any(t.asset_uri for ctx in contexts for t in ctx.new_threads)
+        if not has_assets:
             return SkippedState(reason="No asset threads for memory generation")
 
         logger.info(
-            "[%s] Submitting batch job for %d asset threads",
+            "[%s] Submitting batch job for %d groups (%d total threads)",
             self.batch.id,
-            len(threads),
+            len(contexts),
+            sum(len(ctx.new_threads) for ctx in contexts),
         )
-        job_key = await self.extractor.submit(self.batch.id, threads)
+        job_key = await self.extractor.submit(self.batch.id, contexts)
         return MemoryGeneratePendingState(job_key=job_key)
 
     async def _check_memory_generation_status(
@@ -120,15 +132,14 @@ class MemoryBatchManager(BaseBatchManager):
     ) -> int:
         """Write memories to the ``tapestry_memories`` table."""
         count = 0
-        for day_key, schema in results.items():
-            memory_date = date.fromisoformat(day_key)
-
+        for group_key, schema in results.items():
             for memory in schema.memories:
                 row = TapestryMemory(
                     content=memory.content,
-                    from_date=memory_date,
-                    to_date=memory_date,
+                    from_date=date.fromisoformat(memory.from_date),
+                    to_date=date.fromisoformat(memory.to_date),
                     tapestry_id=self.batch.tapestry_id,
+                    group_key=group_key,
                 )
                 self.db.add(row)
                 count += 1

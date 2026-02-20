@@ -141,3 +141,43 @@ class Batch(BatchStateMixin, TimeStampMixin, Base):
         Index("idx_batches_etl_task_id_batch_number", "etl_task_id", "batch_number"),
         Index("idx_batches_category", "category"),
     )
+
+
+class BatchThread(Base):
+    """Explicit mapping of threads to batches, tagged by group_key.
+
+    Replaces the old implicit OFFSET/LIMIT assignment and guarantees
+    that all threads in a group stay within the same batch.
+    """
+
+    __tablename__ = "batch_threads"
+
+    id: Mapped[str] = mapped_column(
+        String(36),
+        primary_key=True,
+        default=_new_uuid,
+    )
+
+    batch_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("batches.id"),
+        nullable=False,
+    )
+
+    thread_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("threads.id"),
+        nullable=False,
+    )
+
+    group_key: Mapped[str] = mapped_column(
+        String,
+        nullable=False,
+    )
+
+    __table_args__ = (
+        Index("idx_batch_threads_batch_id", "batch_id"),
+        Index("idx_batch_threads_thread_id", "thread_id"),
+        Index("idx_batch_threads_group_key", "group_key"),
+        Index("idx_batch_threads_batch_id_group_key", "batch_id", "group_key"),
+    )
