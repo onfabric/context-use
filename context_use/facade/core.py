@@ -87,7 +87,9 @@ class ContextUse:
 
     async def init_db(self) -> None:
         """Create all database tables."""
-        import context_use.memories.models  # noqa: F401  — register ORM models
+        import context_use.batch.models  # noqa: F401
+        import context_use.etl.models  # noqa: F401
+        import context_use.memories.models  # noqa: F401
         import context_use.profile.models  # noqa: F401
 
         await self._db.init_db()
