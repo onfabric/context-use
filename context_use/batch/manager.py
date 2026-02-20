@@ -110,7 +110,9 @@ class BaseBatchManager(ABC):
                 ):
                     new_state = new_state.increment_poll_count()
                     logger.info(
-                        "[%s] Polling (attempt %d)", batch_id, new_state.poll_count,
+                        "[%s] Polling (attempt %d)",
+                        batch_id,
+                        new_state.poll_count,
                     )
                     if new_state.poll_count >= MAX_POLL_ATTEMPTS:
                         raise RuntimeError(
@@ -123,7 +125,9 @@ class BaseBatchManager(ABC):
                 ):
                     new_state = new_state.increment_retry_count()
                     logger.info(
-                        "[%s] Retry (attempt %d)", batch_id, new_state.retry_count,
+                        "[%s] Retry (attempt %d)",
+                        batch_id,
+                        new_state.retry_count,
                     )
                     if new_state.retry_count > MAX_RETRY_ATTEMPTS:
                         raise RuntimeError(
@@ -137,7 +141,10 @@ class BaseBatchManager(ABC):
             except Exception as exc:
                 await session.rollback()
                 logger.error(
-                    "[%s] Error advancing state: %s", batch_id, exc, exc_info=True,
+                    "[%s] Error advancing state: %s",
+                    batch_id,
+                    exc,
+                    exc_info=True,
                 )
                 self.batch = await session.merge(self.batch)
                 self.batch.update_state(

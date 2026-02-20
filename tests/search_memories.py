@@ -12,6 +12,8 @@ import asyncio
 import os
 
 from context_use.db.postgres import PostgresBackend
+from context_use.llm.base import LLMClient
+from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 from context_use.search.memories import search_memories
 
 
@@ -23,14 +25,23 @@ async def search(query: str, top_k: int = 5) -> None:
         user=os.environ.get("POSTGRES_USER", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
     )
+    llm_client = LLMClient(
+        model=OpenAIModel.GPT_4O,
+        api_key=os.environ["OPENAI_API_KEY"],
+        embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
+    )
 
     print(f"Embedding query: {query!r}")
-    results = await search_memories(
-        db,
-        query=query,
-        top_k=top_k,
-        openai_api_key=os.environ["OPENAI_API_KEY"],
-    )
+    session = db.get_session()
+    try:
+        results = await search_memories(
+            session,
+            query=query,
+            top_k=top_k,
+            llm_client=llm_client,
+        )
+    finally:
+        await session.close()
 
     if not results:
         print("No embedded memories found in the database.")

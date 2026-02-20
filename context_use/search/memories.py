@@ -61,6 +61,7 @@ async def search_memories(
         assert len(query_vec) == EMBEDDING_DIMENSIONS
 
     columns: list = [TapestryMemory]
+    distance_col = None
     if query_vec is not None:
         distance_col = TapestryMemory.embedding.cosine_distance(query_vec).label(
             "distance"
@@ -77,7 +78,7 @@ async def search_memories(
     if to_date is not None:
         stmt = stmt.where(TapestryMemory.to_date <= to_date)
 
-    if query_vec is not None:
+    if distance_col is not None:
         stmt = stmt.order_by(distance_col)
     else:
         stmt = stmt.order_by(TapestryMemory.from_date.desc())
