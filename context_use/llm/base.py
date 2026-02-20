@@ -243,6 +243,16 @@ class LLMClient:
 
         return results
 
+    async def completion(self, prompt: str) -> str:
+        """Run a single chat completion and return the text response."""
+        response = await litellm.acompletion(
+            model=self._model.value,
+            messages=[{"role": "user", "content": prompt}],
+            api_key=self._api_key,
+        )
+        text: str = response.choices[0].message.content  # type: ignore[union-attr]
+        return text.strip()
+
     async def embed_batch_submit(
         self,
         batch_id: str,
