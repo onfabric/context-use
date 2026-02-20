@@ -5,10 +5,6 @@ from context_use.batch.models import BatchCategory
 
 
 class MemoryBatchFactory(BaseBatchFactory):
-    """Creates batches for the memories pipeline.
-
-    No cutoff — all threads from the ETL task are eligible.
-    """
+    """Creates batches for the memories pipeline."""
 
     BATCH_CATEGORIES = [BatchCategory.memories]
-    cutoff_days = None

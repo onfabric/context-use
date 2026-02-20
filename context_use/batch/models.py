@@ -113,17 +113,11 @@ class Batch(BatchStateMixin, TimeStampMixin, Base):
             raise ValueError(f"Batch {self.id} has no category")
         return parse_batch_state(state_dict, BatchCategory(self.category))
 
-    etl_task_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("etl_tasks.id"),
-        nullable=False,
-    )
-
     batch_number: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
         default=1,
-        comment="Batch order within an ETL task (1, 2, …)",
+        comment="Batch order (1, 2, …)",
     )
 
     category: Mapped[str] = mapped_column(
@@ -131,11 +125,7 @@ class Batch(BatchStateMixin, TimeStampMixin, Base):
         nullable=False,
     )
 
-    __table_args__ = (
-        Index("idx_batches_etl_task_id", "etl_task_id"),
-        Index("idx_batches_etl_task_id_batch_number", "etl_task_id", "batch_number"),
-        Index("idx_batches_category", "category"),
-    )
+    __table_args__ = (Index("idx_batches_category", "category"),)
 
 
 class BatchThread(Base):
