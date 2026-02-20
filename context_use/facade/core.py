@@ -220,12 +220,13 @@ class ContextUse:
         llm = self._require_llm()
         result = MemoriesResult()
 
+        # Phase 1: batch creation in its own transactional session.
+        all_batches: list = []
         async with self._db.session_scope() as session:
             stmt = select(EtlTask).where(EtlTask.archive_id.in_(archive_ids))
             tasks = list((await session.execute(stmt)).scalars().all())
             result.tasks_processed = len(tasks)
 
-            all_batches = []
             for task in tasks:
                 try:
                     config = get_memory_config(task.interaction_type)
@@ -244,18 +245,19 @@ class ContextUse:
                 )
                 all_batches.extend(batches)
 
-            result.batches_created = len(all_batches)
+        result.batches_created = len(all_batches)
 
-            if all_batches:
-                await run_pipeline(
-                    all_batches,
-                    db=session,
-                    manager_kwargs={
-                        "llm_client": llm,
-                        "storage": self._storage,
-                        "memory_config_resolver": get_memory_config,
-                    },
-                )
+        # Phase 2: run pipeline — each manager creates its own sessions.
+        if all_batches:
+            await run_pipeline(
+                all_batches,
+                db_backend=self._db,
+                manager_kwargs={
+                    "llm_client": llm,
+                    "storage": self._storage,
+                    "memory_config_resolver": get_memory_config,
+                },
+            )
 
         return result
 
@@ -284,6 +286,8 @@ class ContextUse:
         llm = self._require_llm()
         result = RefinementResult()
 
+        # Phase 1: batch creation in its own transactional session.
+        refinement_batches: list[Batch] = []
         async with self._db.session_scope() as session:
             stmt = (
                 select(Batch)
@@ -304,14 +308,16 @@ class ContextUse:
                     completed_batches=completed, db=session
                 )
             )
-            result.batches_created = len(refinement_batches)
 
-            if refinement_batches:
-                await run_pipeline(
-                    refinement_batches,
-                    db=session,
-                    manager_kwargs={"llm_client": llm},
-                )
+        result.batches_created = len(refinement_batches)
+
+        # Phase 2: run pipeline — each manager creates its own sessions.
+        if refinement_batches:
+            await run_pipeline(
+                refinement_batches,
+                db_backend=self._db,
+                manager_kwargs={"llm_client": llm},
+            )
 
         return result
 

@@ -116,12 +116,10 @@ async def run_full_refinement(
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     )
 
-    session = db.get_session()
-    try:
-        # Collect all memory IDs from clusters as seeds
+    # Phase 1: create the batch in its own session.
+    async with db.session_scope() as session:
         seed_ids = list({mid for cluster in clusters for mid in cluster})
 
-        # Find a valid etl_task_id to attach the batch to
         from context_use.etl.models.etl_task import EtlTask
 
         etl_result = await session.execute(select(EtlTask.id).limit(1))
@@ -142,20 +140,22 @@ async def run_full_refinement(
             states=[state_dict],
         )
         session.add(batch)
-        await session.commit()
 
-        print(f"\nCreated refinement batch {batch.id} with {len(seed_ids)} seeds")
-        print("Running refinement pipeline...")
+    print(f"\nCreated refinement batch {batch.id} with {len(seed_ids)} seeds")
+    print("Running refinement pipeline...")
 
-        await run_pipeline(
-            [batch],
-            db=session,
-            manager_kwargs={"llm_client": llm_client},
-        )
+    # Phase 2: run pipeline — manager creates its own sessions.
+    await run_pipeline(
+        [batch],
+        db_backend=db,
+        manager_kwargs={"llm_client": llm_client},
+    )
 
-        print(f"\nBatch final status: {batch.current_status}")
+    print(f"\nBatch final status: {batch.current_status}")
 
-        # Report results
+    # Report results
+    session = db.get_session()
+    try:
         result = await session.execute(
             select(TapestryMemory).where(
                 TapestryMemory.source_memory_ids.isnot(None),

@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from context_use.batch.manager import (
     BaseBatchManager,
@@ -12,6 +11,9 @@ from context_use.batch.manager import (
 )
 from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.policy import ImmediateRunPolicy, RunPolicy
+
+if TYPE_CHECKING:
+    from context_use.db.base import DatabaseBackend
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +43,15 @@ async def run_batch(manager: BaseBatchManager) -> None:
 
 async def run_batches(
     batches: list[Batch],
-    db: AsyncSession,
+    db_backend: DatabaseBackend,
     *,
     manager_kwargs: dict | None = None,
 ) -> None:
     """Run multiple batches concurrently.
 
     Each batch gets its own ``BaseBatchManager`` (resolved via the category
-    registry) and is driven by ``run_batch``.
+    registry).  The manager creates isolated sessions from *db_backend*
+    so concurrent batches never share a database session.
     """
     manager_kwargs = manager_kwargs or {}
 
@@ -56,7 +59,7 @@ async def run_batches(
     for batch in batches:
         category = BatchCategory(batch.category)
         manager_cls = get_manager_for_category(category)
-        manager = manager_cls(batch=batch, db=db, **manager_kwargs)
+        manager = manager_cls(batch=batch, db_backend=db_backend, **manager_kwargs)
         tasks.append(asyncio.create_task(run_batch(manager)))
 
     if tasks:
@@ -65,7 +68,7 @@ async def run_batches(
 
 async def run_pipeline(
     batches: list[Batch],
-    db: AsyncSession,
+    db_backend: DatabaseBackend,
     *,
     policy: RunPolicy | None = None,
     manager_kwargs: dict | None = None,
@@ -84,7 +87,7 @@ async def run_pipeline(
         return
 
     try:
-        await run_batches(batches, db=db, manager_kwargs=manager_kwargs)
+        await run_batches(batches, db_backend=db_backend, manager_kwargs=manager_kwargs)
     except Exception:
         await policy.release(run_id, success=False)
         raise

@@ -3,9 +3,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
 from context_use.batch.models import Batch, BatchCategory
@@ -36,6 +36,9 @@ from context_use.memories.states import (
 )
 from context_use.storage.base import StorageBackend
 
+if TYPE_CHECKING:
+    from context_use.db.base import DatabaseBackend
+
 logger = logging.getLogger(__name__)
 
 
@@ -54,21 +57,23 @@ class MemoryBatchManager(BaseBatchManager):
     def __init__(
         self,
         batch: Batch,
-        db: AsyncSession,
+        db_backend: DatabaseBackend,
         llm_client: LLMClient,
         storage: StorageBackend,
         memory_config_resolver: Callable[[str], MemoryConfig],
     ) -> None:
-        super().__init__(batch, db)
+        super().__init__(batch, db_backend)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
         self._memory_config_resolver = memory_config_resolver
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
+        self._created_memory_ids: list[str] = []
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
+        assert self.db is not None
         groups = await self.batch_factory.get_batch_groups(self.batch, self.db)
         contexts: list[GroupContext] = []
         for group in groups:
@@ -154,6 +159,7 @@ class MemoryBatchManager(BaseBatchManager):
         results: BatchResults[MemorySchema],
     ) -> int:
         """Write memories to the ``tapestry_memories`` table."""
+        assert self.db is not None
         count = 0
         for group_key, schema in results.items():
             for memory in schema.memories:
@@ -164,22 +170,28 @@ class MemoryBatchManager(BaseBatchManager):
                     group_key=group_key,
                 )
                 self.db.add(row)
+                await self.db.flush()
+                self._created_memory_ids.append(row.id)
                 count += 1
 
-        await self.db.commit()
         logger.info("[%s] Stored %d memories", self.batch.id, count)
         return count
 
-    async def _get_unembedded_memories(self) -> list[TapestryMemory]:
+    async def _get_batch_unembedded_memories(self) -> list[TapestryMemory]:
+        """Return unembedded memories created by *this* batch only."""
+        assert self.db is not None
+        if not self._created_memory_ids:
+            return []
         result = await self.db.execute(
             select(TapestryMemory).where(
+                TapestryMemory.id.in_(self._created_memory_ids),
                 TapestryMemory.embedding.is_(None),
             )
         )
         return list(result.scalars().all())
 
     async def _trigger_embedding(self) -> State:
-        memories = await self._get_unembedded_memories()
+        memories = await self._get_batch_unembedded_memories()
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
 
@@ -189,6 +201,7 @@ class MemoryBatchManager(BaseBatchManager):
         return MemoryEmbedPendingState(job_key=job_key)
 
     async def _check_embedding_status(self, state: MemoryEmbedPendingState) -> State:
+        assert self.db is not None
         results = await self.llm_client.embed_batch_get_results(state.job_key)
         if results is None:
             return state

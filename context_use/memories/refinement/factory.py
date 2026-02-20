@@ -76,6 +76,6 @@ class RefinementBatchFactory:
             refinement_batches.append(batch)
 
         if refinement_batches:
-            await db.commit()
+            await db.flush()
 
         return refinement_batches
