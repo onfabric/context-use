@@ -162,6 +162,25 @@ class _BaseFibreMixin:
             return None
         return published
 
+    def get_caption_for_gemini(self) -> str | None:
+        """Get caption content for Gemini (e.g., caption from posts)."""
+        return None
+
+    def get_collection(self) -> str | None:
+        """Get collection ID for this fibre."""
+        return None
+
+    def is_inbound(self) -> bool:
+        """Whether this interaction was performed by someone else toward the user."""
+        return False
+
+    def get_message_content(self) -> str | None:
+        """Get the core textual content of a message interaction.
+
+        Default to None as most interaction types are not messages.
+        """
+        return None
+
 
 # --- Fibre Objects ---
 
@@ -244,6 +263,9 @@ class FibreSendMessage(Create, _BaseFibreMixin):
             parts += f" on {provider}"
         return parts
 
+    def get_message_content(self) -> str | None:
+        return self.object.content if isinstance(self.object.content, str) else None
+
     def get_collection(self) -> str | None:
         return self.object.get_collection()
 
@@ -254,11 +276,17 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
     actor: Profile | Application  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     target: None = None  # type: ignore[reportIncompatibleVariableOverride]
 
+    def is_inbound(self) -> bool:
+        return True
+
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Received {self.object._get_preview(provider)} from {self.actor.name}"
         if provider:
             parts += f" on {provider}"
         return parts
+
+    def get_message_content(self) -> str | None:
+        return self.object.content if isinstance(self.object.content, str) else None
 
     def get_collection(self) -> str | None:
         return self.object.get_collection()

@@ -6,6 +6,7 @@ from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.etl.payload.core import make_thread_payload
 
 
 class Thread(TimeStampMixin, Base):
@@ -53,3 +54,28 @@ class Thread(TimeStampMixin, Base):
         Index("idx_threads_interaction_type", "interaction_type"),
         Index("idx_threads_asat", "asat"),
     )
+
+    @property
+    def is_asset(self) -> bool:
+        return self.asset_uri is not None
+
+    @property
+    def is_inbound(self) -> bool:
+        """Whether this thread was performed by someone else toward the user."""
+        payload = make_thread_payload(self.payload)
+        return payload.is_inbound()
+
+    def get_caption_for_gemini(self) -> str | None:
+        """Get caption content for Gemini (e.g., caption from posts)."""
+        payload = make_thread_payload(self.payload)
+        return payload.get_caption_for_gemini()
+
+    def get_message_content(self) -> str | None:
+        """Get the text content of a message thread (None for non-message threads)."""
+        payload = make_thread_payload(self.payload)
+        return payload.get_message_content()
+
+    def get_collection(self) -> str | None:
+        """Get collection ID for this thread."""
+        payload = make_thread_payload(self.payload)
+        return payload.get_collection()

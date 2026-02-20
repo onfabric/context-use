@@ -111,7 +111,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
             from_date = threads[0].asat.date()
             to_date = threads[-1].asat.date()
 
-            user_count = sum(1 for t in threads if self._is_user_message(t))
+            user_count = sum(1 for t in threads if not t.is_inbound)
             min_mem, max_mem = self._memory_bounds(user_count)
 
             transcript = self._format_transcript(threads)
@@ -145,24 +145,9 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
     def _format_transcript(self, threads: list[Thread]) -> str:
         lines: list[str] = []
         for t in threads:
-            role = "USER" if self._is_user_message(t) else "ASSISTANT"
+            role = "USER" if not t.is_inbound else "ASSISTANT"
             ts = t.asat.strftime("%Y-%m-%d %H:%M")
-            content = self._extract_content(t)
+            content = t.get_message_content() or ""
             lines.append(f"[{role} {ts}] {content}")
 
         return "## Transcript\n\n" + "\n".join(lines)
-
-    @staticmethod
-    def _is_user_message(thread: Thread) -> bool:
-        # TODO(mez): port is_inbound property of threads from aertex
-        return thread.payload.get("fibre_kind") == "SendMessage"
-
-    @staticmethod
-    def _extract_content(thread: Thread) -> str:
-        # TODO(mez): port content property of threads from aertex
-        obj = thread.payload.get("object", {})
-        if isinstance(obj, dict):
-            content = obj.get("content", "")
-            if isinstance(content, str):
-                return content
-        return ""
