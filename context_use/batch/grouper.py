@@ -107,7 +107,7 @@ class CollectionGrouper(ThreadGrouper):
 
         buckets: dict[str, list[Thread]] = defaultdict(list)
         for t in threads:
-            cid = self._extract_collection_id(t)
+            cid = t.get_collection()
             if cid:
                 buckets[cid].append(t)
 
@@ -118,14 +118,3 @@ class CollectionGrouper(ThreadGrouper):
             )
             for key, ts in buckets.items()
         ]
-
-    @staticmethod
-    def _extract_collection_id(thread: Thread) -> str | None:
-        # TODO(mez): port collection_id property of threads from aertex
-        payload = thread.payload
-        obj = payload.get("object", {})
-        if isinstance(obj, dict):
-            context = obj.get("context", {})
-            if isinstance(context, dict):
-                return context.get("@id")
-        return None
