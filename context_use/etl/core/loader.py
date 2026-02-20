@@ -10,14 +10,7 @@ from context_use.etl.models.etl_task import EtlTask
 
 
 class Loader(ABC):
-    """Consumes :class:`ThreadRow` instances and persists them.
-
-    Handles batching internally.  Different implementations cover
-    different deployment modes:
-
-    - :class:`DbLoader` — direct Postgres insert (standalone / context-use)
-    - ``CheckpointLoader`` — serialize to GCS for Celery handoff (aertex)
-    """
+    """Consumes :class:`ThreadRow` instances and persists them."""
 
     @abstractmethod
     async def load(self, rows: Iterable[ThreadRow], task: EtlTask) -> int:
@@ -30,12 +23,7 @@ class Loader(ABC):
 
 
 class DbLoader(Loader):
-    """Inserts :class:`ThreadRow` instances directly into Postgres.
-
-    Maps each ``ThreadRow`` to a ``Thread`` ORM row, injecting
-    ``tapestry_id`` and ``etl_task_id`` from the :class:`EtlTask`.
-    Uses ``ON CONFLICT DO NOTHING`` for deduplication on ``unique_key``.
-    """
+    """Inserts :class:`ThreadRow` instances directly into Postgres."""
 
     # TODO: Replace row-at-a-time inserts with psql_insert_copy
     #  (PostgreSQL COPY + temp table) for better bulk-insert performance.
