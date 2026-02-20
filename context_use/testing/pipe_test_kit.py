@@ -156,5 +156,5 @@ class PipeTestKit:
         assert cls.provider, "provider ClassVar must be set"
         assert cls.interaction_type, "interaction_type ClassVar must be set"
         assert cls.archive_version, "archive_version ClassVar must be set"
-        assert cls.archive_path, "archive_path ClassVar must be set"
+        assert cls.archive_path_pattern, "archive_path_pattern ClassVar must be set"
         assert cls.record_schema is not None, "record_schema ClassVar must be set"

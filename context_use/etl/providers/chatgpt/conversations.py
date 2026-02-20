@@ -88,7 +88,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
     provider = "chatgpt"
     interaction_type = "chatgpt_conversations"
     archive_version = "v1"
-    archive_path = "conversations.json"
+    archive_path_pattern = "conversations.json"
     record_schema = ChatGPTConversationRecord
 
     def extract(

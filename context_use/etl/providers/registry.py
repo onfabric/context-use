@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -25,7 +26,8 @@ class ProviderConfig:
 
     Each provider registers one or more :class:`Pipe` subclasses.
     Task discovery and pipe lookup are derived from the registered
-    pipes' class-level metadata (``archive_path``, ``interaction_type``).
+    pipes' class-level metadata (``archive_path_pattern``,
+    ``interaction_type``).
     """
 
     pipes: list[type[Pipe]]
@@ -38,24 +40,25 @@ class ProviderConfig:
     ) -> list[EtlTask]:
         """Match extracted archive files against registered pipes.
 
-        For each pipe whose ``archive_path`` is found in *files*,
-        returns a transient :class:`EtlTask` ready to be added to a
-        session.
+        Uses :func:`fnmatch.fnmatch` to match each file against the
+        pipe's ``archive_path_pattern``.  Patterns without wildcards
+        behave as exact matches.  Patterns with wildcards create **one
+        EtlTask per matched file** (fan-out).
         """
         prefix = f"{archive_id}/"
-        file_set = set(files)
         tasks: list[EtlTask] = []
         for pipe_cls in self.pipes:
-            expected = f"{prefix}{pipe_cls.archive_path}"
-            if expected in file_set:
-                tasks.append(
-                    EtlTask(
-                        archive_id=archive_id,
-                        provider=provider,
-                        interaction_type=pipe_cls.interaction_type,
-                        source_uri=expected,
+            pattern = f"{prefix}{pipe_cls.archive_path_pattern}"
+            for f in files:
+                if fnmatch.fnmatch(f, pattern):
+                    tasks.append(
+                        EtlTask(
+                            archive_id=archive_id,
+                            provider=provider,
+                            interaction_type=pipe_cls.interaction_type,
+                            source_uri=f,
+                        )
                     )
-                )
         return tasks
 
     def get_pipe(self, interaction_type: str) -> type[Pipe]:
