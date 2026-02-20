@@ -20,7 +20,6 @@ from context_use.etl.models.archive import Archive, ArchiveStatus
 from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.etl.providers.registry import (
     PROVIDER_REGISTRY,
-    InteractionTypeConfig,
     Provider,
     get_provider_config,
 )
