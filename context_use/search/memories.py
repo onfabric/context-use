@@ -5,8 +5,8 @@ from datetime import date
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from context_use.db.base import DatabaseBackend
 from context_use.memories.models import (
     EMBEDDING_DIMENSIONS,
     MemoryStatus,
@@ -27,7 +27,7 @@ class MemorySearchResult:
 
 
 async def search_memories(
-    db: DatabaseBackend,
+    session: AsyncSession,
     *,
     query: str | None = None,
     from_date: date | None = None,
@@ -38,7 +38,7 @@ async def search_memories(
     """Search memories by semantic similarity, time range, or both.
 
     Args:
-        db: Database backend to query against.
+        session: Active async database session.
         query: Free-text query for semantic search (requires ``llm_client``).
         from_date: Only include memories whose ``from_date >= from_date``.
         to_date: Only include memories whose ``to_date <= to_date``.
@@ -60,53 +60,52 @@ async def search_memories(
         query_vec = await llm_client.embed_query(query)
         assert len(query_vec) == EMBEDDING_DIMENSIONS
 
-    async with db.session_scope() as session:
-        columns: list = [TapestryMemory]
-        if query_vec is not None:
-            distance_col = TapestryMemory.embedding.cosine_distance(query_vec).label(
-                "distance"
-            )
-            columns.append(distance_col)
+    columns: list = [TapestryMemory]
+    if query_vec is not None:
+        distance_col = TapestryMemory.embedding.cosine_distance(query_vec).label(
+            "distance"
+        )
+        columns.append(distance_col)
 
-        stmt = select(*columns).where(
-            TapestryMemory.status == MemoryStatus.active.value
+    stmt = select(*columns).where(
+        TapestryMemory.status == MemoryStatus.active.value
+    )
+
+    if query_vec is not None:
+        stmt = stmt.where(TapestryMemory.embedding.isnot(None))
+
+    if from_date is not None:
+        stmt = stmt.where(TapestryMemory.from_date >= from_date)
+    if to_date is not None:
+        stmt = stmt.where(TapestryMemory.to_date <= to_date)
+
+    if query_vec is not None:
+        stmt = stmt.order_by(text("distance"))
+    else:
+        stmt = stmt.order_by(TapestryMemory.from_date.desc())
+
+    stmt = stmt.limit(top_k)
+
+    result = await session.execute(stmt)
+    rows = result.all()
+
+    results: list[MemorySearchResult] = []
+    for row in rows:
+        if query_vec is not None:
+            memory, distance = row
+            similarity = 1 - distance
+        else:
+            (memory,) = row
+            similarity = None
+
+        results.append(
+            MemorySearchResult(
+                id=memory.id,
+                content=memory.content,
+                from_date=memory.from_date,
+                to_date=memory.to_date,
+                similarity=similarity,
+            )
         )
 
-        if query_vec is not None:
-            stmt = stmt.where(TapestryMemory.embedding.isnot(None))
-
-        if from_date is not None:
-            stmt = stmt.where(TapestryMemory.from_date >= from_date)
-        if to_date is not None:
-            stmt = stmt.where(TapestryMemory.to_date <= to_date)
-
-        if query_vec is not None:
-            stmt = stmt.order_by(text("distance"))
-        else:
-            stmt = stmt.order_by(TapestryMemory.from_date.desc())
-
-        stmt = stmt.limit(top_k)
-
-        result = await session.execute(stmt)
-        rows = result.all()
-
-        results: list[MemorySearchResult] = []
-        for row in rows:
-            if query_vec is not None:
-                memory, distance = row
-                similarity = 1 - distance
-            else:
-                (memory,) = row
-                similarity = None
-
-            results.append(
-                MemorySearchResult(
-                    id=memory.id,
-                    content=memory.content,
-                    from_date=memory.from_date,
-                    to_date=memory.to_date,
-                    similarity=similarity,
-                )
-            )
-
-        return results
+    return results

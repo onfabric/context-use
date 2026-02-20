@@ -415,14 +415,15 @@ class ContextUse:
 
         llm = self._require_llm() if query is not None else None
 
-        return await search_memories(
-            self._db,
-            query=query,
-            from_date=from_date,
-            to_date=to_date,
-            top_k=top_k,
-            llm_client=llm,
-        )
+        async with self._db.session_scope() as session:
+            return await search_memories(
+                session,
+                query=query,
+                from_date=from_date,
+                to_date=to_date,
+                top_k=top_k,
+                llm_client=llm,
+            )
 
     # ── Profile ──────────────────────────────────────────────────────
 

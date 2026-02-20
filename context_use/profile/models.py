@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.db.models import Base, TimeStampMixin, _new_uuid
+from context_use.db.models import Base, TimeStampMixin, new_uuid
 
 
 class TapestryProfile(TimeStampMixin, Base):
@@ -20,7 +20,7 @@ class TapestryProfile(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=_new_uuid,
+        default=new_uuid,
     )
 
     content: Mapped[str] = mapped_column(
