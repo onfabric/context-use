@@ -14,10 +14,8 @@ from context_use.etl.providers.chatgpt.conversations import (
 )
 from context_use.etl.providers.chatgpt.orchestration import ChatGPTOrchestrationStrategy
 from context_use.etl.providers.instagram.media import (
-    InstagramReelsExtractionStrategy,
-    InstagramReelsTransformStrategy,
-    InstagramStoriesExtractionStrategy,
-    InstagramStoriesTransformStrategy,
+    InstagramReelsPipe,
+    InstagramStoriesPipe,
 )
 from context_use.etl.providers.instagram.orchestration import (
     InstagramOrchestrationStrategy,
@@ -55,12 +53,10 @@ PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
         orchestration=InstagramOrchestrationStrategy,
         interaction_types={
             "instagram_stories": InteractionTypeConfig(
-                extraction=InstagramStoriesExtractionStrategy,
-                transform=InstagramStoriesTransformStrategy,
+                pipe=InstagramStoriesPipe,
             ),
             "instagram_reels": InteractionTypeConfig(
-                extraction=InstagramReelsExtractionStrategy,
-                transform=InstagramReelsTransformStrategy,
+                pipe=InstagramReelsPipe,
             ),
         },
     ),
