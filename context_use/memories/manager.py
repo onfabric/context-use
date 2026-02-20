@@ -6,7 +6,6 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from context_use.batch.grouper import WindowConfig
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
 from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.states import (
@@ -20,12 +19,10 @@ from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.models import TapestryMemory
 from context_use.memories.prompt import (
-    BasePromptBuilder,
-    ConversationMemoryPromptBuilder,
     GroupContext,
-    MediaMemoryPromptBuilder,
     MemorySchema,
 )
+from context_use.memories.registry import get_memory_config
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
     MemoryEmbedPendingState,
@@ -55,13 +52,11 @@ class MemoryBatchManager(BaseBatchManager):
         db: AsyncSession,
         llm_client: LLMClient,
         storage: StorageBackend,
-        window_config: WindowConfig | None = None,
     ) -> None:
         super().__init__(batch, db)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
-        self.window_config = window_config or WindowConfig()
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
 
@@ -80,28 +75,6 @@ class MemoryBatchManager(BaseBatchManager):
                 )
             )
         return contexts
-
-    def _create_prompt_builder(
-        self,
-        interaction_type: str,
-        contexts: list[GroupContext],
-    ) -> BasePromptBuilder:
-        """Pick the right prompt builder for the batch's interaction type.
-
-        New providers register here — add a branch and a dedicated
-        ``BasePromptBuilder`` subclass.
-        """
-        # TODO(mez): registration pattern for prompt builders
-        if interaction_type == "chatgpt_conversations":
-            return ConversationMemoryPromptBuilder(contexts)
-        elif (
-            interaction_type == "instagram_stories"
-            or interaction_type == "instagram_reels"
-            or interaction_type == "instagram_posts"
-        ):
-            return MediaMemoryPromptBuilder(contexts, self.window_config)
-        else:
-            raise ValueError(f"Unknown interaction type: {interaction_type}")
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -138,7 +111,8 @@ class MemoryBatchManager(BaseBatchManager):
             return SkippedState(reason="No threads for memory generation")
 
         interaction_type = all_threads[0].interaction_type
-        builder = self._create_prompt_builder(interaction_type, contexts)
+        config = get_memory_config(interaction_type)
+        builder = config.create_prompt_builder(contexts)
 
         if not builder.has_content():
             return SkippedState(reason="No processable content for memory generation")
