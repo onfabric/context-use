@@ -4,7 +4,7 @@ import fnmatch
 from dataclasses import dataclass
 
 from context_use.etl.core.pipe import Pipe
-from context_use.etl.models.etl_task import EtlTask
+from context_use.models.etl_task import EtlTask
 from context_use.memories.config import MemoryConfig
 
 

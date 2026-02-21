@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from context_use.etl.models.thread import Thread
+from context_use.models.thread import Thread
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import (
     BasePromptBuilder,

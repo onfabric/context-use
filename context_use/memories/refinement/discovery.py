@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from sqlalchemy import and_, literal, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql import func
-
-from context_use.memories.models import MemoryStatus, TapestryMemory
+if TYPE_CHECKING:
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +38,7 @@ class _UnionFind:
 
 async def discover_refinement_clusters(
     seed_memory_ids: list[str],
-    db: AsyncSession,
+    store: Store,
     *,
     date_proximity_days: int = 7,
     similarity_threshold: float = 0.4,
@@ -59,50 +57,26 @@ async def discover_refinement_clusters(
     if not seed_memory_ids:
         return []
 
-    seeds_result = await db.execute(
-        select(TapestryMemory).where(TapestryMemory.id.in_(seed_memory_ids))
-    )
-    seeds = list(seeds_result.scalars().all())
-
+    seeds = await store.get_memories(seed_memory_ids)
     if not seeds:
         return []
 
     uf = _UnionFind()
-    cosine_threshold = 1.0 - similarity_threshold
 
     for seed in seeds:
         if seed.embedding is None:
             continue
 
-        # Date overlap: candidate.from_date <= seed.to_date + N days
-        #           AND candidate.to_date   >= seed.from_date - N days
-        proximity = func.make_interval(0, 0, 0, date_proximity_days)
-
-        stmt = (
-            select(TapestryMemory.id)
-            .where(
-                and_(
-                    TapestryMemory.status == MemoryStatus.active.value,
-                    TapestryMemory.embedding.isnot(None),
-                    TapestryMemory.id != seed.id,
-                    TapestryMemory.from_date <= literal(seed.to_date) + proximity,
-                    TapestryMemory.to_date >= literal(seed.from_date) - proximity,
-                    TapestryMemory.embedding.cosine_distance(seed.embedding)
-                    < cosine_threshold,
-                )
-            )
-            .order_by(TapestryMemory.embedding.cosine_distance(seed.embedding))
-            .limit(max_candidates_per_seed)
+        candidate_ids = await store.find_similar_memories(
+            seed.id,
+            date_proximity_days=date_proximity_days,
+            similarity_threshold=similarity_threshold,
+            max_candidates=max_candidates_per_seed,
         )
-
-        result = await db.execute(stmt)
-        candidate_ids = [row[0] for row in result.all()]
 
         for cid in candidate_ids:
             uf.union(seed.id, cid)
 
-        # Ensure the seed is in the union-find even with no candidates
         uf.find(seed.id)
 
-    # Only return clusters with 2+ memories
     return [c for c in uf.clusters() if len(c) >= 2]

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from context_use.db.models import new_uuid
-from context_use.etl.models.thread import Thread
+from context_use.models.thread import Thread
 
 
 @dataclass(frozen=True)

@@ -4,6 +4,10 @@ import enum
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from context_use.batch.states import State
 
 
 def _utcnow() -> datetime:
@@ -32,6 +36,31 @@ class Batch:
     id: str = field(default_factory=_new_id)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)
+
+    def parse_current_state(self) -> State:
+        """Parse the head of ``states`` into a typed State object."""
+        from context_use.batch.models import parse_batch_state
+
+        if not self.states:
+            raise ValueError(f"Batch {self.id} has no states")
+        return parse_batch_state(self.states[0], BatchCategory(self.category))
+
+    @property
+    def current_status(self) -> str:
+        if not self.states:
+            raise ValueError(f"Batch {self.id} has no states")
+        return self.states[0].get("status", "")
+
+    def push_state(self, new_state: State) -> None:
+        """Prepend *new_state*; replace head if the status is unchanged (polling)."""
+        new_dict = new_state.model_dump(mode="json")
+        if self.states:
+            if self.states[0].get("status") == new_dict.get("status"):
+                self.states[0] = new_dict
+            else:
+                self.states.insert(0, new_dict)
+        else:
+            self.states.insert(0, new_dict)
 
 
 @dataclass
