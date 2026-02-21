@@ -37,7 +37,7 @@ async def search(query: str, top_k: int = 5) -> None:
             session,
             query=query,
             top_k=top_k,
-            llm_client=llm,
+            llm_client=llm_client,
         )
 
     if not results:
