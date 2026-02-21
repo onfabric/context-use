@@ -14,7 +14,7 @@ import shutil
 import subprocess
 import sys
 from collections.abc import Callable, Coroutine
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from itertools import groupby
 from pathlib import Path
 from typing import Any
@@ -447,11 +447,21 @@ async def cmd_run(args: argparse.Namespace) -> None:
         return
 
     # Phase 2: Memories
-    out.header("Phase 2/3 · Generating memories")
-    out.info("Submitting batch jobs to OpenAI and polling for results...")
+    fast = getattr(args, "fast", False)
+    since = datetime.now(UTC) - timedelta(days=args.last_days) if fast else None
+    if fast:
+        out.header("Phase 2/3 · Generating memories (fast mode)")
+        out.info("Using real-time API — no batch polling delay.")
+        if since:
+            out.kv("Since", since.strftime("%Y-%m-%d"))
+    else:
+        out.header("Phase 2/3 · Generating memories")
+        out.info("Submitting batch jobs to OpenAI and polling for results...")
     print()
 
-    mem_result = await ctx.generate_memories([result.archive_id])
+    mem_result = await ctx.generate_memories(
+        [result.archive_id], since=since, sync=fast
+    )
 
     out.success("Memories generated")
     out.kv("Batches", mem_result.batches_created)
@@ -578,12 +588,20 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
         return
     selected_id, selected_provider = picked
 
+    fast = getattr(args, "fast", False)
+    since = datetime.now(UTC) - timedelta(days=args.last_days) if fast else None
+
     out.header("Generating memories")
-    out.info("This submits batch jobs to OpenAI and polls for results.")
-    out.info("It typically takes 2-10 minutes depending on data volume.\n")
+    if fast:
+        out.info("Using real-time API — no batch polling delay.")
+        if since:
+            out.kv("Since", since.strftime("%Y-%m-%d"))
+    else:
+        out.info("This submits batch jobs to OpenAI and polls for results.")
+        out.info("It typically takes 2-10 minutes depending on data volume.\n")
     out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
-    result = await ctx.generate_memories([selected_id])
+    result = await ctx.generate_memories([selected_id], since=since, sync=fast)
 
     out.success("Memories generated")
     out.kv("Tasks processed", result.tasks_processed)
@@ -1094,12 +1112,36 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip profile generation",
     )
+    p_run.add_argument(
+        "--fast",
+        action="store_true",
+        help="Use real-time API instead of batch (faster for demos)",
+    )
+    p_run.add_argument(
+        "--last-days",
+        type=int,
+        default=30,
+        help="With --fast, only process threads from the last N days (default: 30)",
+    )
 
     # memories
     p_mem = sub.add_parser("memories", help="Manage memories")
     mem_sub = p_mem.add_subparsers(dest="memories_command", title="memories commands")
 
-    mem_sub.add_parser("generate", help="Generate memories from ingested archives")
+    p_mem_gen = mem_sub.add_parser(
+        "generate", help="Generate memories from ingested archives"
+    )
+    p_mem_gen.add_argument(
+        "--fast",
+        action="store_true",
+        help="Use real-time API instead of batch (faster for demos)",
+    )
+    p_mem_gen.add_argument(
+        "--last-days",
+        type=int,
+        default=30,
+        help="With --fast, only process threads from the last N days (default: 30)",
+    )
     mem_sub.add_parser("refine", help="Refine overlapping memories")
 
     p_mem_list = mem_sub.add_parser("list", help="List memories")
