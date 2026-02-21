@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from context_use.db.base import DatabaseBackend
 from context_use.storage.base import StorageBackend
+from context_use.store.base import Store
 
 _STORAGE_FACTORIES: dict[str, type] = {}
 
@@ -36,27 +36,32 @@ def build_storage(provider: str, config: dict[str, Any]) -> StorageBackend:
     return cls(**config)
 
 
-_DB_FACTORIES: dict[str, type] = {}
+_STORE_FACTORIES: dict[str, type] = {}
 
 
-def _register_db_defaults() -> None:
-    if _DB_FACTORIES:
+def _register_store_defaults() -> None:
+    if _STORE_FACTORIES:
         return
 
-    try:
-        from context_use.db.postgres import PostgresBackend
+    from context_use.store.memory import InMemoryStore
 
-        _DB_FACTORIES["postgres"] = PostgresBackend
+    _STORE_FACTORIES["memory"] = InMemoryStore
+
+    try:
+        from context_use.store.postgres import PostgresStore
+
+        _STORE_FACTORIES["postgres"] = PostgresStore
     except ImportError:
         pass
 
 
-def build_db(provider: str, config: dict[str, Any]) -> DatabaseBackend:
-    _register_db_defaults()
-    cls = _DB_FACTORIES.get(provider)
+def build_store(provider: str, config: dict[str, Any]) -> Store:
+    _register_store_defaults()
+    cls = _STORE_FACTORIES.get(provider)
     if cls is None:
         raise ValueError(
-            f"Unknown db provider '{provider}'. Available: {list(_DB_FACTORIES.keys())}"
+            f"Unknown store provider '{provider}'. "
+            f"Available: {list(_STORE_FACTORIES.keys())}"
         )
     return cls(**config)
 
@@ -87,35 +92,32 @@ def build_llm(config: dict[str, Any]):
 
 def parse_config(
     config: dict[str, Any],
-) -> tuple[StorageBackend, DatabaseBackend]:
-    """Parse a user config dict and return (storage, db) backends.
+) -> tuple[StorageBackend, Store]:
+    """Parse a user config dict and return (storage, store) backends.
 
     Expected shape::
 
         {
             "storage": {"provider": "disk", "config": {"base_path": "/tmp"}},
-            "db": {
-              "provider": "postgres",
-              "config": {
-                "host": "localhost",
-                "port": 5432,
-                "database": "context_use",
-                "user": "postgres",
-                "password": "postgres",
-              },
+            "store": {
+              "provider": "memory",
+              "config": {},
             },
         }
+
+    If no ``store`` key is present, defaults to in-memory.
+    The legacy ``db`` key is accepted as an alias for ``store``.
     """
     storage_cfg = config.get("storage", {})
-    db_cfg = config.get("db", {})
+    store_cfg = config.get("store") or config.get("db", {})
 
     storage = build_storage(
         storage_cfg.get("provider", "disk"),
         storage_cfg.get("config", {}),
     )
-    db = build_db(
-        db_cfg.get("provider", "postgres"),
-        db_cfg.get("config", {}),
+    store = build_store(
+        store_cfg.get("provider", "memory"),
+        store_cfg.get("config", {}),
     )
 
-    return storage, db
+    return storage, store

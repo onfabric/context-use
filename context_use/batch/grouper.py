@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import timedelta
 
-from context_use.db.models import new_uuid
 from context_use.models.thread import Thread
 
 
@@ -44,7 +44,7 @@ class ThreadGroup:
     """A set of threads that must be processed together as one LLM prompt."""
 
     threads: list[Thread] = field(default_factory=list)
-    group_id: str = field(default_factory=new_uuid)
+    group_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
 class ThreadGrouper(ABC):

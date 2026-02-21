@@ -13,6 +13,7 @@ from context_use import ContextUse
 from context_use.db.models import Base
 from context_use.db.postgres import PostgresBackend
 from context_use.storage.disk import DiskStorage
+from context_use.store.postgres import PostgresStore
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -110,6 +111,25 @@ async def db(settings: Settings) -> AsyncGenerator[PostgresBackend]:
 
 
 @pytest.fixture()
-def ctx(tmp_path: Path, db: PostgresBackend) -> ContextUse:
+async def store(settings: Settings) -> AsyncGenerator[PostgresStore]:
+    """Create a PostgresStore with a clean slate for each test."""
+    pg_store = PostgresStore(
+        host=settings.host,
+        port=settings.port,
+        database=settings.database,
+        user=settings.user,
+        password=settings.password,
+    )
+    await pg_store.init()
+    await pg_store.reset()
+
+    yield pg_store
+
+    await pg_store.reset()
+    await pg_store.close()
+
+
+@pytest.fixture()
+def ctx(tmp_path: Path, store: PostgresStore) -> ContextUse:
     storage = DiskStorage(base_path=str(tmp_path / "storage"))
-    return ContextUse(storage=storage, db=db)
+    return ContextUse(storage=storage, store=store)

@@ -16,15 +16,19 @@ from context_use.facade.types import (
     RefinementResult,
     TaskBreakdown,
 )
+from context_use.models import Archive, EtlTask
+from context_use.models.archive import ArchiveStatus
+from context_use.models.etl_task import EtlTaskStatus
+from context_use.models.memory import MemoryStatus
 from context_use.providers.registry import Provider
+from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
     from datetime import date
 
-    from context_use.db.base import DatabaseBackend
     from context_use.llm.base import LLMClient
-    from context_use.search.memories import MemorySearchResult
     from context_use.storage.base import StorageBackend
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -39,30 +43,21 @@ class ContextUse:
 
         ctx = ContextUse.from_config({
             "storage": {"provider": "disk", "config": {"base_path": "./data"}},
-            "db": {
-                "provider": "postgres",
-                "config": {
-                    "host": "localhost",
-                    "port": 5432,
-                    "database": "context_use",
-                    "user": "postgres",
-                    "password": "postgres",
-                },
-            },
+            "store": {"provider": "memory"},
             "llm": {"api_key": "sk-..."},
         })
-        await ctx.init_db()
+        await ctx.init()
         result = await ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
     """
 
     def __init__(
         self,
         storage: StorageBackend,
-        db: DatabaseBackend,
+        store: Store,
         llm_client: LLMClient | None = None,
     ) -> None:
         self._storage = storage
-        self._db = db
+        self._store = store
         self._llm_client = llm_client
 
     @classmethod
@@ -70,12 +65,12 @@ class ContextUse:
         """Construct a ContextUse instance from a configuration dict."""
         from context_use.config import build_llm, parse_config
 
-        storage, db = parse_config(config)
+        storage, store = parse_config(config)
         llm_client = None
         llm_cfg = config.get("llm", {})
         if llm_cfg.get("api_key"):
             llm_client = build_llm(llm_cfg)
-        return cls(storage=storage, db=db, llm_client=llm_client)
+        return cls(storage=storage, store=store, llm_client=llm_client)
 
     def _require_llm(self) -> LLMClient:
         if self._llm_client is None:
@@ -85,22 +80,20 @@ class ContextUse:
             )
         return self._llm_client
 
+    async def init(self) -> None:
+        """Create missing tables / indices (non-destructive)."""
+        await self._store.init()
+
+    async def reset(self) -> None:
+        """Drop all data and recreate from scratch."""
+        await self._store.reset()
+
+    # kept for backward-compat; delegates to init()
     async def init_db(self) -> None:
-        """Create missing database tables (non-destructive)."""
-        self._register_models()
-        await self._db.init_db()
+        await self.init()
 
     async def reset_db(self) -> None:
-        """Drop all tables and recreate from scratch."""
-        self._register_models()
-        await self._db.reset_db()
-
-    @staticmethod
-    def _register_models() -> None:
-        import context_use.batch.models  # noqa: F401
-        import context_use.etl.models  # noqa: F401
-        import context_use.memories.models  # noqa: F401
-        import context_use.profile.models  # noqa: F401
+        await self.reset()
 
     # ── ETL ──────────────────────────────────────────────────────────
 
@@ -111,22 +104,13 @@ class ContextUse:
     ) -> PipelineResult:
         """Unzip, discover, and run ETL for the given archive.
 
-        Each ETL task runs in its own database session so that a failure
-        in one task does not roll back previously committed work.
-
-        Args:
-            provider: Which data provider (ChatGPT, Instagram, ...).
-            path: Filesystem path to the .zip archive.
-
-        Returns:
-            A PipelineResult summarising the work done.
+        Each ETL task is committed independently so that a failure
+        in one task does not lose previously committed work.
         """
         from context_use.etl.core.exceptions import (
             ArchiveProcessingError,
             UnsupportedProviderError,
         )
-        from context_use.etl.models.archive import Archive, ArchiveStatus
-        from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
         from context_use.providers.registry import (
             PROVIDER_REGISTRY,
             get_provider_config,
@@ -137,87 +121,85 @@ class ContextUse:
 
         provider_cfg = get_provider_config(provider)
 
-        # Phase 1: create archive + discover tasks in a short transaction.
-        async with self._db.session_scope() as session:
-            archive = Archive(
-                provider=provider.value,
-                status=ArchiveStatus.CREATED.value,
+        # Phase 1: create archive + discover tasks.
+        archive = Archive(
+            provider=provider.value,
+            status=ArchiveStatus.CREATED.value,
+        )
+        archive = await self._store.create_archive(archive)
+        archive_id = archive.id
+
+        try:
+            prefix = f"{archive_id}/"
+            self._unzip(path, prefix)
+
+            files = self._storage.list_keys(archive_id)
+            archive.file_uris = files
+
+            discovered_tasks = provider_cfg.discover_tasks(
+                archive_id, files, provider.value
             )
-            session.add(archive)
-            await session.flush()
-            archive_id = archive.id
+            if not discovered_tasks:
+                logger.warning("No tasks discovered for archive %s", archive_id)
 
-            try:
-                prefix = f"{archive_id}/"
-                self._unzip(path, prefix)
+            task_models: list[EtlTask] = []
+            for etl_task in discovered_tasks:
+                etl_task.status = EtlTaskStatus.CREATED.value
+                etl_task.archive_id = archive_id
+                etl_task = await self._store.create_task(etl_task)
+                task_models.append(etl_task)
 
-                files = self._storage.list_keys(archive_id)
-                archive.file_uris = files
+            await self._store.update_archive(archive)
 
-                discovered = provider_cfg.discover_tasks(
-                    archive_id, files, provider.value
-                )
-                if not discovered:
-                    logger.warning("No tasks discovered for archive %s", archive_id)
-
-                for etl_task in discovered:
-                    etl_task.status = EtlTaskStatus.CREATED.value
-                    etl_task.archive = archive
-                    session.add(etl_task)
-
-                await session.flush()
-                task_ids = [t.id for t in discovered]
-
-            except Exception as exc:
-                logger.error("process_archive discovery failed: %s", exc)
-                archive.status = ArchiveStatus.FAILED.value
-                raise ArchiveProcessingError(str(exc)) from exc
+        except Exception as exc:
+            logger.error("process_archive discovery failed: %s", exc)
+            archive.status = ArchiveStatus.FAILED.value
+            await self._store.update_archive(archive)
+            raise ArchiveProcessingError(str(exc)) from exc
 
         result = PipelineResult(archive_id=archive_id)
 
-        # Phase 2: run each ETL task in its own session.
-        for task_id in task_ids:
-            async with self._db.session_scope() as session:
-                etl_task = await session.get(EtlTask, task_id)
-                assert etl_task is not None
+        # Phase 2: run each ETL task.
+        for task_model in task_models:
+            try:
+                pipe_cls = provider_cfg.get_pipe(task_model.interaction_type)
+                pipe = pipe_cls()
+                count = await self._run_pipe(pipe, task_model)
 
-                try:
-                    pipe_cls = provider_cfg.get_pipe(etl_task.interaction_type)
-                    pipe = pipe_cls()
-                    count = await self._run_pipe(pipe, etl_task, session)
+                task_model.status = EtlTaskStatus.COMPLETED.value
+                task_model.uploaded_count = count
+                await self._store.update_task(task_model)
 
-                    etl_task.status = EtlTaskStatus.COMPLETED.value
-                    etl_task.uploaded_count = count
-
-                    result.tasks_completed += 1
-                    result.threads_created += count
-                    result.breakdown.append(
-                        TaskBreakdown(
-                            interaction_type=etl_task.interaction_type,
-                            thread_count=count,
-                        )
+                result.tasks_completed += 1
+                result.threads_created += count
+                result.breakdown.append(
+                    TaskBreakdown(
+                        interaction_type=task_model.interaction_type,
+                        thread_count=count,
                     )
+                )
 
-                except Exception as exc:
-                    logger.error(
-                        "ETL failed for %s/%s: %s",
-                        provider,
-                        etl_task.interaction_type,
-                        exc,
-                    )
-                    etl_task.status = EtlTaskStatus.FAILED.value
-                    result.tasks_failed += 1
-                    result.errors.append(str(exc))
+            except Exception as exc:
+                logger.error(
+                    "ETL failed for %s/%s: %s",
+                    provider,
+                    task_model.interaction_type,
+                    exc,
+                )
+                task_model.status = EtlTaskStatus.FAILED.value
+                await self._store.update_task(task_model)
+                result.tasks_failed += 1
+                result.errors.append(str(exc))
 
         # Phase 3: update archive status.
-        async with self._db.session_scope() as session:
-            archive = await session.get(Archive, archive_id)
-            assert archive is not None
-            archive.status = (
-                ArchiveStatus.COMPLETED.value
-                if result.tasks_failed == 0
-                else ArchiveStatus.FAILED.value
-            )
+        archive = await self._store.get_archive(archive_id)
+        assert archive is not None
+        archive.status = (
+            ArchiveStatus.COMPLETED.value
+            if result.tasks_failed == 0
+            else ArchiveStatus.FAILED.value
+        )
+        await self._store.update_archive(archive)
 
         return result
 
@@ -234,75 +216,55 @@ class ContextUse:
         resulting groups are merged into a single pool and bin-packed
         into batches — so a batch can contain groups from different
         interaction types.
-
-        Args:
-            archive_ids: Archive IDs from prior ``process_archive()`` calls.
-
-        Returns:
-            A :class:`MemoriesResult` summarising the work done.
         """
         from collections import defaultdict
 
-        from sqlalchemy import select
-
         from context_use.batch.grouper import ThreadGroup
         from context_use.batch.runner import run_pipeline
-        from context_use.etl.models.etl_task import EtlTask
-        from context_use.etl.models.thread import Thread
         from context_use.memories.factory import MemoryBatchFactory
+        from context_use.models.thread import Thread
         from context_use.providers.registry import get_memory_config
 
         _ensure_managers_registered()
         llm = self._require_llm()
         result = MemoriesResult()
 
-        # Phase 1: collect threads, group, and create batches.
-        all_batches: list = []
-        async with self._db.session_scope() as session:
-            stmt = select(EtlTask).where(EtlTask.archive_id.in_(archive_ids))
-            tasks = list((await session.execute(stmt)).scalars().all())
-            result.tasks_processed = len(tasks)
+        tasks = await self._store.get_tasks_by_archive(archive_ids)
+        result.tasks_processed = len(tasks)
 
-            task_ids = [t.id for t in tasks]
-            if not task_ids:
-                return result
+        task_ids = [t.id for t in tasks]
+        if not task_ids:
+            return result
 
-            threads_stmt = (
-                select(Thread)
-                .where(Thread.etl_task_id.in_(task_ids))
-                .order_by(Thread.asat, Thread.id)
-            )
-            threads = list((await session.execute(threads_stmt)).scalars().all())
+        threads = await self._store.get_threads_by_task(task_ids)
 
-            # Partition threads by interaction type for grouping.
-            by_type: dict[str, list[Thread]] = defaultdict(list)
-            for t in threads:
-                by_type[t.interaction_type].append(t)
+        by_type: dict[str, list[Thread]] = defaultdict(list)
+        for t in threads:
+            by_type[t.interaction_type].append(t)
 
-            all_groups: list[ThreadGroup] = []
-            for interaction_type, type_threads in by_type.items():
-                try:
-                    config = get_memory_config(interaction_type)
-                except KeyError:
-                    logger.info(
-                        "No memory config for %s — skipping",
-                        interaction_type,
-                    )
-                    continue
+        all_groups: list[ThreadGroup] = []
+        for interaction_type, type_threads in by_type.items():
+            try:
+                config = get_memory_config(interaction_type)
+            except KeyError:
+                logger.info(
+                    "No memory config for %s — skipping",
+                    interaction_type,
+                )
+                continue
 
-                grouper = config.create_grouper()
-                groups = grouper.group(type_threads)
-                all_groups.extend(groups)
+            grouper = config.create_grouper()
+            groups = grouper.group(type_threads)  # type: ignore[arg-type]
+            all_groups.extend(groups)
 
-            all_batches = await MemoryBatchFactory.create_batches(all_groups, session)
+        all_batches = await MemoryBatchFactory.create_batches(all_groups, self._store)
 
         result.batches_created = len(all_batches)
 
-        # Phase 2: run pipeline — each manager creates its own sessions.
         if all_batches:
             await run_pipeline(
                 all_batches,
-                db_backend=self._db,
+                store=self._store,
                 manager_kwargs={
                     "llm_client": llm,
                     "storage": self._storage,
@@ -318,14 +280,7 @@ class ContextUse:
         self,
         archive_ids: list[str],
     ) -> RefinementResult:
-        """Discover and refine overlapping memories from completed archives.
-
-        Args:
-            archive_ids: Archive IDs whose memories should be refined.
-
-        Returns:
-            A :class:`RefinementResult` summarising the work done.
-        """
+        """Discover and refine overlapping memories from completed archives."""
         from context_use.batch.runner import run_pipeline
         from context_use.memories.refinement.factory import RefinementBatchFactory
 
@@ -333,20 +288,16 @@ class ContextUse:
         llm = self._require_llm()
         result = RefinementResult()
 
-        # Phase 1: batch creation in its own transactional session.
-        refinement_batches = []
-        async with self._db.session_scope() as session:
-            refinement_batches = await RefinementBatchFactory.create_refinement_batches(
-                db=session
-            )
+        refinement_batches = await RefinementBatchFactory.create_refinement_batches(
+            store=self._store,
+        )
 
         result.batches_created = len(refinement_batches)
 
-        # Phase 2: run pipeline — each manager creates its own sessions.
         if refinement_batches:
             await run_pipeline(
                 refinement_batches,
-                db_backend=self._db,
+                store=self._store,
                 manager_kwargs={"llm_client": llm},
             )
 
@@ -356,57 +307,29 @@ class ContextUse:
 
     async def list_archives(self) -> list[ArchiveSummary]:
         """Return summaries of all completed archives."""
-        from sqlalchemy import func, select
+        archives = await self._store.list_archives(
+            status=ArchiveStatus.COMPLETED.value,
+        )
 
-        from context_use.etl.models.archive import Archive, ArchiveStatus
-        from context_use.etl.models.etl_task import EtlTask
-        from context_use.etl.models.thread import Thread
-
-        async with self._db.session_scope() as session:
-            stmt = (
-                select(
-                    Archive.id,
-                    Archive.provider,
-                    Archive.created_at,
-                    func.count(Thread.id).label("thread_count"),
+        summaries: list[ArchiveSummary] = []
+        for a in archives:
+            count = await self._store.count_threads_for_archive(a.id)
+            summaries.append(
+                ArchiveSummary(
+                    id=a.id,
+                    provider=a.provider,
+                    created_at=a.created_at,
+                    thread_count=count,
                 )
-                .where(Archive.status == ArchiveStatus.COMPLETED.value)
-                .outerjoin(EtlTask, EtlTask.archive_id == Archive.id)
-                .outerjoin(Thread, Thread.etl_task_id == EtlTask.id)
-                .group_by(Archive.id, Archive.provider, Archive.created_at)
-                .order_by(Archive.created_at)
             )
-            rows = (await session.execute(stmt)).all()
-
-        return [
-            ArchiveSummary(
-                id=aid,
-                provider=prov,
-                created_at=ts,
-                thread_count=cnt,
-            )
-            for aid, prov, ts, cnt in rows
-        ]
+        return summaries
 
     async def list_memories(self, *, limit: int | None = None) -> list[MemorySummary]:
-        """Return active memories, ordered by date.
-
-        Args:
-            limit: Maximum number of memories to return.
-        """
-        from sqlalchemy import select
-
-        from context_use.memories.models import MemoryStatus, TapestryMemory
-
-        async with self._db.session_scope() as session:
-            stmt = (
-                select(TapestryMemory)
-                .where(TapestryMemory.status == MemoryStatus.active.value)
-                .order_by(TapestryMemory.from_date)
-            )
-            if limit is not None:
-                stmt = stmt.limit(limit)
-            memories = list((await session.execute(stmt)).scalars().all())
+        """Return active memories, ordered by date."""
+        memories = await self._store.list_memories(
+            status=MemoryStatus.active.value,
+            limit=limit,
+        )
 
         return [
             MemorySummary(
@@ -420,17 +343,7 @@ class ContextUse:
 
     async def count_memories(self) -> int:
         """Return the number of active memories."""
-        from sqlalchemy import func, select
-
-        from context_use.memories.models import MemoryStatus, TapestryMemory
-
-        async with self._db.session_scope() as session:
-            stmt = (
-                select(func.count())
-                .select_from(TapestryMemory)
-                .where(TapestryMemory.status == MemoryStatus.active.value)
-            )
-            return (await session.execute(stmt)).scalar() or 0
+        return await self._store.count_memories(status=MemoryStatus.active.value)
 
     async def search_memories(
         self,
@@ -440,44 +353,25 @@ class ContextUse:
         to_date: date | None = None,
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
-        """Search memories by semantic similarity, time range, or both.
-
-        Args:
-            query: Free-text query for semantic search (requires LLM client).
-            from_date: Only include memories whose ``from_date >= from_date``.
-            to_date: Only include memories whose ``to_date <= to_date``.
-            top_k: Maximum number of results to return.
-        """
+        """Search memories by semantic similarity, time range, or both."""
         from context_use.search.memories import search_memories
 
         llm = self._require_llm() if query is not None else None
 
-        async with self._db.session_scope() as session:
-            return await search_memories(
-                session,
-                query=query,
-                from_date=from_date,
-                to_date=to_date,
-                top_k=top_k,
-                llm_client=llm,
-            )
+        return await search_memories(
+            self._store,
+            query=query,
+            from_date=from_date,
+            to_date=to_date,
+            top_k=top_k,
+            llm_client=llm,
+        )
 
     # ── Profile ──────────────────────────────────────────────────────
 
     async def get_profile(self) -> ProfileSummary | None:
         """Return the most recent profile, or ``None`` if none exists."""
-        from sqlalchemy import select
-
-        from context_use.profile.models import TapestryProfile
-
-        async with self._db.session_scope() as session:
-            result = await session.execute(
-                select(TapestryProfile)
-                .order_by(TapestryProfile.generated_at.desc())
-                .limit(1)
-            )
-            profile = result.scalar_one_or_none()
-
+        profile = await self._store.get_latest_profile()
         if profile is None:
             return None
 
@@ -492,24 +386,19 @@ class ContextUse:
         *,
         lookback_months: int = 6,
     ) -> ProfileSummary:
-        """Generate or regenerate the user profile from active memories.
-
-        Args:
-            lookback_months: How far back to look for memories.
-
-        Returns:
-            The generated profile summary.
-        """
+        """Generate or regenerate the user profile from active memories."""
         from context_use.profile.generator import generate_profile
 
         llm = self._require_llm()
 
-        async with self._db.session_scope() as session:
-            profile = await generate_profile(
-                session,
-                llm,
-                lookback_months=lookback_months,
-            )
+        current = await self._store.get_latest_profile()
+
+        profile = await generate_profile(
+            self._store,
+            llm,
+            current_profile=current,
+            lookback_months=lookback_months,
+        )
 
         return ProfileSummary(
             content=profile.content,
@@ -520,15 +409,7 @@ class ContextUse:
     # ── Conversational agent ─────────────────────────────────────────
 
     async def ask(self, query: str, *, top_k: int = 10) -> str:
-        """Answer a question using the profile and relevant memories.
-
-        Builds a RAG prompt from the current profile and the most
-        relevant memories, then calls the LLM for a response.
-
-        Args:
-            query: The user's question.
-            top_k: Number of memories to include as context.
-        """
+        """Answer a question using the profile and relevant memories."""
         llm = self._require_llm()
 
         profile = await self.get_profile()
@@ -555,14 +436,10 @@ class ContextUse:
 
     # ── Private helpers ──────────────────────────────────────────────
 
-    async def _run_pipe(self, pipe, etl_task, session) -> int:
-        """Execute an ETL task using a Pipe + Loader."""
-        from context_use.etl.core.loader import DbLoader
-        from context_use.etl.models.etl_task import EtlTaskStatus
-
-        loader = DbLoader(session=session)
-        etl_task.status = EtlTaskStatus.EXTRACTING.value
-        count = await loader.load(pipe.run(etl_task, self._storage), etl_task)
+    async def _run_pipe(self, pipe, etl_task: EtlTask) -> int:
+        """Execute an ETL task using a Pipe and persist results via the Store."""
+        rows = list(pipe.run(etl_task, self._storage))
+        count = await self._store.insert_threads(rows, etl_task.id)
 
         etl_task.extracted_count = pipe.extracted_count
         etl_task.transformed_count = pipe.transformed_count
