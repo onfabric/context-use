@@ -16,7 +16,10 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
 
+from sqlalchemy import select
+
 from context_use.db.base import DatabaseBackend
+from context_use.profile.models import TapestryProfile
 from context_use.search.memories import MemorySearchResult, search_memories
 
 if TYPE_CHECKING:
@@ -68,10 +71,40 @@ def create_server(
         name=name,
         version=version,
         instructions=(
-            "Memory search server. Use the search_memories tool to find "
-            "user memories by semantic query, time range, or both."
+            "Context server. Use get_profile to load the user's profile "
+            "at the start of a conversation, and search_memories to recall "
+            "specific episodes."
         ),
     )
+
+    @server.tool(
+        title="Get User Profile",
+        annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    )
+    async def get_profile() -> dict:
+        """Get the user's profile — a structured summary of who they are.
+
+        Returns a markdown profile distilled from the user's memories.
+        Call this at the start of a conversation to understand who the
+        user is. Use ``search_memories`` for specific episode recall.
+        """
+        session = db.get_session()
+        try:
+            result = await session.execute(
+                select(TapestryProfile)
+                .order_by(TapestryProfile.generated_at.desc())
+                .limit(1)
+            )
+            profile = result.scalar_one_or_none()
+            if profile is None:
+                return {"content": None, "generated_at": None}
+            return {
+                "content": profile.content,
+                "generated_at": profile.generated_at.isoformat(),
+                "memory_count": profile.memory_count,
+            }
+        finally:
+            await session.close()
 
     @server.tool(
         title="Search Memories",
