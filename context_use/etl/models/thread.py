@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from context_use.db.models import Base, TimeStampMixin, new_uuid
 from context_use.etl.payload.core import make_thread_payload
+from context_use.etl.payload.models import ThreadPayload
 
 
 class Thread(TimeStampMixin, Base):
@@ -50,9 +51,9 @@ class Thread(TimeStampMixin, Base):
     )
 
     __allow_unmapped__ = True
-    _parsed_payload: object | None = None  # per-instance lazy cache
+    _parsed_payload: ThreadPayload | None = None  # per-instance lazy cache
 
-    def _get_parsed_payload(self):
+    def _get_parsed_payload(self) -> ThreadPayload:
         if self._parsed_payload is None:
             self._parsed_payload = make_thread_payload(self.payload)
         return self._parsed_payload
