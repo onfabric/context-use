@@ -13,9 +13,11 @@ import json
 import shutil
 import subprocess
 import sys
+from collections.abc import Callable, Coroutine
 from datetime import UTC, date, datetime
 from itertools import groupby
 from pathlib import Path
+from typing import Any
 
 from context_use.cli import output as out
 from context_use.cli.config import (
@@ -957,14 +959,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
 # ── Dispatch ────────────────────────────────────────────────────────
 
-_COMMAND_MAP: dict[str, object] = {
+_CommandHandler = Callable[[argparse.Namespace], Coroutine[Any, Any, None]]
+
+_COMMAND_MAP: dict[str, _CommandHandler] = {
     "init": cmd_init,
     "ingest": cmd_ingest,
     "server": cmd_server,
     "ask": cmd_ask,
 }
 
-_MEMORIES_MAP: dict[str, object] = {
+_MEMORIES_MAP: dict[str, _CommandHandler] = {
     "generate": cmd_memories_generate,
     "refine": cmd_memories_refine,
     "list": cmd_memories_list,
@@ -972,7 +976,7 @@ _MEMORIES_MAP: dict[str, object] = {
     "export": cmd_memories_export,
 }
 
-_PROFILE_MAP: dict[str, object] = {
+_PROFILE_MAP: dict[str, _CommandHandler] = {
     "generate": cmd_profile_generate,
     "show": cmd_profile_show,
     "export": cmd_profile_export,
