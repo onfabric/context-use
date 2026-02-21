@@ -67,9 +67,7 @@ async def search_memories(
         )
         columns.append(distance_col)
 
-    stmt = select(*columns).where(
-        TapestryMemory.status == MemoryStatus.active.value
-    )
+    stmt = select(*columns).where(TapestryMemory.status == MemoryStatus.active.value)
 
     if query_vec is not None:
         stmt = stmt.where(TapestryMemory.embedding.isnot(None))
