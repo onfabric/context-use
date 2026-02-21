@@ -77,9 +77,12 @@ def _build_response_format(item: PromptItem) -> dict:
 def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = []
     for path in item.asset_paths:
-        parts.append(
-            {"type": "image_url", "image_url": {"url": _encode_file_as_data_url(path)}}
-        )
+        try:
+            data_url = _encode_file_as_data_url(path)
+        except FileNotFoundError:
+            logger.warning("Skipping missing asset: %s", path)
+            continue
+        parts.append({"type": "image_url", "image_url": {"url": data_url}})
     parts.append({"type": "text", "text": item.prompt})
     return [{"role": "user", "content": parts}]
 
@@ -242,6 +245,29 @@ class LLMClient:
                 )
 
         return results
+
+    async def completion(self, prompt: str) -> str:
+        """Run a single chat completion and return the text response."""
+        response = await litellm.acompletion(
+            model=self._model.value,
+            messages=[{"role": "user", "content": prompt}],
+            api_key=self._api_key,
+        )
+        text: str = response.choices[0].message.content  # type: ignore[union-attr]
+        return text.strip()
+
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single text string (e.g. a search query).
+
+        Uses the same embedding model configured for batch embedding,
+        ensuring vector compatibility.
+        """
+        response = await litellm.aembedding(
+            model=self._embedding_model.value,
+            input=[text],
+            api_key=self._api_key,
+        )
+        return response.data[0]["embedding"]
 
     async def embed_batch_submit(
         self,

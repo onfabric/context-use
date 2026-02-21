@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 from sqlalchemy import JSON, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.db.models import Base, TimeStampMixin, new_uuid
 
 if TYPE_CHECKING:
     from context_use.etl.models.etl_task import EtlTask
@@ -24,10 +24,9 @@ class Archive(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=_new_uuid,
+        default=new_uuid,
     )
     provider: Mapped[str] = mapped_column(String, nullable=False)
-    tapestry_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     status: Mapped[str] = mapped_column(
         String,
         nullable=False,
@@ -39,7 +38,4 @@ class Archive(TimeStampMixin, Base):
         "EtlTask", back_populates="archive", cascade="all, delete-orphan"
     )
 
-    __table_args__ = (
-        Index("idx_archives_provider", "provider"),
-        Index("idx_archives_tapestry_id", "tapestry_id"),
-    )
+    __table_args__ = (Index("idx_archives_provider", "provider"),)

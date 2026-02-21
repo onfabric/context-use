@@ -2,35 +2,35 @@ from __future__ import annotations
 
 import fnmatch
 from dataclasses import dataclass
-from enum import StrEnum
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.models.etl_task import EtlTask
-from context_use.etl.providers.chatgpt.conversations import (
-    ChatGPTConversationsPipe,
-)
-from context_use.etl.providers.instagram.media import (
-    InstagramReelsPipe,
-    InstagramStoriesPipe,
-)
+from context_use.memories.config import MemoryConfig
 
 
-class Provider(StrEnum):
-    CHATGPT = "chatgpt"
-    INSTAGRAM = "instagram"
+@dataclass
+class InteractionConfig:
+    """Full pipeline config for one interaction type: ETL pipe + memory generation."""
+
+    pipe: type[Pipe]
+    memory: MemoryConfig | None = None
 
 
 @dataclass
 class ProviderConfig:
     """Configuration for a single provider.
 
-    Each provider registers one or more :class:`Pipe` subclasses.
+    Each provider registers one or more :class:`InteractionConfig` entries.
     Task discovery and pipe lookup are derived from the registered
     pipes' class-level metadata (``archive_path_pattern``,
     ``interaction_type``).
     """
 
-    pipes: list[type[Pipe]]
+    interactions: list[InteractionConfig]
+
+    @property
+    def pipes(self) -> list[type[Pipe]]:
+        return [i.pipe for i in self.interactions]
 
     def discover_tasks(
         self,
@@ -72,17 +72,19 @@ class ProviderConfig:
                 return pipe_cls
         raise KeyError(f"No pipe registered for interaction_type={interaction_type!r}")
 
+    def get_memory_config(self, interaction_type: str) -> MemoryConfig:
+        """Look up the memory config for *interaction_type*.
 
-PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
-    Provider.CHATGPT: ProviderConfig(
-        pipes=[ChatGPTConversationsPipe],
-    ),
-    Provider.INSTAGRAM: ProviderConfig(
-        pipes=[InstagramStoriesPipe, InstagramReelsPipe],
-    ),
-}
-
-
-def get_provider_config(provider: Provider) -> ProviderConfig:
-    """Look up the provider config. Raises ``KeyError`` for unknown providers."""
-    return PROVIDER_REGISTRY[provider]
+        Raises :class:`KeyError` if no interaction or memory config is
+        registered for the given interaction type.
+        """
+        for ic in self.interactions:
+            if ic.pipe.interaction_type == interaction_type:
+                if ic.memory is None:
+                    raise KeyError(
+                        f"No memory config for interaction_type={interaction_type!r}"
+                    )
+                return ic.memory
+        raise KeyError(
+            f"No interaction config for interaction_type={interaction_type!r}"
+        )

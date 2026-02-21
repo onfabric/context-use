@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import ijson
 
+from context_use.batch.grouper import CollectionGrouper
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.models.etl_task import EtlTask
@@ -19,10 +20,13 @@ from context_use.etl.payload.models import (
     FibreSendMessage,
     FibreTextMessage,
 )
-from context_use.etl.providers.chatgpt.schemas import (
+from context_use.memories.config import MemoryConfig
+from context_use.memories.prompt.conversation import ConversationMemoryPromptBuilder
+from context_use.providers.chatgpt.schemas import (
     ChatGPTConversationRecord,
     ChatGPTMessage,
 )
+from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -168,3 +172,12 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
             asat=asat,
             source=record.source,
         )
+
+
+INTERACTION_CONFIG = InteractionConfig(
+    pipe=ChatGPTConversationsPipe,
+    memory=MemoryConfig(
+        prompt_builder=ConversationMemoryPromptBuilder,
+        grouper=CollectionGrouper,
+    ),
+)

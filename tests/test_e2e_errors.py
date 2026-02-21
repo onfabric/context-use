@@ -7,7 +7,7 @@ from context_use.etl.core.exceptions import (
     ArchiveProcessingError,
     UnsupportedProviderError,
 )
-from context_use.etl.providers.registry import Provider
+from context_use.providers.registry import Provider
 from tests.conftest import build_zip
 
 

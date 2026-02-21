@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from context_use.db.base import DatabaseBackend
-from context_use.etl.models.base import Base
+from context_use.db.models import Base
 
 
 class PostgresBackend(DatabaseBackend):

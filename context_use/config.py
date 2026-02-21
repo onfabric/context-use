@@ -61,6 +61,30 @@ def build_db(provider: str, config: dict[str, Any]) -> DatabaseBackend:
     return cls(**config)
 
 
+def build_llm(config: dict[str, Any]):
+    """Build an LLMClient from a config dict.
+
+    Expected shape::
+
+        {"api_key": "sk-...", "model": "gpt-4o",
+         "embedding_model": "text-embedding-3-large"}
+
+    Only ``api_key`` is required; the rest have sensible defaults.
+    """
+    from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
+
+    api_key = config.get("api_key", "")
+    model_str = config.get("model", OpenAIModel.GPT_4O.value)
+    embed_str = config.get(
+        "embedding_model", OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.value
+    )
+
+    model = OpenAIModel(model_str)
+    embedding_model = OpenAIEmbeddingModel(embed_str)
+
+    return LLMClient(model=model, api_key=api_key, embedding_model=embedding_model)
+
+
 def parse_config(
     config: dict[str, Any],
 ) -> tuple[StorageBackend, DatabaseBackend]:

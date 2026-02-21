@@ -1,6 +1,6 @@
-# Contributing a New Pipe
+# Contributing to context-use
 
-This guide walks you through adding a new ETL pipe to context-use. A **Pipe** encapsulates Extract + Transform for a single interaction type (e.g. Instagram DMs, ChatGPT conversations). The Load step is handled separately by a `Loader`.
+context-use has two main pipelines: **ETL** (extract + transform data from provider archives into normalised threads) and **Memories** (group threads, generate first-person memories via LLM, and embed them for semantic search). Both are configured in the unified provider registry.
 
 ---
 
@@ -10,9 +10,9 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 
 | Step | File | Action |
 |------|------|--------|
-| 1 | `context_use/etl/providers/<provider>/schemas.py` | Add Pydantic record model(s) |
-| 2 | `context_use/etl/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract()` + `transform()` |
-| 3 | `context_use/etl/providers/registry.py` | Add pipe class to `ProviderConfig.pipes` list |
+| 1 | `context_use/providers/<provider>/schemas.py` | Add Pydantic record model(s) |
+| 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract()` + `transform()`, define `INTERACTION_CONFIG` |
+| 3 | `context_use/providers/<provider>/__init__.py` | Add the new config to `PROVIDER_CONFIG.interactions` |
 | 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
 | 5 | `tests/test_<provider>_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
 
@@ -20,10 +20,203 @@ For a **new** provider, also:
 
 | Step | File | Action |
 |------|------|--------|
-| A | `context_use/etl/providers/<provider>/` | Create package (`__init__.py`, `schemas.py`, pipe module) |
-| B | `context_use/etl/providers/registry.py` | Add `Provider` enum member + `ProviderConfig` entry |
+| A | `context_use/providers/<provider>/` | Create package (`__init__.py`, `schemas.py`, pipe module) |
+| B | `context_use/providers/registry.py` | Add `Provider` enum member + import `PROVIDER_CONFIG` into `PROVIDER_REGISTRY` |
 
 If the provider needs a new fibre (payload) type, see [Extending Payload Models](#extending-payload-models).
+
+---
+
+## Package Layout
+
+```
+context_use/
+  providers/              ← unified provider configs (ETL + memory)
+    types.py              ← InteractionConfig, ProviderConfig dataclasses
+    registry.py           ← Provider enum, PROVIDER_REGISTRY dict, lookup functions
+    chatgpt/
+      __init__.py         ← assembles PROVIDER_CONFIG from interaction configs
+      schemas.py          ← record models
+      conversations.py    ← Pipe subclass + INTERACTION_CONFIG
+    instagram/
+      __init__.py         ← assembles PROVIDER_CONFIG from interaction configs
+      schemas.py
+      media.py            ← Pipe subclasses + STORIES_CONFIG, REELS_CONFIG
+  etl/                    ← reusable ETL building blocks
+    core/pipe.py          ← Pipe ABC
+    core/types.py         ← ThreadRow
+    core/loader.py        ← DbLoader
+    payload/models.py     ← Fibre models (ActivityStreams)
+    models/               ← EtlTask, Thread, Archive
+  memories/               ← reusable memory building blocks
+    config.py             ← MemoryConfig dataclass
+    prompt/base.py        ← BasePromptBuilder ABC, GroupContext, MemorySchema
+    prompt/conversation.py← ConversationMemoryPromptBuilder (stock)
+    prompt/media.py       ← MediaMemoryPromptBuilder (stock)
+    manager.py            ← MemoryBatchManager (framework)
+    extractor.py          ← MemoryExtractor (framework)
+  batch/                  ← reusable batch/grouping building blocks
+    grouper.py            ← ThreadGrouper ABC, WindowGrouper, CollectionGrouper
+    factory.py            ← BaseBatchFactory
+    manager.py            ← BaseBatchManager
+```
+
+**Dependency rule:** `providers` imports from `etl`, `memories`, and `batch`. Those three never import from `providers`.
+
+---
+
+## Architecture Overview
+
+The full pipeline for a single provider archive:
+
+```
+  ZIP archive
+       │
+       ▼
+  ┌────────────────────────────────────────────────┐
+  │  ETL Pipeline                                   │
+  │                                                 │
+  │  Pipe.extract()  →  Pipe.transform()  →  Load   │
+  │  (parse archive)    (→ ThreadRow)      (→ DB)   │
+  └────────────────────┬───────────────────────────┘
+                       │
+                  Thread rows in DB
+                       │
+                       ▼
+  ┌────────────────────────────────────────────────┐
+  │  Memory Pipeline                                │
+  │                                                 │
+  │  Grouper         →  PromptBuilder  →  LLM batch │
+  │  (partition          (format           (generate │
+  │   threads)            prompts)          memories)│
+  │                                         │       │
+  │                                         ▼       │
+  │                                    Embed batch  │
+  │                                    (vectorise)  │
+  └────────────────────────────────────────────────┘
+                       │
+                  Memories + embeddings in DB
+                       │
+                       ▼
+                  Semantic search
+```
+
+- **Pipe is ET, not ETL.** Load is a separate concern handled by `DbLoader`.
+- **One Pipe class = one interaction type.** Each subclass handles one kind of data (e.g. stories, reels, DMs).
+- **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the Loader consumes lazily.
+- **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
+- **Memory generation is async and batched.** The `MemoryBatchManager` state machine submits OpenAI batch jobs for both generation and embedding, polling until complete.
+
+---
+
+## Unified Registry
+
+Configuration is split across three layers so each provider owns its own config while the framework stays clean:
+
+| File | Responsibility |
+|------|---------------|
+| `providers/types.py` | `InteractionConfig` and `ProviderConfig` dataclasses (shared types) |
+| `providers/<provider>/<module>.py` | `INTERACTION_CONFIG` co-located with each pipe class |
+| `providers/<provider>/__init__.py` | `PROVIDER_CONFIG` assembling the provider's interaction configs |
+| `providers/registry.py` | `Provider` enum, `PROVIDER_REGISTRY` dict, lookup functions |
+
+### Types (`providers/types.py`)
+
+```python
+@dataclass
+class InteractionConfig:
+    """Full pipeline config for one interaction type."""
+    pipe: type[Pipe]
+    memory: MemoryConfig | None = None  # None = ETL-only
+
+@dataclass
+class ProviderConfig:
+    interactions: list[InteractionConfig]
+```
+
+### How config flows
+
+Each pipe module defines its `InteractionConfig` alongside the pipe class:
+
+```python
+# providers/chatgpt/conversations.py
+INTERACTION_CONFIG = InteractionConfig(
+    pipe=ChatGPTConversationsPipe,
+    memory=MemoryConfig(
+        prompt_builder=ConversationMemoryPromptBuilder,
+        grouper=CollectionGrouper,
+    ),
+)
+```
+
+The provider `__init__.py` assembles them into a `ProviderConfig`:
+
+```python
+# providers/chatgpt/__init__.py
+PROVIDER_CONFIG = ProviderConfig(interactions=[INTERACTION_CONFIG])
+```
+
+And `registry.py` collects all providers:
+
+```python
+# providers/registry.py
+PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
+    Provider.CHATGPT: _CHATGPT_CONFIG,
+    Provider.INSTAGRAM: _INSTAGRAM_CONFIG,
+}
+```
+
+### Adding a pipe to an existing provider
+
+1. In the pipe module, define `INTERACTION_CONFIG` with the pipe class and its `MemoryConfig`.
+2. In the provider's `__init__.py`, import it and add it to the `PROVIDER_CONFIG.interactions` list.
+
+No changes to `registry.py` needed.
+
+### Adding a new provider
+
+1. Create the provider package under `context_use/providers/<provider>/`:
+
+   - `schemas.py` — Pydantic record model(s)
+   - One or more pipe modules (e.g. `history.py`) — each with its `INTERACTION_CONFIG`
+   - `__init__.py` — assemble `PROVIDER_CONFIG`:
+
+     ```python
+     from context_use.providers.spotify.history import (
+         INTERACTION_CONFIG as _HISTORY_CONFIG,
+         SpotifyListeningHistoryPipe,
+     )
+     from context_use.providers.spotify.schemas import SpotifyListenRecord
+     from context_use.providers.types import ProviderConfig
+
+     PROVIDER_CONFIG = ProviderConfig(interactions=[_HISTORY_CONFIG])
+
+     __all__ = [
+         "SpotifyListenRecord",
+         "SpotifyListeningHistoryPipe",
+         "PROVIDER_CONFIG",
+     ]
+     ```
+
+2. Add a member to the `Provider` enum in `registry.py`:
+
+   ```python
+   class Provider(StrEnum):
+       CHATGPT = "chatgpt"
+       INSTAGRAM = "instagram"
+       SPOTIFY = "spotify"  # new
+   ```
+
+3. Import and add the provider config to `PROVIDER_REGISTRY`:
+
+   ```python
+   from context_use.providers.spotify import PROVIDER_CONFIG as _SPOTIFY_CONFIG
+
+   PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
+       ...
+       Provider.SPOTIFY: _SPOTIFY_CONFIG,
+   }
+   ```
 
 ---
 
@@ -35,7 +228,7 @@ This walkthrough adds an `InstagramMessagesPipe` that processes Instagram DM con
 
 The record schema is the Pydantic model that `extract()` yields. It represents one parsed item from the archive — here, one chat message.
 
-Create or extend `context_use/etl/providers/instagram/schemas.py`:
+Create or extend `context_use/providers/instagram/schemas.py`:
 
 ```python
 class InstagramDirectMessage(BaseModel):
@@ -57,7 +250,7 @@ class InstagramDirectMessage(BaseModel):
 
 ### Step 2: Create the Pipe Subclass
 
-Create `context_use/etl/providers/instagram/messages.py`:
+Create `context_use/providers/instagram/messages.py`:
 
 ```python
 from __future__ import annotations
@@ -78,7 +271,7 @@ from context_use.etl.payload.models import (
     FibreTextMessage,
     Collection,
 )
-from context_use.etl.providers.instagram.schemas import InstagramDirectMessage
+from context_use.providers.instagram.schemas import InstagramDirectMessage
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -206,20 +399,39 @@ Optional fields:
 
 `run()` is a template method on the base class. It calls `extract()`, then `transform()` for each record, tracks `extracted_count` / `transformed_count`, and yields `ThreadRow` instances lazily. Do not override it.
 
-### Step 3: Register the Pipe
+### Step 3: Register the Pipe with Memory Config
 
-Edit `context_use/etl/providers/registry.py`:
+Add an `INTERACTION_CONFIG` at the bottom of `context_use/providers/instagram/messages.py` (same file as the pipe):
 
 ```python
-from context_use.etl.providers.instagram.messages import InstagramMessagesPipe
+from context_use.batch.grouper import CollectionGrouper
+from context_use.memories.config import MemoryConfig
+from context_use.memories.prompt.conversation import ConversationMemoryPromptBuilder
+from context_use.providers.types import InteractionConfig
 
-# In PROVIDER_REGISTRY:
-Provider.INSTAGRAM: ProviderConfig(
-    pipes=[InstagramStoriesPipe, InstagramReelsPipe, InstagramMessagesPipe],
-),
+INTERACTION_CONFIG = InteractionConfig(
+    pipe=InstagramMessagesPipe,
+    memory=MemoryConfig(
+        prompt_builder=ConversationMemoryPromptBuilder,
+        grouper=CollectionGrouper,
+    ),
+)
 ```
 
-Every pipe must appear in exactly one `ProviderConfig.pipes` list. The registry uses `archive_path_pattern` for task discovery and `interaction_type` for pipe lookup.
+Then add it to the provider's `__init__.py`:
+
+```python
+# context_use/providers/instagram/__init__.py
+from context_use.providers.instagram.messages import (
+    INTERACTION_CONFIG as _MESSAGES_CONFIG,
+)
+
+PROVIDER_CONFIG = ProviderConfig(
+    interactions=[_STORIES_CONFIG, _REELS_CONFIG, _MESSAGES_CONFIG]
+)
+```
+
+Each `InteractionConfig` declares both the ETL pipe and the memory generation strategy in one place. Set `memory=None` for ETL-only interaction types that don't generate memories. No changes to `registry.py` needed when adding to an existing provider.
 
 ### Step 4: Add Fixture Data
 
@@ -248,7 +460,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.etl.providers.instagram.messages import InstagramMessagesPipe
+from context_use.providers.instagram.messages import InstagramMessagesPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 
@@ -287,28 +499,247 @@ See [Testing](#testing) below for what the kit auto-checks.
 
 ---
 
-## Architecture Overview
+## Memory Pipeline
+
+After ETL loads threads into the database, the memory pipeline groups them, sends prompts to an LLM for memory extraction, and embeds the resulting memories for semantic search.
+
+### How It Works
+
+1. **Group threads.** A `ThreadGrouper` partitions threads into atomic groups (by conversation, by time window, etc.). Each group becomes one LLM prompt.
+
+2. **Build prompts.** A `BasePromptBuilder` formats each group's threads into a `PromptItem` — the text prompt plus any image/video assets and a JSON response schema.
+
+3. **Submit to LLM.** The `MemoryExtractor` wraps `LLMClient.batch_submit()` to send all prompts as an OpenAI batch job. The LLM returns structured `MemorySchema` responses (a list of memories with dates).
+
+4. **Store memories.** Parsed memories are written to the `tapestry_memories` table.
+
+5. **Embed memories.** A second batch job embeds each memory's text. The resulting vectors are stored alongside the memory rows for semantic search.
+
+### MemoryBatchManager State Machine
+
+`MemoryBatchManager` (`context_use/memories/manager.py`) orchestrates steps 1–5 as an async state machine:
 
 ```
-Pipe (ET)                          Loader (L)
-┌──────────────────────────┐       ┌──────────────────────┐
-│ extract(): parse archive │──────▶│ DbLoader: INSERT     │
-│ transform(): → ThreadRow │       │ CheckpointLoader: GCS│
-└──────────────────────────┘       └──────────────────────┘
-        yields Iterator[ThreadRow]
+CREATED
+  → MEMORY_GENERATE_PENDING   (batch job submitted)
+  → MEMORY_GENERATE_COMPLETE   (memories stored in DB)
+  → MEMORY_EMBED_PENDING       (embedding batch submitted)
+  → MEMORY_EMBED_COMPLETE      (embeddings stored on memory rows)
+  → COMPLETE
+
+At any point → SKIPPED (no content) or FAILED (error).
 ```
 
-- **Pipe is ET, not ETL.** Load is a separate concern that varies by deployment.
-- **One Pipe class = one interaction type.** Each subclass handles one kind of data (e.g. stories, reels, DMs).
-- **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded: the Loader consumes lazily.
+Each transition is driven by `_transition()`, which the `BaseBatchManager` polling loop calls repeatedly. Pending states return themselves with an incremented poll count until results arrive.
+
+### MemoryConfig
+
+`MemoryConfig` (`context_use/memories/config.py`) declares how threads from a given interaction type are grouped and turned into memories:
+
+```python
+@dataclass(frozen=True)
+class MemoryConfig:
+    prompt_builder: type[BasePromptBuilder]  # how to build LLM prompts
+    grouper: type[ThreadGrouper]             # how to group threads
+    prompt_builder_kwargs: dict[str, Any]    # extra args for prompt builder
+    grouper_kwargs: dict[str, Any]           # extra args for grouper
+```
+
+It provides two factory methods:
+- `create_prompt_builder(contexts)` — instantiate the prompt builder with the given `GroupContext` list.
+- `create_grouper()` — instantiate the grouper with any configured kwargs.
+
+### Groupers
+
+Groupers partition threads into `ThreadGroup` objects. Each group becomes one LLM prompt.
+
+#### `ThreadGrouper` ABC
+
+```python
+class ThreadGrouper(ABC):
+    @abstractmethod
+    def group(self, threads: list[Thread]) -> list[ThreadGroup]:
+        """Partition threads into groups that must be processed together."""
+        ...
+```
+
+#### Stock groupers
+
+| Grouper | Module | Group key | Use case |
+|---------|--------|-----------|----------|
+| `WindowGrouper` | `batch.grouper` | `"{from_date}/{to_date}"` | Sliding time-window; good for media (stories, reels) |
+| `CollectionGrouper` | `batch.grouper` | Collection ID from payload | Group by conversation / thread ID; good for chats |
+
+**`WindowGrouper`** splits threads into overlapping time windows controlled by `WindowConfig`:
+
+```python
+@dataclass(frozen=True)
+class WindowConfig:
+    window_days: int = 5       # width of each window
+    overlap_days: int = 1      # overlap between consecutive windows
+    max_memories: int | None   # per-window cap (None = auto-scale)
+    min_memories: int | None   # per-window floor (None = auto-scale)
+```
+
+**`CollectionGrouper`** reads the collection ID from each thread's payload (via `thread.get_collection()`) and buckets threads by that ID. Threads with no collection are dropped.
+
+#### Writing a custom grouper
+
+If neither stock grouper fits, subclass `ThreadGrouper`:
+
+```python
+from context_use.batch.grouper import ThreadGrouper, ThreadGroup
+
+class DailyGrouper(ThreadGrouper):
+    """One group per calendar day."""
+
+    def group(self, threads: list[Thread]) -> list[ThreadGroup]:
+        from collections import defaultdict
+        by_day: dict[str, list[Thread]] = defaultdict(list)
+        for t in threads:
+            by_day[t.asat.date().isoformat()].append(t)
+        return [
+            ThreadGroup(group_key=day, threads=sorted(ts, key=lambda t: t.asat))
+            for day, ts in sorted(by_day.items())
+        ]
+```
+
+Reference it in the registry:
+
+```python
+InteractionConfig(
+    pipe=SomePipe,
+    memory=MemoryConfig(
+        prompt_builder=SomePromptBuilder,
+        grouper=DailyGrouper,
+    ),
+)
+```
+
+### Prompt Builders
+
+Prompt builders turn grouped threads into `PromptItem` objects ready for the LLM.
+
+#### `BasePromptBuilder` ABC
+
+```python
+class BasePromptBuilder(ABC):
+    def __init__(self, contexts: list[GroupContext]) -> None:
+        self.contexts = contexts
+
+    @abstractmethod
+    def build(self) -> list[PromptItem]:
+        """Return one PromptItem per processable group."""
+        ...
+
+    @abstractmethod
+    def has_content(self) -> bool:
+        """Return True if there is anything worth sending to the LLM."""
+        ...
+```
+
+The base class also provides `_format_context(ctx)` which builds an optional preamble from prior memories and recent threads (for delta / incremental runs).
+
+#### `GroupContext`
+
+Each group is represented as a `GroupContext` passed to the prompt builder:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `group_key` | `str` | The grouper's key for this group (window dates, collection ID, etc.) |
+| `new_threads` | `list[Thread]` | Threads to generate memories from |
+| `prior_memories` | `list[str]` | Previously extracted memory texts (for delta context) |
+| `recent_threads` | `list[Thread]` | Recent threads already processed (for continuity) |
+
+#### `MemorySchema`
+
+The LLM response schema that all prompt builders use:
+
+```python
+class MemorySchema(BaseModel):
+    memories: list[Memory]
+
+class Memory(BaseModel):
+    content: str       # 1-2 sentence first-person memory
+    from_date: str     # YYYY-MM-DD
+    to_date: str       # YYYY-MM-DD
+```
+
+#### `PromptItem`
+
+What `build()` returns — one per group:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `item_id` | `str` | Group key (used as `custom_id` in the OpenAI batch) |
+| `prompt` | `str` | The formatted text prompt |
+| `response_schema` | `dict` | `MemorySchema.json_schema()` |
+| `asset_paths` | `list[str]` | Local file paths for images/videos (media prompts only) |
+
+#### Stock prompt builders
+
+| Builder | Module | Use case |
+|---------|--------|----------|
+| `ConversationMemoryPromptBuilder` | `memories.prompt.conversation` | Chat / DM transcripts with `[USER]` and `[ASSISTANT]` labels |
+| `MediaMemoryPromptBuilder` | `memories.prompt.media` | Visual media grouped by day, with image references |
+
+**`ConversationMemoryPromptBuilder`** formats threads as a timestamped transcript, instructs the LLM to extract the user's experience (what they worked on, decided, learned), and scales the max memory count with conversation length.
+
+**`MediaMemoryPromptBuilder`** groups posts by day, labels images as `[Image N]`, and instructs the LLM to study every image carefully — reading signs, screens, logos, and connecting posts across days.
+
+#### Writing a custom prompt builder
+
+If the stock builders don't fit, subclass `BasePromptBuilder` (or one of the stock builders):
+
+```python
+# context_use/providers/slack/prompt.py
+from context_use.memories.prompt.conversation import ConversationMemoryPromptBuilder
+
+class SlackMemoryPromptBuilder(ConversationMemoryPromptBuilder):
+    """Slack-specific: includes channel name, skips bot messages."""
+
+    def _format_transcript(self, threads):
+        lines = []
+        for t in sorted(threads, key=lambda t: t.asat):
+            if t.preview.startswith("[BOT]"):
+                continue
+            role = "USER" if not t.is_inbound else "OTHER"
+            ts = t.asat.strftime("%Y-%m-%d %H:%M")
+            content = t.get_message_content() or ""
+            lines.append(f"[{role} {ts}] {content}")
+        return "## Transcript\n\n" + "\n".join(lines)
+```
+
+Then reference it in the registry:
+
+```python
+InteractionConfig(
+    pipe=SlackMessagesPipe,
+    memory=MemoryConfig(
+        prompt_builder=SlackMemoryPromptBuilder,
+        grouper=CollectionGrouper,
+    ),
+)
+```
+
+### Reusable combinations
+
+Most providers can compose `MemoryConfig` from stock components:
+
+| Interaction pattern | Grouper | Prompt builder |
+|---------------------|---------|----------------|
+| Chat / DM conversations | `CollectionGrouper` | `ConversationMemoryPromptBuilder` |
+| Visual media (stories, reels, posts) | `WindowGrouper` | `MediaMemoryPromptBuilder` |
 
 ---
 
-## Glob Patterns (`archive_path_pattern`)
+## ETL Pipe Reference
+
+### Glob Patterns (`archive_path_pattern`)
 
 The `archive_path_pattern` ClassVar uses Python's `fnmatch` syntax to match files inside the extracted archive.
 
-### Exact match (no wildcards)
+#### Exact match (no wildcards)
 
 ```python
 archive_path_pattern = "conversations.json"
@@ -316,7 +747,7 @@ archive_path_pattern = "conversations.json"
 
 Matches exactly one file → one `EtlTask` → one `extract()` call.
 
-### Wildcard match (fan-out)
+#### Wildcard match (fan-out)
 
 ```python
 archive_path_pattern = "your_instagram_activity/messages/inbox/*/message_1.json"
@@ -324,7 +755,7 @@ archive_path_pattern = "your_instagram_activity/messages/inbox/*/message_1.json"
 
 Matches multiple files (one per conversation directory). `discover_tasks()` creates **one EtlTask per matched file**, so each pipe invocation processes a single file via `task.source_uri`.
 
-### How discovery works
+#### How discovery works
 
 In `registry.py`, `ProviderConfig.discover_tasks()` prepends the `archive_id` as a prefix:
 
@@ -336,6 +767,163 @@ for f in files:
 ```
 
 This means your `archive_path_pattern` is the path **relative to the archive root**, not including the archive ID prefix.
+
+### ThreadRow Reference
+
+`ThreadRow` (`context_use.etl.core.types`) is the plain value object that flows from `Pipe.transform()` to the Loader:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `unique_key` | `str` | ✓ | Globally unique key, formatted as `{interaction_type}:{hash}` |
+| `provider` | `str` | ✓ | Provider identifier — must match `Pipe.provider` |
+| `interaction_type` | `str` | ✓ | Interaction type — must match `Pipe.interaction_type` |
+| `preview` | `str` | ✓ | Human-readable one-liner (shown in search results) |
+| `payload` | `dict` | ✓ | ActivityStreams payload dict (from `fibre.to_dict()`) — must contain `fibre_kind` |
+| `version` | `str` | ✓ | Payload schema version — use `CURRENT_THREAD_PAYLOAD_VERSION` |
+| `asat` | `datetime` | ✓ | Timezone-aware timestamp of the original interaction |
+| `source` | `str \| None` | | Raw JSON of the original record, for audit/debug |
+| `asset_uri` | `str \| None` | | Storage key for an associated binary asset (image, video) |
+
+Infrastructure fields (`id`, `etl_task_id`, timestamps) are added by the Loader when persisting — pipes never set them.
+
+### EtlTask Reference
+
+`EtlTask` (`context_use.etl.models.etl_task`) is passed to both `extract()` and `transform()`. Fields most relevant to pipe authors:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `source_uri` | `str` | Storage key for the archive file to read (e.g. `archive/conversations.json`) |
+| `archive_id` | `str` | Archive identifier — used to construct `asset_uri` for media pipes |
+| `provider` | `str` | Provider identifier (same as `Pipe.provider`) |
+| `interaction_type` | `str` | Interaction type (same as `Pipe.interaction_type`) |
+
+Other fields (`id`, `status`, `extracted_count`, `transformed_count`, `uploaded_count`) are managed by the framework and Loader.
+
+### Extending Payload Models
+
+Payload models live in `context_use/etl/payload/models.py`. They follow [ActivityStreams 2.0](https://www.w3.org/TR/activitystreams-core/) conventions.
+
+#### Existing fibre types
+
+| Fibre class | `fibre_kind` | Use case |
+|-------------|-------------|----------|
+| `FibreSendMessage` | `SendMessage` | User-sent messages (DMs, chat) |
+| `FibreReceiveMessage` | `ReceiveMessage` | Messages received by the user |
+| `FibreCreateObject` | `Create` | Media creation (stories, reels, posts) |
+| `FibreTextMessage` | `TextMessage` | Text note (used as `object` in Send/Receive) |
+| `FibreImage` | `Image` | Image object |
+| `FibreVideo` | `Video` | Video object |
+| `FibreCollection` | `Collection` | Grouping / album |
+
+Most new pipes will use existing fibre types. **Check this table before creating a new one.**
+
+#### Adding a new fibre type
+
+If you genuinely need a new kind:
+
+1. **Choose the base class.** If it's an activity (verb), extend `Activity` → then `Create`, `View`, etc. If it's an object (noun), extend `Object` → then `Note`, `Image`, etc.
+
+2. **Create the fibre class** with the `_BaseFibreMixin`:
+
+   ```python
+   class FibreListenAudio(Activity, _BaseFibreMixin):
+       fibreKind: Literal["ListenAudio"] = Field("ListenAudio", alias="fibre_kind")
+       object: Audio  # type: ignore[reportIncompatibleVariableOverride]
+   ```
+
+3. **Implement `_get_preview()`** returning a human-readable one-liner:
+
+   ```python
+   def _get_preview(self, provider: str | None) -> str | None:
+       return f"Listened to {self.object.name}"
+   ```
+
+4. **Call `model_rebuild()`** at module level (after the class definition):
+
+   ```python
+   FibreListenAudio.model_rebuild()
+   ```
+
+5. **Add to the `FibreByType` union** (the discriminated union near the bottom of the file):
+
+   ```python
+   FibreByType = Annotated[
+       FibreCreateObject | ... | FibreListenAudio,
+       Field(discriminator="fibreKind"),
+   ]
+   ```
+
+The mixin provides these methods for free:
+
+- `unique_key_suffix()` — deterministic SHA-256 hash of the serialised payload (first 16 hex chars).
+- `to_dict()` — serialise to a plain dict (via `model_dump_json`, excluding `None` values, using aliases).
+- `get_preview(provider)` — delegates to `_get_preview()`; catches exceptions and returns `None` on error.
+- `get_asat()` — extracts the `published` datetime from the payload, if set.
+
+### Versioning via Inheritance
+
+If a provider ships a new archive format, **don't edit the existing pipe**. Instead, subclass it and override `extract()`:
+
+```python
+class ChatGPTConversationsPipeV2(ChatGPTConversationsPipe):
+    archive_version = "v2"
+    archive_path_pattern = "conversations_v2.json"
+
+    def extract(self, task, storage) -> Iterator[ChatGPTConversationRecord]:
+        # new parsing logic for v2 format
+        ...
+```
+
+`transform()` is inherited when the `record_schema` stays the same. Register both versions if archives from both formats need to be supported simultaneously.
+
+Key distinction: `archive_version` tracks the **provider's export format** (bumps when they change their zip structure). `ThreadRow.version` tracks the **payload schema** version (`CURRENT_THREAD_PAYLOAD_VERSION`). They are independent.
+
+### Shared Base Class Pattern
+
+When a provider has multiple interaction types that share the same `record_schema` and `transform()` logic, extract the shared code into a private base class. Only the concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered.
+
+The Instagram media pipes use this pattern:
+
+```python
+class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
+    """Shared transform logic for stories and reels."""
+
+    provider = "instagram"
+    archive_version = "v1"
+    record_schema = InstagramMediaRecord
+
+    def transform(self, record, task) -> ThreadRow:
+        # shared payload-building logic ...
+
+
+class InstagramStoriesPipe(_InstagramMediaPipe):
+    interaction_type = "instagram_stories"
+    archive_path_pattern = "your_instagram_activity/media/stories.json"
+
+    def extract(self, task, storage) -> Iterator[InstagramMediaRecord]:
+        # stories-specific parsing ...
+
+
+class InstagramReelsPipe(_InstagramMediaPipe):
+    interaction_type = "instagram_reels"
+    archive_path_pattern = "your_instagram_activity/media/reels.json"
+
+    def extract(self, task, storage) -> Iterator[InstagramMediaRecord]:
+        # reels-specific parsing ...
+```
+
+Only `InstagramStoriesPipe` and `InstagramReelsPipe` are registered in `PROVIDER_REGISTRY`; the private base class is not.
+
+### Storage
+
+Pipes interact with storage via the `StorageBackend` ABC (`context_use/storage/base.py`):
+
+- `storage.read(key) -> bytes` — read a file in full (good for small JSON files).
+- `storage.open_stream(key) -> BinaryIO` — open a stream (good for large files with `ijson`).
+
+In tests, use `DiskStorage(str(tmp_path / "store"))` backed by pytest's `tmp_path`. Write fixture data with `storage.write(key, data)`.
+
+The `key` is the full path including the archive ID prefix, e.g. `archive/conversations.json` or `archive/your_instagram_activity/messages/inbox/bob/message_1.json`.
 
 ---
 
@@ -398,233 +986,3 @@ def test_something(self, pipe_fixture):
     rows = list(pipe.run(task, storage))
     # assert ...
 ```
-
----
-
-## ThreadRow Reference
-
-`ThreadRow` (`context_use.etl.core.types`) is the plain value object that flows from `Pipe.transform()` to the Loader:
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `unique_key` | `str` | ✓ | Globally unique key, formatted as `{interaction_type}:{hash}` |
-| `provider` | `str` | ✓ | Provider identifier — must match `Pipe.provider` |
-| `interaction_type` | `str` | ✓ | Interaction type — must match `Pipe.interaction_type` |
-| `preview` | `str` | ✓ | Human-readable one-liner (shown in search results) |
-| `payload` | `dict` | ✓ | ActivityStreams payload dict (from `fibre.to_dict()`) — must contain `fibre_kind` |
-| `version` | `str` | ✓ | Payload schema version — use `CURRENT_THREAD_PAYLOAD_VERSION` |
-| `asat` | `datetime` | ✓ | Timezone-aware timestamp of the original interaction |
-| `source` | `str \| None` | | Raw JSON of the original record, for audit/debug |
-| `asset_uri` | `str \| None` | | Storage key for an associated binary asset (image, video) |
-
-Infrastructure fields (`id`, `tapestry_id`, `etl_task_id`, timestamps) are added by the Loader when persisting — pipes never set them.
-
----
-
-## EtlTask Reference
-
-`EtlTask` (`context_use.etl.models.etl_task`) is passed to both `extract()` and `transform()`. Fields most relevant to pipe authors:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `source_uri` | `str` | Storage key for the archive file to read (e.g. `archive/conversations.json`) |
-| `archive_id` | `str` | Archive identifier — used to construct `asset_uri` for media pipes |
-| `provider` | `str` | Provider identifier (same as `Pipe.provider`) |
-| `interaction_type` | `str` | Interaction type (same as `Pipe.interaction_type`) |
-
-Other fields (`id`, `status`, `extracted_count`, `transformed_count`, `uploaded_count`) are managed by the framework and Loader.
-
----
-
-## Extending Payload Models
-
-Payload models live in `context_use/etl/payload/models.py`. They follow [ActivityStreams 2.0](https://www.w3.org/TR/activitystreams-core/) conventions.
-
-### Existing fibre types
-
-| Fibre class | `fibre_kind` | Use case |
-|-------------|-------------|----------|
-| `FibreSendMessage` | `SendMessage` | User-sent messages (DMs, chat) |
-| `FibreReceiveMessage` | `ReceiveMessage` | Messages received by the user |
-| `FibreCreateObject` | `Create` | Media creation (stories, reels, posts) |
-| `FibreTextMessage` | `TextMessage` | Text note (used as `object` in Send/Receive) |
-| `FibreImage` | `Image` | Image object |
-| `FibreVideo` | `Video` | Video object |
-| `FibreCollection` | `Collection` | Grouping / album |
-
-Most new pipes will use existing fibre types. **Check this table before creating a new one.**
-
-### Adding a new fibre type
-
-If you genuinely need a new kind:
-
-1. **Choose the base class.** If it's an activity (verb), extend `Activity` → then `Create`, `View`, etc. If it's an object (noun), extend `Object` → then `Note`, `Image`, etc.
-
-2. **Create the fibre class** with the `_BaseFibreMixin`:
-
-   ```python
-   class FibreListenAudio(Activity, _BaseFibreMixin):
-       fibreKind: Literal["ListenAudio"] = Field("ListenAudio", alias="fibre_kind")
-       object: Audio  # type: ignore[reportIncompatibleVariableOverride]
-   ```
-
-3. **Implement `_get_preview()`** returning a human-readable one-liner:
-
-   ```python
-   def _get_preview(self, provider: str | None) -> str | None:
-       return f"Listened to {self.object.name}"
-   ```
-
-4. **Call `model_rebuild()`** at module level (after the class definition):
-
-   ```python
-   FibreListenAudio.model_rebuild()
-   ```
-
-5. **Add to the `FibreByType` union** (the discriminated union near the bottom of the file):
-
-   ```python
-   FibreByType = Annotated[
-       FibreCreateObject | ... | FibreListenAudio,
-       Field(discriminator="fibreKind"),
-   ]
-   ```
-
-The mixin provides these methods for free:
-
-- `unique_key_suffix()` — deterministic SHA-256 hash of the serialised payload (first 16 hex chars).
-- `to_dict()` — serialise to a plain dict (via `model_dump_json`, excluding `None` values, using aliases).
-- `get_preview(provider)` — delegates to `_get_preview()`; catches exceptions and returns `None` on error.
-- `get_asat()` — extracts the `published` datetime from the payload, if set.
-
----
-
-## Registry
-
-The provider registry lives in `context_use/etl/providers/registry.py`.
-
-### Structure
-
-```python
-PROVIDER_REGISTRY: dict[Provider, ProviderConfig] = {
-    Provider.CHATGPT: ProviderConfig(
-        pipes=[ChatGPTConversationsPipe],
-    ),
-    Provider.INSTAGRAM: ProviderConfig(
-        pipes=[InstagramStoriesPipe, InstagramReelsPipe],
-    ),
-}
-```
-
-### Adding a pipe to an existing provider
-
-1. Import your pipe class at the top of `registry.py`.
-2. Append it to the `pipes` list for the relevant `Provider`.
-
-### Adding a new provider
-
-1. Create the provider package under `context_use/etl/providers/<provider>/`:
-
-   - `__init__.py` — re-export public symbols:
-
-     ```python
-     from context_use.etl.providers.spotify.history import SpotifyListeningHistoryPipe
-     from context_use.etl.providers.spotify.schemas import SpotifyListenRecord
-
-     __all__ = [
-         "SpotifyListenRecord",
-         "SpotifyListeningHistoryPipe",
-     ]
-     ```
-
-   - `schemas.py` — Pydantic record model(s)
-   - One or more pipe modules (e.g. `history.py`)
-
-2. Add a member to the `Provider` enum:
-
-   ```python
-   class Provider(StrEnum):
-       CHATGPT = "chatgpt"
-       INSTAGRAM = "instagram"
-       SPOTIFY = "spotify"  # new
-   ```
-
-3. Add a `ProviderConfig` entry to `PROVIDER_REGISTRY`:
-
-   ```python
-   Provider.SPOTIFY: ProviderConfig(
-       pipes=[SpotifyListeningHistoryPipe],
-   ),
-   ```
-
----
-
-## Versioning via Inheritance
-
-If a provider ships a new archive format, **don't edit the existing pipe**. Instead, subclass it and override `extract()`:
-
-```python
-class ChatGPTConversationsPipeV2(ChatGPTConversationsPipe):
-    archive_version = "v2"
-    archive_path_pattern = "conversations_v2.json"
-
-    def extract(self, task, storage) -> Iterator[ChatGPTConversationRecord]:
-        # new parsing logic for v2 format
-        ...
-```
-
-`transform()` is inherited when the `record_schema` stays the same. Register both versions if archives from both formats need to be supported simultaneously.
-
-Key distinction: `archive_version` tracks the **provider's export format** (bumps when they change their zip structure). `ThreadRow.version` tracks the **payload schema** version (`CURRENT_THREAD_PAYLOAD_VERSION`). They are independent.
-
----
-
-## Shared Base Class Pattern
-
-When a provider has multiple interaction types that share the same `record_schema` and `transform()` logic, extract the shared code into a private base class. Only the concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered.
-
-The Instagram media pipes use this pattern:
-
-```python
-class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
-    """Shared transform logic for stories and reels."""
-
-    provider = "instagram"
-    archive_version = "v1"
-    record_schema = InstagramMediaRecord
-
-    def transform(self, record, task) -> ThreadRow:
-        # shared payload-building logic ...
-
-
-class InstagramStoriesPipe(_InstagramMediaPipe):
-    interaction_type = "instagram_stories"
-    archive_path_pattern = "your_instagram_activity/media/stories.json"
-
-    def extract(self, task, storage) -> Iterator[InstagramMediaRecord]:
-        # stories-specific parsing ...
-
-
-class InstagramReelsPipe(_InstagramMediaPipe):
-    interaction_type = "instagram_reels"
-    archive_path_pattern = "your_instagram_activity/media/reels.json"
-
-    def extract(self, task, storage) -> Iterator[InstagramMediaRecord]:
-        # reels-specific parsing ...
-```
-
-Only `InstagramStoriesPipe` and `InstagramReelsPipe` are registered in `PROVIDER_REGISTRY`; the private base class is not.
-
----
-
-## Storage
-
-Pipes interact with storage via the `StorageBackend` ABC (`context_use/storage/base.py`):
-
-- `storage.read(key) -> bytes` — read a file in full (good for small JSON files).
-- `storage.open_stream(key) -> BinaryIO` — open a stream (good for large files with `ijson`).
-
-In tests, use `DiskStorage(str(tmp_path / "store"))` backed by pytest's `tmp_path`. Write fixture data with `storage.write(key, data)`.
-
-The `key` is the full path including the archive ID prefix, e.g. `archive/conversations.json` or `archive/your_instagram_activity/messages/inbox/bob/message_1.json`.
-
