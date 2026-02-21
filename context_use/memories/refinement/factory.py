@@ -43,7 +43,7 @@ class RefinementBatchFactory:
 
         refinement_batches: list[Batch] = []
 
-        for etl_task_id, batches in by_task.items():
+        for etl_task_id, _batches in by_task.items():
             stmt = select(TapestryMemory.id).where(
                 TapestryMemory.status == MemoryStatus.active.value,
                 TapestryMemory.embedding.isnot(None),
