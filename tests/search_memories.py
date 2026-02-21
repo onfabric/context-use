@@ -32,16 +32,13 @@ async def search(query: str, top_k: int = 5) -> None:
     )
 
     print(f"Embedding query: {query!r}")
-    session = db.get_session()
-    try:
+    async with db.session_scope() as session:
         results = await search_memories(
             session,
             query=query,
             top_k=top_k,
             llm_client=llm_client,
         )
-    finally:
-        await session.close()
 
     if not results:
         print("No embedded memories found in the database.")

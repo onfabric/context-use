@@ -802,7 +802,7 @@ async def cmd_server(args: argparse.Namespace) -> None:
     if transport == "streamable-http":
         kwargs.update(host=args.host, port=port)
 
-    server.run(**kwargs)
+    server.run(**kwargs)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 # ── ask ─────────────────────────────────────────────────────────────
