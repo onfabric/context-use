@@ -51,7 +51,7 @@ class Thread(TimeStampMixin, Base):
     )
 
     __allow_unmapped__ = True
-    _parsed_payload: ThreadPayload | None = None
+    _parsed_payload: ThreadPayload | None = None  # per-instance lazy cache
 
     def _get_parsed_payload(self) -> ThreadPayload:
         if self._parsed_payload is None:
