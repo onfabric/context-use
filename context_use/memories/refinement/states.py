@@ -61,6 +61,7 @@ class RefinementCompleteState(NextState):
     completed_at: datetime = Field(default_factory=_utc_now)
     refined_count: int = 0
     superseded_count: int = 0
+    created_memory_ids: list[str] = Field(default_factory=list)
 
 
 class RefinementEmbedPendingState(CurrentState):
