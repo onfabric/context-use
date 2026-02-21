@@ -158,7 +158,6 @@ class BatchThread(Base):
     group_id: Mapped[str] = mapped_column(
         String(36),
         nullable=False,
-        default=new_uuid,
         comment="UUID identifying this group instance (used as OpenAI custom_id)",
     )
 

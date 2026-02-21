@@ -36,9 +36,9 @@ class TapestryMemory(TimeStampMixin, Base):
     from_date: Mapped[date] = mapped_column(Date, nullable=False)
     to_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    group_id: Mapped[str | None] = mapped_column(
+    group_id: Mapped[str] = mapped_column(
         String(36),
-        nullable=True,
+        nullable=False,
         comment="UUID of the group instance that produced this memory",
     )
 
