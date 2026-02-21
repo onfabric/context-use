@@ -43,20 +43,23 @@ class BaseBatchFactory:
         batch: Batch,
         db: AsyncSession,
     ) -> list[ThreadGroup]:
-        """Return threads for *batch*, organised by group_key."""
+        """Return threads for *batch*, organised by group_id."""
         stmt = (
-            select(BatchThread.group_key, Thread)
+            select(BatchThread.group_id, Thread)
             .join(Thread, BatchThread.thread_id == Thread.id)
             .where(BatchThread.batch_id == batch.id)
-            .order_by(BatchThread.group_key, Thread.asat)
+            .order_by(BatchThread.group_id, Thread.asat)
         )
         rows = (await db.execute(stmt)).all()
 
         groups_map: dict[str, list[Thread]] = defaultdict(list)
-        for group_key, thread in rows:
-            groups_map[group_key].append(thread)
+        for group_id, thread in rows:
+            groups_map[group_id].append(thread)
 
-        return [ThreadGroup(group_key=k, threads=v) for k, v in groups_map.items()]
+        return [
+            ThreadGroup(threads=threads, group_id=gid)
+            for gid, threads in groups_map.items()
+        ]
 
     @classmethod
     def _bin_pack_groups(
@@ -111,7 +114,7 @@ class BaseBatchFactory:
                             BatchThread(
                                 batch_id=batch.id,
                                 thread_id=thread.id,
-                                group_key=grp.group_key,
+                                group_id=grp.group_id,
                             )
                         )
 

@@ -81,7 +81,7 @@ class MemoryBatchManager(BaseBatchManager):
                     t.asset_uri = self.storage.resolve_local_path(t.asset_uri)
             contexts.append(
                 GroupContext(
-                    group_key=group.group_key,
+                    group_id=group.group_id,
                     new_threads=group.threads,
                 )
             )
@@ -168,18 +168,21 @@ class MemoryBatchManager(BaseBatchManager):
     ) -> list[str]:
         """Write memories to the ``tapestry_memories`` table.
 
+        Results are keyed by ``group_id`` (the UUID used as OpenAI
+        ``custom_id``).
+
         Returns the IDs of created memory rows so they can be persisted
         in the state object and survive process restarts.
         """
         assert self.db is not None
         memory_ids: list[str] = []
-        for group_key, schema in results.items():
+        for group_id, schema in results.items():
             for memory in schema.memories:
                 row = TapestryMemory(
                     content=memory.content,
                     from_date=date.fromisoformat(memory.from_date),
                     to_date=date.fromisoformat(memory.to_date),
-                    group_key=group_key,
+                    group_id=group_id,
                 )
                 self.db.add(row)
                 await self.db.flush()

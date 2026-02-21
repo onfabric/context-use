@@ -4,8 +4,6 @@ from context_use.batch.grouper import (
     ThreadGrouper,
     WindowConfig,
     WindowGrouper,
-    decode_window_key,
-    encode_window_key,
 )
 from context_use.batch.manager import (
     BaseBatchManager,
@@ -58,8 +56,6 @@ __all__ = [
     "ThreadGrouper",
     "WindowGrouper",
     "WindowConfig",
-    "encode_window_key",
-    "decode_window_key",
     "RunPolicy",
     "ImmediateRunPolicy",
     "run_batch",

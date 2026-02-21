@@ -36,10 +36,10 @@ class TapestryMemory(TimeStampMixin, Base):
     from_date: Mapped[date] = mapped_column(Date, nullable=False)
     to_date: Mapped[date] = mapped_column(Date, nullable=False)
 
-    group_key: Mapped[str | None] = mapped_column(
-        String,
+    group_id: Mapped[str | None] = mapped_column(
+        String(36),
         nullable=True,
-        comment="Group that produced this memory (e.g. window date range)",
+        comment="UUID of the group instance that produced this memory",
     )
 
     embedding: Mapped[list[float] | None] = mapped_column(
@@ -69,6 +69,6 @@ class TapestryMemory(TimeStampMixin, Base):
     __table_args__ = (
         Index("idx_tapestry_memories_from_date", "from_date"),
         Index("idx_tapestry_memories_to_date", "to_date"),
-        Index("idx_tapestry_memories_group_key", "group_key"),
+        Index("idx_tapestry_memories_group_id", "group_id"),
         Index("idx_tapestry_memories_status", "status"),
     )

@@ -36,7 +36,7 @@ class RefinementDiscoverState(NextState):
     """Discovery complete — clusters identified for refinement."""
 
     status: Literal["REFINEMENT_DISCOVER"] = "REFINEMENT_DISCOVER"
-    clusters: list[list[str]]
+    clusters: dict[str, list[str]]
     cluster_count: int
     discovered_at: datetime = Field(default_factory=_utc_now)
 

@@ -130,7 +130,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
 
             items.append(
                 PromptItem(
-                    item_id=ctx.group_key,
+                    item_id=ctx.group_id,
                     prompt=prompt,
                     response_schema=response_schema,
                 )

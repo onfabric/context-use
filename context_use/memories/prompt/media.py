@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-from context_use.batch.grouper import WindowConfig, decode_window_key
+from context_use.batch.grouper import WindowConfig
 from context_use.etl.models.thread import Thread
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import (
@@ -100,7 +100,9 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
             if not threads_with_assets:
                 continue
 
-            from_date, to_date = decode_window_key(ctx.group_key)
+            sorted_threads = sorted(threads_with_assets, key=lambda t: t.asat)
+            from_date = sorted_threads[0].asat.date()
+            to_date = sorted_threads[-1].asat.date()
             posts_block, asset_paths = self._format_posts(threads_with_assets)
             context_block = self._format_context(ctx)
 
@@ -121,7 +123,7 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
 
             items.append(
                 PromptItem(
-                    item_id=ctx.group_key,
+                    item_id=ctx.group_id,
                     prompt=prompt,
                     response_schema=response_schema,
                     asset_paths=asset_paths,

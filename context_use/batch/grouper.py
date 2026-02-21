@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import timedelta
 
 from context_use.etl.models.thread import Thread
 
@@ -38,21 +39,16 @@ class WindowConfig:
         return max(1, self.window_days)
 
 
-def encode_window_key(from_date: date, to_date: date) -> str:
-    return f"{from_date.isoformat()}/{to_date.isoformat()}"
-
-
-def decode_window_key(key: str) -> tuple[date, date]:
-    from_str, to_str = key.split("/")
-    return date.fromisoformat(from_str), date.fromisoformat(to_str)
+def _new_group_id() -> str:
+    return str(uuid.uuid4())
 
 
 @dataclass
 class ThreadGroup:
     """A set of threads that must be processed together as one LLM prompt."""
 
-    group_key: str
     threads: list[Thread] = field(default_factory=list)
+    group_id: str = field(default_factory=_new_group_id)
 
 
 class ThreadGrouper(ABC):
@@ -87,12 +83,7 @@ class WindowGrouper(ThreadGrouper):
                 t for t in sorted_threads if window_start <= t.asat.date() <= window_end
             ]
             if window_threads:
-                groups.append(
-                    ThreadGroup(
-                        group_key=encode_window_key(window_start, window_end),
-                        threads=window_threads,
-                    )
-                )
+                groups.append(ThreadGroup(threads=window_threads))
             window_start += timedelta(days=self.config.step_days)
 
         return groups
@@ -112,9 +103,6 @@ class CollectionGrouper(ThreadGrouper):
                 buckets[cid].append(t)
 
         return [
-            ThreadGroup(
-                group_key=key,
-                threads=sorted(ts, key=lambda t: t.asat),
-            )
-            for key, ts in buckets.items()
+            ThreadGroup(threads=sorted(ts, key=lambda t: t.asat))
+            for ts in buckets.values()
         ]

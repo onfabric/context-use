@@ -35,7 +35,7 @@ class MemorySchema(BaseModel):
 class GroupContext:
     """Everything the prompt builder needs for one group."""
 
-    group_key: str
+    group_id: str
     new_threads: list[Thread]
     prior_memories: list[str] = field(default_factory=list)
     recent_threads: list[Thread] = field(default_factory=list)

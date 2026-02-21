@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -102,9 +103,11 @@ class RefinementBatchManager(BaseBatchManager):
             return SkippedState(reason="No seed memory IDs for refinement")
 
         assert self.db is not None
-        clusters = await discover_refinement_clusters(seed_ids, self.db)
-        if not clusters:
+        raw_clusters = await discover_refinement_clusters(seed_ids, self.db)
+        if not raw_clusters:
             return SkippedState(reason="No refinement clusters found")
+
+        clusters = {str(uuid.uuid4()): ids for ids in raw_clusters}
 
         logger.info(
             "[%s] Discovered %d clusters from %d seeds",
@@ -128,7 +131,7 @@ class RefinementBatchManager(BaseBatchManager):
     async def _submit_refinement(self, state: RefinementDiscoverState) -> State:
         assert self.db is not None
         prompts = []
-        for idx, cluster_ids in enumerate(state.clusters):
+        for cluster_id, cluster_ids in state.clusters.items():
             result = await self.db.execute(
                 select(TapestryMemory).where(TapestryMemory.id.in_(cluster_ids))
             )
@@ -137,7 +140,7 @@ class RefinementBatchManager(BaseBatchManager):
                 continue
 
             prompt = build_refinement_prompt(
-                cluster_id=f"cluster-{idx}",
+                cluster_id=cluster_id,
                 memories=memories,
             )
             prompts.append(prompt)
@@ -179,7 +182,7 @@ class RefinementBatchManager(BaseBatchManager):
         superseded_count = 0
         all_superseded_ids: set[str] = set()
 
-        for _cluster_id, schema in results.items():
+        for cluster_id, schema in results.items():
             for refined in schema.memories:
                 new_memory = TapestryMemory(
                     content=refined.content,
@@ -187,6 +190,7 @@ class RefinementBatchManager(BaseBatchManager):
                     to_date=date.fromisoformat(refined.to_date),
                     status=MemoryStatus.active.value,
                     source_memory_ids=refined.source_ids,
+                    group_id=cluster_id,
                 )
                 self.db.add(new_memory)
                 await self.db.flush()
