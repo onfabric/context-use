@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import enum
 from datetime import date
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Date, Index, String, Text
+from sqlalchemy import JSON, Date, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
 
 EMBEDDING_DIMENSIONS = 3072
+
+
+class MemoryStatus(enum.StrEnum):
+    active = "active"
+    superseded = "superseded"
 
 
 class TapestryMemory(TimeStampMixin, Base):
@@ -46,9 +52,29 @@ class TapestryMemory(TimeStampMixin, Base):
         nullable=True,
     )
 
+    status: Mapped[str] = mapped_column(
+        String(16),
+        nullable=False,
+        default=MemoryStatus.active.value,
+        server_default=MemoryStatus.active.value,
+    )
+
+    superseded_by: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("tapestry_memories.id"),
+        nullable=True,
+    )
+
+    source_memory_ids: Mapped[list | None] = mapped_column(
+        JSON,
+        nullable=True,
+        comment="IDs of memories consumed to produce this refined memory",
+    )
+
     __table_args__ = (
         Index("idx_tapestry_memories_tapestry_id", "tapestry_id"),
         Index("idx_tapestry_memories_from_date", "from_date"),
         Index("idx_tapestry_memories_to_date", "to_date"),
         Index("idx_tapestry_memories_group_key", "group_key"),
+        Index("idx_tapestry_memories_status", "status"),
     )

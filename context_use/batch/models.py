@@ -16,6 +16,7 @@ class BatchCategory(enum.StrEnum):
     """Extensible registry of pipeline categories."""
 
     memories = "memories"
+    refinement = "refinement"
 
 
 _batch_state_parsers: dict[BatchCategory, Callable[[dict], State]] = {}
