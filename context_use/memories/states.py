@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from context_use.batch.models import BatchCategory, register_batch_state_parser
+from context_use.batch.models import register_batch_state_parser
 from context_use.batch.states import (
     CompleteState,
     CreatedState,
@@ -22,6 +22,7 @@ from context_use.batch.states import (
     State,
     _utc_now,
 )
+from context_use.models.batch import BatchCategory
 
 MEMORY_POLL_INTERVAL_SECS = 10
 

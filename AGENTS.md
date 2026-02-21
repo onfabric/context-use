@@ -31,6 +31,17 @@ If the provider needs a new fibre (payload) type, see [Extending Payload Models]
 
 ```
 context_use/
+  models/                 ← domain models (pure dataclasses, no ORM)
+    archive.py            ← Archive, ArchiveStatus
+    batch.py              ← Batch, BatchThread, BatchCategory
+    etl_task.py           ← EtlTask, EtlTaskStatus
+    memory.py             ← TapestryMemory, MemoryStatus
+    profile.py            ← TapestryProfile
+    thread.py             ← Thread
+  store/                  ← storage abstraction (pluggable backends)
+    base.py               ← Store ABC, MemorySearchResult
+    memory.py             ← InMemoryStore (default, no external deps)
+    postgres.py           ← PostgresStore (optional, requires asyncpg/pgvector)
   providers/              ← unified provider configs (ETL + memory)
     types.py              ← InteractionConfig, ProviderConfig dataclasses
     registry.py           ← Provider enum, PROVIDER_REGISTRY dict, lookup functions
@@ -45,9 +56,9 @@ context_use/
   etl/                    ← reusable ETL building blocks
     core/pipe.py          ← Pipe ABC
     core/types.py         ← ThreadRow
-    core/loader.py        ← DbLoader
+    core/loader.py        ← DbLoader (Postgres-specific, used by PostgresStore)
     payload/models.py     ← Fibre models (ActivityStreams)
-    models/               ← EtlTask, Thread, Archive
+    models/               ← SQLAlchemy ORM models (used only by PostgresStore)
   memories/               ← reusable memory building blocks
     config.py             ← MemoryConfig dataclass
     prompt/base.py        ← BasePromptBuilder ABC, GroupContext, MemorySchema
@@ -59,9 +70,11 @@ context_use/
     grouper.py            ← ThreadGrouper ABC, WindowGrouper, CollectionGrouper
     factory.py            ← BaseBatchFactory
     manager.py            ← BaseBatchManager
+  facade/                 ← public API
+    core.py               ← ContextUse (main entry point)
 ```
 
-**Dependency rule:** `providers` imports from `etl`, `memories`, and `batch`. Those three never import from `providers`.
+**Dependency rule:** All non-persistence code imports domain models from `context_use.models`, never from ORM models in `etl/models/`. The `store/` package bridges domain models to persistence. `providers` imports from `etl`, `memories`, and `batch`. Those three never import from `providers`.
 
 ---
 
@@ -76,11 +89,11 @@ The full pipeline for a single provider archive:
   ┌────────────────────────────────────────────────┐
   │  ETL Pipeline                                   │
   │                                                 │
-  │  Pipe.extract()  →  Pipe.transform()  →  Load   │
-  │  (parse archive)    (→ ThreadRow)      (→ DB)   │
+  │  Pipe.extract()  →  Pipe.transform()  →  Store  │
+  │  (parse archive)    (→ ThreadRow)    (persist)  │
   └────────────────────┬───────────────────────────┘
                        │
-                  Thread rows in DB
+                  Thread rows in Store
                        │
                        ▼
   ┌────────────────────────────────────────────────┐
@@ -95,17 +108,88 @@ The full pipeline for a single provider archive:
   │                                    (vectorise)  │
   └────────────────────────────────────────────────┘
                        │
-                  Memories + embeddings in DB
+                  Memories + embeddings in Store
                        │
                        ▼
                   Semantic search
 ```
 
-- **Pipe is ET, not ETL.** Load is a separate concern handled by `DbLoader`.
+- **Pipe is ET, not ETL.** Load is handled by the `Store`.
 - **One Pipe class = one interaction type.** Each subclass handles one kind of data (e.g. stories, reels, DMs).
-- **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the Loader consumes lazily.
+- **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the facade collects and persists via `Store.insert_threads()`.
 - **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
 - **Memory generation is async and batched.** The `MemoryBatchManager` state machine submits OpenAI batch jobs for both generation and embedding, polling until complete.
+- **Store is pluggable.** `InMemoryStore` runs with zero external dependencies; `PostgresStore` adds persistence with pgvector for semantic search.
+
+---
+
+## Store Abstraction
+
+All data access goes through the `Store` ABC (`context_use/store/base.py`). The facade, batch managers, memory pipeline, search, and profile generation all accept a `Store` — they never touch SQLAlchemy or database sessions directly.
+
+### Implementations
+
+| Store | Module | Use case |
+|-------|--------|----------|
+| `InMemoryStore` | `store.memory` | Default. No external deps. Data lives in Python dicts for the process lifetime. |
+| `PostgresStore` | `store.postgres` | Persistent. Requires PostgreSQL + pgvector. Used for production / CLI with `--store postgres`. |
+
+### Domain models
+
+All Store methods accept and return **domain models** from `context_use.models/` — pure Python dataclasses with no ORM dependencies. The `PostgresStore` converts between domain models and SQLAlchemy ORM models internally.
+
+| Domain model | Module | Description |
+|-------------|--------|-------------|
+| `Archive` | `models.archive` | A processed zip archive |
+| `EtlTask` | `models.etl_task` | One ETL task (one file in an archive) |
+| `Thread` | `models.thread` | One normalised interaction |
+| `Batch` | `models.batch` | A batch of thread groups for pipeline processing |
+| `TapestryMemory` | `models.memory` | An extracted first-person memory |
+| `TapestryProfile` | `models.profile` | A generated user profile |
+
+### Key Store methods
+
+```python
+class Store(ABC):
+    async def init(self) -> None: ...
+    async def reset(self) -> None: ...
+    async def atomic(self) -> AsyncIterator[None]: ...
+
+    # Archives
+    async def create_archive(self, archive: Archive) -> Archive: ...
+    async def get_archive(self, archive_id: str) -> Archive | None: ...
+
+    # Threads
+    async def insert_threads(self, rows: list[ThreadRow], task_id: str) -> int: ...
+    async def get_threads_by_task(self, task_ids: list[str]) -> list[Thread]: ...
+
+    # Batches
+    async def create_batch(self, batch: Batch, groups: list[ThreadGroup]) -> Batch: ...
+    async def get_batch(self, batch_id: str) -> Batch | None: ...
+    async def update_batch(self, batch: Batch) -> None: ...
+
+    # Memories
+    async def create_memory(self, memory: TapestryMemory) -> TapestryMemory: ...
+    async def search_memories(self, *, query_embedding=None, ...) -> list[MemorySearchResult]: ...
+
+    # Profiles
+    async def get_latest_profile(self) -> TapestryProfile | None: ...
+    async def save_profile(self, profile: TapestryProfile) -> None: ...
+```
+
+### Configuration
+
+The `ContextUse.from_config()` dict accepts a `store` key:
+
+```python
+# In-memory (default — no external deps):
+{"store": {"provider": "memory"}}
+
+# PostgreSQL:
+{"store": {"provider": "postgres", "config": {"host": "localhost", ...}}}
+```
+
+The legacy `"db"` key is accepted as an alias for `"store"` for backward compatibility.
 
 ---
 
@@ -262,7 +346,7 @@ from datetime import UTC, datetime
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.etl_task import EtlTask
+from context_use.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     Application,
@@ -788,7 +872,7 @@ Infrastructure fields (`id`, `etl_task_id`, timestamps) are added by the Loader 
 
 ### EtlTask Reference
 
-`EtlTask` (`context_use.etl.models.etl_task`) is passed to both `extract()` and `transform()`. Fields most relevant to pipe authors:
+`EtlTask` (`context_use.models.etl_task`) is passed to both `extract()` and `transform()`. Fields most relevant to pipe authors:
 
 | Field | Type | Description |
 |-------|------|-------------|

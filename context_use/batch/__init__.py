@@ -13,10 +13,8 @@ from context_use.batch.manager import (
     register_batch_manager,
 )
 from context_use.batch.models import (
-    Batch,
-    BatchCategory,
     BatchStateMixin,
-    BatchThread,
+    parse_batch_state,
     register_batch_state_parser,
 )
 from context_use.batch.policy import ImmediateRunPolicy, RunPolicy
@@ -32,6 +30,7 @@ from context_use.batch.states import (
     State,
     StopState,
 )
+from context_use.models.batch import Batch, BatchCategory, BatchThread
 
 __all__ = [
     "State",
@@ -47,6 +46,7 @@ __all__ = [
     "BatchCategory",
     "BatchStateMixin",
     "BatchThread",
+    "parse_batch_state",
     "register_batch_state_parser",
     "BaseBatchManager",
     "ScheduleInstruction",

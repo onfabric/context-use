@@ -35,18 +35,19 @@ DESCRIPTION = "context-use — turn your data exports into AI memory"
 
 def _config_to_dict(cfg: Config) -> dict:
     """Convert CLI Config into the canonical config dict for ContextUse."""
+    store_config: dict[str, Any] = {}
+    if cfg.store_provider == "postgres":
+        store_config = {
+            "host": cfg.db_host,
+            "port": cfg.db_port,
+            "database": cfg.db_name,
+            "user": cfg.db_user,
+            "password": cfg.db_password,
+        }
+
     return {
         "storage": {"provider": "disk", "config": {"base_path": cfg.storage_path}},
-        "db": {
-            "provider": "postgres",
-            "config": {
-                "host": cfg.db_host,
-                "port": cfg.db_port,
-                "database": cfg.db_name,
-                "user": cfg.db_user,
-                "password": cfg.db_password,
-            },
-        },
+        "store": {"provider": cfg.store_provider, "config": store_config},
         "llm": {"api_key": cfg.openai_api_key or ""},
     }
 
@@ -82,35 +83,39 @@ async def cmd_init(args: argparse.Namespace) -> None:
 
     cfg = load_config() if config_exists() else Config()
 
-    # Step 1: Database
-    out.header("Step 1/3 · Database")
-    out.info("context-use needs PostgreSQL with pgvector.")
+    # Step 1: Storage backend
+    out.header("Step 1/3 · Storage Backend")
+    out.info("context-use can run entirely in-memory (no external dependencies)")
+    out.info("or use PostgreSQL for persistent storage across sessions.")
     print()
+    use_pg = input("  Use PostgreSQL? [y/N] ").strip().lower()
 
-    if shutil.which("docker") is None:
-        out.warn(
-            "Docker not found. Install Docker to auto-start Postgres,\n"
-            "    or configure an existing Postgres instance."
+    if use_pg in ("y", "yes"):
+        cfg.store_provider = "postgres"
+
+        if shutil.which("docker") is not None:
+            prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
+            start_db = input(prompt_text).strip().lower()
+            if start_db in ("", "y", "yes"):
+                _start_docker_postgres(cfg)
+
+        host = input(f"  Database host [{cfg.db_host}]: ").strip() or cfg.db_host
+        port = input(f"  Database port [{cfg.db_port}]: ").strip() or str(cfg.db_port)
+        name = input(f"  Database name [{cfg.db_name}]: ").strip() or cfg.db_name
+        user = input(f"  Database user [{cfg.db_user}]: ").strip() or cfg.db_user
+        password = (
+            input(f"  Database password [{cfg.db_password}]: ").strip()
+            or cfg.db_password
         )
+        cfg.db_host = host
+        cfg.db_port = int(port)
+        cfg.db_name = name
+        cfg.db_user = user
+        cfg.db_password = password
+        out.success("PostgreSQL configured")
     else:
-        prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
-        start_db = input(prompt_text).strip().lower()
-        if start_db in ("", "y", "yes"):
-            _start_docker_postgres(cfg)
-
-    host = input(f"  Database host [{cfg.db_host}]: ").strip() or cfg.db_host
-    port = input(f"  Database port [{cfg.db_port}]: ").strip() or str(cfg.db_port)
-    name = input(f"  Database name [{cfg.db_name}]: ").strip() or cfg.db_name
-    user = input(f"  Database user [{cfg.db_user}]: ").strip() or cfg.db_user
-    password = (
-        input(f"  Database password [{cfg.db_password}]: ").strip() or cfg.db_password
-    )
-    cfg.db_host = host
-    cfg.db_port = int(port)
-    cfg.db_name = name
-    cfg.db_user = user
-    cfg.db_password = password
-    out.success("Database configured")
+        cfg.store_provider = "memory"
+        out.success("Using in-memory store (data lives for the session)")
 
     # Step 2: OpenAI
     out.header("Step 2/3 · OpenAI API Key")
@@ -147,13 +152,13 @@ async def cmd_init(args: argparse.Namespace) -> None:
     print()
     out.success(f"Config written to {path}")
 
-    # Init DB
+    # Init store
     try:
         ctx = _build_ctx(cfg)
-        await ctx.reset_db()
-        out.success("Database tables created")
+        await ctx.init()
+        out.success("Store initialised")
     except Exception as exc:
-        out.warn(f"Could not initialise database: {exc}")
+        out.warn(f"Could not initialise store: {exc}")
         out.info("You can retry later with: context-use init")
 
     # Next steps
@@ -331,7 +336,7 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
     print()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     result = await ctx.process_archive(provider, zip_path)
 
@@ -403,7 +408,7 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
     _require_api_key(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     picked = await _pick_archive(ctx)
     if picked is None:
@@ -457,7 +462,7 @@ async def cmd_memories_refine(args: argparse.Namespace) -> None:
     _require_api_key(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     picked = await _pick_archive(ctx)
     if picked is None:
@@ -491,7 +496,7 @@ async def cmd_memories_list(args: argparse.Namespace) -> None:
     cfg = load_config()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     total = await ctx.count_memories()
     memories = await ctx.list_memories(limit=args.limit)
@@ -525,7 +530,7 @@ async def cmd_memories_search(args: argparse.Namespace) -> None:
     _require_api_key(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     from_dt = date.fromisoformat(args.from_date) if args.from_date else None
     to_dt = date.fromisoformat(args.to_date) if args.to_date else None
@@ -560,7 +565,7 @@ async def cmd_memories_export(args: argparse.Namespace) -> None:
     cfg = load_config()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     memories = await ctx.list_memories()
 
@@ -633,7 +638,7 @@ async def cmd_profile_generate(args: argparse.Namespace) -> None:
     _require_api_key(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     out.header("Generating profile")
 
@@ -679,7 +684,7 @@ async def cmd_profile_show(args: argparse.Namespace) -> None:
     cfg = load_config()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     profile = await ctx.get_profile()
 
@@ -706,7 +711,7 @@ async def cmd_profile_export(args: argparse.Namespace) -> None:
     cfg = load_config()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     profile = await ctx.get_profile()
 
@@ -737,7 +742,7 @@ async def cmd_server(args: argparse.Namespace) -> None:
     print()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     try:
         from context_use.ext.mcp_use.server import create_server
@@ -814,7 +819,7 @@ async def cmd_ask(args: argparse.Namespace) -> None:
     _require_api_key(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     interactive = args.interactive or args.query is None
 
