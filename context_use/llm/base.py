@@ -256,6 +256,19 @@ class LLMClient:
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return text.strip()
 
+    async def embed_query(self, text: str) -> list[float]:
+        """Embed a single text string (e.g. a search query).
+
+        Uses the same embedding model configured for batch embedding,
+        ensuring vector compatibility.
+        """
+        response = await litellm.aembedding(
+            model=self._embedding_model.value,
+            input=[text],
+            api_key=self._api_key,
+        )
+        return response.data[0]["embedding"]
+
     async def embed_batch_submit(
         self,
         batch_id: str,

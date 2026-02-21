@@ -14,19 +14,13 @@ logger = logging.getLogger(__name__)
 
 
 async def _get_current_profile(
-    tapestry_id: str,
     db: AsyncSession,
 ) -> TapestryProfile | None:
-    result = await db.execute(
-        select(TapestryProfile).where(
-            TapestryProfile.tapestry_id == tapestry_id,
-        )
-    )
+    result = await db.execute(select(TapestryProfile))
     return result.scalar_one_or_none()
 
 
 async def trigger_profile_regeneration(
-    tapestry_id: str,
     db: AsyncSession,
     llm_client: LLMClient,
     *,
@@ -37,24 +31,15 @@ async def trigger_profile_regeneration(
 
     Returns the profile if generated, or ``None`` if skipped.
     """
-    if not tapestry_id:
-        logger.debug("No tapestry_id — skipping profile regeneration")
-        return None
-
-    profile = await _get_current_profile(tapestry_id, db)
+    profile = await _get_current_profile(db)
 
     for rule in rules or []:
-        reason = await rule.should_skip(tapestry_id, profile, db)
+        reason = await rule.should_skip(profile, db)
         if reason:
-            logger.info(
-                "[%s] Skipping profile regeneration: %s",
-                tapestry_id,
-                reason,
-            )
+            logger.info("Skipping profile regeneration: %s", reason)
             return None
 
     return await generate_profile(
-        tapestry_id,
         db,
         llm_client,
         current_profile=profile,

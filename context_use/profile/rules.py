@@ -15,7 +15,6 @@ class RegenerationRule(Protocol):
 
     async def should_skip(
         self,
-        tapestry_id: str,
         profile: TapestryProfile | None,
         db: AsyncSession,
     ) -> str | None: ...

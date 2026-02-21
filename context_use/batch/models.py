@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm.attributes import flag_modified
 
 from context_use.batch.states import CreatedState, State
-from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
+from context_use.db.models import Base, TimeStampMixin, new_uuid
 
 
 class BatchCategory(enum.StrEnum):
@@ -56,7 +56,7 @@ class BatchStateMixin:
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=_new_uuid,
+        default=new_uuid,
         comment="Unique identifier for the batch",
     )
 
@@ -131,12 +131,6 @@ class Batch(BatchStateMixin, TimeStampMixin, Base):
         nullable=False,
     )
 
-    tapestry_id: Mapped[str | None] = mapped_column(
-        String(36),
-        nullable=True,
-        comment="Optional — for aertex compatibility",
-    )
-
     __table_args__ = (
         Index("idx_batches_etl_task_id", "etl_task_id"),
         Index("idx_batches_etl_task_id_batch_number", "etl_task_id", "batch_number"),
@@ -156,7 +150,7 @@ class BatchThread(Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=_new_uuid,
+        default=new_uuid,
     )
 
     batch_id: Mapped[str] = mapped_column(

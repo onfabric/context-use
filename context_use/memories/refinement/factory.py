@@ -6,8 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.models import Batch, BatchCategory
-from context_use.batch.states import CreatedState
 from context_use.memories.models import MemoryStatus, TapestryMemory
+from context_use.memories.refinement.states import RefinementCreatedState
 
 logger = logging.getLogger(__name__)
 
@@ -43,13 +43,8 @@ class RefinementBatchFactory:
 
         refinement_batches: list[Batch] = []
 
-        for etl_task_id, batches in by_task.items():
-            tapestry_id = batches[0].tapestry_id
-
-            # All active, embedded memories for this tapestry_id
-            # that were produced by the memory pipeline (no source_memory_ids)
+        for etl_task_id, _batches in by_task.items():
             stmt = select(TapestryMemory.id).where(
-                TapestryMemory.tapestry_id == tapestry_id,
                 TapestryMemory.status == MemoryStatus.active.value,
                 TapestryMemory.embedding.isnot(None),
                 TapestryMemory.source_memory_ids.is_(None),
@@ -61,17 +56,13 @@ class RefinementBatchFactory:
                 logger.info("[%s] No seed memories for refinement", etl_task_id)
                 continue
 
-            # Encode seed IDs in the initial CreatedState
-            initial_state = CreatedState()
-            state_dict = initial_state.model_dump(mode="json")
-            state_dict["seed_memory_ids"] = seed_ids
+            initial_state = RefinementCreatedState(seed_memory_ids=seed_ids)
 
             batch = Batch(
                 etl_task_id=etl_task_id,
                 batch_number=1,
                 category=BatchCategory.refinement.value,
-                tapestry_id=tapestry_id,
-                states=[state_dict],
+                states=[initial_state.model_dump(mode="json")],
             )
             db.add(batch)
             await db.flush()

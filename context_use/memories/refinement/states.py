@@ -24,6 +24,14 @@ from context_use.batch.states import (
 REFINEMENT_POLL_INTERVAL_SECS = 10
 
 
+class RefinementCreatedState(NextState):
+    """Initial state for refinement batches — carries seed memory IDs."""
+
+    status: Literal["REFINEMENT_CREATED"] = "REFINEMENT_CREATED"
+    seed_memory_ids: list[str]
+    timestamp: datetime = Field(default_factory=_utc_now)
+
+
 class RefinementDiscoverState(NextState):
     """Discovery complete — clusters identified for refinement."""
 
@@ -78,6 +86,7 @@ class RefinementEmbedCompleteState(NextState):
 
 RefinementBatchState = (
     CreatedState
+    | RefinementCreatedState
     | RefinementDiscoverState
     | RefinementPendingState
     | RefinementCompleteState
@@ -90,6 +99,7 @@ RefinementBatchState = (
 
 _state_map: dict[str, type[State]] = {
     "CREATED": CreatedState,
+    "REFINEMENT_CREATED": RefinementCreatedState,
     "REFINEMENT_DISCOVER": RefinementDiscoverState,
     "REFINEMENT_PENDING": RefinementPendingState,
     "REFINEMENT_COMPLETE": RefinementCompleteState,

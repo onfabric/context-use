@@ -9,7 +9,7 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-def _new_uuid() -> str:
+def new_uuid() -> str:
     return str(uuid.uuid4())
 
 

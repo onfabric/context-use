@@ -19,8 +19,8 @@ from pathlib import Path
 from sqlalchemy import select
 
 from context_use import ContextUse
+from context_use.db.models import Base
 from context_use.db.postgres import PostgresBackend
-from context_use.etl.models.base import Base
 from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.models import TapestryMemory
 from context_use.providers.registry import Provider
@@ -57,6 +57,14 @@ async def main() -> None:
     if not archives:
         parser.error("At least one of --instagram or --chatgpt is required")
 
+    model = OpenAIModel.GPT_5_2 if args.yolo else OpenAIModel.GPT_4O
+    print(f"Using model: {model}")
+    llm_client = LLMClient(
+        model=model,
+        api_key=os.environ["OPENAI_API_KEY"],
+        embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
+    )
+
     storage = DiskStorage(base_path=STORAGE_BASE_PATH)
     db = PostgresBackend(
         host=os.environ.get("POSTGRES_HOST", "localhost"),
@@ -66,7 +74,7 @@ async def main() -> None:
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
     )
 
-    ctx = ContextUse(storage=storage, db=db)
+    ctx = ContextUse(storage=storage, db=db, llm_client=llm_client)
 
     # ---- Step 0: clean slate ----
     print("\n=== Step 0: Initializing & cleaning DB ===")
@@ -89,15 +97,8 @@ async def main() -> None:
 
     # ---- Step 2: generate memories ----
     print("\n=== Step 2: Generate memories ===")
-    model = OpenAIModel.GPT_5_2 if args.yolo else OpenAIModel.GPT_4O
-    print(f"Using model: {model}")
-    llm_client = LLMClient(
-        model=model,
-        api_key=os.environ["OPENAI_API_KEY"],
-        embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
-    )
 
-    mem_result = await ctx.generate_memories(archive_ids, llm_client)
+    mem_result = await ctx.generate_memories(archive_ids)
     print(
         f"Processed {mem_result.tasks_processed} task(s), "
         f"created {mem_result.batches_created} batch(es)"

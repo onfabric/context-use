@@ -162,10 +162,6 @@ class _BaseFibreMixin:
             return None
         return published
 
-    def get_caption_for_gemini(self) -> str | None:
-        """Get caption content for Gemini (e.g., caption from posts)."""
-        return None
-
     def get_collection(self) -> str | None:
         """Get collection ID for this fibre."""
         return None

@@ -5,8 +5,8 @@ import enum
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from context_use.db.models import Base, TimeStampMixin, new_uuid
 from context_use.etl.models.archive import Archive
-from context_use.etl.models.base import Base, TimeStampMixin, _new_uuid
 
 
 class EtlTaskStatus(enum.StrEnum):
@@ -24,7 +24,7 @@ class EtlTask(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=_new_uuid,
+        default=new_uuid,
     )
     archive_id: Mapped[str] = mapped_column(
         String(36),

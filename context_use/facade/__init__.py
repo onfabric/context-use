@@ -1,13 +1,6 @@
-"""Public API for the context_use library.
-
-External consumers (CLI, MCP server, etc.) should import exclusively
-from this module.  Only unit / integration tests may reach into
-sub-packages directly.
-"""
-
-from context_use.facade import (
+from context_use.facade.core import ContextUse
+from context_use.facade.types import (
     ArchiveSummary,
-    ContextUse,
     MemoriesResult,
     MemorySummary,
     PipelineResult,
@@ -15,7 +8,6 @@ from context_use.facade import (
     RefinementResult,
     TaskBreakdown,
 )
-from context_use.providers.registry import Provider
 
 __all__ = [
     "ArchiveSummary",
@@ -24,7 +16,6 @@ __all__ = [
     "MemorySummary",
     "PipelineResult",
     "ProfileSummary",
-    "Provider",
     "RefinementResult",
     "TaskBreakdown",
 ]

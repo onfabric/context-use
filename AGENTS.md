@@ -784,7 +784,7 @@ This means your `archive_path_pattern` is the path **relative to the archive roo
 | `source` | `str \| None` | | Raw JSON of the original record, for audit/debug |
 | `asset_uri` | `str \| None` | | Storage key for an associated binary asset (image, video) |
 
-Infrastructure fields (`id`, `tapestry_id`, `etl_task_id`, timestamps) are added by the Loader when persisting — pipes never set them.
+Infrastructure fields (`id`, `etl_task_id`, timestamps) are added by the Loader when persisting — pipes never set them.
 
 ### EtlTask Reference
 
