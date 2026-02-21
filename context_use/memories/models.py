@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import enum
 from datetime import date
 
 from pgvector.sqlalchemy import Vector
@@ -8,13 +7,9 @@ from sqlalchemy import JSON, Date, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.models.memory import EMBEDDING_DIMENSIONS, MemoryStatus
 
-EMBEDDING_DIMENSIONS = 3072
-
-
-class MemoryStatus(enum.StrEnum):
-    active = "active"
-    superseded = "superseded"
+__all__ = ["EMBEDDING_DIMENSIONS", "MemoryStatus", "TapestryMemory"]
 
 
 class TapestryMemory(TimeStampMixin, Base):
