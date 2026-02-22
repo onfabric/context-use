@@ -35,18 +35,19 @@ DESCRIPTION = "context-use — turn your data exports into AI memory"
 
 def _config_to_dict(cfg: Config) -> dict:
     """Convert CLI Config into the canonical config dict for ContextUse."""
+    store_config: dict[str, Any] = {}
+    if cfg.store_provider == "postgres":
+        store_config = {
+            "host": cfg.db_host,
+            "port": cfg.db_port,
+            "database": cfg.db_name,
+            "user": cfg.db_user,
+            "password": cfg.db_password,
+        }
+
     return {
         "storage": {"provider": "disk", "config": {"base_path": cfg.storage_path}},
-        "db": {
-            "provider": "postgres",
-            "config": {
-                "host": cfg.db_host,
-                "port": cfg.db_port,
-                "database": cfg.db_name,
-                "user": cfg.db_user,
-                "password": cfg.db_password,
-            },
-        },
+        "store": {"provider": cfg.store_provider, "config": store_config},
         "llm": {"api_key": cfg.openai_api_key or ""},
     }
 
@@ -72,6 +73,17 @@ def _require_api_key(cfg: Config) -> None:
         sys.exit(1)
 
 
+def _warn_ephemeral(cfg: Config) -> None:
+    """Warn if using in-memory store (data doesn't survive across commands)."""
+    if cfg.store_provider == "memory":
+        out.warn("In-memory store: data from previous commands is not available.")
+        out.info(
+            "Use 'context-use run' to ingest + generate in one session, "
+            "or switch to PostgreSQL via 'context-use init'."
+        )
+        print()
+
+
 # ── init ────────────────────────────────────────────────────────────
 
 
@@ -82,35 +94,41 @@ async def cmd_init(args: argparse.Namespace) -> None:
 
     cfg = load_config() if config_exists() else Config()
 
-    # Step 1: Database
-    out.header("Step 1/3 · Database")
-    out.info("context-use needs PostgreSQL with pgvector.")
+    # Step 1: Storage backend
+    out.header("Step 1/3 · Storage Backend")
+    out.info("context-use can run entirely in-memory (no external dependencies)")
+    out.info("or use PostgreSQL for persistent storage across sessions.")
     print()
+    use_pg = input("  Use PostgreSQL? [y/N] ").strip().lower()
 
-    if shutil.which("docker") is None:
-        out.warn(
-            "Docker not found. Install Docker to auto-start Postgres,\n"
-            "    or configure an existing Postgres instance."
+    if use_pg in ("y", "yes"):
+        cfg.store_provider = "postgres"
+
+        if shutil.which("docker") is not None:
+            prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
+            start_db = input(prompt_text).strip().lower()
+            if start_db in ("", "y", "yes"):
+                _start_docker_postgres(cfg)
+
+        host = input(f"  Database host [{cfg.db_host}]: ").strip() or cfg.db_host
+        port = input(f"  Database port [{cfg.db_port}]: ").strip() or str(cfg.db_port)
+        name = input(f"  Database name [{cfg.db_name}]: ").strip() or cfg.db_name
+        user = input(f"  Database user [{cfg.db_user}]: ").strip() or cfg.db_user
+        password = (
+            input(f"  Database password [{cfg.db_password}]: ").strip()
+            or cfg.db_password
         )
+        cfg.db_host = host
+        cfg.db_port = int(port)
+        cfg.db_name = name
+        cfg.db_user = user
+        cfg.db_password = password
+        out.success("PostgreSQL configured")
     else:
-        prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
-        start_db = input(prompt_text).strip().lower()
-        if start_db in ("", "y", "yes"):
-            _start_docker_postgres(cfg)
-
-    host = input(f"  Database host [{cfg.db_host}]: ").strip() or cfg.db_host
-    port = input(f"  Database port [{cfg.db_port}]: ").strip() or str(cfg.db_port)
-    name = input(f"  Database name [{cfg.db_name}]: ").strip() or cfg.db_name
-    user = input(f"  Database user [{cfg.db_user}]: ").strip() or cfg.db_user
-    password = (
-        input(f"  Database password [{cfg.db_password}]: ").strip() or cfg.db_password
-    )
-    cfg.db_host = host
-    cfg.db_port = int(port)
-    cfg.db_name = name
-    cfg.db_user = user
-    cfg.db_password = password
-    out.success("Database configured")
+        cfg.store_provider = "memory"
+        out.success("Using in-memory store")
+        out.info("  Note: data only lives for a single command invocation.")
+        out.info("  Use 'context-use run' to ingest + generate in one session.")
 
     # Step 2: OpenAI
     out.header("Step 2/3 · OpenAI API Key")
@@ -147,28 +165,34 @@ async def cmd_init(args: argparse.Namespace) -> None:
     print()
     out.success(f"Config written to {path}")
 
-    # Init DB
+    # Init store
     try:
         ctx = _build_ctx(cfg)
-        await ctx.reset_db()
-        out.success("Database tables created")
+        await ctx.init()
+        out.success("Store initialised")
     except Exception as exc:
-        out.warn(f"Could not initialise database: {exc}")
+        out.warn(f"Could not initialise store: {exc}")
         out.info("You can retry later with: context-use init")
 
     # Next steps
     out.header("You're all set! Next steps:")
     print()
     out.info(f"1. Drop your .zip exports into {out.bold(cfg.data_dir + '/input/')}")
-    out.info("2. Ingest them interactively:")
-    out.next_step("context-use ingest")
-    out.info("   Or directly:")
-    out.next_step("context-use ingest instagram path/to/export.zip")
-    out.info("3. Generate memories:")
-    out.next_step("context-use memories generate")
-    out.info("4. Generate your profile:")
-    out.next_step("context-use profile generate")
-    out.info("5. Start the MCP server:")
+    if cfg.store_provider == "memory":
+        out.info("2. Run the full pipeline in one session:")
+        out.next_step("context-use run")
+        out.info("   Or directly:")
+        out.next_step("context-use run chatgpt path/to/export.zip")
+    else:
+        out.info("2. Ingest them interactively:")
+        out.next_step("context-use ingest")
+        out.info("   Or directly:")
+        out.next_step("context-use ingest instagram path/to/export.zip")
+        out.info("3. Generate memories:")
+        out.next_step("context-use memories generate")
+        out.info("4. Generate your profile:")
+        out.next_step("context-use profile generate")
+    out.info(f"{'3' if cfg.store_provider == 'memory' else '5'}. Start the MCP server:")
     out.next_step("context-use server")
     print()
 
@@ -331,7 +355,7 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
     print()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     result = await ctx.process_archive(provider, zip_path)
 
@@ -356,6 +380,149 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
     out.header("Next step:")
     out.next_step("context-use memories generate")
     print()
+
+
+# ── run (ingest → memories → profile) ───────────────────────────────
+
+
+async def cmd_run(args: argparse.Namespace) -> None:
+    """Ingest an archive and run the full pipeline in one session.
+
+    This is the recommended command for in-memory store usage, since
+    each CLI invocation gets a fresh store.
+    """
+    from context_use import Provider
+
+    cfg = load_config()
+    _require_api_key(cfg)
+    providers = _providers()
+
+    if args.provider is None:
+        picked = _pick_archive_interactive(cfg)
+        if picked is None:
+            return
+        provider_str, zip_path = picked
+    elif args.path is None:
+        out.error("Please provide both provider and path, or omit both.")
+        out.info("  Direct:      context-use run instagram export.zip")
+        out.info("  Interactive:  context-use run")
+        sys.exit(1)
+    else:
+        provider_str = args.provider.lower()
+        zip_path = args.path
+        if provider_str not in providers:
+            out.error(
+                f"Unknown provider '{provider_str}'. "
+                f"Choose from: {', '.join(providers)}"
+            )
+            sys.exit(1)
+        if not Path(zip_path).exists():
+            out.error(f"File not found: {zip_path}")
+            sys.exit(1)
+
+    provider = Provider(provider_str)
+    ctx = _build_ctx(cfg)
+    await ctx.init()
+
+    # Phase 1: Ingest
+    print()
+    out.header(f"Phase 1/3 · Ingesting {provider.value} archive")
+    out.kv("File", zip_path)
+    print()
+
+    result = await ctx.process_archive(provider, zip_path)
+
+    out.success("Archive processed")
+    out.kv("Threads created", f"{result.threads_created:,}")
+    out.kv("Tasks completed", result.tasks_completed)
+
+    if result.breakdown:
+        for b in result.breakdown:
+            label = b.interaction_type.replace("_", " ").title()
+            out.kv(label, f"{b.thread_count:,} threads", indent=4)
+    print()
+
+    if result.tasks_failed:
+        out.error(f"{result.tasks_failed} tasks failed — stopping")
+        return
+
+    # Phase 2: Memories
+    out.header("Phase 2/3 · Generating memories")
+    out.info("Submitting batch jobs to OpenAI and polling for results...")
+    print()
+
+    mem_result = await ctx.generate_memories([result.archive_id])
+
+    out.success("Memories generated")
+    out.kv("Batches", mem_result.batches_created)
+
+    count = await ctx.count_memories()
+    out.kv("Active memories", f"{count:,}")
+    print()
+
+    if count == 0:
+        out.warn("No memories generated — skipping profile")
+        return
+
+    # Phase 3: Profile
+    profile = None
+    if not args.skip_profile:
+        out.header("Phase 3/3 · Generating profile")
+        print()
+
+        profile_summary = await ctx.generate_profile()
+        profile = profile_summary
+
+        out.success("Profile generated")
+        out.kv("Memory count", profile.memory_count)
+        out.kv("Length", f"{len(profile.content):,} chars")
+        print()
+
+    # ── Show results ─────────────────────────────────────────────
+    memories = await ctx.list_memories()
+
+    if memories:
+        out.header(f"Your memories ({len(memories):,})")
+        print()
+        for m in memories[:10]:
+            date_str = m.from_date.isoformat()
+            print(f"  [{date_str}] {m.content}")
+        if len(memories) > 10:
+            out.info(f"  ... and {len(memories) - 10:,} more")
+        print()
+
+    if profile is not None:
+        out.header("Your profile")
+        out.rule()
+        print(profile.content)
+        out.rule()
+        print()
+
+    # ── Export to files ──────────────────────────────────────────
+    cfg.ensure_dirs()
+    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    exported: list[str] = []
+
+    if memories:
+        md_path = cfg.output_dir / f"memories_{ts}.md"
+        _export_memories_markdown(memories, md_path)
+        json_path = cfg.output_dir / f"memories_{ts}.json"
+        _export_memories_json(memories, json_path)
+        exported.append(f"Memories  → {md_path}")
+        exported.append(f"           {json_path}")
+
+    if profile is not None:
+        prof_path = cfg.output_dir / f"profile_{ts}.md"
+        prof_path.write_text(profile.content, encoding="utf-8")
+        exported.append(f"Profile   → {prof_path}")
+
+    if exported:
+        out.header("Exported")
+        for line in exported:
+            out.success(line)
+        print()
+
+    out.success("Pipeline complete!")
 
 
 # ── memories generate ───────────────────────────────────────────────
@@ -401,9 +568,10 @@ async def _pick_archive(ctx) -> tuple[str, str] | None:
 async def cmd_memories_generate(args: argparse.Namespace) -> None:
     cfg = load_config()
     _require_api_key(cfg)
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     picked = await _pick_archive(ctx)
     if picked is None:
@@ -455,9 +623,10 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
 async def cmd_memories_refine(args: argparse.Namespace) -> None:
     cfg = load_config()
     _require_api_key(cfg)
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     picked = await _pick_archive(ctx)
     if picked is None:
@@ -489,9 +658,10 @@ async def cmd_memories_refine(args: argparse.Namespace) -> None:
 
 async def cmd_memories_list(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     total = await ctx.count_memories()
     memories = await ctx.list_memories(limit=args.limit)
@@ -523,9 +693,10 @@ async def cmd_memories_list(args: argparse.Namespace) -> None:
 async def cmd_memories_search(args: argparse.Namespace) -> None:
     cfg = load_config()
     _require_api_key(cfg)
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     from_dt = date.fromisoformat(args.from_date) if args.from_date else None
     to_dt = date.fromisoformat(args.to_date) if args.to_date else None
@@ -558,9 +729,10 @@ async def cmd_memories_search(args: argparse.Namespace) -> None:
 
 async def cmd_memories_export(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     memories = await ctx.list_memories()
 
@@ -631,9 +803,10 @@ def _export_memories_json(memories: list, path: Path) -> None:
 async def cmd_profile_generate(args: argparse.Namespace) -> None:
     cfg = load_config()
     _require_api_key(cfg)
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     out.header("Generating profile")
 
@@ -677,9 +850,10 @@ async def cmd_profile_generate(args: argparse.Namespace) -> None:
 
 async def cmd_profile_show(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     profile = await ctx.get_profile()
 
@@ -704,9 +878,10 @@ async def cmd_profile_show(args: argparse.Namespace) -> None:
 
 async def cmd_profile_export(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     profile = await ctx.get_profile()
 
@@ -737,7 +912,7 @@ async def cmd_server(args: argparse.Namespace) -> None:
     print()
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     try:
         from context_use.ext.mcp_use.server import create_server
@@ -812,9 +987,10 @@ async def cmd_ask(args: argparse.Namespace) -> None:
     """Simple RAG agent: search memories + profile, then answer."""
     cfg = load_config()
     _require_api_key(cfg)
+    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
-    await ctx.init_db()
+    await ctx.init()
 
     interactive = args.interactive or args.query is None
 
@@ -854,12 +1030,13 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Getting started:\n"
-            "  context-use init                                Setup wizard\n"
-            "  context-use ingest                              Pick & process archive\n"
-            "  context-use memories generate                   Generate memories\n"
-            "  context-use profile generate                    Create your profile\n"
-            "  context-use server                              Start MCP server\n"
-            '  context-use ask "What did I do last week?"      Ask a question\n'
+            "  context-use init                           Setup wizard\n"
+            "  context-use run                            Full pipeline\n"
+            "  context-use ingest                         Process archive\n"
+            "  context-use memories generate              Generate memories\n"
+            "  context-use profile generate               Create profile\n"
+            "  context-use server                         Start MCP server\n"
+            '  context-use ask "What did I do last week?" Ask a question\n'
         ),
     )
     sub = parser.add_subparsers(dest="command", title="commands")
@@ -888,6 +1065,34 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=None,
         help="Path to .zip archive (omit for interactive mode)",
+    )
+
+    # run (ingest → memories → profile in one session)
+    p_run = sub.add_parser(
+        "run",
+        help="Ingest + generate memories + profile in one session",
+        description=(
+            "Run the full pipeline (ingest, memories, profile) in a single "
+            "process. Required for in-memory store; recommended for first-time use."
+        ),
+    )
+    p_run.add_argument(
+        "provider",
+        nargs="?",
+        choices=providers,
+        default=None,
+        help="Data provider (omit for interactive mode)",
+    )
+    p_run.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Path to .zip archive (omit for interactive mode)",
+    )
+    p_run.add_argument(
+        "--skip-profile",
+        action="store_true",
+        help="Skip profile generation",
     )
 
     # memories
@@ -964,6 +1169,7 @@ _CommandHandler = Callable[[argparse.Namespace], Coroutine[Any, Any, None]]
 _COMMAND_MAP: dict[str, _CommandHandler] = {
     "init": cmd_init,
     "ingest": cmd_ingest,
+    "run": cmd_run,
     "server": cmd_server,
     "ask": cmd_ask,
 }
