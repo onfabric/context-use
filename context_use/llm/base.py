@@ -256,6 +256,77 @@ class LLMClient:
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return text.strip()
 
+    async def batch_submit_sync(
+        self,
+        batch_id: str,
+        prompts: list[PromptItem],
+        schema: type[T],
+    ) -> BatchResults[T]:
+        """Run all prompts via individual completions (no batch job).
+
+        Useful for demos and small archives where the batch API's
+        latency (minutes) is unacceptable.
+        """
+        results: BatchResults[T] = {}
+        for item in prompts:
+            try:
+                response = await litellm.acompletion(
+                    model=self._model.value,
+                    messages=_build_messages(item),
+                    response_format=_build_response_format(item),
+                    api_key=self._api_key,
+                )
+                text: str = response.choices[0].message.content  # type: ignore[union-attr]
+                parsed = json.loads(text.strip())
+                results[item.item_id] = schema.model_validate(parsed)
+            except Exception:
+                logger.error(
+                    "Sync completion failed for %s: %.200s",
+                    item.item_id,
+                    item.prompt,
+                    exc_info=True,
+                )
+        logger.info(
+            "[%s] Completed %d/%d sync completions",
+            batch_id,
+            len(results),
+            len(prompts),
+        )
+        return results
+
+    async def embed_batch_submit_sync(
+        self,
+        batch_id: str,
+        items: list[EmbedItem],
+    ) -> EmbedBatchResults:
+        """Embed all items via individual API calls (no batch job).
+
+        Useful for demos and small archives where the batch API's
+        latency (minutes) is unacceptable.
+        """
+        results: EmbedBatchResults = {}
+        for item in items:
+            try:
+                response = await litellm.aembedding(
+                    model=self._embedding_model.value,
+                    input=[item.text],
+                    api_key=self._api_key,
+                )
+                results[item.item_id] = response.data[0]["embedding"]
+            except Exception:
+                logger.error(
+                    "Sync embedding failed for %s",
+                    item.item_id,
+                    exc_info=True,
+                )
+        logger.info(
+            "[%s] Completed %d/%d sync embeddings",
+            batch_id,
+            len(results),
+            len(items),
+        )
+        return results
+
     async def embed_query(self, text: str) -> list[float]:
         """Embed a single text string (e.g. a search query).
 
