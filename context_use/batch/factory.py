@@ -167,7 +167,7 @@ class BaseBatchFactory(ABC):
 
                 batch_models.append(batch)
 
-        await db.commit()
+        await db.flush()
         return batch_models
 
     @classmethod

@@ -20,9 +20,17 @@ class PostgresBackend(DatabaseBackend):
         database: str,
         user: str,
         password: str,
+        *,
+        pool_size: int = 10,
+        max_overflow: int = 20,
     ) -> None:
         url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
-        self._engine = create_async_engine(url, echo=False)
+        self._engine = create_async_engine(
+            url,
+            echo=False,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+        )
         self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
 
     def get_engine(self) -> AsyncEngine:

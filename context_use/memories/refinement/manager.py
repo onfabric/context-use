@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 from datetime import date
+from typing import TYPE_CHECKING
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
 from context_use.batch.models import Batch, BatchCategory
@@ -34,6 +34,9 @@ from context_use.memories.refinement.states import (
     RefinementPendingState,
 )
 
+if TYPE_CHECKING:
+    from context_use.db.base import DatabaseBackend
+
 logger = logging.getLogger(__name__)
 
 
@@ -53,13 +56,14 @@ class RefinementBatchManager(BaseBatchManager):
     def __init__(
         self,
         batch: Batch,
-        db: AsyncSession,
+        db_backend: DatabaseBackend,
         llm_client: LLMClient,
         **kwargs: object,
     ) -> None:
-        super().__init__(batch, db)
+        super().__init__(batch, db_backend)
         self.batch: Batch = batch
         self.llm_client = llm_client
+        self._created_memory_ids: list[str] = []
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -98,6 +102,7 @@ class RefinementBatchManager(BaseBatchManager):
         if not seed_ids:
             return SkippedState(reason="No seed memory IDs for refinement")
 
+        assert self.db is not None
         clusters = await discover_refinement_clusters(seed_ids, self.db)
         if not clusters:
             return SkippedState(reason="No refinement clusters found")
@@ -122,6 +127,7 @@ class RefinementBatchManager(BaseBatchManager):
         return []
 
     async def _submit_refinement(self, state: RefinementDiscoverState) -> State:
+        assert self.db is not None
         prompts = []
         for idx, cluster_ids in enumerate(state.clusters):
             result = await self.db.execute(
@@ -164,6 +170,7 @@ class RefinementBatchManager(BaseBatchManager):
         results: dict[str, RefinementSchema],
     ) -> tuple[int, int]:
         """Create refined memories and supersede consumed inputs."""
+        assert self.db is not None
         refined_count = 0
         superseded_count = 0
         all_superseded_ids: set[str] = set()
@@ -179,6 +186,7 @@ class RefinementBatchManager(BaseBatchManager):
                 )
                 self.db.add(new_memory)
                 await self.db.flush()
+                self._created_memory_ids.append(new_memory.id)
                 refined_count += 1
 
                 for source_id in refined.source_ids:
@@ -191,7 +199,6 @@ class RefinementBatchManager(BaseBatchManager):
                         all_superseded_ids.add(source_id)
                         superseded_count += 1
 
-        await self.db.commit()
         logger.info(
             "[%s] Stored %d refined memories, superseded %d",
             self.batch.id,
@@ -200,18 +207,21 @@ class RefinementBatchManager(BaseBatchManager):
         )
         return refined_count, superseded_count
 
-    async def _get_unembedded_refined_memories(self) -> list[TapestryMemory]:
+    async def _get_batch_unembedded_memories(self) -> list[TapestryMemory]:
+        """Return unembedded refined memories created by *this* batch only."""
+        assert self.db is not None
+        if not self._created_memory_ids:
+            return []
         result = await self.db.execute(
             select(TapestryMemory).where(
-                TapestryMemory.status == MemoryStatus.active.value,
-                TapestryMemory.source_memory_ids.isnot(None),
+                TapestryMemory.id.in_(self._created_memory_ids),
                 TapestryMemory.embedding.is_(None),
             )
         )
         return list(result.scalars().all())
 
     async def _trigger_embedding(self) -> State:
-        memories = await self._get_unembedded_refined_memories()
+        memories = await self._get_batch_unembedded_memories()
         if not memories:
             return RefinementEmbedCompleteState(embedded_count=0)
 
@@ -223,6 +233,7 @@ class RefinementBatchManager(BaseBatchManager):
     async def _check_embedding_status(
         self, state: RefinementEmbedPendingState
     ) -> State:
+        assert self.db is not None
         results = await self.llm_client.embed_batch_get_results(state.job_key)
         if results is None:
             return state

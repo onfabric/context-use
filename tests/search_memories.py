@@ -25,7 +25,7 @@ async def search(query: str, top_k: int = 5) -> None:
         user=os.environ.get("POSTGRES_USER", "postgres"),
         password=os.environ.get("POSTGRES_PASSWORD", "postgres"),
     )
-    llm = LLMClient(
+    llm_client = LLMClient(
         model=OpenAIModel.GPT_4O,
         api_key=os.environ["OPENAI_API_KEY"],
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
@@ -37,7 +37,7 @@ async def search(query: str, top_k: int = 5) -> None:
             session,
             query=query,
             top_k=top_k,
-            llm_client=llm,
+            llm_client=llm_client,
         )
 
     if not results:

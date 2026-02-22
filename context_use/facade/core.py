@@ -101,6 +101,9 @@ class ContextUse:
     ) -> PipelineResult:
         """Unzip, discover, and run ETL for the given archive.
 
+        Each ETL task runs in its own database session so that a failure
+        in one task does not roll back previously committed work.
+
         Args:
             provider: Which data provider (ChatGPT, Instagram, ...).
             path: Filesystem path to the .zip archive.
@@ -113,7 +116,7 @@ class ContextUse:
             UnsupportedProviderError,
         )
         from context_use.etl.models.archive import Archive, ArchiveStatus
-        from context_use.etl.models.etl_task import EtlTaskStatus
+        from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
         from context_use.providers.registry import (
             PROVIDER_REGISTRY,
             get_provider_config,
@@ -124,6 +127,7 @@ class ContextUse:
 
         provider_cfg = get_provider_config(provider)
 
+        # Phase 1: create archive + discover tasks in a short transaction.
         async with self._db.session_scope() as session:
             archive = Archive(
                 provider=provider.value,
@@ -131,67 +135,79 @@ class ContextUse:
             )
             session.add(archive)
             await session.flush()
-
-            result = PipelineResult(archive_id=archive.id)
+            archive_id = archive.id
 
             try:
-                prefix = f"{archive.id}/"
+                prefix = f"{archive_id}/"
                 self._unzip(path, prefix)
 
-                files = self._storage.list_keys(archive.id)
+                files = self._storage.list_keys(archive_id)
                 archive.file_uris = files
 
-                etl_tasks = provider_cfg.discover_tasks(
-                    archive.id, files, provider.value
+                discovered = provider_cfg.discover_tasks(
+                    archive_id, files, provider.value
                 )
+                if not discovered:
+                    logger.warning("No tasks discovered for archive %s", archive_id)
 
-                if not etl_tasks:
-                    logger.warning("No tasks discovered for archive %s", archive.id)
-
-                for etl_task in etl_tasks:
+                for etl_task in discovered:
                     etl_task.status = EtlTaskStatus.CREATED.value
                     etl_task.archive = archive
                     session.add(etl_task)
-                    await session.flush()
 
-                    try:
-                        pipe_cls = provider_cfg.get_pipe(etl_task.interaction_type)
-                        pipe = pipe_cls()
-                        count = await self._run_pipe(pipe, etl_task, session)
-
-                        etl_task.status = EtlTaskStatus.COMPLETED.value
-                        etl_task.uploaded_count = count
-
-                        result.tasks_completed += 1
-                        result.threads_created += count
-                        result.breakdown.append(
-                            TaskBreakdown(
-                                interaction_type=etl_task.interaction_type,
-                                thread_count=count,
-                            )
-                        )
-
-                    except Exception as exc:
-                        logger.error(
-                            "ETL failed for %s/%s: %s",
-                            provider,
-                            etl_task.interaction_type,
-                            exc,
-                        )
-                        etl_task.status = EtlTaskStatus.FAILED.value
-                        result.tasks_failed += 1
-                        result.errors.append(str(exc))
-
-                archive.status = (
-                    ArchiveStatus.COMPLETED.value
-                    if result.tasks_failed == 0
-                    else ArchiveStatus.FAILED.value
-                )
+                await session.flush()
+                task_ids = [t.id for t in discovered]
 
             except Exception as exc:
-                logger.error("process_archive failed: %s", exc)
+                logger.error("process_archive discovery failed: %s", exc)
                 archive.status = ArchiveStatus.FAILED.value
                 raise ArchiveProcessingError(str(exc)) from exc
+
+        result = PipelineResult(archive_id=archive_id)
+
+        # Phase 2: run each ETL task in its own session.
+        for task_id in task_ids:
+            async with self._db.session_scope() as session:
+                etl_task = await session.get(EtlTask, task_id)
+                assert etl_task is not None
+
+                try:
+                    pipe_cls = provider_cfg.get_pipe(etl_task.interaction_type)
+                    pipe = pipe_cls()
+                    count = await self._run_pipe(pipe, etl_task, session)
+
+                    etl_task.status = EtlTaskStatus.COMPLETED.value
+                    etl_task.uploaded_count = count
+
+                    result.tasks_completed += 1
+                    result.threads_created += count
+                    result.breakdown.append(
+                        TaskBreakdown(
+                            interaction_type=etl_task.interaction_type,
+                            thread_count=count,
+                        )
+                    )
+
+                except Exception as exc:
+                    logger.error(
+                        "ETL failed for %s/%s: %s",
+                        provider,
+                        etl_task.interaction_type,
+                        exc,
+                    )
+                    etl_task.status = EtlTaskStatus.FAILED.value
+                    result.tasks_failed += 1
+                    result.errors.append(str(exc))
+
+        # Phase 3: update archive status.
+        async with self._db.session_scope() as session:
+            archive = await session.get(Archive, archive_id)
+            assert archive is not None
+            archive.status = (
+                ArchiveStatus.COMPLETED.value
+                if result.tasks_failed == 0
+                else ArchiveStatus.FAILED.value
+            )
 
         return result
 
@@ -220,12 +236,13 @@ class ContextUse:
         llm = self._require_llm()
         result = MemoriesResult()
 
+        # Phase 1: batch creation in its own transactional session.
+        all_batches: list = []
         async with self._db.session_scope() as session:
             stmt = select(EtlTask).where(EtlTask.archive_id.in_(archive_ids))
             tasks = list((await session.execute(stmt)).scalars().all())
             result.tasks_processed = len(tasks)
 
-            all_batches = []
             for task in tasks:
                 try:
                     config = get_memory_config(task.interaction_type)
@@ -244,18 +261,19 @@ class ContextUse:
                 )
                 all_batches.extend(batches)
 
-            result.batches_created = len(all_batches)
+        result.batches_created = len(all_batches)
 
-            if all_batches:
-                await run_pipeline(
-                    all_batches,
-                    db=session,
-                    manager_kwargs={
-                        "llm_client": llm,
-                        "storage": self._storage,
-                        "memory_config_resolver": get_memory_config,
-                    },
-                )
+        # Phase 2: run pipeline — each manager creates its own sessions.
+        if all_batches:
+            await run_pipeline(
+                all_batches,
+                db_backend=self._db,
+                manager_kwargs={
+                    "llm_client": llm,
+                    "storage": self._storage,
+                    "memory_config_resolver": get_memory_config,
+                },
+            )
 
         return result
 
@@ -284,6 +302,8 @@ class ContextUse:
         llm = self._require_llm()
         result = RefinementResult()
 
+        # Phase 1: batch creation in its own transactional session.
+        refinement_batches: list[Batch] = []
         async with self._db.session_scope() as session:
             stmt = (
                 select(Batch)
@@ -304,14 +324,16 @@ class ContextUse:
                     completed_batches=completed, db=session
                 )
             )
-            result.batches_created = len(refinement_batches)
 
-            if refinement_batches:
-                await run_pipeline(
-                    refinement_batches,
-                    db=session,
-                    manager_kwargs={"llm_client": llm},
-                )
+        result.batches_created = len(refinement_batches)
+
+        # Phase 2: run pipeline — each manager creates its own sessions.
+        if refinement_batches:
+            await run_pipeline(
+                refinement_batches,
+                db_backend=self._db,
+                manager_kwargs={"llm_client": llm},
+            )
 
         return result
 

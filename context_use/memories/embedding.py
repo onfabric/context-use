@@ -26,7 +26,11 @@ async def store_memory_embeddings(
     batch_id: str,
     db,
 ) -> int:
-    """Write embedding vectors back onto existing memory rows. Returns count stored."""
+    """Write embedding vectors back onto existing memory rows.
+
+    Returns count stored.  Does **not** commit — the caller's session
+    scope is responsible for committing.
+    """
     count = 0
     for memory_id, vector in results.items():
         memory = await db.get(TapestryMemory, memory_id)
@@ -40,6 +44,5 @@ async def store_memory_embeddings(
         memory.embedding = vector
         count += 1
 
-    await db.commit()
     logger.info("[%s] Stored %d embeddings", batch_id, count)
     return count
