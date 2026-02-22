@@ -599,7 +599,7 @@ class DailyGrouper(ThreadGrouper):
         for t in threads:
             by_day[t.asat.date().isoformat()].append(t)
         return [
-            ThreadGroup(group_key=day, threads=sorted(ts, key=lambda t: t.asat))
+            ThreadGroup(threads=sorted(ts, key=lambda t: t.asat))
             for day, ts in sorted(by_day.items())
         ]
 ```
@@ -646,7 +646,7 @@ Each group is represented as a `GroupContext` passed to the prompt builder:
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `group_key` | `str` | The grouper's key for this group (window dates, collection ID, etc.) |
+| `group_id` | `str` | UUID identifying this group instance |
 | `new_threads` | `list[Thread]` | Threads to generate memories from |
 | `prior_memories` | `list[str]` | Previously extracted memory texts (for delta context) |
 | `recent_threads` | `list[Thread]` | Recent threads already processed (for continuity) |

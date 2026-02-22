@@ -1,11 +1,10 @@
 from context_use.batch.factory import BaseBatchFactory
 from context_use.batch.grouper import (
+    CollectionGrouper,
     ThreadGroup,
     ThreadGrouper,
     WindowConfig,
     WindowGrouper,
-    decode_window_key,
-    encode_window_key,
 )
 from context_use.batch.manager import (
     BaseBatchManager,
@@ -54,12 +53,11 @@ __all__ = [
     "get_manager_for_category",
     "register_batch_manager",
     "BaseBatchFactory",
+    "CollectionGrouper",
     "ThreadGroup",
     "ThreadGrouper",
     "WindowGrouper",
     "WindowConfig",
-    "encode_window_key",
-    "decode_window_key",
     "RunPolicy",
     "ImmediateRunPolicy",
     "run_batch",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from datetime import date
 from typing import TYPE_CHECKING
 
@@ -63,7 +64,6 @@ class RefinementBatchManager(BaseBatchManager):
         super().__init__(batch, db_backend)
         self.batch: Batch = batch
         self.llm_client = llm_client
-        self._created_memory_ids: list[str] = []
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -83,9 +83,9 @@ class RefinementBatchManager(BaseBatchManager):
                 logger.info("[%s] Polling refinement results", self.batch.id)
                 return await self._check_refinement_status(state)
 
-            case RefinementCompleteState():
+            case RefinementCompleteState() as state:
                 logger.info("[%s] Starting refinement embedding", self.batch.id)
-                return await self._trigger_embedding()
+                return await self._trigger_embedding(state.created_memory_ids)
 
             case RefinementEmbedPendingState() as state:
                 logger.info("[%s] Polling refinement embedding", self.batch.id)
@@ -103,9 +103,11 @@ class RefinementBatchManager(BaseBatchManager):
             return SkippedState(reason="No seed memory IDs for refinement")
 
         assert self.db is not None
-        clusters = await discover_refinement_clusters(seed_ids, self.db)
-        if not clusters:
+        raw_clusters = await discover_refinement_clusters(seed_ids, self.db)
+        if not raw_clusters:
             return SkippedState(reason="No refinement clusters found")
+
+        clusters = {str(uuid.uuid4()): ids for ids in raw_clusters}
 
         logger.info(
             "[%s] Discovered %d clusters from %d seeds",
@@ -129,7 +131,7 @@ class RefinementBatchManager(BaseBatchManager):
     async def _submit_refinement(self, state: RefinementDiscoverState) -> State:
         assert self.db is not None
         prompts = []
-        for idx, cluster_ids in enumerate(state.clusters):
+        for cluster_id, cluster_ids in state.clusters.items():
             result = await self.db.execute(
                 select(TapestryMemory).where(TapestryMemory.id.in_(cluster_ids))
             )
@@ -138,7 +140,7 @@ class RefinementBatchManager(BaseBatchManager):
                 continue
 
             prompt = build_refinement_prompt(
-                cluster_id=f"cluster-{idx}",
+                cluster_id=cluster_id,
                 memories=memories,
             )
             prompts.append(prompt)
@@ -159,23 +161,28 @@ class RefinementBatchManager(BaseBatchManager):
         if results is None:
             return state  # still polling
 
-        refined_count, superseded_count = await self._store_refinement_results(results)
+        memory_ids, superseded_count = await self._store_refinement_results(results)
         return RefinementCompleteState(
-            refined_count=refined_count,
+            refined_count=len(memory_ids),
             superseded_count=superseded_count,
+            created_memory_ids=memory_ids,
         )
 
     async def _store_refinement_results(
         self,
         results: dict[str, RefinementSchema],
-    ) -> tuple[int, int]:
-        """Create refined memories and supersede consumed inputs."""
+    ) -> tuple[list[str], int]:
+        """Create refined memories and supersede consumed inputs.
+
+        Returns the IDs of created memory rows (persisted in the state
+        object so they survive process restarts) and the superseded count.
+        """
         assert self.db is not None
-        refined_count = 0
+        memory_ids: list[str] = []
         superseded_count = 0
         all_superseded_ids: set[str] = set()
 
-        for _cluster_id, schema in results.items():
+        for cluster_id, schema in results.items():
             for refined in schema.memories:
                 new_memory = TapestryMemory(
                     content=refined.content,
@@ -183,11 +190,11 @@ class RefinementBatchManager(BaseBatchManager):
                     to_date=date.fromisoformat(refined.to_date),
                     status=MemoryStatus.active.value,
                     source_memory_ids=refined.source_ids,
+                    group_id=cluster_id,
                 )
                 self.db.add(new_memory)
                 await self.db.flush()
-                self._created_memory_ids.append(new_memory.id)
-                refined_count += 1
+                memory_ids.append(new_memory.id)
 
                 for source_id in refined.source_ids:
                     if source_id in all_superseded_ids:
@@ -202,26 +209,28 @@ class RefinementBatchManager(BaseBatchManager):
         logger.info(
             "[%s] Stored %d refined memories, superseded %d",
             self.batch.id,
-            refined_count,
+            len(memory_ids),
             superseded_count,
         )
-        return refined_count, superseded_count
+        return memory_ids, superseded_count
 
-    async def _get_batch_unembedded_memories(self) -> list[TapestryMemory]:
-        """Return unembedded refined memories created by *this* batch only."""
+    async def _get_batch_unembedded_memories(
+        self, memory_ids: list[str]
+    ) -> list[TapestryMemory]:
+        """Return unembedded refined memories from *memory_ids*."""
         assert self.db is not None
-        if not self._created_memory_ids:
+        if not memory_ids:
             return []
         result = await self.db.execute(
             select(TapestryMemory).where(
-                TapestryMemory.id.in_(self._created_memory_ids),
+                TapestryMemory.id.in_(memory_ids),
                 TapestryMemory.embedding.is_(None),
             )
         )
         return list(result.scalars().all())
 
-    async def _trigger_embedding(self) -> State:
-        memories = await self._get_batch_unembedded_memories()
+    async def _trigger_embedding(self, memory_ids: list[str]) -> State:
+        memories = await self._get_batch_unembedded_memories(memory_ids)
         if not memories:
             return RefinementEmbedCompleteState(embedded_count=0)
 

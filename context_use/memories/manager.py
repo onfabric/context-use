@@ -69,7 +69,6 @@ class MemoryBatchManager(BaseBatchManager):
         self._memory_config_resolver = memory_config_resolver
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
-        self._created_memory_ids: list[str] = []
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
@@ -82,7 +81,7 @@ class MemoryBatchManager(BaseBatchManager):
                     t.asset_uri = self.storage.resolve_local_path(t.asset_uri)
             contexts.append(
                 GroupContext(
-                    group_key=group.group_key,
+                    group_id=group.group_id,
                     new_threads=group.threads,
                 )
             )
@@ -98,9 +97,9 @@ class MemoryBatchManager(BaseBatchManager):
                 logger.info("[%s] Polling memory generation", self.batch.id)
                 return await self._check_memory_generation_status(state)
 
-            case MemoryGenerateCompleteState():
+            case MemoryGenerateCompleteState() as state:
                 logger.info("[%s] Starting memory embedding", self.batch.id)
-                return await self._trigger_embedding()
+                return await self._trigger_embedding(state.created_memory_ids)
 
             case MemoryEmbedPendingState() as state:
                 logger.info("[%s] Polling memory embedding", self.batch.id)
@@ -157,47 +156,58 @@ class MemoryBatchManager(BaseBatchManager):
         if results is None:
             return state  # still polling
 
-        count = await self._store_memories(results)
-        return MemoryGenerateCompleteState(memories_count=count)
+        memory_ids = await self._store_memories(results)
+        return MemoryGenerateCompleteState(
+            memories_count=len(memory_ids),
+            created_memory_ids=memory_ids,
+        )
 
     async def _store_memories(
         self,
         results: BatchResults[MemorySchema],
-    ) -> int:
-        """Write memories to the ``tapestry_memories`` table."""
+    ) -> list[str]:
+        """Write memories to the ``tapestry_memories`` table.
+
+        Results are keyed by ``group_id`` (the UUID used as OpenAI
+        ``custom_id``).
+
+        Returns the IDs of created memory rows so they can be persisted
+        in the state object and survive process restarts.
+        """
         assert self.db is not None
-        count = 0
-        for group_key, schema in results.items():
+        memory_ids: list[str] = []
+        for group_id, schema in results.items():
             for memory in schema.memories:
                 row = TapestryMemory(
                     content=memory.content,
                     from_date=date.fromisoformat(memory.from_date),
                     to_date=date.fromisoformat(memory.to_date),
-                    group_key=group_key,
+                    group_id=group_id,
                 )
                 self.db.add(row)
                 await self.db.flush()
-                self._created_memory_ids.append(row.id)
-                count += 1
+                memory_ids.append(row.id)
 
-        logger.info("[%s] Stored %d memories", self.batch.id, count)
-        return count
+        logger.info("[%s] Stored %d memories", self.batch.id, len(memory_ids))
+        return memory_ids
 
-    async def _get_batch_unembedded_memories(self) -> list[TapestryMemory]:
-        """Return unembedded memories created by *this* batch only."""
+    async def _get_batch_unembedded_memories(
+        self, memory_ids: list[str]
+    ) -> list[TapestryMemory]:
+        """Return unembedded memories from *memory_ids*."""
         assert self.db is not None
-        if not self._created_memory_ids:
+        if not memory_ids:
             return []
         result = await self.db.execute(
             select(TapestryMemory).where(
-                TapestryMemory.id.in_(self._created_memory_ids),
+                TapestryMemory.id.in_(memory_ids),
                 TapestryMemory.embedding.is_(None),
             )
         )
         return list(result.scalars().all())
 
-    async def _trigger_embedding(self) -> State:
-        memories = await self._get_batch_unembedded_memories()
+    async def _trigger_embedding(self, memory_ids: list[str]) -> State:
+        memories = await self._get_batch_unembedded_memories(memory_ids)
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
 

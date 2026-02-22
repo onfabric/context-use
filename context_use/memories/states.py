@@ -45,6 +45,7 @@ class MemoryGenerateCompleteState(NextState):
     status: Literal["MEMORY_GENERATE_COMPLETE"] = "MEMORY_GENERATE_COMPLETE"
     completed_at: datetime = Field(default_factory=_utc_now)
     memories_count: int = 0
+    created_memory_ids: list[str] = Field(default_factory=list)
 
 
 class MemoryEmbedPendingState(CurrentState):
