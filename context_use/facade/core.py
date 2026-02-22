@@ -86,11 +86,21 @@ class ContextUse:
         return self._llm_client
 
     async def init_db(self) -> None:
-        """Create all database tables."""
-        import context_use.memories.models  # noqa: F401  — register ORM models
-        import context_use.profile.models  # noqa: F401
-
+        """Create missing database tables (non-destructive)."""
+        self._register_models()
         await self._db.init_db()
+
+    async def reset_db(self) -> None:
+        """Drop all tables and recreate from scratch."""
+        self._register_models()
+        await self._db.reset_db()
+
+    @staticmethod
+    def _register_models() -> None:
+        import context_use.batch.models  # noqa: F401
+        import context_use.etl.models  # noqa: F401
+        import context_use.memories.models  # noqa: F401
+        import context_use.profile.models  # noqa: F401
 
     # ── ETL ──────────────────────────────────────────────────────────
 
@@ -219,16 +229,26 @@ class ContextUse:
     ) -> MemoriesResult:
         """Create batches from ETL results and run the memory pipeline.
 
+        Threads from all ETL tasks are collected and grouped per
+        interaction type using each type's configured grouper.  The
+        resulting groups are merged into a single pool and bin-packed
+        into batches — so a batch can contain groups from different
+        interaction types.
+
         Args:
             archive_ids: Archive IDs from prior ``process_archive()`` calls.
 
         Returns:
             A :class:`MemoriesResult` summarising the work done.
         """
+        from collections import defaultdict
+
         from sqlalchemy import select
 
+        from context_use.batch.grouper import ThreadGroup
         from context_use.batch.runner import run_pipeline
         from context_use.etl.models.etl_task import EtlTask
+        from context_use.etl.models.thread import Thread
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.providers.registry import get_memory_config
 
@@ -236,30 +256,45 @@ class ContextUse:
         llm = self._require_llm()
         result = MemoriesResult()
 
-        # Phase 1: batch creation in its own transactional session.
+        # Phase 1: collect threads, group, and create batches.
         all_batches: list = []
         async with self._db.session_scope() as session:
             stmt = select(EtlTask).where(EtlTask.archive_id.in_(archive_ids))
             tasks = list((await session.execute(stmt)).scalars().all())
             result.tasks_processed = len(tasks)
 
-            for task in tasks:
+            task_ids = [t.id for t in tasks]
+            if not task_ids:
+                return result
+
+            threads_stmt = (
+                select(Thread)
+                .where(Thread.etl_task_id.in_(task_ids))
+                .order_by(Thread.asat, Thread.id)
+            )
+            threads = list((await session.execute(threads_stmt)).scalars().all())
+
+            # Partition threads by interaction type for grouping.
+            by_type: dict[str, list[Thread]] = defaultdict(list)
+            for t in threads:
+                by_type[t.interaction_type].append(t)
+
+            all_groups: list[ThreadGroup] = []
+            for interaction_type, type_threads in by_type.items():
                 try:
-                    config = get_memory_config(task.interaction_type)
+                    config = get_memory_config(interaction_type)
                 except KeyError:
                     logger.info(
                         "No memory config for %s — skipping",
-                        task.interaction_type,
+                        interaction_type,
                     )
                     continue
 
                 grouper = config.create_grouper()
-                batches = await MemoryBatchFactory.create_batches(
-                    etl_task_id=task.id,
-                    db=session,
-                    grouper=grouper,
-                )
-                all_batches.extend(batches)
+                groups = grouper.group(type_threads)
+                all_groups.extend(groups)
+
+            all_batches = await MemoryBatchFactory.create_batches(all_groups, session)
 
         result.batches_created = len(all_batches)
 
@@ -291,11 +326,7 @@ class ContextUse:
         Returns:
             A :class:`RefinementResult` summarising the work done.
         """
-        from sqlalchemy import select
-
-        from context_use.batch.models import Batch, BatchCategory
         from context_use.batch.runner import run_pipeline
-        from context_use.etl.models.etl_task import EtlTask
         from context_use.memories.refinement.factory import RefinementBatchFactory
 
         _ensure_managers_registered()
@@ -303,26 +334,10 @@ class ContextUse:
         result = RefinementResult()
 
         # Phase 1: batch creation in its own transactional session.
-        refinement_batches: list[Batch] = []
+        refinement_batches = []
         async with self._db.session_scope() as session:
-            stmt = (
-                select(Batch)
-                .where(Batch.category == BatchCategory.memories.value)
-                .join(EtlTask, EtlTask.id == Batch.etl_task_id)
-                .where(EtlTask.archive_id.in_(archive_ids))
-            )
-            memory_batches = list((await session.execute(stmt)).scalars().all())
-
-            completed = [b for b in memory_batches if b.current_status == "COMPLETE"]
-
-            if not completed:
-                logger.info("No completed memory batches for refinement")
-                return result
-
-            refinement_batches = (
-                await RefinementBatchFactory.create_from_memory_batches(
-                    completed_batches=completed, db=session
-                )
+            refinement_batches = await RefinementBatchFactory.create_refinement_batches(
+                db=session
             )
 
         result.batches_created = len(refinement_batches)

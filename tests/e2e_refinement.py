@@ -120,21 +120,11 @@ async def run_full_refinement(
     async with db.session_scope() as session:
         seed_ids = list({mid for cluster in clusters for mid in cluster})
 
-        from context_use.etl.models.etl_task import EtlTask
-
-        etl_result = await session.execute(select(EtlTask.id).limit(1))
-        etl_task_row = etl_result.first()
-        if not etl_task_row:
-            print("No ETL task found — cannot create refinement batch")
-            return
-        etl_task_id = etl_task_row[0]
-
         initial_state = CreatedState()
         state_dict = initial_state.model_dump(mode="json")
         state_dict["seed_memory_ids"] = seed_ids
 
         batch = Batch(
-            etl_task_id=etl_task_id,
             batch_number=1,
             category=BatchCategory.refinement.value,
             states=[state_dict],

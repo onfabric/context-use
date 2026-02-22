@@ -122,14 +122,20 @@ class MemoryBatchManager(BaseBatchManager):
         if not all_threads:
             return SkippedState(reason="No threads for memory generation")
 
-        interaction_type = all_threads[0].interaction_type
-        config = self._memory_config_resolver(interaction_type)
-        builder = config.create_prompt_builder(contexts)
+        # Groups may span multiple interaction types; resolve the
+        # prompt builder per interaction type and collect all prompts.
+        prompts = []
+        by_type: dict[str, list[GroupContext]] = {}
+        for ctx in contexts:
+            it = ctx.new_threads[0].interaction_type
+            by_type.setdefault(it, []).append(ctx)
 
-        if not builder.has_content():
-            return SkippedState(reason="No processable content for memory generation")
+        for interaction_type, type_contexts in by_type.items():
+            config = self._memory_config_resolver(interaction_type)
+            builder = config.create_prompt_builder(type_contexts)
+            if builder.has_content():
+                prompts.extend(builder.build())
 
-        prompts = builder.build()
         if not prompts:
             return SkippedState(reason="Prompt builder produced no prompts")
 

@@ -20,6 +20,9 @@ class DatabaseBackend(ABC):
     @abstractmethod
     async def init_db(self) -> None: ...
 
+    @abstractmethod
+    async def reset_db(self) -> None: ...
+
     async def close(self) -> None:
         """Dispose of the connection pool and release all resources."""
         await self.get_engine().dispose()
