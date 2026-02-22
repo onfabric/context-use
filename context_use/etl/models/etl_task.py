@@ -1,21 +1,13 @@
 from __future__ import annotations
 
-import enum
-
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from context_use.db.models import Base, TimeStampMixin, new_uuid
 from context_use.etl.models.archive import Archive
+from context_use.models.etl_task import EtlTaskStatus
 
-
-class EtlTaskStatus(enum.StrEnum):
-    CREATED = "created"
-    EXTRACTING = "extracting"
-    TRANSFORMING = "transforming"
-    UPLOADING = "uploading"
-    COMPLETED = "completed"
-    FAILED = "failed"
+__all__ = ["EtlTask", "EtlTaskStatus"]
 
 
 class EtlTask(TimeStampMixin, Base):

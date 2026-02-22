@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import enum
 from abc import abstractmethod
 from collections.abc import Callable
 
@@ -10,13 +9,16 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from context_use.batch.states import CreatedState, State
 from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.models.batch import BatchCategory
 
-
-class BatchCategory(enum.StrEnum):
-    """Extensible registry of pipeline categories."""
-
-    memories = "memories"
-    refinement = "refinement"
+__all__ = [
+    "Batch",
+    "BatchCategory",
+    "BatchStateMixin",
+    "BatchThread",
+    "parse_batch_state",
+    "register_batch_state_parser",
+]
 
 
 _batch_state_parsers: dict[BatchCategory, Callable[[dict], State]] = {}

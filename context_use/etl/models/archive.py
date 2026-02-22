@@ -1,21 +1,17 @@
 from __future__ import annotations
 
-import enum
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.models.archive import ArchiveStatus
 
 if TYPE_CHECKING:
     from context_use.etl.models.etl_task import EtlTask
 
-
-class ArchiveStatus(enum.StrEnum):
-    CREATED = "created"
-    COMPLETED = "completed"
-    FAILED = "failed"
+__all__ = ["Archive", "ArchiveStatus"]
 
 
 class Archive(TimeStampMixin, Base):
