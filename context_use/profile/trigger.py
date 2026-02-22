@@ -1,27 +1,21 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from context_use.llm.base import LLMClient
+from context_use.models.profile import TapestryProfile
 from context_use.profile.generator import generate_profile
-from context_use.profile.models import TapestryProfile
 from context_use.profile.rules import RegenerationRule
+
+if TYPE_CHECKING:
+    from context_use.llm.base import LLMClient
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
 
-async def _get_current_profile(
-    db: AsyncSession,
-) -> TapestryProfile | None:
-    result = await db.execute(select(TapestryProfile))
-    return result.scalar_one_or_none()
-
-
 async def trigger_profile_regeneration(
-    db: AsyncSession,
+    store: Store,
     llm_client: LLMClient,
     *,
     rules: list[RegenerationRule] | None = None,
@@ -31,16 +25,16 @@ async def trigger_profile_regeneration(
 
     Returns the profile if generated, or ``None`` if skipped.
     """
-    profile = await _get_current_profile(db)
+    profile = await store.get_latest_profile()
 
     for rule in rules or []:
-        reason = await rule.should_skip(profile, db)
+        reason = await rule.should_skip(profile, store)
         if reason:
             logger.info("Skipping profile regeneration: %s", reason)
             return None
 
     return await generate_profile(
-        db,
+        store,
         llm_client,
         current_profile=profile,
         lookback_months=lookback_months,

@@ -4,7 +4,7 @@ Runs discovery to find clusters of similar memories, then optionally
 submits them for LLM refinement.
 
 Usage:
-    # Discovery only (dry run) — see what clusters would be formed:
+    # Discovery only (dry run):
     uv run tests/e2e_refinement.py
 
     # Full refinement (discovery + LLM merge + embed):
@@ -23,23 +23,20 @@ import logging
 import os
 from datetime import datetime
 
-from sqlalchemy import func, select
-
 import context_use.memories.refinement.manager  # noqa: F401
-from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.runner import run_pipeline
-from context_use.batch.states import CreatedState
-from context_use.db.postgres import PostgresBackend
 from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
-from context_use.memories.models import MemoryStatus, TapestryMemory
 from context_use.memories.refinement.discovery import discover_refinement_clusters
+from context_use.memories.refinement.factory import RefinementBatchFactory
+from context_use.models.memory import MemoryStatus
+from context_use.store.postgres import PostgresStore
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_db() -> PostgresBackend:
-    return PostgresBackend(
+def get_store() -> PostgresStore:
+    return PostgresStore(
         host=os.environ.get("POSTGRES_HOST", "localhost"),
         port=int(os.environ.get("POSTGRES_PORT", "5432")),
         database=os.environ.get("POSTGRES_DB", "context_use"),
@@ -49,66 +46,43 @@ def get_db() -> PostgresBackend:
 
 
 async def run_discovery(
-    db: PostgresBackend,
+    store: PostgresStore,
     *,
     similarity_threshold: float,
     date_proximity_days: int,
     max_candidates: int,
 ) -> list[list[str]]:
     """Run discovery against all active, embedded memories."""
-    session = db.get_session()
-    try:
-        result = await session.execute(
-            select(TapestryMemory.id).where(
-                TapestryMemory.status == MemoryStatus.active.value,
-                TapestryMemory.embedding.isnot(None),
-            )
-        )
-        all_ids = [row[0] for row in result.all()]
-        print(f"\n{len(all_ids)} active embedded memories in DB")
+    all_ids = await store.get_refinable_memory_ids()
+    print(f"\n{len(all_ids)} active embedded memories in DB")
 
-        if not all_ids:
-            print("Nothing to refine.")
-            return []
+    if not all_ids:
+        print("Nothing to refine.")
+        return []
 
-        clusters = await discover_refinement_clusters(
-            seed_memory_ids=all_ids,
-            db=session,
-            similarity_threshold=similarity_threshold,
-            date_proximity_days=date_proximity_days,
-            max_candidates_per_seed=max_candidates,
-        )
-        return clusters
-    finally:
-        await session.close()
+    clusters = await discover_refinement_clusters(
+        seed_memory_ids=all_ids,
+        store=store,
+        similarity_threshold=similarity_threshold,
+        date_proximity_days=date_proximity_days,
+        max_candidates_per_seed=max_candidates,
+    )
+    return clusters
 
 
-async def print_clusters(db: PostgresBackend, clusters: list[list[str]]) -> None:
+async def print_clusters(store: PostgresStore, clusters: list[list[str]]) -> None:
     """Pretty-print discovered clusters with memory content."""
-    session = db.get_session()
-    try:
-        for i, cluster_ids in enumerate(clusters):
-            result = await session.execute(
-                select(TapestryMemory).where(TapestryMemory.id.in_(cluster_ids))
-            )
-            memories = list(result.scalars().all())
-            memories.sort(key=lambda m: m.from_date)
+    for i, cluster_ids in enumerate(clusters):
+        memories = await store.get_memories(cluster_ids)
+        memories.sort(key=lambda m: m.from_date)
 
-            print(f"\n--- Cluster {i + 1} ({len(memories)} memories) ---")
-            for m in memories:
-                print(
-                    f"  [{m.from_date} → {m.to_date}] {m.content[:120]}..."
-                    if len(m.content) > 120
-                    else f"  [{m.from_date} → {m.to_date}] {m.content}"
-                )
-    finally:
-        await session.close()
+        print(f"\n--- Cluster {i + 1} ({len(memories)} memories) ---")
+        for m in memories:
+            content = m.content[:120] + "..." if len(m.content) > 120 else m.content
+            print(f"  [{m.from_date} -> {m.to_date}] {content}")
 
 
-async def run_full_refinement(
-    db: PostgresBackend,
-    clusters: list[list[str]],
-) -> None:
+async def run_full_refinement(store: PostgresStore) -> None:
     """Create a refinement batch and run it through the pipeline."""
     llm_client = LLMClient(
         model=OpenAIModel.GPT_4O,
@@ -116,119 +90,89 @@ async def run_full_refinement(
         embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     )
 
-    # Phase 1: create the batch in its own session.
-    async with db.session_scope() as session:
-        seed_ids = list({mid for cluster in clusters for mid in cluster})
+    batches = await RefinementBatchFactory.create_refinement_batches(store=store)
 
-        initial_state = CreatedState()
-        state_dict = initial_state.model_dump(mode="json")
-        state_dict["seed_memory_ids"] = seed_ids
+    if not batches:
+        print("No refinement batches created.")
+        return
 
-        batch = Batch(
-            batch_number=1,
-            category=BatchCategory.refinement.value,
-            states=[state_dict],
-        )
-        session.add(batch)
-
-    print(f"\nCreated refinement batch {batch.id} with {len(seed_ids)} seeds")
+    print(f"\nCreated {len(batches)} refinement batch(es)")
     print("Running refinement pipeline...")
 
-    # Phase 2: run pipeline — manager creates its own sessions.
     await run_pipeline(
-        [batch],
-        db_backend=db,
+        batches,
+        store=store,
         manager_kwargs={"llm_client": llm_client},
     )
 
-    print(f"\nBatch final status: {batch.current_status}")
+    for batch in batches:
+        print(f"\nBatch {batch.id} final status: {batch.current_status}")
 
     # Report results
-    session = db.get_session()
-    try:
-        result = await session.execute(
-            select(TapestryMemory).where(
-                TapestryMemory.source_memory_ids.isnot(None),
-                TapestryMemory.status == MemoryStatus.active.value,
-            )
+    all_memories = await store.list_memories(status=MemoryStatus.active.value)
+    refined = [m for m in all_memories if m.source_memory_ids]
+    superseded = await store.list_memories(status=MemoryStatus.superseded.value)
+
+    print("\n=== Refinement Results ===")
+    print(f"Refined memories created: {len(refined)}")
+    print(f"Memories superseded: {len(superseded)}")
+
+    report_entries = []
+    for m in refined:
+        print(
+            f"\n  [{m.from_date} -> {m.to_date}]"
+            f"\n  {m.content}"
+            f"\n  Sources: {m.source_memory_ids}"
         )
-        refined = list(result.scalars().all())
 
-        superseded_count = (
-            await session.execute(
-                select(func.count()).where(
-                    TapestryMemory.status == MemoryStatus.superseded.value,
+        source_memories = []
+        if m.source_memory_ids:
+            sources = await store.get_memories(m.source_memory_ids)
+            for src in sources:
+                source_memories.append(
+                    {
+                        "id": src.id,
+                        "content": src.content,
+                        "from_date": src.from_date.isoformat(),
+                        "to_date": src.to_date.isoformat(),
+                        "status": src.status,
+                    }
                 )
-            )
-        ).scalar()
+            source_memories.sort(key=lambda s: s["from_date"])
 
-        print("\n=== Refinement Results ===")
-        print(f"Refined memories created: {len(refined)}")
-        print(f"Memories superseded: {superseded_count}")
-
-        report_entries = []
-        for m in refined:
-            print(
-                f"\n  [{m.from_date} → {m.to_date}]"
-                f"\n  {m.content}"
-                f"\n  Sources: {m.source_memory_ids}"
-            )
-
-            superseded_memories = []
-            if m.source_memory_ids:
-                result = await session.execute(
-                    select(TapestryMemory).where(
-                        TapestryMemory.id.in_(m.source_memory_ids)
-                    )
-                )
-                for src in result.scalars().all():
-                    superseded_memories.append(
-                        {
-                            "id": src.id,
-                            "content": src.content,
-                            "from_date": src.from_date.isoformat(),
-                            "to_date": src.to_date.isoformat(),
-                            "status": src.status,
-                        }
-                    )
-                superseded_memories.sort(key=lambda s: s["from_date"])
-
-            report_entries.append(
-                {
-                    "refined_memory": {
-                        "id": m.id,
-                        "content": m.content,
-                        "from_date": m.from_date.isoformat(),
-                        "to_date": m.to_date.isoformat(),
-                        "source_memory_ids": m.source_memory_ids,
-                    },
-                    "superseded_memories": superseded_memories,
-                }
-            )
-
-        report = {
-            "timestamp": datetime.now().isoformat(),
-            "summary": {
-                "refined_count": len(refined),
-                "superseded_count": superseded_count,
-            },
-            "results": report_entries,
-        }
-
-        report_path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "data",
-            "memories",
-            f"refinement_report_{datetime.now().strftime('%Y%m%dT%H%M%SZ')}.json",
+        report_entries.append(
+            {
+                "refined_memory": {
+                    "id": m.id,
+                    "content": m.content,
+                    "from_date": m.from_date.isoformat(),
+                    "to_date": m.to_date.isoformat(),
+                    "source_memory_ids": m.source_memory_ids,
+                },
+                "source_memories": source_memories,
+            }
         )
-        os.makedirs(os.path.dirname(report_path), exist_ok=True)
-        with open(report_path, "w") as f:
-            json.dump(report, f, indent=2)
-        print(f"\nReport written to {os.path.abspath(report_path)}")
 
-    finally:
-        await session.close()
+    report = {
+        "timestamp": datetime.now().isoformat(),
+        "summary": {
+            "refined_count": len(refined),
+            "superseded_count": len(superseded),
+        },
+        "results": report_entries,
+    }
+
+    report_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "data",
+        "memories",
+        f"refinement_report_{datetime.now().strftime('%Y%m%dT%H%M%SZ')}.json",
+    )
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=2)
+    print(f"\nReport written to {os.path.abspath(report_path)}")
 
 
 async def main() -> None:
@@ -258,11 +202,12 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    db = get_db()
+    store = get_store()
+    await store.init()
 
     print("=== Discovery ===")
     clusters = await run_discovery(
-        db,
+        store,
         similarity_threshold=args.similarity,
         date_proximity_days=args.days,
         max_candidates=args.max_candidates,
@@ -270,14 +215,15 @@ async def main() -> None:
 
     if not clusters:
         print("\nNo clusters found. Try lowering --similarity or increasing --days.")
+        await store.close()
         return
 
     print(f"\nFound {len(clusters)} clusters")
-    await print_clusters(db, clusters)
+    await print_clusters(store, clusters)
 
     if args.run:
         print("\n=== Running Refinement ===")
-        await run_full_refinement(db, clusters)
+        await run_full_refinement(store)
     else:
         total_memories = sum(len(c) for c in clusters)
         print(
@@ -285,6 +231,8 @@ async def main() -> None:
             f"{total_memories} total memories."
         )
         print("Re-run with --run to submit to the LLM.")
+
+    await store.close()
 
 
 if __name__ == "__main__":

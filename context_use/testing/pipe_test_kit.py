@@ -6,7 +6,7 @@ import pytest
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
+from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.storage.base import StorageBackend
 
 

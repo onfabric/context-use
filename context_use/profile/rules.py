@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from sqlalchemy.ext.asyncio import AsyncSession
+from context_use.models.profile import TapestryProfile
 
-from context_use.profile.models import TapestryProfile
+if TYPE_CHECKING:
+    from context_use.store.base import Store
 
 
 class RegenerationRule(Protocol):
@@ -16,5 +17,5 @@ class RegenerationRule(Protocol):
     async def should_skip(
         self,
         profile: TapestryProfile | None,
-        db: AsyncSession,
+        store: Store,
     ) -> str | None: ...

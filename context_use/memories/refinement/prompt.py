@@ -3,7 +3,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from context_use.llm.base import PromptItem
-from context_use.memories.models import TapestryMemory
+from context_use.models.memory import TapestryMemory
 
 REFINEMENT_SYSTEM_PROMPT = """\
 You are a memory refinement assistant. You receive a cluster of related memories \

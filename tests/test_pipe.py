@@ -13,8 +13,10 @@ from context_use.etl.core.loader import DbLoader
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.models.archive import Archive, ArchiveStatus
-from context_use.etl.models.etl_task import EtlTask, EtlTaskStatus
+from context_use.etl.models.etl_task import EtlTask as OrmEtlTask
+from context_use.etl.models.etl_task import EtlTaskStatus
 from context_use.etl.models.thread import Thread
+from context_use.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
 
@@ -77,7 +79,7 @@ class DroppingPipe(Pipe[MockRecord]):
         )
 
 
-type TaskWithSession = tuple[EtlTask, AsyncSession]
+type TaskWithSession = tuple[OrmEtlTask, AsyncSession]
 
 
 @pytest.fixture()
@@ -87,7 +89,7 @@ async def task_with_session(db: PostgresBackend) -> AsyncGenerator[TaskWithSessi
         s.add(archive)
         await s.flush()
 
-        etl_task = EtlTask(
+        etl_task = OrmEtlTask(
             archive_id=archive.id,
             provider="test",
             interaction_type="test_conversations",
