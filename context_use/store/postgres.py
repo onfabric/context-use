@@ -93,6 +93,7 @@ class PostgresStore(Store):
     async def init(self) -> None:
         self._register_models()
         async with self._engine.begin() as conn:
+            await conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.run_sync(Base.metadata.create_all)
 
@@ -100,9 +101,7 @@ class PostgresStore(Store):
         self._register_models()
         async with self._engine.begin() as conn:
             await conn.execute(text("DROP SCHEMA public CASCADE"))
-            await conn.execute(text("CREATE SCHEMA public"))
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            await conn.run_sync(Base.metadata.create_all)
+        await self.init()
 
     async def close(self) -> None:
         await self._engine.dispose()
