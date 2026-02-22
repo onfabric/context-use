@@ -11,7 +11,6 @@ import ijson
 from context_use.batch.grouper import CollectionGrouper
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     Application,
@@ -22,6 +21,7 @@ from context_use.etl.payload.models import (
 )
 from context_use.memories.config import MemoryConfig
 from context_use.memories.prompt.conversation import ConversationMemoryPromptBuilder
+from context_use.models.etl_task import EtlTask
 from context_use.providers.chatgpt.schemas import (
     ChatGPTConversationRecord,
     ChatGPTMessage,

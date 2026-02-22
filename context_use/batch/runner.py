@@ -9,28 +9,17 @@ from context_use.batch.manager import (
     ScheduleInstruction,
     get_manager_for_category,
 )
-from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.policy import ImmediateRunPolicy, RunPolicy
+from context_use.models.batch import Batch, BatchCategory
 
 if TYPE_CHECKING:
-    from context_use.db.base import DatabaseBackend
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
 
 async def run_batch(manager: BaseBatchManager) -> None:
-    """Drive a single batch to completion using an async loop.
-
-    Equivalent for Celery orchestration:
-
-        @celery.task
-        def try_advance_batch_task(self, batch_id):
-            instruction = run_async(manager.try_advance_state())
-            if not instruction.stop:
-                try_advance_batch_task.apply_async(
-                    (batch_id,), countdown=instruction.countdown or 0
-                )
-    """
+    """Drive a single batch to completion using an async loop."""
     while True:
         instruction: ScheduleInstruction = await manager.try_advance_state()
 
@@ -43,15 +32,14 @@ async def run_batch(manager: BaseBatchManager) -> None:
 
 async def run_batches(
     batches: list[Batch],
-    db_backend: DatabaseBackend,
+    store: Store,
     *,
     manager_kwargs: dict | None = None,
 ) -> None:
     """Run multiple batches concurrently.
 
     Each batch gets its own ``BaseBatchManager`` (resolved via the category
-    registry).  The manager creates isolated sessions from *db_backend*
-    so concurrent batches never share a database session.
+    registry).  All managers share the ``store`` instance.
     """
     manager_kwargs = manager_kwargs or {}
 
@@ -59,7 +47,7 @@ async def run_batches(
     for batch in batches:
         category = BatchCategory(batch.category)
         manager_cls = get_manager_for_category(category)
-        manager = manager_cls(batch=batch, db_backend=db_backend, **manager_kwargs)
+        manager = manager_cls(batch=batch, store=store, **manager_kwargs)
         tasks.append(asyncio.create_task(run_batch(manager)))
 
     if tasks:
@@ -68,17 +56,12 @@ async def run_batches(
 
 async def run_pipeline(
     batches: list[Batch],
-    db_backend: DatabaseBackend,
+    store: Store,
     *,
     policy: RunPolicy | None = None,
     manager_kwargs: dict | None = None,
 ) -> None:
-    """Top-level entry point: check policy then process batches.
-
-    ``policy`` defaults to ``ImmediateRunPolicy`` (always allows, no
-    tracking).  Hosted deployments can supply a ``ManagedRunPolicy``
-    that enforces mutual exclusion and records pipeline runs.
-    """
+    """Top-level entry point: check policy then process batches."""
     policy = policy or ImmediateRunPolicy()
 
     run_id = await policy.acquire()
@@ -87,7 +70,7 @@ async def run_pipeline(
         return
 
     try:
-        await run_batches(batches, db_backend=db_backend, manager_kwargs=manager_kwargs)
+        await run_batches(batches, store=store, manager_kwargs=manager_kwargs)
     except Exception:
         await policy.release(run_id, success=False)
         raise

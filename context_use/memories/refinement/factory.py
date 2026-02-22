@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from context_use.batch.models import Batch, BatchCategory
-from context_use.memories.models import MemoryStatus, TapestryMemory
 from context_use.memories.refinement.states import RefinementCreatedState
+from context_use.models.batch import Batch, BatchCategory
+
+if TYPE_CHECKING:
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +18,9 @@ class RefinementBatchFactory:
     @classmethod
     async def create_refinement_batches(
         cls,
-        db: AsyncSession,
+        store: Store,
     ) -> list[Batch]:
-        stmt = select(TapestryMemory.id).where(
-            TapestryMemory.status == MemoryStatus.active.value,
-            TapestryMemory.embedding.isnot(None),
-            TapestryMemory.source_memory_ids.is_(None),
-        )
-        result = await db.execute(stmt)
-        seed_ids = [row[0] for row in result.all()]
+        seed_ids = await store.get_refinable_memory_ids()
 
         if not seed_ids:
             logger.info("No seed memories for refinement")
@@ -39,8 +33,7 @@ class RefinementBatchFactory:
             category=BatchCategory.refinement.value,
             states=[initial_state.model_dump(mode="json")],
         )
-        db.add(batch)
-        await db.flush()
+        batch = await store.create_batch(batch, [])
 
         logger.info(
             "Created refinement batch %s (%d seed memories)",

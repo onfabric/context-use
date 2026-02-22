@@ -4,13 +4,13 @@ from collections import defaultdict
 from datetime import date
 
 from context_use.batch.grouper import WindowConfig
-from context_use.etl.models.thread import Thread
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import (
     BasePromptBuilder,
     GroupContext,
     MemorySchema,
 )
+from context_use.models.thread import Thread
 
 MEDIA_MEMORIES_PROMPT = """\
 You are given social-media posts from **{{FROM_DATE}}** to \

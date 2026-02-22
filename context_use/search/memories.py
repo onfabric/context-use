@@ -1,33 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from context_use.memories.models import (
-    EMBEDDING_DIMENSIONS,
-    MemoryStatus,
-    TapestryMemory,
-)
+from context_use.models.memory import EMBEDDING_DIMENSIONS
+from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
     from context_use.llm.base import LLMClient
-
-
-@dataclass(frozen=True)
-class MemorySearchResult:
-    id: str
-    content: str
-    from_date: date
-    to_date: date
-    similarity: float | None
+    from context_use.store.base import Store
 
 
 async def search_memories(
-    session: AsyncSession,
+    store: Store,
     *,
     query: str | None = None,
     from_date: date | None = None,
@@ -37,74 +22,22 @@ async def search_memories(
 ) -> list[MemorySearchResult]:
     """Search memories by semantic similarity, time range, or both.
 
-    Args:
-        session: Active async database session.
-        query: Free-text query for semantic search (requires ``llm_client``).
-        from_date: Only include memories whose ``from_date >= from_date``.
-        to_date: Only include memories whose ``to_date <= to_date``.
-        top_k: Maximum number of results to return.
-        llm_client: Required when *query* is provided. Ensures the same
-            embedding model is used for queries and stored vectors.
-
-    Returns:
-        A list of :class:`MemorySearchResult` ordered by relevance (semantic)
-        or date (time-range only).
+    This is a thin adapter that embeds the query (if provided) and
+    delegates to ``store.search_memories()``.
     """
     if query is None and from_date is None and to_date is None:
         raise ValueError("Provide at least one of: query, from_date, to_date")
 
-    query_vec: list[float] | None = None
+    query_embedding: list[float] | None = None
     if query is not None:
         if llm_client is None:
             raise ValueError("llm_client is required for semantic search")
-        query_vec = await llm_client.embed_query(query)
-        assert len(query_vec) == EMBEDDING_DIMENSIONS
+        query_embedding = await llm_client.embed_query(query)
+        assert len(query_embedding) == EMBEDDING_DIMENSIONS
 
-    columns: list = [TapestryMemory]
-    distance_col = None
-    if query_vec is not None:
-        distance_col = TapestryMemory.embedding.cosine_distance(query_vec).label(
-            "distance"
-        )
-        columns.append(distance_col)
-
-    stmt = select(*columns).where(TapestryMemory.status == MemoryStatus.active.value)
-
-    if query_vec is not None:
-        stmt = stmt.where(TapestryMemory.embedding.isnot(None))
-
-    if from_date is not None:
-        stmt = stmt.where(TapestryMemory.from_date >= from_date)
-    if to_date is not None:
-        stmt = stmt.where(TapestryMemory.to_date <= to_date)
-
-    if distance_col is not None:
-        stmt = stmt.order_by(distance_col)
-    else:
-        stmt = stmt.order_by(TapestryMemory.from_date.desc())
-
-    stmt = stmt.limit(top_k)
-
-    result = await session.execute(stmt)
-    rows = result.all()
-
-    results: list[MemorySearchResult] = []
-    for row in rows:
-        if query_vec is not None:
-            memory, distance = row
-            similarity = 1 - distance
-        else:
-            (memory,) = row
-            similarity = None
-
-        results.append(
-            MemorySearchResult(
-                id=memory.id,
-                content=memory.content,
-                from_date=memory.from_date,
-                to_date=memory.to_date,
-                similarity=similarity,
-            )
-        )
-
-    return results
+    return await store.search_memories(
+        query_embedding=query_embedding,
+        from_date=from_date,
+        to_date=to_date,
+        top_k=top_k,
+    )

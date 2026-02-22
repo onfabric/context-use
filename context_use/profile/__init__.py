@@ -1,5 +1,5 @@
+from context_use.models.profile import TapestryProfile
 from context_use.profile.generator import generate_profile
-from context_use.profile.models import TapestryProfile
 from context_use.profile.rules import RegenerationRule
 from context_use.profile.trigger import trigger_profile_regeneration
 

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.etl_task import EtlTask
+from context_use.models.etl_task import EtlTask
 from context_use.providers.types import InteractionConfig, ProviderConfig
 from context_use.storage.base import StorageBackend
 

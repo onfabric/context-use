@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import TYPE_CHECKING
 
 from context_use.llm.base import LLMClient
-from context_use.memories.models import MemoryStatus, TapestryMemory
-from context_use.profile.models import TapestryProfile
+from context_use.models.memory import MemoryStatus
+from context_use.models.profile import TapestryProfile
 from context_use.profile.prompt import build_profile_prompt
+
+if TYPE_CHECKING:
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ DEFAULT_LOOKBACK_MONTHS = 6
 
 
 async def generate_profile(
-    db: AsyncSession,
+    store: Store,
     llm_client: LLMClient,
     *,
     current_profile: TapestryProfile | None = None,
@@ -28,7 +29,11 @@ async def generate_profile(
     Loads recent active memories, builds a prompt (including the existing
     profile if present), calls the LLM, and upserts the profile row.
     """
-    memories = await _load_recent_memories(db, lookback_months)
+    cutoff = datetime.now(UTC).date() - timedelta(days=lookback_months * 30)
+    memories = await store.list_memories(
+        status=MemoryStatus.active.value,
+        from_date=cutoff,
+    )
 
     logger.info(
         "Generating profile from %d memories (lookback=%d months)",
@@ -49,6 +54,7 @@ async def generate_profile(
         current_profile.content = content
         current_profile.generated_at = now
         current_profile.memory_count = len(memories)
+        await store.save_profile(current_profile)
         profile = current_profile
     else:
         profile = TapestryProfile(
@@ -56,9 +62,7 @@ async def generate_profile(
             generated_at=now,
             memory_count=len(memories),
         )
-        db.add(profile)
-
-    await db.flush()
+        await store.save_profile(profile)
 
     logger.info(
         "Profile generated (%d chars, %d memories)",
@@ -66,18 +70,3 @@ async def generate_profile(
         len(memories),
     )
     return profile
-
-
-async def _load_recent_memories(
-    db: AsyncSession,
-    lookback_months: int,
-) -> list[TapestryMemory]:
-    cutoff = datetime.now(UTC).date() - timedelta(days=lookback_months * 30)
-
-    stmt = select(TapestryMemory).where(
-        TapestryMemory.status == MemoryStatus.active.value,
-        TapestryMemory.from_date >= cutoff,
-    )
-
-    result = await db.execute(stmt.order_by(TapestryMemory.from_date))
-    return list(result.scalars().all())

@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from context_use.batch.models import BatchCategory, BatchStateMixin
 from context_use.batch.states import (
     CurrentState,
     FailedState,
@@ -14,11 +13,10 @@ from context_use.batch.states import (
     State,
     StopState,
 )
+from context_use.models.batch import Batch, BatchCategory
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
-
-    from context_use.db.base import DatabaseBackend
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -63,43 +61,35 @@ def get_manager_for_category(category: BatchCategory) -> type[BaseBatchManager]:
 class BaseBatchManager(ABC):
     """State-machine orchestrator for a single batch.
 
-    Each manager owns its own database sessions via a ``DatabaseBackend``.
-    A fresh session is created per ``try_advance_state`` call so that
-    concurrent managers never share a session.
+    Each manager owns a ``Store`` reference.  A fresh ``atomic()`` scope
+    is opened per ``try_advance_state`` call.
 
     Sub-classes implement ``_transition`` which maps
     ``current_state → new_state | None``.
     """
 
-    def __init__(self, batch: BatchStateMixin, db_backend: DatabaseBackend) -> None:
-        if not isinstance(batch, BatchStateMixin):
-            raise TypeError(
-                f"batch must be a BatchStateMixin, got {type(batch).__name__}"
-            )
+    def __init__(self, batch: Batch, store: Store) -> None:
         self.batch = batch
-        self._db_backend = db_backend
-        self.db: AsyncSession | None = None
+        self.store = store
 
     @abstractmethod
     async def _transition(self, current_state: State) -> State | None:
         """Return the next state, or ``None`` to stop."""
 
     async def try_advance_state(self) -> ScheduleInstruction:
-        """Advance one step and return what the runner should do next.
-
-        Opens a dedicated session for this transition cycle.
-        The batch ORM object is merged into the new session so that
-        state mutations are persisted correctly.
-        """
+        """Advance one step and return what the runner should do next."""
         batch_id = self.batch.id
         current_status = self.batch.current_status
 
-        async with self._db_backend.session_scope() as session:
-            self.db = session
-            self.batch = await session.merge(self.batch)
+        async with self.store.atomic():
+            refreshed = await self.store.get_batch(batch_id)
+            if refreshed is None:
+                logger.error("[%s] Batch not found in store", batch_id)
+                return ScheduleInstruction(stop=True)
+            self.batch = refreshed
 
             try:
-                current_state = self.batch.current_state
+                current_state = self.batch.parse_current_state()
                 new_state = await self._transition(current_state)
 
                 if new_state is None:
@@ -135,31 +125,26 @@ class BaseBatchManager(ABC):
                             f"State: {new_state.status}"
                         )
 
-                self.batch.update_state(new_state)
-                # session_scope commits on clean exit
+                self.batch.push_state(new_state)
+                await self.store.update_batch(self.batch)
 
             except Exception as exc:
-                await session.rollback()
                 logger.error(
                     "[%s] Error advancing state: %s",
                     batch_id,
                     exc,
                     exc_info=True,
                 )
-                self.batch = await session.merge(self.batch)
-                self.batch.update_state(
+                self.batch.push_state(
                     FailedState(
                         error_message=str(exc),
                         previous_status=current_status,
                     )
                 )
-                await session.commit()
+                await self.store.update_batch(self.batch)
                 return ScheduleInstruction(stop=True)
-            finally:
-                self.db = None
 
-        # Build scheduling instruction (outside the session scope)
-        final_state = self.batch.current_state
+        final_state = self.batch.parse_current_state()
         if isinstance(final_state, StopState):
             logger.info("[%s] Terminal state: %s", batch_id, final_state.status)
             return ScheduleInstruction(stop=True)

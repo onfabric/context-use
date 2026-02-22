@@ -7,7 +7,7 @@ from typing import ClassVar
 from pydantic import BaseModel
 
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.etl_task import EtlTask
+from context_use.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
 

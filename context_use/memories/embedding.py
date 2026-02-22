@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from context_use.llm.base import EmbedBatchResults, EmbedItem, LLMClient
-from context_use.memories.models import TapestryMemory
+from context_use.models.memory import TapestryMemory
+
+if TYPE_CHECKING:
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +28,19 @@ async def submit_memory_embeddings(
 async def store_memory_embeddings(
     results: EmbedBatchResults,
     batch_id: str,
-    db,
+    store: Store,
 ) -> int:
     """Write embedding vectors back onto existing memory rows.
 
-    Returns count stored.  Does **not** commit — the caller's session
-    scope is responsible for committing.
+    Returns count stored.
     """
+    memory_ids = list(results.keys())
+    memories = await store.get_memories(memory_ids)
+    memories_by_id = {m.id: m for m in memories}
+
     count = 0
     for memory_id, vector in results.items():
-        memory = await db.get(TapestryMemory, memory_id)
+        memory = memories_by_id.get(memory_id)
         if memory is None:
             logger.warning(
                 "[%s] Memory %s not found, skipping embedding",
@@ -42,6 +49,7 @@ async def store_memory_embeddings(
             )
             continue
         memory.embedding = vector
+        await store.update_memory(memory)
         count += 1
 
     logger.info("[%s] Stored %d embeddings", batch_id, count)

@@ -5,8 +5,8 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
-from context_use.etl.models.thread import Thread
 from context_use.llm.base import PromptItem
+from context_use.models.thread import Thread
 
 
 class Memory(BaseModel):

@@ -8,7 +8,6 @@ from datetime import UTC, datetime
 from context_use.batch.grouper import WindowGrouper
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.etl_task import EtlTask
 from context_use.etl.payload.models import (
     CURRENT_THREAD_PAYLOAD_VERSION,
     FibreCreateObject,
@@ -17,6 +16,7 @@ from context_use.etl.payload.models import (
 )
 from context_use.memories.config import MemoryConfig
 from context_use.memories.prompt.media import MediaMemoryPromptBuilder
+from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     InstagramMediaItem,
     InstagramMediaRecord,

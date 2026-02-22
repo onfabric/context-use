@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from context_use.memories.models import TapestryMemory
+from context_use.models.memory import TapestryMemory
 
 PROFILE_PROMPT = """\
 You are given a collection of first-person memories from a user's life. \

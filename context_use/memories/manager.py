@@ -5,10 +5,7 @@ from collections.abc import Callable
 from datetime import date
 from typing import TYPE_CHECKING
 
-from sqlalchemy import select
-
 from context_use.batch.manager import BaseBatchManager, register_batch_manager
-from context_use.batch.models import Batch, BatchCategory
 from context_use.batch.states import (
     CompleteState,
     CreatedState,
@@ -23,7 +20,6 @@ from context_use.memories.embedding import (
 )
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
-from context_use.memories.models import TapestryMemory
 from context_use.memories.prompt import (
     GroupContext,
     MemorySchema,
@@ -34,10 +30,12 @@ from context_use.memories.states import (
     MemoryGenerateCompleteState,
     MemoryGeneratePendingState,
 )
+from context_use.models.batch import Batch, BatchCategory
+from context_use.models.memory import TapestryMemory
 from context_use.storage.base import StorageBackend
 
 if TYPE_CHECKING:
-    from context_use.db.base import DatabaseBackend
+    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -57,12 +55,12 @@ class MemoryBatchManager(BaseBatchManager):
     def __init__(
         self,
         batch: Batch,
-        db_backend: DatabaseBackend,
+        store: Store,
         llm_client: LLMClient,
         storage: StorageBackend,
         memory_config_resolver: Callable[[str], MemoryConfig],
     ) -> None:
-        super().__init__(batch, db_backend)
+        super().__init__(batch, store)
         self.batch: Batch = batch
         self.llm_client = llm_client
         self.storage = storage
@@ -72,8 +70,7 @@ class MemoryBatchManager(BaseBatchManager):
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
-        assert self.db is not None
-        groups = await self.batch_factory.get_batch_groups(self.batch, self.db)
+        groups = await self.batch_factory.get_batch_groups(self.batch, self.store)
         contexts: list[GroupContext] = []
         for group in groups:
             for t in group.threads:
@@ -121,8 +118,6 @@ class MemoryBatchManager(BaseBatchManager):
         if not all_threads:
             return SkippedState(reason="No threads for memory generation")
 
-        # Groups may span multiple interaction types; resolve the
-        # prompt builder per interaction type and collect all prompts.
         prompts = []
         by_type: dict[str, list[GroupContext]] = {}
         for ctx in contexts:
@@ -166,15 +161,11 @@ class MemoryBatchManager(BaseBatchManager):
         self,
         results: BatchResults[MemorySchema],
     ) -> list[str]:
-        """Write memories to the ``tapestry_memories`` table.
-
-        Results are keyed by ``group_id`` (the UUID used as OpenAI
-        ``custom_id``).
+        """Write memories via the Store.
 
         Returns the IDs of created memory rows so they can be persisted
         in the state object and survive process restarts.
         """
-        assert self.db is not None
         memory_ids: list[str] = []
         for group_id, schema in results.items():
             for memory in schema.memories:
@@ -184,30 +175,14 @@ class MemoryBatchManager(BaseBatchManager):
                     to_date=date.fromisoformat(memory.to_date),
                     group_id=group_id,
                 )
-                self.db.add(row)
-                await self.db.flush()
+                row = await self.store.create_memory(row)
                 memory_ids.append(row.id)
 
         logger.info("[%s] Stored %d memories", self.batch.id, len(memory_ids))
         return memory_ids
 
-    async def _get_batch_unembedded_memories(
-        self, memory_ids: list[str]
-    ) -> list[TapestryMemory]:
-        """Return unembedded memories from *memory_ids*."""
-        assert self.db is not None
-        if not memory_ids:
-            return []
-        result = await self.db.execute(
-            select(TapestryMemory).where(
-                TapestryMemory.id.in_(memory_ids),
-                TapestryMemory.embedding.is_(None),
-            )
-        )
-        return list(result.scalars().all())
-
     async def _trigger_embedding(self, memory_ids: list[str]) -> State:
-        memories = await self._get_batch_unembedded_memories(memory_ids)
+        memories = await self.store.get_unembedded_memories(memory_ids)
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
 
@@ -217,10 +192,9 @@ class MemoryBatchManager(BaseBatchManager):
         return MemoryEmbedPendingState(job_key=job_key)
 
     async def _check_embedding_status(self, state: MemoryEmbedPendingState) -> State:
-        assert self.db is not None
         results = await self.llm_client.embed_batch_get_results(state.job_key)
         if results is None:
             return state
 
-        count = await store_memory_embeddings(results, self.batch.id, self.db)
+        count = await store_memory_embeddings(results, self.batch.id, self.store)
         return MemoryEmbedCompleteState(embedded_count=count)

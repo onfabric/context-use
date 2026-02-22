@@ -7,9 +7,9 @@ Override with the ``CONTEXT_USE_CONFIG`` environment variable.
 Data directory layout::
 
     data/
-      input/       ← drop your .zip archives here
-      output/      ← exported memories and profiles land here
-      storage/     ← internal extracted archive data
+      input/       <- drop your .zip archives here
+      output/      <- exported memories and profiles land here
+      storage/     <- internal extracted archive data
 """
 
 from __future__ import annotations
@@ -34,6 +34,10 @@ def _config_path() -> Path:
 class Config:
     openai_api_key: str = ""
 
+    # Store backend: "memory" (default, no external deps) or "postgres"
+    store_provider: str = "memory"
+
+    # Postgres settings (only used when store_provider == "postgres")
     db_host: str = "localhost"
     db_port: int = 5432
     db_name: str = "context_use"
@@ -58,6 +62,10 @@ class Config:
     def storage_path(self) -> str:
         return str(Path(self.data_dir) / "storage")
 
+    @property
+    def uses_postgres(self) -> bool:
+        return self.store_provider == "postgres"
+
     def ensure_dirs(self) -> None:
         """Create the data directory structure if it doesn't exist."""
         self.input_dir.mkdir(parents=True, exist_ok=True)
@@ -74,10 +82,18 @@ def load_config() -> Config:
         with open(path, "rb") as f:
             data = tomllib.load(f)
         openai_section = data.get("openai", {})
+        store_section = data.get("store", {})
         db_section = data.get("database", {})
         data_section = data.get("data", {})
 
         cfg.openai_api_key = openai_section.get("api_key", cfg.openai_api_key)
+
+        cfg.store_provider = store_section.get("provider", cfg.store_provider)
+
+        # Legacy: if [database] section exists but no [store] section,
+        # infer postgres provider from the presence of DB settings
+        if db_section and "store" not in data:
+            cfg.store_provider = "postgres"
 
         cfg.db_host = db_section.get("host", cfg.db_host)
         cfg.db_port = int(db_section.get("port", cfg.db_port))
@@ -89,6 +105,7 @@ def load_config() -> Config:
 
     # Environment variables always take precedence
     cfg.openai_api_key = os.environ.get("OPENAI_API_KEY", cfg.openai_api_key)
+    cfg.store_provider = os.environ.get("CONTEXT_USE_STORE", cfg.store_provider)
     cfg.db_host = os.environ.get("POSTGRES_HOST", cfg.db_host)
     cfg.db_port = int(os.environ.get("POSTGRES_PORT", str(cfg.db_port)))
     cfg.db_name = os.environ.get("POSTGRES_DB", cfg.db_name)
@@ -107,17 +124,32 @@ def save_config(cfg: Config) -> Path:
         "[openai]",
         f'api_key = "{cfg.openai_api_key}"',
         "",
-        "[database]",
-        f'host = "{cfg.db_host}"',
-        f"port = {cfg.db_port}",
-        f'name = "{cfg.db_name}"',
-        f'user = "{cfg.db_user}"',
-        f'password = "{cfg.db_password}"',
-        "",
-        "[data]",
-        f'dir = "{cfg.data_dir}"',
+        "[store]",
+        f'provider = "{cfg.store_provider}"',
         "",
     ]
+
+    if cfg.uses_postgres:
+        lines.extend(
+            [
+                "[database]",
+                f'host = "{cfg.db_host}"',
+                f"port = {cfg.db_port}",
+                f'name = "{cfg.db_name}"',
+                f'user = "{cfg.db_user}"',
+                f'password = "{cfg.db_password}"',
+                "",
+            ]
+        )
+
+    lines.extend(
+        [
+            "[data]",
+            f'dir = "{cfg.data_dir}"',
+            "",
+        ]
+    )
+
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
 
