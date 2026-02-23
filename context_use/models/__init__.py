@@ -15,8 +15,10 @@ from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.models.memory import EMBEDDING_DIMENSIONS, MemoryStatus, TapestryMemory
 from context_use.models.profile import TapestryProfile
 from context_use.models.thread import Thread
+from context_use.models.utils import generate_uuidv4
 
 __all__ = [
+    "generate_uuidv4",
     "Archive",
     "ArchiveStatus",
     "Batch",

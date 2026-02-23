@@ -425,7 +425,7 @@ class InstagramMessagesPipe(Pipe[InstagramDirectMessage]):
             )
 
         return ThreadRow(
-            unique_key=f"{self.interaction_type}:{payload.unique_key_suffix()}",
+            unique_key=payload.unique_key(),
             provider=self.provider,
             interaction_type=self.interaction_type,
             preview=payload.get_preview("Instagram") or "",
@@ -464,7 +464,7 @@ Every `Pipe` subclass **must** set these five class variables:
 
 | Field | How to set it |
 |-------|---------------|
-| `unique_key` | `f"{self.interaction_type}:{payload.unique_key_suffix()}"` |
+| `unique_key` | `payload.unique_key()` |
 | `provider` | `self.provider` |
 | `interaction_type` | `self.interaction_type` |
 | `preview` | `payload.get_preview(provider)` — human-readable one-liner |
@@ -858,7 +858,7 @@ This means your `archive_path_pattern` is the path **relative to the archive roo
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `unique_key` | `str` | ✓ | Globally unique key, formatted as `{interaction_type}:{hash}` |
+| `unique_key` | `str` | ✓ | Globally unique key — the deterministic hash from `payload.unique_key()` |
 | `provider` | `str` | ✓ | Provider identifier — must match `Pipe.provider` |
 | `interaction_type` | `str` | ✓ | Interaction type — must match `Pipe.interaction_type` |
 | `preview` | `str` | ✓ | Human-readable one-liner (shown in search results) |
@@ -939,7 +939,7 @@ If you genuinely need a new kind:
 
 The mixin provides these methods for free:
 
-- `unique_key_suffix()` — deterministic SHA-256 hash of the serialised payload (first 16 hex chars).
+- `unique_key()` — deterministic SHA-256 hash of the serialised payload (first 16 hex chars).
 - `to_dict()` — serialise to a plain dict (via `model_dump_json`, excluding `None` values, using aliases).
 - `get_preview(provider)` — delegates to `_get_preview()`; catches exceptions and returns `None` on error.
 - `get_asat()` — extracts the `published` datetime from the payload, if set.
@@ -1035,7 +1035,7 @@ The kit provides these tests automatically — you don't write them:
 
 **Transform phase (via `run()`):**
 - `test_run_yields_well_formed_thread_rows` — validates every `ThreadRow`:
-  - `unique_key` starts with `{interaction_type}:`
+  - `unique_key` is non-empty
   - `provider` and `interaction_type` match the pipe's ClassVars
   - `version` and `asat` are set
   - `payload` is a dict containing `fibre_kind`

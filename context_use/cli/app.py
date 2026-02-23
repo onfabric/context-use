@@ -669,7 +669,7 @@ async def _pick_archive(ctx) -> tuple[str, str] | None:
 
     try:
         choice = input(f"  Which archive? [1-{len(archives)}]: ").strip()
-    except EOFError, KeyboardInterrupt:
+    except (EOFError, KeyboardInterrupt):
         print()
         return None
 
@@ -1052,7 +1052,7 @@ async def cmd_ask(args: argparse.Namespace) -> None:
         if interactive:
             try:
                 query = input(out.cyan("> ")).strip()
-            except EOFError, KeyboardInterrupt:
+            except (EOFError, KeyboardInterrupt):
                 print()
                 break
             if not query or query.lower() in ("quit", "exit", "q"):

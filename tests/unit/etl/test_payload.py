@@ -36,7 +36,7 @@ class TestFibreModels:
         assert d["target"]["name"] == "assistant"
 
         # Unique key should be deterministic
-        assert send.unique_key_suffix() == send.unique_key_suffix()
+        assert send.unique_key() == send.unique_key()
 
     def test_receive_message_preview(self):
         msg = FibreTextMessage(content="world")  # pyright: ignore[reportCallIssue]

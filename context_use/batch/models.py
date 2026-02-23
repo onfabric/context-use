@@ -8,8 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.orm.attributes import flag_modified
 
 from context_use.batch.states import CreatedState, State
-from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.db.models import Base, TimeStampMixin
 from context_use.models.batch import BatchCategory
+from context_use.models.utils import generate_uuidv4
 
 __all__ = [
     "Batch",
@@ -58,7 +59,7 @@ class BatchStateMixin:
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=new_uuid,
+        default=generate_uuidv4,
         comment="Unique identifier for the batch",
     )
 
@@ -142,7 +143,7 @@ class BatchThread(Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=new_uuid,
+        default=generate_uuidv4,
     )
 
     batch_id: Mapped[str] = mapped_column(
