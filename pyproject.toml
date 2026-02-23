@@ -42,8 +42,10 @@ packages = ["context_use"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-collect_ignore_glob = ["tests/ext/*"]
 asyncio_mode = "auto"
+markers = [
+    "integration: tests requiring PostgreSQL (deselect with '-m not integration')",
+]
 
 [tool.ruff]
 # Same as Black.
@@ -59,7 +61,6 @@ exclude = [
     ".git/",
     "__pycache__/",
     "**/site-packages/",
-    "tests/ext/",
 ]
 venvPath = "."
 venv = ".venv"
