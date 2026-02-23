@@ -6,8 +6,9 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Date, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.db.models import Base, TimeStampMixin
 from context_use.models.memory import EMBEDDING_DIMENSIONS, MemoryStatus
+from context_use.models.utils import generate_uuidv4
 
 __all__ = ["EMBEDDING_DIMENSIONS", "MemoryStatus", "TapestryMemory"]
 
@@ -20,7 +21,7 @@ class TapestryMemory(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=new_uuid,
+        default=generate_uuidv4,
     )
 
     content: Mapped[str] = mapped_column(
