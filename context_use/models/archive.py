@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import enum
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+
+from context_use.models.utils import generate_id
 
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-def _new_id() -> str:
-    return str(uuid.uuid4())
 
 
 class ArchiveStatus(enum.StrEnum):
@@ -26,7 +23,7 @@ class Archive:
 
     provider: str
 
-    id: str = field(default_factory=_new_id)
+    id: str = field(default_factory=generate_id)
     status: str = ArchiveStatus.CREATED.value
     file_uris: list[str] | None = None
     created_at: datetime = field(default_factory=_utcnow)

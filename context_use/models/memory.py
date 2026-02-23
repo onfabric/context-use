@@ -1,17 +1,14 @@
 from __future__ import annotations
 
 import enum
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
+
+from context_use.models.utils import generate_id
 
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-def _new_id() -> str:
-    return str(uuid.uuid4())
 
 
 EMBEDDING_DIMENSIONS = 3072
@@ -31,7 +28,7 @@ class TapestryMemory:
     to_date: date
     group_id: str
 
-    id: str = field(default_factory=_new_id)
+    id: str = field(default_factory=generate_id)
     embedding: list[float] | None = None
     status: str = MemoryStatus.active.value
     superseded_by: str | None = None
