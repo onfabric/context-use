@@ -5,9 +5,10 @@ from datetime import datetime
 from sqlalchemy import JSON, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.db.models import Base, TimeStampMixin
 from context_use.etl.payload.core import make_thread_payload
 from context_use.etl.payload.models import ThreadPayload
+from context_use.models.utils import generate_id
 
 
 class Thread(TimeStampMixin, Base):
@@ -16,7 +17,7 @@ class Thread(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=new_uuid,
+        default=generate_id,
     )
 
     unique_key: Mapped[str] = mapped_column(
