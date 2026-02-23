@@ -44,6 +44,5 @@ class TestE2EErrors:
         bad_json_zip.write_bytes(data)
 
         result = await ctx.process_archive(Provider.CHATGPT, str(bad_json_zip))
-        # The task should fail but the archive should complete (with errors)
         assert result.tasks_failed == 1
         assert len(result.errors) > 0
