@@ -32,6 +32,8 @@ class MemoriesResult:
 
     tasks_processed: int = 0
     batches_created: int = 0
+    threads_total: int = 0
+    threads_after_filter: int = 0
     errors: list[str] = field(default_factory=list)
 
 

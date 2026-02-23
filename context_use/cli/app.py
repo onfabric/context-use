@@ -23,11 +23,25 @@ from context_use.cli import output as out
 from context_use.cli.config import (
     Config,
     config_exists,
+    config_path_display,
     load_config,
     save_config,
 )
 
-DESCRIPTION = "context-use — turn your data exports into AI memory"
+DESCRIPTION = """\
+context-use — turn your data exports into AI memory
+
+Turn data exports from ChatGPT, Instagram, and other services into
+searchable personal memories. context-use extracts your interactions,
+generates first-person memories via LLM, and serves them through an
+MCP server so AI assistants can know about you.
+
+Quick start:
+  1. pip install context-use
+  2. export OPENAI_API_KEY=sk-...
+  3. context-use run chatgpt ~/Downloads/export.zip --quick
+
+No database or config file needed. Results are exported to ./data/output/."""
 
 
 # ── Infrastructure helpers ──────────────────────────────────────────
@@ -64,141 +78,196 @@ def _providers() -> list[str]:
     return [p.value for p in Provider]
 
 
-def _require_api_key(cfg: Config) -> None:
-    if not cfg.openai_api_key:
-        out.error(
-            "OpenAI API key not configured. "
-            "Run 'context-use init' or set OPENAI_API_KEY."
-        )
-        sys.exit(1)
+def _ensure_api_key(cfg: Config) -> None:
+    """Ensure an API key is available, prompting interactively if needed.
 
-
-def _warn_ephemeral(cfg: Config) -> None:
-    """Warn if using in-memory store (data doesn't survive across commands)."""
-    if cfg.store_provider == "memory":
-        out.warn("In-memory store: data from previous commands is not available.")
-        out.info(
-            "Use 'context-use run' to ingest + generate in one session, "
-            "or switch to PostgreSQL via 'context-use init'."
-        )
+    Used by ``cmd_run`` only — the zero-config entry point.
+    """
+    if cfg.openai_api_key:
+        return
+    if sys.stdin.isatty():
         print()
+        out.info("Memory generation requires an OpenAI API key.")
+        out.info("Get one at https://platform.openai.com/api-keys")
+        print()
+        key = input("  OpenAI API key: ").strip()
+        if key:
+            cfg.openai_api_key = key
+            save_config(cfg)
+            out.success("API key saved")
+            print()
+            return
+    out.error(
+        "OpenAI API key not configured. "
+        "Run 'context-use config set-key' or set OPENAI_API_KEY."
+    )
+    sys.exit(1)
 
 
-# ── init ────────────────────────────────────────────────────────────
+def _require_api_key(cfg: Config) -> None:
+    """Exit with guidance if no API key is configured.
+
+    Used by Postgres commands — no inline prompting.
+    """
+    if cfg.openai_api_key:
+        return
+    out.error(
+        "OpenAI API key not configured. "
+        "Run 'context-use config set-key' or set OPENAI_API_KEY."
+    )
+    sys.exit(1)
 
 
-async def cmd_init(args: argparse.Namespace) -> None:
-    out.banner()
+def _require_persistent(cfg: Config, command: str) -> None:
+    """Exit with guidance if the store is not PostgreSQL."""
+    if cfg.store_provider == "postgres":
+        return
+    out.error(f"'{command}' requires PostgreSQL for persistent storage.")
     print()
-    out.info("This wizard will set up everything you need.\n")
-
-    cfg = load_config() if config_exists() else Config()
-
-    # Step 1: Storage backend
-    out.header("Step 1/3 · Storage Backend")
-    out.info("context-use can run entirely in-memory (no external dependencies)")
-    out.info("or use PostgreSQL for persistent storage across sessions.")
+    out.info("To try context-use without a database:")
+    out.next_step("context-use run chatgpt export.zip")
     print()
-    use_pg = input("  Use PostgreSQL? [y/N] ").strip().lower()
+    out.info("To set up PostgreSQL:")
+    out.next_step("context-use config set-store postgres")
+    sys.exit(1)
 
-    if use_pg in ("y", "yes"):
-        cfg.store_provider = "postgres"
 
-        if shutil.which("docker") is not None:
-            prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
-            start_db = input(prompt_text).strip().lower()
-            if start_db in ("", "y", "yes"):
-                _start_docker_postgres(cfg)
+# ── config ──────────────────────────────────────────────────────────
 
-        host = input(f"  Database host [{cfg.db_host}]: ").strip() or cfg.db_host
-        port = input(f"  Database port [{cfg.db_port}]: ").strip() or str(cfg.db_port)
-        name = input(f"  Database name [{cfg.db_name}]: ").strip() or cfg.db_name
-        user = input(f"  Database user [{cfg.db_user}]: ").strip() or cfg.db_user
-        password = (
-            input(f"  Database password [{cfg.db_password}]: ").strip()
-            or cfg.db_password
-        )
-        cfg.db_host = host
-        cfg.db_port = int(port)
-        cfg.db_name = name
-        cfg.db_user = user
-        cfg.db_password = password
-        out.success("PostgreSQL configured")
-    else:
-        cfg.store_provider = "memory"
-        out.success("Using in-memory store")
-        out.info("  Note: data only lives for a single command invocation.")
-        out.info("  Use 'context-use run' to ingest + generate in one session.")
 
-    # Step 2: OpenAI
-    out.header("Step 2/3 · OpenAI API Key")
-    out.info("Memory generation and search require an OpenAI API key.")
-    out.info("Get one at https://platform.openai.com/api-keys")
+async def cmd_config_show(args: argparse.Namespace) -> None:
+    """Display current configuration."""
+    cfg = load_config()
+
+    out.header(f"Configuration ({config_path_display()})")
     print()
+
     if cfg.openai_api_key:
         masked = cfg.openai_api_key[:7] + "..." + cfg.openai_api_key[-4:]
-        change = input(f"  Current key: {masked}. Change it? [y/N] ").strip().lower()
-        if change in ("y", "yes"):
-            cfg.openai_api_key = input("  OpenAI API key: ").strip()
+        out.kv("OpenAI API key", masked)
     else:
-        cfg.openai_api_key = input("  OpenAI API key: ").strip()
+        out.kv("OpenAI API key", out.dim("not set"))
+
+    if cfg.store_provider == "postgres":
+        out.kv("Store", f"postgres ({cfg.db_host}:{cfg.db_port}/{cfg.db_name})")
+    else:
+        out.kv("Store", "memory (in-memory, no persistence)")
+
+    out.kv("Data directory", cfg.data_dir)
+
+    print()
+    out.info("To change settings:")
+    out.next_step("context-use config set-key", "change OpenAI API key")
+    out.next_step("context-use config set-store postgres", "set up PostgreSQL")
+    out.next_step("context-use config set-store memory", "switch to in-memory")
+    print()
+
+
+async def cmd_config_set_key(args: argparse.Namespace) -> None:
+    """Prompt for and save a new OpenAI API key."""
+    cfg = load_config() if config_exists() else Config()
+
+    out.info("Get an API key at https://platform.openai.com/api-keys")
+    print()
+
     if cfg.openai_api_key:
-        out.success("API key saved")
-    else:
-        out.warn("No API key set — you can add it later in the config file")
+        masked = cfg.openai_api_key[:7] + "..." + cfg.openai_api_key[-4:]
+        out.kv("Current key", masked)
 
-    # Step 3: Data directory
-    out.header("Step 3/3 · Data Directory")
-    out.info("Where should context-use store its data?")
-    out.info("This creates three subfolders:")
-    out.info("  input/   — drop your .zip archives here")
-    out.info("  output/  — exported memories and profiles")
-    out.info("  storage/ — internal extracted archive data")
-    print()
-    data_dir = input(f"  Data directory [{cfg.data_dir}]: ").strip() or cfg.data_dir
-    cfg.data_dir = data_dir
-    cfg.ensure_dirs()
-    out.success("Data directories created")
+    key = input("  New OpenAI API key: ").strip()
+    if not key:
+        out.warn("No key entered — keeping current value.")
+        return
 
-    # Save
+    cfg.openai_api_key = key
     path = save_config(cfg)
-    print()
-    out.success(f"Config written to {path}")
+    out.success(f"API key saved to {path}")
 
-    # Init store
+
+async def cmd_config_set_store(args: argparse.Namespace) -> None:
+    """Configure the store backend (postgres or memory)."""
+    cfg = load_config() if config_exists() else Config()
+    backend = args.backend
+
+    if backend == "memory":
+        cfg.store_provider = "memory"
+        path = save_config(cfg)
+        out.success(f"Store set to in-memory. Config written to {path}")
+        out.info("Data will only persist for the duration of a single command.")
+        out.info("Use 'context-use run' to ingest + generate in one session.")
+        return
+
+    # postgres
+    cfg.store_provider = "postgres"
+
+    out.info("Setting up PostgreSQL for persistent storage across sessions.")
+    out.info(
+        "You don't need this for quick runs — 'context-use run' works without it.\n"
+    )
+
+    if shutil.which("docker") is not None:
+        prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
+        start_db = input(prompt_text).strip().lower()
+        if start_db in ("", "y", "yes"):
+            _start_docker_postgres(cfg)
+
+    host = input(f"  Database host [{cfg.db_host}]: ").strip() or cfg.db_host
+    port = input(f"  Database port [{cfg.db_port}]: ").strip() or str(cfg.db_port)
+    name = input(f"  Database name [{cfg.db_name}]: ").strip() or cfg.db_name
+    user = input(f"  Database user [{cfg.db_user}]: ").strip() or cfg.db_user
+    password = (
+        input(f"  Database password [{cfg.db_password}]: ").strip() or cfg.db_password
+    )
+    cfg.db_host = host
+    cfg.db_port = int(port)
+    cfg.db_name = name
+    cfg.db_user = user
+    cfg.db_password = password
+
+    path = save_config(cfg)
+    out.success(f"PostgreSQL configured. Config written to {path}")
+
     try:
         ctx = _build_ctx(cfg)
         await ctx.init()
-        out.success("Store initialised")
+        out.success("Database initialised")
     except Exception as exc:
-        out.warn(f"Could not initialise store: {exc}")
-        out.info("You can retry later with: context-use init")
+        out.warn(f"Could not initialise database: {exc}")
+        out.info("You can retry later with: context-use config set-store postgres")
 
-    # Next steps
+    print()
     out.header("You're all set! Next steps:")
     print()
-    out.info(f"1. Drop your .zip exports into {out.bold(cfg.data_dir + '/input/')}")
-    if cfg.store_provider == "memory":
-        out.info("2. Run the full pipeline in one session:")
-        out.next_step("context-use run")
-        out.info("   Or directly:")
-        out.next_step("context-use run chatgpt path/to/export.zip")
-    else:
-        out.info("2. Ingest them interactively:")
-        out.next_step("context-use ingest")
-        out.info("   Or directly:")
-        out.next_step("context-use ingest instagram path/to/export.zip")
-        out.info("3. Generate memories:")
-        out.next_step("context-use memories generate")
-        out.info("4. Generate your profile:")
-        out.next_step("context-use profile generate")
-    out.info(f"{'3' if cfg.store_provider == 'memory' else '5'}. Start the MCP server:")
+    out.info("Run the full pipeline in one go:")
+    out.next_step("context-use run chatgpt path/to/export.zip")
+    out.info("Or step by step:")
+    out.next_step("context-use ingest chatgpt path/to/export.zip")
+    out.next_step("context-use memories generate")
+    out.next_step("context-use profile generate")
+    out.info("Start the MCP server:")
     out.next_step("context-use server")
     print()
 
 
+async def cmd_config_path(args: argparse.Namespace) -> None:
+    """Print the config file path."""
+    print(config_path_display())
+
+
 def _start_docker_postgres(cfg: Config) -> None:
     """Start a Postgres container via docker run."""
+    # Verify the Docker daemon is reachable before attempting anything.
+    probe = subprocess.run(
+        ["docker", "info"],
+        capture_output=True,
+        text=True,
+    )
+    if probe.returncode != 0:
+        out.error("Docker daemon is not running.")
+        out.info("Start Docker Desktop (or the docker service) and try again:")
+        out.next_step("context-use config set-store postgres")
+        sys.exit(1)
+
     container_name = "context-use-postgres"
 
     result = subprocess.run(
@@ -246,6 +315,7 @@ def _start_docker_postgres(cfg: Config) -> None:
         time.sleep(3)
     else:
         out.error(f"Failed to start Postgres: {result.stderr.strip()}")
+        sys.exit(1)
 
 
 # ── ingest ──────────────────────────────────────────────────────────
@@ -321,6 +391,7 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
     from context_use import Provider
 
     cfg = load_config()
+    _require_persistent(cfg, "ingest")
     providers = _providers()
 
     if args.provider is None:
@@ -388,13 +459,14 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
 async def cmd_run(args: argparse.Namespace) -> None:
     """Ingest an archive and run the full pipeline in one session.
 
-    This is the recommended command for in-memory store usage, since
-    each CLI invocation gets a fresh store.
+    Works with any store backend. The only command that doesn't
+    require PostgreSQL.
     """
     from context_use import Provider
 
     cfg = load_config()
-    _require_api_key(cfg)
+    cfg.ensure_dirs()
+    _ensure_api_key(cfg)
     providers = _providers()
 
     if args.provider is None:
@@ -447,10 +519,10 @@ async def cmd_run(args: argparse.Namespace) -> None:
         return
 
     # Phase 2: Memories
-    fast = getattr(args, "fast", False)
-    since = datetime.now(UTC) - timedelta(days=args.last_days) if fast else None
-    if fast:
-        out.header("Phase 2/3 · Generating memories (fast mode)")
+    quick = getattr(args, "quick", False)
+    since = datetime.now(UTC) - timedelta(days=args.last_days) if quick else None
+    if quick:
+        out.header("Phase 2/3 · Generating memories (quick mode)")
         out.info("Using real-time API — no batch polling delay.")
         if since:
             out.kv("Since", since.strftime("%Y-%m-%d"))
@@ -460,7 +532,7 @@ async def cmd_run(args: argparse.Namespace) -> None:
     print()
 
     mem_result = await ctx.generate_memories(
-        [result.archive_id], since=since, sync=fast
+        [result.archive_id], since=since, sync=quick
     )
 
     out.success("Memories generated")
@@ -472,6 +544,20 @@ async def cmd_run(args: argparse.Namespace) -> None:
 
     if count == 0:
         out.warn("No memories generated — skipping profile")
+        if (
+            quick
+            and mem_result.threads_total > 0
+            and mem_result.threads_after_filter == 0
+        ):
+            print()
+            out.info(
+                f"All {mem_result.threads_total} threads are older than "
+                f"{args.last_days} days and were excluded by --quick."
+            )
+            out.info("Try including more history with --last-days:")
+            out.next_step(
+                f"context-use run --quick --last-days 90 {provider.value} {zip_path}"
+            )
         return
 
     # Phase 3: Profile
@@ -509,7 +595,6 @@ async def cmd_run(args: argparse.Namespace) -> None:
         print()
 
     # ── Export to files ──────────────────────────────────────────
-    cfg.ensure_dirs()
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     exported: list[str] = []
 
@@ -533,6 +618,27 @@ async def cmd_run(args: argparse.Namespace) -> None:
         print()
 
     out.success("Pipeline complete!")
+
+    # ── Tier-aware next steps ────────────────────────────────────
+    print()
+    if cfg.store_provider == "postgres":
+        out.header("What's next:")
+        out.next_step("context-use memories list", "browse your memories")
+        out.next_step('context-use memories search "travel"', "search by topic")
+        out.next_step("context-use server", "start MCP server for Claude/Cursor")
+        out.next_step(
+            f"context-use run {provider.value} another_export.zip",
+            "add another archive",
+        )
+    else:
+        out.header("What's next:")
+        if quick:
+            out.info("Re-run without --quick for higher quality (uses batch API):")
+            out.next_step(f"context-use run {provider.value} {zip_path}")
+            print()
+        out.info("For persistent storage + MCP server, set up PostgreSQL:")
+        out.next_step("context-use config set-store postgres")
+    print()
 
 
 # ── memories generate ───────────────────────────────────────────────
@@ -577,8 +683,8 @@ async def _pick_archive(ctx) -> tuple[str, str] | None:
 
 async def cmd_memories_generate(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _require_persistent(cfg, "memories generate")
     _require_api_key(cfg)
-    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -588,11 +694,11 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
         return
     selected_id, selected_provider = picked
 
-    fast = getattr(args, "fast", False)
-    since = datetime.now(UTC) - timedelta(days=args.last_days) if fast else None
+    quick = getattr(args, "quick", False)
+    since = datetime.now(UTC) - timedelta(days=args.last_days) if quick else None
 
     out.header("Generating memories")
-    if fast:
+    if quick:
         out.info("Using real-time API — no batch polling delay.")
         if since:
             out.kv("Since", since.strftime("%Y-%m-%d"))
@@ -601,7 +707,7 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
         out.info("It typically takes 2-10 minutes depending on data volume.\n")
     out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
-    result = await ctx.generate_memories([selected_id], since=since, sync=fast)
+    result = await ctx.generate_memories([selected_id], since=since, sync=quick)
 
     out.success("Memories generated")
     out.kv("Tasks processed", result.tasks_processed)
@@ -640,8 +746,8 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
 
 async def cmd_memories_refine(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _require_persistent(cfg, "memories refine")
     _require_api_key(cfg)
-    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -676,7 +782,7 @@ async def cmd_memories_refine(args: argparse.Namespace) -> None:
 
 async def cmd_memories_list(args: argparse.Namespace) -> None:
     cfg = load_config()
-    _warn_ephemeral(cfg)
+    _require_persistent(cfg, "memories list")
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -710,8 +816,8 @@ async def cmd_memories_list(args: argparse.Namespace) -> None:
 
 async def cmd_memories_search(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _require_persistent(cfg, "memories search")
     _require_api_key(cfg)
-    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -747,7 +853,7 @@ async def cmd_memories_search(args: argparse.Namespace) -> None:
 
 async def cmd_memories_export(args: argparse.Namespace) -> None:
     cfg = load_config()
-    _warn_ephemeral(cfg)
+    _require_persistent(cfg, "memories export")
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -820,8 +926,8 @@ def _export_memories_json(memories: list, path: Path) -> None:
 
 async def cmd_profile_generate(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _require_persistent(cfg, "profile generate")
     _require_api_key(cfg)
-    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -868,7 +974,7 @@ async def cmd_profile_generate(args: argparse.Namespace) -> None:
 
 async def cmd_profile_show(args: argparse.Namespace) -> None:
     cfg = load_config()
-    _warn_ephemeral(cfg)
+    _require_persistent(cfg, "profile show")
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -896,7 +1002,7 @@ async def cmd_profile_show(args: argparse.Namespace) -> None:
 
 async def cmd_profile_export(args: argparse.Namespace) -> None:
     cfg = load_config()
-    _warn_ephemeral(cfg)
+    _require_persistent(cfg, "profile export")
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -925,6 +1031,7 @@ async def cmd_profile_export(args: argparse.Namespace) -> None:
 
 async def cmd_server(args: argparse.Namespace) -> None:
     cfg = load_config()
+    _require_persistent(cfg, "server")
 
     out.header("Starting MCP server")
     print()
@@ -1004,8 +1111,8 @@ async def cmd_server(args: argparse.Namespace) -> None:
 async def cmd_ask(args: argparse.Namespace) -> None:
     """Simple RAG agent: search memories + profile, then answer."""
     cfg = load_config()
+    _require_persistent(cfg, "ask")
     _require_api_key(cfg)
-    _warn_ephemeral(cfg)
 
     ctx = _build_ctx(cfg)
     await ctx.init()
@@ -1047,51 +1154,64 @@ def _build_parser() -> argparse.ArgumentParser:
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
-            "Getting started:\n"
-            "  context-use init                           Setup wizard\n"
-            "  context-use run                            Full pipeline\n"
-            "  context-use ingest                         Process archive\n"
-            "  context-use memories generate              Generate memories\n"
-            "  context-use profile generate               Create profile\n"
-            "  context-use server                         Start MCP server\n"
-            '  context-use ask "What did I do last week?" Ask a question\n'
+            "Get started (no setup needed):\n"
+            "  context-use run <provider> <path>            "
+            "Full pipeline (ingest + memories + profile)\n"
+            "  context-use run <provider> <path> --quick    "
+            "Quick demo (last 30 days, real-time API)\n"
+            "\n"
+            "All commands below require PostgreSQL\n"
+            "--- run 'context-use config set-store postgres' first "
+            "-------------------\n"
+            "  context-use ingest <provider> <path>         "
+            "Process an archive\n"
+            "  context-use memories generate                "
+            "Generate memories from archives\n"
+            "  context-use memories refine                  "
+            "Merge overlapping memories\n"
+            "  context-use memories list                    "
+            "Browse memories\n"
+            '  context-use memories search "query"          '
+            "Semantic search\n"
+            "  context-use memories export                  "
+            "Export to file\n"
+            "  context-use profile generate                 "
+            "Create your profile\n"
+            "  context-use profile show                     "
+            "View your profile\n"
+            "  context-use profile export                   "
+            "Export to markdown\n"
+            '  context-use ask "question"                   '
+            "Ask about your memories\n"
+            "  context-use server                           "
+            "Start MCP server for Claude/Cursor\n"
+            "\n"
+            "Configuration:\n"
+            "  context-use config show                      "
+            "Show current settings\n"
+            "  context-use config set-key                   "
+            "Change OpenAI API key\n"
+            "  context-use config set-store postgres        "
+            "Set up PostgreSQL\n"
+            "  context-use config path                      "
+            "Print config file location\n"
         ),
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Show detailed progress logs (polling, state transitions)",
     )
     sub = parser.add_subparsers(dest="command", title="commands")
-
-    # init
-    sub.add_parser("init", help="Interactive setup wizard")
-
-    # ingest
-    p_ingest = sub.add_parser(
-        "ingest",
-        help="Process a data export archive",
-        description=(
-            "Process a data export archive. Run without arguments to "
-            "interactively pick from archives in data/input/."
-        ),
-    )
-    p_ingest.add_argument(
-        "provider",
-        nargs="?",
-        choices=providers,
-        default=None,
-        help="Data provider (omit for interactive mode)",
-    )
-    p_ingest.add_argument(
-        "path",
-        nargs="?",
-        default=None,
-        help="Path to .zip archive (omit for interactive mode)",
-    )
 
     # run (ingest → memories → profile in one session)
     p_run = sub.add_parser(
         "run",
         help="Ingest + generate memories + profile in one session",
         description=(
-            "Run the full pipeline (ingest, memories, profile) in a single "
-            "process. Required for in-memory store; recommended for first-time use."
+            "Run the full pipeline (ingest, memories, profile) in one session. "
+            "The only command that works without PostgreSQL."
         ),
     )
     p_run.add_argument(
@@ -1113,26 +1233,50 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip profile generation",
     )
     p_run.add_argument(
-        "--fast",
+        "--quick",
         action="store_true",
-        help="Use real-time API instead of batch (faster for demos)",
+        help="Quick demo: last 30 days via real-time API (omit for full batch processing)",
     )
     p_run.add_argument(
         "--last-days",
         type=int,
         default=30,
-        help="With --fast, only process threads from the last N days (default: 30)",
+        help="With --quick, only process threads from the last N days (default: 30)",
+    )
+
+    # ingest
+    p_ingest = sub.add_parser(
+        "ingest",
+        help="Process a data export archive (requires PostgreSQL)",
+        description=(
+            "Process a data export archive. Run without arguments to "
+            "interactively pick from archives in data/input/. "
+            "Requires PostgreSQL."
+        ),
+    )
+    p_ingest.add_argument(
+        "provider",
+        nargs="?",
+        choices=providers,
+        default=None,
+        help="Data provider (omit for interactive mode)",
+    )
+    p_ingest.add_argument(
+        "path",
+        nargs="?",
+        default=None,
+        help="Path to .zip archive (omit for interactive mode)",
     )
 
     # memories
-    p_mem = sub.add_parser("memories", help="Manage memories")
+    p_mem = sub.add_parser("memories", help="Manage memories (requires PostgreSQL)")
     mem_sub = p_mem.add_subparsers(dest="memories_command", title="memories commands")
 
     p_mem_gen = mem_sub.add_parser(
         "generate", help="Generate memories from ingested archives"
     )
     p_mem_gen.add_argument(
-        "--fast",
+        "--quick",
         action="store_true",
         help="Use real-time API instead of batch (faster for demos)",
     )
@@ -1140,7 +1284,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "--last-days",
         type=int,
         default=30,
-        help="With --fast, only process threads from the last N days (default: 30)",
+        help="With --quick, only process threads from the last N days (default: 30)",
     )
     mem_sub.add_parser("refine", help="Refine overlapping memories")
 
@@ -1167,7 +1311,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mem_export.add_argument("--out", metavar="PATH", help="Output file path")
 
     # profile
-    p_prof = sub.add_parser("profile", help="Manage your profile")
+    p_prof = sub.add_parser("profile", help="Manage your profile (requires PostgreSQL)")
     prof_sub = p_prof.add_subparsers(dest="profile_command", title="profile commands")
 
     p_prof_gen = prof_sub.add_parser("generate", help="Generate or update your profile")
@@ -1184,7 +1328,9 @@ def _build_parser() -> argparse.ArgumentParser:
     p_prof_export.add_argument("--out", metavar="PATH", help="Output file path")
 
     # server
-    p_server = sub.add_parser("server", help="Start the MCP server")
+    p_server = sub.add_parser(
+        "server", help="Start the MCP server (requires PostgreSQL)"
+    )
     p_server.add_argument(
         "--transport",
         choices=["streamable-http", "stdio"],
@@ -1195,11 +1341,29 @@ def _build_parser() -> argparse.ArgumentParser:
     p_server.add_argument("--port", type=int, default=8000, help="Bind port")
 
     # ask
-    p_ask = sub.add_parser("ask", help="Ask a question about your memories")
+    p_ask = sub.add_parser(
+        "ask", help="Ask a question about your memories (requires PostgreSQL)"
+    )
     p_ask.add_argument("query", nargs="?", help="Your question")
     p_ask.add_argument(
         "--interactive", action="store_true", help="Interactive chat mode"
     )
+
+    # config
+    p_cfg = sub.add_parser("config", help="View and change settings")
+    cfg_sub = p_cfg.add_subparsers(dest="config_command", title="config commands")
+
+    cfg_sub.add_parser("show", help="Show current settings")
+    cfg_sub.add_parser("set-key", help="Change OpenAI API key")
+
+    p_cfg_store = cfg_sub.add_parser("set-store", help="Configure the store backend")
+    p_cfg_store.add_argument(
+        "backend",
+        choices=["postgres", "memory"],
+        help="Store backend to use",
+    )
+
+    cfg_sub.add_parser("path", help="Print config file location")
 
     return parser
 
@@ -1209,7 +1373,6 @@ def _build_parser() -> argparse.ArgumentParser:
 _CommandHandler = Callable[[argparse.Namespace], Coroutine[Any, Any, None]]
 
 _COMMAND_MAP: dict[str, _CommandHandler] = {
-    "init": cmd_init,
     "ingest": cmd_ingest,
     "run": cmd_run,
     "server": cmd_server,
@@ -1230,15 +1393,28 @@ _PROFILE_MAP: dict[str, _CommandHandler] = {
     "export": cmd_profile_export,
 }
 
+_CONFIG_MAP: dict[str, _CommandHandler] = {
+    "show": cmd_config_show,
+    "set-key": cmd_config_set_key,
+    "set-store": cmd_config_set_store,
+    "path": cmd_config_path,
+}
+
 
 def main() -> None:
     import logging
 
-    logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
-    logging.getLogger("litellm").setLevel(logging.CRITICAL)
-
     parser = _build_parser()
     args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="  %(name)s: %(message)s",
+        )
+    logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
+    logging.getLogger("litellm").setLevel(logging.CRITICAL)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     if not args.command:
         parser.print_help()
@@ -1254,6 +1430,11 @@ def main() -> None:
             parser.parse_args(["profile", "--help"])
             return
         handler = _PROFILE_MAP.get(args.profile_command)
+    elif args.command == "config":
+        if not args.config_command:
+            parser.parse_args(["config", "--help"])
+            return
+        handler = _CONFIG_MAP.get(args.config_command)
     else:
         handler = _COMMAND_MAP.get(args.command)
 
