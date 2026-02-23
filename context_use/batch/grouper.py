@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 
 from context_use.models.thread import Thread
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ class ThreadGroup:
     """A set of threads that must be processed together as one LLM prompt."""
 
     threads: list[Thread] = field(default_factory=list)
-    group_id: str = field(default_factory=generate_id)
+    group_id: str = field(default_factory=generate_uuidv4)
 
 
 class ThreadGrouper(ABC):

@@ -4,7 +4,7 @@ import enum
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 
 def _utcnow() -> datetime:
@@ -23,7 +23,7 @@ class Archive:
 
     provider: str
 
-    id: str = field(default_factory=generate_id)
+    id: str = field(default_factory=generate_uuidv4)
     status: str = ArchiveStatus.CREATED.value
     file_uris: list[str] | None = None
     created_at: datetime = field(default_factory=_utcnow)

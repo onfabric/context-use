@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from context_use.db.models import Base, TimeStampMixin
 from context_use.etl.payload.core import make_thread_payload
 from context_use.etl.payload.models import ThreadPayload
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 
 class Thread(TimeStampMixin, Base):
@@ -17,7 +17,7 @@ class Thread(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=generate_id,
+        default=generate_uuidv4,
     )
 
     unique_key: Mapped[str] = mapped_column(

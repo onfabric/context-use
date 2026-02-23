@@ -4,7 +4,7 @@ import enum
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 
 def _utcnow() -> datetime:
@@ -28,7 +28,7 @@ class TapestryMemory:
     to_date: date
     group_id: str
 
-    id: str = field(default_factory=generate_id)
+    id: str = field(default_factory=generate_uuidv4)
     embedding: list[float] | None = None
     status: str = MemoryStatus.active.value
     superseded_by: str | None = None

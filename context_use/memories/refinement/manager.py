@@ -31,7 +31,7 @@ from context_use.memories.refinement.states import (
 )
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.memory import MemoryStatus, TapestryMemory
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 if TYPE_CHECKING:
     from context_use.store.base import Store
@@ -104,7 +104,7 @@ class RefinementBatchManager(BaseBatchManager):
         if not raw_clusters:
             return SkippedState(reason="No refinement clusters found")
 
-        clusters = {generate_id(): ids for ids in raw_clusters}
+        clusters = {generate_uuidv4(): ids for ids in raw_clusters}
 
         logger.info(
             "[%s] Discovered %d clusters from %d seeds",

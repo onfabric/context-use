@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from functools import cached_property
 from typing import TYPE_CHECKING
 
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 if TYPE_CHECKING:
     from context_use.etl.payload.models import ThreadPayload
@@ -32,7 +32,7 @@ class Thread:
     version: str
     asat: datetime
 
-    id: str = field(default_factory=generate_id)
+    id: str = field(default_factory=generate_uuidv4)
     etl_task_id: str | None = None
     asset_uri: str | None = None
     source: str | None = None

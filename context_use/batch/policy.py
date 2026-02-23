@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from context_use.models.utils import generate_id
+from context_use.models.utils import generate_uuidv4
 
 
 class RunPolicy(ABC):
@@ -27,7 +27,7 @@ class ImmediateRunPolicy(RunPolicy):
     """Always allow. No locking, no tracking."""
 
     async def acquire(self) -> str | None:
-        return generate_id()
+        return generate_uuidv4()
 
     async def release(self, run_id: str, *, success: bool) -> None:
         pass
