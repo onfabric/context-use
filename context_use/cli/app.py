@@ -245,7 +245,7 @@ async def cmd_config_set_store(args: argparse.Namespace) -> None:
     out.next_step("context-use memories generate")
     out.next_step("context-use profile generate")
     out.info("Start the MCP server:")
-    out.next_step("context-use server")
+    out.next_step("python -m context_use.ext.mcp_use.run")
     print()
 
 
@@ -625,7 +625,10 @@ async def cmd_run(args: argparse.Namespace) -> None:
         out.header("What's next:")
         out.next_step("context-use memories list", "browse your memories")
         out.next_step('context-use memories search "travel"', "search by topic")
-        out.next_step("context-use server", "start MCP server for Claude/Cursor")
+        out.next_step(
+            "python -m context_use.ext.mcp_use.run",
+            "start MCP server for Claude/Cursor",
+        )
         out.next_step(
             f"context-use run {provider.value} another_export.zip",
             "add another archive",
@@ -964,7 +967,7 @@ async def cmd_profile_generate(args: argparse.Namespace) -> None:
     out.header("Next steps:")
     out.next_step("context-use profile show", "view the full profile")
     out.next_step("context-use profile export", "save to a markdown file")
-    out.next_step("context-use server", "start the MCP server")
+    out.next_step("python -m context_use.ext.mcp_use.run", "start the MCP server")
     out.next_step('context-use ask "Tell me about myself"', "try the built-in agent")
     print()
 
@@ -1024,85 +1027,6 @@ async def cmd_profile_export(args: argparse.Namespace) -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(profile.content, encoding="utf-8")
     out.success(f"Profile exported to {out_path}")
-
-
-# ── server ──────────────────────────────────────────────────────────
-
-
-async def cmd_server(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    _require_persistent(cfg, "server")
-
-    out.header("Starting MCP server")
-    print()
-
-    ctx = _build_ctx(cfg)
-    await ctx.init()
-
-    try:
-        from context_use.ext.mcp_use.server import create_server
-    except ImportError:
-        out.error(
-            "MCP server requires extra dependencies.\n"
-            "    Install them with: pip install context-use[mcp-use]"
-        )
-        sys.exit(1)
-
-    server = create_server(ctx)
-
-    transport = args.transport
-    port = args.port
-
-    if transport == "streamable-http":
-        out.kv("Transport", "Streamable HTTP")
-        out.kv("URL", f"http://localhost:{port}/mcp")
-    else:
-        out.kv("Transport", "stdio")
-
-    print()
-    out.info("Available tools:")
-    out.info("  • get_profile — load the user's profile summary")
-    out.info("  • search — search memories by query, date range, or both")
-
-    if transport == "streamable-http":
-        print()
-        out.header("Connect your MCP client")
-        print()
-        out.info(out.bold("Claude Desktop") + " — add to claude_desktop_config.json:")
-        print()
-        print(
-            out.dim(
-                "    {\n"
-                '      "mcpServers": {\n'
-                '        "context-use": {\n'
-                f'          "url": "http://localhost:{port}/mcp"\n'
-                "        }\n"
-                "      }\n"
-                "    }"
-            )
-        )
-        print()
-        out.info(out.bold("Cursor") + " — add to .cursor/mcp.json:")
-        print()
-        print(
-            out.dim(
-                "    {\n"
-                '      "mcpServers": {\n'
-                '        "context-use": {\n'
-                f'          "url": "http://localhost:{port}/mcp"\n'
-                "        }\n"
-                "      }\n"
-                "    }"
-            )
-        )
-    print()
-    out.rule()
-
-    kwargs: dict = {"transport": transport}
-    if transport == "streamable-http":
-        kwargs.update(host=args.host, port=port)
-
-    server.run(**kwargs)  # pyright: ignore[reportAttributeAccessIssue]
 
 
 # ── ask ─────────────────────────────────────────────────────────────
@@ -1183,7 +1107,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "Export to markdown\n"
             '  context-use ask "question"                   '
             "Ask about your memories\n"
-            "  context-use server                           "
+            "\n"
+            "MCP server (run separately):\n"
+            "  python -m context_use.ext.mcp_use.run       "
             "Start MCP server for Claude/Cursor\n"
             "\n"
             "Configuration:\n"
@@ -1327,19 +1253,6 @@ def _build_parser() -> argparse.ArgumentParser:
     p_prof_export = prof_sub.add_parser("export", help="Export profile to markdown")
     p_prof_export.add_argument("--out", metavar="PATH", help="Output file path")
 
-    # server
-    p_server = sub.add_parser(
-        "server", help="Start the MCP server (requires PostgreSQL)"
-    )
-    p_server.add_argument(
-        "--transport",
-        choices=["streamable-http", "stdio"],
-        default="streamable-http",
-        help="Transport protocol (default: streamable-http)",
-    )
-    p_server.add_argument("--host", default="0.0.0.0", help="Bind host")
-    p_server.add_argument("--port", type=int, default=8000, help="Bind port")
-
     # ask
     p_ask = sub.add_parser(
         "ask", help="Ask a question about your memories (requires PostgreSQL)"
@@ -1375,7 +1288,6 @@ _CommandHandler = Callable[[argparse.Namespace], Coroutine[Any, Any, None]]
 _COMMAND_MAP: dict[str, _CommandHandler] = {
     "ingest": cmd_ingest,
     "run": cmd_run,
-    "server": cmd_server,
     "ask": cmd_ask,
 }
 
