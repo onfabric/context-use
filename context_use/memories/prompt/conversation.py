@@ -18,48 +18,71 @@ You are given a conversation between a user and an AI assistant.
 ## Your task
 
 Extract the user's **memories** from this conversation. A memory captures \
-what the user was trying to accomplish, learn, decide, or build — written \
-from the user's perspective as if they are journaling about their work and \
-interests.
+something meaningful about the user's life — written from their perspective \
+as a first-person journal entry.
 
 **Focus on the user's messages.** The assistant's replies provide context \
-for understanding the user's goal, but memories should describe the user's \
-experience — what they were working on, what they decided, what they learned.
+(what the user learned, got help with, or decided), but memories should \
+describe the user's experience, not the assistant's answers.
 
 ### What to capture
 
-- The topic, problem, or project the user was exploring.
-- Key decisions or preferences the user expressed.
-- Technologies, tools, frameworks, or APIs the user worked with.
-- Personal context the user revealed (role, location, goals, constraints).
-- Specific outcomes: what the user built, fixed, learned, or decided.
+Extract anything that reveals who this person is:
+
+- **Work and projects** — what they were building, debugging, designing, \
+or deciding. Name specific technologies, frameworks, tools.
+- **Decisions and preferences** — choices made, opinions expressed, \
+trade-offs weighed. These reveal how the user thinks.
+- **People and relationships** — anyone mentioned by name or role \
+(partner, colleague, friend, family member). Note the relationship and \
+any context about that person.
+- **Emotional state** — frustration, excitement, anxiety, pride, \
+uncertainty, curiosity. How the user felt about what they were doing.
+- **Life events** — moves, trips, job changes, celebrations, losses, \
+health issues, milestones. These anchor who the user is in time.
+- **Interests and hobbies** — books, music, cooking, fitness, travel, \
+games, creative projects — anything beyond work.
+- **Health and wellbeing** — exercise routines, dietary choices, sleep, \
+medical concerns, mental health.
+- **Values and beliefs** — positions taken, principles expressed, things \
+the user cares about or pushes back on.
+- **Goals and aspirations** — what the user wants to achieve, learn, \
+change, or build in the future.
+- **Personal context** — role, location, background, constraints, \
+routines, habits.
 
 ### Granularity
 
 Let the content guide you:
 - A focused single-topic conversation → one memory.
 - A conversation spanning multiple distinct topics → one memory per topic.
-- A deep technical dive → memory capturing the key problem and solution.
+- A deep dive → memory capturing the key problem and outcome.
+- A conversation revealing personal context → memory capturing the \
+personal facts, not just the topic discussed.
 
 Generate between {{MIN_MEMORIES}} and {{MAX_MEMORIES}} memories.
 
 ### Detail level
 
 Each memory should be **information-dense**:
-- Name specific technologies, libraries, APIs, error messages, or design \
-choices.
-- Describe the user's specific goal, not just the general topic.
-- Include concrete details: file names, config values, architecture \
-decisions.
-- Capture the user's reasoning when they explained trade-offs.
+- Use specific names: people, places, technologies, brands — not vague \
+categories.
+- Describe the user's specific situation, not just the general topic.
+- Include concrete details that distinguish this from a generic summary.
+- Capture the user's reasoning when they explained why they chose \
+something or how they felt about it.
+- When the user learned something or got an answer, capture what they \
+learned — that's now part of their knowledge.
 
 ### What to avoid
 
-- Do not summarize what the assistant said.
+- Do not summarize what the assistant said or how it helped.
 - Do not mention the conversation itself ("I asked ChatGPT…", \
 "In a chat…").
 - Do not fabricate details not present in the conversation.
-- Do not write filler ("had a productive session").
+- Do not write filler ("had a productive session", "explored some ideas").
+- Do not ignore non-technical content — a conversation about planning a \
+birthday party is just as important as one about debugging code.
 
 {{CONTEXT}}\
 {{TRANSCRIPT}}
@@ -142,12 +165,29 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         max_m = max(1, min(self.config.max_memories, 1 + user_message_count // 5))
         return self.config.min_memories, max_m
 
+    @staticmethod
+    def _get_conversation_title(threads: list[Thread]) -> str | None:
+        for t in threads:
+            obj = t.payload.get("object", {})
+            ctx = obj.get("context", {})
+            name = ctx.get("name")
+            if name:
+                return str(name)
+        return None
+
     def _format_transcript(self, threads: list[Thread]) -> str:
+        title = self._get_conversation_title(threads)
+        header = f'## Conversation: "{title}"\n\n' if title else "## Transcript\n\n"
+
         lines: list[str] = []
+        prev_role: str | None = None
         for t in threads:
             role = "USER" if not t.is_inbound else "ASSISTANT"
             ts = t.asat.strftime("%Y-%m-%d %H:%M")
             content = t.get_message_content() or ""
+            if prev_role is not None and role != prev_role and role == "USER":
+                lines.append("")
             lines.append(f"[{role} {ts}] {content}")
+            prev_role = role
 
-        return "## Transcript\n\n" + "\n".join(lines)
+        return header + "\n".join(lines)

@@ -9,10 +9,14 @@ REFINEMENT_SYSTEM_PROMPT = """\
 You are a memory refinement assistant. You receive a cluster of related memories \
 about a person's life, extracted from different sources or time periods.
 
-Your job is to produce a refined set of memories that:
+Your job is to produce a refined set of memories that **deepens understanding** \
+of who this person is. You are not just deduplicating — you are synthesizing a \
+richer picture of their life.
+
+### Rules
 
 1. **Merge** complementary memories about the same event or topic into a single, \
-richer memory.
+richer memory. Combine details from both to create a more complete picture.
 2. **Resolve conflicts** — when memories contradict each other, prefer the one \
 with a more recent date range (from_date/to_date). If dates are identical, \
 keep both perspectives.
@@ -25,7 +29,28 @@ latest to_date of the inputs.
 6. **Track sources** — for each output memory, list the IDs of the input \
 memories it was derived from in the source_ids field.
 
-Output memories should be vivid and detail-rich, in first person, 1-3 sentences each.
+### Synthesis — go beyond merging
+
+When the cluster reveals a pattern or narrative arc, capture it:
+
+- If multiple memories describe the same ongoing project or effort, produce a \
+memory that captures the trajectory (started, evolved, concluded) — not just \
+the latest snapshot.
+- If memories reveal a relationship developing over time (mentions of the same \
+person across dates), synthesize what this relationship looks like.
+- If memories show a recurring interest or habit, name it as a pattern \
+("I've been consistently …" or "Over the past weeks I …").
+- If memories reveal a change (switched jobs, moved cities, changed a tool or \
+approach), capture the transition — what changed and what it replaced.
+
+The output should still be grounded in the input memories — synthesis means \
+connecting the dots, not inventing new ones.
+
+### Output format
+
+Output memories should be vivid and detail-rich, in first person, 1-3 sentences \
+each. A synthesized memory that captures a pattern or arc may use the full 3 \
+sentences to do it justice.
 """
 
 
