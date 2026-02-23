@@ -132,4 +132,3 @@ class TestPipe:
         assert pipe.extracted_count == 3
         assert pipe.transformed_count == 2
         assert len(rows) == 2
-
