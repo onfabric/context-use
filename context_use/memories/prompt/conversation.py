@@ -95,12 +95,16 @@ Return a JSON object with a ``memories`` array. Each memory has:
 """
 
 
+MAX_ASSISTANT_CHARS = 2000
+
+
 @dataclass(frozen=True)
 class ConversationConfig:
     """Controls memory extraction from conversation threads."""
 
     max_memories: int = 5
     min_memories: int = 1
+    max_assistant_chars: int = MAX_ASSISTANT_CHARS
 
 
 class ConversationMemoryPromptBuilder(BasePromptBuilder):
@@ -179,12 +183,15 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         title = self._get_conversation_title(threads)
         header = f'## Conversation: "{title}"\n\n' if title else "## Transcript\n\n"
 
+        limit = self.config.max_assistant_chars
         lines: list[str] = []
         prev_role: str | None = None
         for t in threads:
             role = "USER" if not t.is_inbound else "ASSISTANT"
             ts = t.asat.strftime("%Y-%m-%d %H:%M")
             content = t.get_message_content() or ""
+            if role == "ASSISTANT" and len(content) > limit:
+                content = content[:limit] + " [...]"
             if prev_role is not None and role != prev_role and role == "USER":
                 lines.append("")
             lines.append(f"[{role} {ts}] {content}")
