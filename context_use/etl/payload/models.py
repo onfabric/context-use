@@ -125,7 +125,7 @@ CURRENT_THREAD_PAYLOAD_VERSION: str = "1.0.0"
 class _BaseFibreMixin:
     """Shared utilities for all Fibre types."""
 
-    def unique_key_suffix(self) -> str:
+    def unique_key(self) -> str:
         data = self.to_dict()
 
         def _sorted(obj):

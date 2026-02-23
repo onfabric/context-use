@@ -72,7 +72,7 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
         assert payload is not None, f"Unexpected None payload for uri={record.uri!r}"
 
         asat = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
-        unique_key = f"{task.interaction_type}:{payload.unique_key_suffix()}"
+        unique_key = payload.unique_key()
 
         return ThreadRow(
             unique_key=unique_key,

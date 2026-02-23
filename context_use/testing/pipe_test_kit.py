@@ -81,7 +81,7 @@ class PipeTestKit:
         """Single run() call that checks every ThreadRow field contract.
 
         Validates: isinstance, provider, interaction_type, version,
-        asat, unique_key prefix, payload dict + fibre_kind, preview.
+        asat, unique_key, payload dict + fibre_kind, preview.
         """
         storage, key = pipe_fixture
         pipe = self.pipe_class()
@@ -90,15 +90,11 @@ class PipeTestKit:
 
         assert len(rows) >= 1, "run() should yield at least one ThreadRow"
 
-        prefix = f"{self.pipe_class.interaction_type}:"
-
         for row in rows:
             assert isinstance(row, ThreadRow)
 
-            # unique_key starts with interaction_type:
-            assert row.unique_key.startswith(prefix), (
-                f"unique_key {row.unique_key!r} should start with {prefix!r}"
-            )
+            # unique_key is set
+            assert row.unique_key, "unique_key must be set"
 
             # provider and interaction_type propagated correctly
             assert row.provider == self.pipe_class.provider, (
