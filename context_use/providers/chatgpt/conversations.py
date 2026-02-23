@@ -163,7 +163,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
         asat = _safe_timestamp(record.create_time) or datetime.now(UTC)
 
         return ThreadRow(
-            unique_key=f"chatgpt_conversations:{payload.unique_key_suffix()}",
+            unique_key=payload.unique_key(),
             provider=self.provider,
             interaction_type=self.interaction_type,
             preview=payload.get_preview("ChatGPT") or "",

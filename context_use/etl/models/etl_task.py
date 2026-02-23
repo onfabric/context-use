@@ -3,9 +3,10 @@ from __future__ import annotations
 from sqlalchemy import ForeignKey, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from context_use.db.models import Base, TimeStampMixin, new_uuid
+from context_use.db.models import Base, TimeStampMixin
 from context_use.etl.models.archive import Archive
 from context_use.models.etl_task import EtlTaskStatus
+from context_use.models.utils import generate_uuidv4
 
 __all__ = ["EtlTask", "EtlTaskStatus"]
 
@@ -16,7 +17,7 @@ class EtlTask(TimeStampMixin, Base):
     id: Mapped[str] = mapped_column(
         String(36),
         primary_key=True,
-        default=new_uuid,
+        default=generate_uuidv4,
     )
     archive_id: Mapped[str] = mapped_column(
         String(36),

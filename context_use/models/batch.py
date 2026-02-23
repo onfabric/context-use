@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import enum
-import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
+
+from context_use.models.utils import generate_uuidv4
 
 if TYPE_CHECKING:
     from context_use.batch.states import State
@@ -12,10 +13,6 @@ if TYPE_CHECKING:
 
 def _utcnow() -> datetime:
     return datetime.now(UTC)
-
-
-def _new_id() -> str:
-    return str(uuid.uuid4())
 
 
 class BatchCategory(enum.StrEnum):
@@ -33,7 +30,7 @@ class Batch:
     category: str
     states: list[dict]
 
-    id: str = field(default_factory=_new_id)
+    id: str = field(default_factory=generate_uuidv4)
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)
 
@@ -71,4 +68,4 @@ class BatchThread:
     thread_id: str
     group_id: str
 
-    id: str = field(default_factory=_new_id)
+    id: str = field(default_factory=generate_uuidv4)
