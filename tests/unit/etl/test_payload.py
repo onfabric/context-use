@@ -31,7 +31,7 @@ class TestFibreModels:
         send = FibreSendMessage(object=msg, target=target)  # pyright: ignore[reportCallIssue]
 
         d = send.to_dict()
-        assert d["fibre_kind"] == "SendMessage"
+        assert d["fibreKind"] == "SendMessage"
         assert d["object"]["content"] == "hi"
         assert d["target"]["name"] == "assistant"
 
