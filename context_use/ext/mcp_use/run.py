@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# pyright: reportMissingImports=false
+# pyright: reportMissingImports=false, reportAttributeAccessIssue=false
 """Standalone MCP server entry point for context-use.
 
 Usage::
