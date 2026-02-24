@@ -18,14 +18,25 @@ Your archive (.zip)
   MCP Server        Expose profile + semantic search to any AI assistant
 ```
 
+## Supported providers
+
+| Provider | Status | Data types | Export guide |
+|----------|--------|------------|-------------|
+| ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
+| Instagram | Available | Stories, Reels, DM conversations | [Download your data](https://help.instagram.com/181231772500920) |
+| WhatsApp | Coming soon | | |
+| Google Takeout | Coming soon | | |
+
 ## Quick start
+
+Download your data export from one of the supported providers above, then:
 
 ```bash
 git clone https://github.com/onfabric/context-use.git
 cd context-use
 uv sync
 export OPENAI_API_KEY=sk-...
-context-use run chatgpt ~/Downloads/export.zip --quick
+context-use quickstart chatgpt ~/Downloads/export.zip
 ```
 
 That's it. No database, no config file. Results are printed and exported to `data/output/`.

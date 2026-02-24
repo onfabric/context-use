@@ -1,10 +1,3 @@
-"""Main CLI application for context-use.
-
-All commands are defined here and wired to the argparse parser.
-Each command is an async function that receives the parsed args and
-config, run via ``asyncio.run()`` from :func:`main`.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -39,7 +32,7 @@ MCP server so AI assistants can know about you.
 Quick start:
   1. pip install context-use
   2. export OPENAI_API_KEY=sk-...
-  3. context-use run chatgpt ~/Downloads/export.zip --quick
+  3. context-use quickstart chatgpt ~/Downloads/export.zip
 
 No database or config file needed. Results are exported to ./data/output/."""
 
@@ -81,7 +74,7 @@ def _providers() -> list[str]:
 def _ensure_api_key(cfg: Config) -> None:
     """Ensure an API key is available, prompting interactively if needed.
 
-    Used by ``cmd_run`` only — the zero-config entry point.
+    Used by ``cmd_quickstart`` only — the zero-config entry point.
     """
     if cfg.openai_api_key:
         return
@@ -125,7 +118,7 @@ def _require_persistent(cfg: Config, command: str) -> None:
     out.error(f"'{command}' requires PostgreSQL for persistent storage.")
     print()
     out.info("To try context-use without a database:")
-    out.next_step("context-use run chatgpt export.zip")
+    out.next_step("context-use quickstart chatgpt export.zip")
     print()
     out.info("To set up PostgreSQL:")
     out.next_step("context-use config set-store postgres")
@@ -194,16 +187,14 @@ async def cmd_config_set_store(args: argparse.Namespace) -> None:
         path = save_config(cfg)
         out.success(f"Store set to in-memory. Config written to {path}")
         out.info("Data will only persist for the duration of a single command.")
-        out.info("Use 'context-use run' to ingest + generate in one session.")
+        out.info("Use 'context-use quickstart' to ingest + generate in one session.")
         return
 
     # postgres
     cfg.store_provider = "postgres"
 
     out.info("Setting up PostgreSQL for persistent storage across sessions.")
-    out.info(
-        "You don't need this for quick runs — 'context-use run' works without it.\n"
-    )
+    out.info("For trying it out without PostgreSQL, run 'context-use quickstart'\n")
 
     if shutil.which("docker") is not None:
         prompt_text = "  Start a local Postgres container with Docker? [Y/n] "
@@ -238,8 +229,8 @@ async def cmd_config_set_store(args: argparse.Namespace) -> None:
     print()
     out.header("You're all set! Next steps:")
     print()
-    out.info("Run the full pipeline in one go:")
-    out.next_step("context-use run chatgpt path/to/export.zip")
+    out.info("Try it out:")
+    out.next_step("context-use quickstart chatgpt path/to/export.zip")
     out.info("Or step by step:")
     out.next_step("context-use ingest chatgpt path/to/export.zip")
     out.next_step("context-use memories generate")
@@ -453,14 +444,14 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
     print()
 
 
-# ── run (ingest → memories → profile) ───────────────────────────────
+# ── quickstart (ingest → memories → profile, always real-time API) ──
 
 
-async def cmd_run(args: argparse.Namespace) -> None:
+async def cmd_quickstart(args: argparse.Namespace) -> None:
     """Ingest an archive and run the full pipeline in one session.
 
-    Works with any store backend. The only command that doesn't
-    require PostgreSQL.
+    Always uses the real-time API (no batch polling). Default: last 30
+    days. Use ``--full`` to process the entire archive.
     """
     from context_use import Provider
 
@@ -476,8 +467,8 @@ async def cmd_run(args: argparse.Namespace) -> None:
         provider_str, zip_path = picked
     elif args.path is None:
         out.error("Please provide both provider and path, or omit both.")
-        out.info("  Direct:      context-use run instagram export.zip")
-        out.info("  Interactive:  context-use run")
+        out.info("  Direct:      context-use quickstart instagram export.zip")
+        out.info("  Interactive:  context-use quickstart")
         sys.exit(1)
     else:
         provider_str = args.provider.lower()
@@ -491,6 +482,24 @@ async def cmd_run(args: argparse.Namespace) -> None:
         if not Path(zip_path).exists():
             out.error(f"File not found: {zip_path}")
             sys.exit(1)
+
+    full = args.full
+    since = None if full else datetime.now(UTC) - timedelta(days=args.last_days)
+
+    if full and sys.stdin.isatty():
+        print()
+        out.warn(
+            "Processing the full archive with the real-time API. "
+            "Large archives may hit OpenAI rate limits and take "
+            "significantly longer."
+        )
+        out.info("For large archives, consider using PostgreSQL with the batch API:")
+        out.next_step("context-use config set-store postgres")
+        print()
+        confirm = input("  Continue? [y/N] ").strip().lower()
+        if confirm not in ("y", "yes"):
+            out.info("Aborted.")
+            return
 
     provider = Provider(provider_str)
     ctx = _build_ctx(cfg)
@@ -518,21 +527,17 @@ async def cmd_run(args: argparse.Namespace) -> None:
         out.error(f"{result.tasks_failed} tasks failed — stopping")
         return
 
-    # Phase 2: Memories
-    quick = getattr(args, "quick", False)
-    since = datetime.now(UTC) - timedelta(days=args.last_days) if quick else None
-    if quick:
-        out.header("Phase 2/3 · Generating memories (quick mode)")
-        out.info("Using real-time API — no batch polling delay.")
-        if since:
-            out.kv("Since", since.strftime("%Y-%m-%d"))
+    # Phase 2: Memories (always real-time API)
+    out.header("Phase 2/3 · Generating memories")
+    out.info("Using real-time API — no batch polling delay.")
+    if since:
+        out.kv("Since", since.strftime("%Y-%m-%d"))
     else:
-        out.header("Phase 2/3 · Generating memories")
-        out.info("Submitting batch jobs to OpenAI and polling for results...")
+        out.info("Processing full archive history.")
     print()
 
     mem_result = await ctx.generate_memories(
-        [result.archive_id], since=since, sync=quick
+        [result.archive_id], since=since, sync=True
     )
 
     out.success("Memories generated")
@@ -545,19 +550,21 @@ async def cmd_run(args: argparse.Namespace) -> None:
     if count == 0:
         out.warn("No memories generated — skipping profile")
         if (
-            quick
+            not full
             and mem_result.threads_total > 0
             and mem_result.threads_after_filter == 0
         ):
             print()
             out.info(
                 f"All {mem_result.threads_total} threads are older than "
-                f"{args.last_days} days and were excluded by --quick."
+                f"{args.last_days} days."
             )
-            out.info("Try including more history with --last-days:")
+            out.info("Try including more history:")
             out.next_step(
-                f"context-use run --quick --last-days 90 {provider.value} {zip_path}"
+                f"context-use quickstart --last-days 90 {provider.value} {zip_path}"
             )
+            out.info("Or process the full archive:")
+            out.next_step(f"context-use quickstart --full {provider.value} {zip_path}")
         return
 
     # Phase 3: Profile
@@ -619,7 +626,7 @@ async def cmd_run(args: argparse.Namespace) -> None:
 
     out.success("Pipeline complete!")
 
-    # ── Tier-aware next steps ────────────────────────────────────
+    # ── Next steps ───────────────────────────────────────────────
     print()
     if cfg.store_provider == "postgres":
         out.header("What's next:")
@@ -630,15 +637,11 @@ async def cmd_run(args: argparse.Namespace) -> None:
             "start MCP server for Claude/Cursor",
         )
         out.next_step(
-            f"context-use run {provider.value} another_export.zip",
+            f"context-use quickstart {provider.value} another_export.zip",
             "add another archive",
         )
     else:
         out.header("What's next:")
-        if quick:
-            out.info("Re-run without --quick for higher quality (uses batch API):")
-            out.next_step(f"context-use run {provider.value} {zip_path}")
-            print()
         out.info("For persistent storage + MCP server, set up PostgreSQL:")
         out.next_step("context-use config set-store postgres")
     print()
@@ -697,20 +700,12 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
         return
     selected_id, selected_provider = picked
 
-    quick = getattr(args, "quick", False)
-    since = datetime.now(UTC) - timedelta(days=args.last_days) if quick else None
-
     out.header("Generating memories")
-    if quick:
-        out.info("Using real-time API — no batch polling delay.")
-        if since:
-            out.kv("Since", since.strftime("%Y-%m-%d"))
-    else:
-        out.info("This submits batch jobs to OpenAI and polls for results.")
-        out.info("It typically takes 2-10 minutes depending on data volume.\n")
+    out.info("This submits batch jobs to OpenAI and polls for results.")
+    out.info("It typically takes 2-10 minutes depending on data volume.\n")
     out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
-    result = await ctx.generate_memories([selected_id], since=since, sync=quick)
+    result = await ctx.generate_memories([selected_id])
 
     out.success("Memories generated")
     out.kv("Tasks processed", result.tasks_processed)
@@ -1079,10 +1074,10 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
             "Get started (no setup needed):\n"
-            "  context-use run <provider> <path>            "
-            "Full pipeline (ingest + memories + profile)\n"
-            "  context-use run <provider> <path> --quick    "
-            "Quick demo (last 30 days, real-time API)\n"
+            "  context-use quickstart <provider> <path>     "
+            "Last 30 days, real-time API\n"
+            "  context-use quickstart <provider> <path> --full  "
+            "Full archive, real-time API\n"
             "\n"
             "All commands below require PostgreSQL\n"
             "--- run 'context-use config set-store postgres' first "
@@ -1090,7 +1085,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "  context-use ingest <provider> <path>         "
             "Process an archive\n"
             "  context-use memories generate                "
-            "Generate memories from archives\n"
+            "Generate memories (batch API)\n"
             "  context-use memories refine                  "
             "Merge overlapping memories\n"
             "  context-use memories list                    "
@@ -1131,43 +1126,44 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", title="commands")
 
-    # run (ingest → memories → profile in one session)
-    p_run = sub.add_parser(
-        "run",
-        help="Ingest + generate memories + profile in one session",
+    # quickstart (ingest → memories → profile in one session, real-time API)
+    p_qs = sub.add_parser(
+        "quickstart",
+        help="Try it out — ingest + memories + profile in one session",
         description=(
-            "Run the full pipeline (ingest, memories, profile) in one session. "
-            "The only command that works without PostgreSQL."
+            "Run the full pipeline (ingest, memories, profile) in one session "
+            "using the real-time API. No database needed. "
+            "By default processes the last 30 days; use --full for all history."
         ),
     )
-    p_run.add_argument(
+    p_qs.add_argument(
         "provider",
         nargs="?",
         choices=providers,
         default=None,
         help="Data provider (omit for interactive mode)",
     )
-    p_run.add_argument(
+    p_qs.add_argument(
         "path",
         nargs="?",
         default=None,
         help="Path to .zip archive (omit for interactive mode)",
     )
-    p_run.add_argument(
+    p_qs.add_argument(
         "--skip-profile",
         action="store_true",
         help="Skip profile generation",
     )
-    p_run.add_argument(
-        "--quick",
+    p_qs.add_argument(
+        "--full",
         action="store_true",
-        help="Quick demo: last 30 days via real-time API",
+        help="Process full archive history (default: last 30 days)",
     )
-    p_run.add_argument(
+    p_qs.add_argument(
         "--last-days",
         type=int,
         default=30,
-        help="With --quick, only process threads from the last N days (default: 30)",
+        help="Only process threads from the last N days (default: 30)",
     )
 
     # ingest
@@ -1198,19 +1194,8 @@ def _build_parser() -> argparse.ArgumentParser:
     p_mem = sub.add_parser("memories", help="Manage memories (requires PostgreSQL)")
     mem_sub = p_mem.add_subparsers(dest="memories_command", title="memories commands")
 
-    p_mem_gen = mem_sub.add_parser(
-        "generate", help="Generate memories from ingested archives"
-    )
-    p_mem_gen.add_argument(
-        "--quick",
-        action="store_true",
-        help="Use real-time API instead of batch (faster for demos)",
-    )
-    p_mem_gen.add_argument(
-        "--last-days",
-        type=int,
-        default=30,
-        help="With --quick, only process threads from the last N days (default: 30)",
+    mem_sub.add_parser(
+        "generate", help="Generate memories from ingested archives (batch API)"
     )
     mem_sub.add_parser("refine", help="Refine overlapping memories")
 
@@ -1287,7 +1272,7 @@ _CommandHandler = Callable[[argparse.Namespace], Coroutine[Any, Any, None]]
 
 _COMMAND_MAP: dict[str, _CommandHandler] = {
     "ingest": cmd_ingest,
-    "run": cmd_run,
+    "quickstart": cmd_quickstart,
     "ask": cmd_ask,
 }
 
