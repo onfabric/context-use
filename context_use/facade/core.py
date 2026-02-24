@@ -247,9 +247,12 @@ class ContextUse:
             return result
 
         threads = await self._store.get_threads_by_task(task_ids)
+        result.threads_total = len(threads)
 
         if since is not None:
             threads = [t for t in threads if t.asat >= since]
+
+        result.threads_after_filter = len(threads)
 
         by_type: dict[str, list[Thread]] = defaultdict(list)
         for t in threads:
