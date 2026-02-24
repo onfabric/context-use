@@ -1161,7 +1161,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p_run.add_argument(
         "--quick",
         action="store_true",
-        help="Quick demo: last 30 days via real-time API (omit for full batch processing)",
+        help="Quick demo: last 30 days via real-time API",
     )
     p_run.add_argument(
         "--last-days",
