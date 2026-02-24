@@ -1,39 +1,44 @@
 from __future__ import annotations
 
 from context_use.models.memory import TapestryMemory
+from context_use.prompt_categories import PROFILE_SECTIONS
 
-PROFILE_PROMPT = """\
+PROFILE_PROMPT = (
+    """\
 You are given a collection of first-person memories from a user's life. \
 Each memory is a 1-3 sentence vivid recollection with a date range.
 
 {{CURRENT_PROFILE_BLOCK}}\
 ## Your task
 
-Produce a **user profile** in markdown that describes who this person is \
-based on the evidence in their memories. The profile should read like a \
-concise dossier — factual, specific, and useful as context for an AI \
-assistant that will interact with this person.
+Produce a **user profile** in markdown that captures who this person \
+truly is — their identity, how they spend their time, who matters to \
+them, and what drives them. The profile should read like a rich, \
+specific dossier that would let someone who has never met this person \
+understand them deeply.
 
-### Suggested sections
+This profile will be used as context by an AI assistant interacting \
+with this person. The more nuanced and accurate it is, the better the \
+assistant can serve them.
 
-Organise the profile into sections that best fit the evidence. These are \
-suggestions — add, remove, rename, or merge sections as the data warrants:
-
-- **Identity** — name, location, nationality, languages, age
-- **Work** — role, company, industry, tools, current projects
-- **Relationships** — key people, pets, frequent contacts
-- **Preferences** — food, travel, tools, aesthetic, communication style
-- **Interests** — hobbies, topics, communities
-- **Habits & routines** — daily patterns, recurring behaviours
+"""
+    + PROFILE_SECTIONS
+    + """
 
 ### Rules
 
 - Only state facts supported by the memories. Do not fabricate.
 - If an existing profile states something that no memory contradicts, \
 preserve it.
-- If new memories contradict the existing profile, update it.
-- Write in third person ("They work at…" / use the person's name if known).
-- Be specific: names, places, technologies — not vague summaries.
+- If new memories contradict the existing profile, update it — and note \
+the change where relevant ("Previously at Company A, now at Company B \
+since [date]").
+- Write in third person ("They work at…" / use the person's name if \
+known).
+- Be specific: names, places, technologies, people — not vague \
+summaries.
+- Look for patterns across memories: recurring topics, people, places, \
+or activities paint a richer picture than any single memory.
 - Omit sections with no evidence rather than writing "Unknown".
 - Do not include preamble, commentary, or meta-text — output only the \
 markdown profile.
@@ -42,6 +47,7 @@ markdown profile.
 
 {{MEMORIES}}
 """
+)
 
 
 def build_profile_prompt(

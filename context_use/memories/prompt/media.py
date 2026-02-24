@@ -11,8 +11,10 @@ from context_use.memories.prompt.base import (
     MemorySchema,
 )
 from context_use.models.thread import Thread
+from context_use.prompt_categories import WHAT_TO_CAPTURE
 
-MEDIA_MEMORIES_PROMPT = """\
+MEDIA_MEMORIES_PROMPT = (
+    """\
 You are given social-media posts from **{{FROM_DATE}}** to \
 **{{TO_DATE}}**, grouped by day. Each post includes a timestamp and a \
 text preview, and may have an attached image or video (labelled [Image N]).
@@ -33,6 +35,10 @@ Then reason across **all** posts in the window. Posts from different \
 days may be related — a location visible in one image may explain a \
 caption from another day, or repeated appearances of the same people or \
 places may signal a multi-day event. Connect the dots.
+
+"""
+    + WHAT_TO_CAPTURE
+    + """
 
 ### Granularity
 
@@ -56,6 +62,8 @@ detail that says something about the user's life:
 time.
 - Time-of-day context when it adds meaning (morning routine vs late \
 night).
+- The user's apparent emotional state — a celebratory dinner, a tired \
+late-night work session, an excited travel arrival.
 
 ### What to avoid
 
@@ -63,16 +71,19 @@ night).
 - Do not write filler ("had a nice day", "as seen in the photo").
 - Do not narrate the medium ("in my Instagram story") — describe the \
 experience, not the post.
+- Do not ignore people in images — who the user spends time with is \
+central to understanding their life.
 
 {{CONTEXT}}\
 {{POSTS}}
 
 ## Output format
 Return a JSON object with a ``memories`` array. Each memory has:
-- ``content``: the memory text (1-2 sentences, detail-rich).
+- ``content``: the memory text (1-2 sentences, detail-rich, first-person).
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
 """
+)
 
 
 class MediaMemoryPromptBuilder(BasePromptBuilder):
