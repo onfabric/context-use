@@ -23,7 +23,7 @@ Your archive (.zip)
 | Provider | Status | Data types | Export guide |
 |----------|--------|------------|-------------|
 | ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
-| Instagram | Available | Stories, Reels, DM conversations | [Download your data](https://help.instagram.com/181231772500920) |
+| Instagram | Available | Stories, Reels, Posts | [Download your data](https://help.instagram.com/181231772500920) |
 | WhatsApp | Coming soon | | |
 | Google Takeout | Coming soon | | |
 
@@ -35,19 +35,20 @@ Download your data export from one of the supported providers above, then:
 git clone https://github.com/onfabric/context-use.git
 cd context-use
 uv sync
-export OPENAI_API_KEY=sk-...
-context-use quickstart chatgpt ~/Downloads/export.zip
+source .venv/bin/activate
+context-use quickstart
 ```
 
-That's it. No database, no config file. Results are printed and exported to `data/output/`.
+That's it. No database, no config file. The CLI will ask which archive to process. Results are printed and exported to `data/output/`.
 
-For persistent storage, semantic search, and the MCP server, set up PostgreSQL:
+For persistent storage, semantic search, and the MCP server, set up PostgreSQL and run the full pipeline:
 
 ```bash
 context-use config set-store postgres
+context-use pipeline
 ```
 
-Then use the step-by-step commands (`ingest`, `memories generate`, `profile generate`). Run `context-use --help` to see everything available — the CLI is self-documenting and prints next steps after every command.
+Or run the steps individually (`ingest`, `memories generate`, `profile generate`). Run `context-use --help` to see everything available — the CLI is self-documenting and prints next steps after every command.
 
 ## MCP server
 
