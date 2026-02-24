@@ -269,7 +269,7 @@ See `context_use/testing/pipe_test_kit.py` — it's ~160 lines and fully docstri
 - `expected_extract_count` / `expected_transform_count` — expected counts from the fixture
 - `pipe_fixture` — pytest fixture returning `(StorageBackend, key)`
 
-The kit auto-generates: extract type/count checks, ThreadRow structural validation (including `unique_key` prefix, `fibre_kind` in payload, non-empty preview), unique key checks, count tracking, and ClassVar validation. Read the class for the full list.
+The kit auto-generates: extract type/count checks, ThreadRow structural validation (including `unique_key` prefix, `fibreKind` in payload, non-empty preview), unique key checks, count tracking, and ClassVar validation. Read the class for the full list.
 
 See `tests/unit/etl/` for working test suites — each test file demonstrates `PipeTestKit` subclassing alongside provider-specific assertions (message direction, asset URIs, edge-case filtering, payload structure).
 

@@ -141,9 +141,11 @@ class _BaseFibreMixin:
         return digest[:16]
 
     def to_dict(self) -> dict:
-        json_str = cast("BaseModel", self).model_dump_json(
-            exclude_none=True, by_alias=True
-        )
+        # NOTE: Serialises using Python field names (type, fibreKind) to match
+        # aertex's current wire format.  A future migration will switch both
+        # repos to by_alias=True for proper AS2.0 keys (@type, fibre_kind)
+        # and eventually retire the non-standard fibreKind extension entirely.
+        json_str = cast("BaseModel", self).model_dump_json(exclude_none=True)
         return json.loads(json_str)
 
     def get_preview(self, provider: str | None = None) -> str | None:

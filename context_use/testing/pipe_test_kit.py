@@ -111,7 +111,7 @@ class PipeTestKit:
 
             # payload is dict with fibre_kind
             assert isinstance(row.payload, dict), "payload must be a dict"
-            assert "fibre_kind" in row.payload, "payload must contain 'fibre_kind'"
+            assert "fibreKind" in row.payload, "payload must contain 'fibreKind'"
 
             # preview non-empty
             assert row.preview, "Preview should not be empty"
