@@ -456,6 +456,8 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
     from context_use import Provider
 
     cfg = load_config()
+    # Always use memory store for quickstart
+    cfg.store_provider = "memory"
     cfg.ensure_dirs()
     _ensure_api_key(cfg)
     providers = _providers()
@@ -529,9 +531,10 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
 
     # Phase 2: Memories (always real-time API)
     out.header("Phase 2/3 · Generating memories")
-    out.info("Using real-time API — no batch polling delay.")
+    out.info("Using real-time API.")
     if since:
         out.kv("Since", since.strftime("%Y-%m-%d"))
+        out.info(f"Only processing the last {args.last_days} days as a preview.")
     else:
         out.info("Processing full archive history.")
     print()
@@ -628,22 +631,18 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
 
     # ── Next steps ───────────────────────────────────────────────
     print()
-    if cfg.store_provider == "postgres":
-        out.header("What's next:")
-        out.next_step("context-use memories list", "browse your memories")
-        out.next_step('context-use memories search "travel"', "search by topic")
-        out.next_step(
-            "python -m context_use.ext.mcp_use.run",
-            "start MCP server for Claude/Cursor",
-        )
-        out.next_step(
-            f"context-use quickstart {provider.value} another_export.zip",
-            "add another archive",
-        )
-    else:
-        out.header("What's next:")
-        out.info("For persistent storage + MCP server, set up PostgreSQL:")
-        out.next_step("context-use config set-store postgres")
+    out.header("What's next:")
+    print()
+    out.info(
+        "This was a preview. To search, query, and connect your "
+        "memories to AI assistants, set up PostgreSQL:"
+    )
+    out.next_step("context-use config set-store postgres")
+    print()
+    out.info("Then re-ingest and generate with the full batch API:")
+    out.next_step(f"context-use ingest {provider.value} {zip_path}")
+    out.next_step("context-use memories generate")
+    out.next_step("context-use profile generate")
     print()
 
 
