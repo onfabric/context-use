@@ -9,8 +9,10 @@ from context_use.memories.prompt.base import (
     MemorySchema,
 )
 from context_use.models.thread import Thread
+from context_use.prompt_categories import WHAT_TO_CAPTURE
 
-CONVERSATION_MEMORIES_PROMPT = """\
+CONVERSATION_MEMORIES_PROMPT = (
+    """\
 You are given a conversation between a user and an AI assistant.
 
 **Period:** {{FROM_DATE}} to {{TO_DATE}}
@@ -25,31 +27,9 @@ as a first-person journal entry.
 (what the user learned, got help with, or decided), but memories should \
 describe the user's experience, not the assistant's answers.
 
-### What to capture
-
-Extract anything that reveals who this person is:
-
-- **Work and projects** — what they were building, debugging, designing, \
-or deciding. Name specific technologies, frameworks, tools.
-- **Decisions and preferences** — choices made, opinions expressed, \
-trade-offs weighed. These reveal how the user thinks.
-- **People and relationships** — anyone mentioned by name or role \
-(partner, colleague, friend, family member). Note the relationship and \
-any context about that person.
-- **Emotional state** — frustration, excitement, anxiety, pride, \
-uncertainty, curiosity. How the user felt about what they were doing.
-- **Life events** — moves, trips, job changes, celebrations, losses, \
-health issues, milestones. These anchor who the user is in time.
-- **Interests and hobbies** — books, music, cooking, fitness, travel, \
-games, creative projects — anything beyond work.
-- **Health and wellbeing** — exercise routines, dietary choices, sleep, \
-medical concerns, mental health.
-- **Values and beliefs** — positions taken, principles expressed, things \
-the user cares about or pushes back on.
-- **Goals and aspirations** — what the user wants to achieve, learn, \
-change, or build in the future.
-- **Personal context** — role, location, background, constraints, \
-routines, habits.
+"""
+    + WHAT_TO_CAPTURE
+    + """
 
 ### Granularity
 
@@ -93,6 +73,7 @@ Return a JSON object with a ``memories`` array. Each memory has:
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
 """
+)
 
 
 MAX_ASSISTANT_CHARS = 2000
