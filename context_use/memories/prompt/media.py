@@ -11,8 +11,10 @@ from context_use.memories.prompt.base import (
     MemorySchema,
 )
 from context_use.models.thread import Thread
+from context_use.prompt_categories import WHAT_TO_CAPTURE
 
-MEDIA_MEMORIES_PROMPT = """\
+MEDIA_MEMORIES_PROMPT = (
+    """\
 You are given social-media posts from **{{FROM_DATE}}** to \
 **{{TO_DATE}}**, grouped by day. Each post includes a timestamp and a \
 text preview, and may have an attached image or video (labelled [Image N]).
@@ -34,29 +36,9 @@ days may be related — a location visible in one image may explain a \
 caption from another day, or repeated appearances of the same people or \
 places may signal a multi-day event. Connect the dots.
 
-### What to capture
-
-Extract anything that reveals who this person is:
-
-- **Activities and experiences** — what they were doing, where they \
-were, what they ate, what they saw. Be specific about places and things.
-- **People and relationships** — who appears in images or is mentioned \
-in captions. Note names, tags, and the apparent relationship (friend, \
-partner, colleague, family). Recurring people across posts are \
-especially significant.
-- **Emotional tone** — the mood conveyed by the post. Celebration, \
-nostalgia, pride, exhaustion, excitement. Captions and image context \
-together reveal how the user felt.
-- **Places and travel** — locations, cities, venues, landmarks. A \
-sequence of posts from a new city likely means a trip.
-- **Interests and lifestyle** — hobbies, fitness activities, creative \
-work, food preferences, fashion choices, music, art. These build the \
-texture of who someone is.
-- **Work and projects** — anything visible on screens, whiteboards, or \
-mentioned in captions about what the user is building or doing \
-professionally.
-- **Routines and habits** — morning coffee posts, gym selfies, \
-recurring patterns that reveal daily life.
+"""
+    + WHAT_TO_CAPTURE
+    + """
 
 ### Granularity
 
@@ -101,6 +83,7 @@ Return a JSON object with a ``memories`` array. Each memory has:
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
 """
+)
 
 
 class MediaMemoryPromptBuilder(BasePromptBuilder):

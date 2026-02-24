@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from context_use.models.memory import TapestryMemory
+from context_use.prompt_categories import PROFILE_SECTIONS
 
-PROFILE_PROMPT = """\
+PROFILE_PROMPT = (
+    """\
 You are given a collection of first-person memories from a user's life. \
 Each memory is a 1-3 sentence vivid recollection with a date range.
 
@@ -19,34 +21,9 @@ This profile will be used as context by an AI assistant interacting \
 with this person. The more nuanced and accurate it is, the better the \
 assistant can serve them.
 
-### Suggested sections
-
-Organise the profile into sections that best fit the evidence. These are \
-suggestions — add, remove, rename, or merge sections as the data warrants:
-
-- **Identity** — name, location, nationality, languages, age, \
-background
-- **Work & career** — role, company, industry, tools, current projects, \
-career trajectory, professional interests
-- **Relationships & social life** — key people by name and relationship \
-(partner, family, friends, colleagues, pets). Who do they spend time \
-with? Who do they mention often?
-- **Personality & communication** — how they think, communicate, make \
-decisions. Are they analytical or intuitive? Detail-oriented or \
-big-picture? Patient or impatient?
-- **Values & beliefs** — what they care about, principles they express, \
-things they push back on or advocate for
-- **Interests & hobbies** — what they do outside work. Be specific: \
-not "likes music" but "plays jazz piano" or "listens to ambient \
-electronic music"
-- **Health & wellbeing** — exercise habits, dietary preferences, health \
-concerns, sleep patterns, mental health awareness
-- **Preferences & taste** — food, travel style, tools, aesthetic, \
-brands, communication preferences
-- **Current life context** — what is happening in their life right now. \
-Recent moves, transitions, projects, challenges. This section should \
-reflect the most recent memories and capture where they are in life \
-today.
+"""
+    + PROFILE_SECTIONS
+    + """
 
 ### Rules
 
@@ -70,6 +47,7 @@ markdown profile.
 
 {{MEMORIES}}
 """
+)
 
 
 def build_profile_prompt(
