@@ -150,20 +150,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         max_m = max(1, min(self.config.max_memories, 1 + user_message_count // 5))
         return self.config.min_memories, max_m
 
-    @staticmethod
-    def _get_conversation_title(threads: list[Thread]) -> str | None:
-        for t in threads:
-            obj = t.payload.get("object", {})
-            ctx = obj.get("context", {})
-            name = ctx.get("name")
-            if name:
-                return str(name)
-        return None
-
     def _format_transcript(self, threads: list[Thread]) -> str:
-        title = self._get_conversation_title(threads)
-        header = f'## Conversation: "{title}"\n\n' if title else "## Transcript\n\n"
-
         limit = self.config.max_assistant_chars
         lines: list[str] = []
         prev_role: str | None = None
@@ -178,4 +165,4 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
             lines.append(f"[{role} {ts}] {content}")
             prev_role = role
 
-        return header + "\n".join(lines)
+        return "## Transcript\n\n" + "\n".join(lines)
