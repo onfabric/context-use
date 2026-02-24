@@ -55,7 +55,7 @@ class TestInstagramStoriesPipe(PipeTestKit):
 
         rows = list(pipe.run(task, storage))
         for row in rows:
-            assert row.payload["fibre_kind"] == "Create"
+            assert row.payload["fibreKind"] == "Create"
 
     def test_asset_uri_populated(self, pipe_fixture):
         storage, key = pipe_fixture
@@ -96,9 +96,9 @@ class TestInstagramReelsPipe(PipeTestKit):
 
         rows = list(pipe.run(task, storage))
         assert len(rows) == 1
-        assert rows[0].payload["fibre_kind"] == "Create"
+        assert rows[0].payload["fibreKind"] == "Create"
         # Reel is video
-        assert rows[0].payload["object"]["@type"] == "Video"
+        assert rows[0].payload["object"]["type"] == "Video"
 
     def test_reel_asset_uri(self, pipe_fixture):
         storage, key = pipe_fixture

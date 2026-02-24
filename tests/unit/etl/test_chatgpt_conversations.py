@@ -50,6 +50,6 @@ class TestChatGPTConversationsPipe(PipeTestKit):
         task = self._make_task(key)
 
         rows = list(pipe.run(task, storage))
-        kinds = [r.payload["fibre_kind"] for r in rows]
+        kinds = [r.payload["fibreKind"] for r in rows]
         assert "SendMessage" in kinds
         assert "ReceiveMessage" in kinds
