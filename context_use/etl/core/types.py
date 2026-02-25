@@ -6,11 +6,11 @@ from datetime import datetime
 
 @dataclass
 class ThreadRow:
-    """Plain value object flowing from Pipe.transform() to Loader.load().
+    """Plain value object flowing from Pipe.transform() to Store.insert_threads().
 
     Contains only the domain data needed to represent a thread.
     Infrastructure concerns (``id``, ``etl_task_id``, timestamps) are
-    added by the Loader when persisting.
+    added by the Store when persisting.
     """
 
     unique_key: str
