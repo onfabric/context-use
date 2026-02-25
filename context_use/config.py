@@ -67,27 +67,35 @@ def build_store(provider: str, config: dict[str, Any]) -> Store:
 
 
 def build_llm(config: dict[str, Any]):
-    """Build an LLMClient from a config dict.
+    """Build a BaseLLMClient from a config dict.
 
     Expected shape::
 
         {"api_key": "sk-...", "model": "gpt-4o",
-         "embedding_model": "text-embedding-3-large"}
+         "embedding_model": "text-embedding-3-large",
+         "mode": "batch"}
 
     Only ``api_key`` is required; the rest have sensible defaults.
-    """
-    from context_use.llm import LLMClient, OpenAIEmbeddingModel, OpenAIModel
 
-    api_key = config.get("api_key", "")
-    model_str = config.get("model", OpenAIModel.GPT_4O.value)
-    embed_str = config.get(
-        "embedding_model", OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.value
+    Set ``mode`` to ``"sync"`` for real-time completions (quickstart),
+    or ``"batch"`` (default) for the OpenAI batch API.
+    """
+    from context_use.llm import (
+        LiteLLMBatchClient,
+        LiteLLMSyncClient,
+        OpenAIEmbeddingModel,
+        OpenAIModel,
     )
 
-    model = OpenAIModel(model_str)
-    embedding_model = OpenAIEmbeddingModel(embed_str)
+    api_key = config.get("api_key", "")
+    model = OpenAIModel(config.get("model", OpenAIModel.GPT_4O.value))
+    embedding_model = OpenAIEmbeddingModel(
+        config.get("embedding_model", OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.value)
+    )
+    mode = config.get("mode", "batch")
 
-    return LLMClient(model=model, api_key=api_key, embedding_model=embedding_model)
+    cls = LiteLLMSyncClient if mode == "sync" else LiteLLMBatchClient
+    return cls(model=model, api_key=api_key, embedding_model=embedding_model)
 
 
 def parse_config(

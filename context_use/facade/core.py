@@ -26,7 +26,7 @@ from context_use.store.base import MemorySearchResult
 if TYPE_CHECKING:
     from datetime import date, datetime
 
-    from context_use.llm.base import LLMClient
+    from context_use.llm.base import BaseLLMClient
     from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
 
@@ -54,7 +54,7 @@ class ContextUse:
         self,
         storage: StorageBackend,
         store: Store,
-        llm_client: LLMClient | None = None,
+        llm_client: BaseLLMClient | None = None,
     ) -> None:
         self._storage = storage
         self._store = store
@@ -72,7 +72,7 @@ class ContextUse:
             llm_client = build_llm(llm_cfg)
         return cls(storage=storage, store=store, llm_client=llm_client)
 
-    def _require_llm(self) -> LLMClient:
+    def _require_llm(self) -> BaseLLMClient:
         if self._llm_client is None:
             raise RuntimeError(
                 "LLM client not configured. "
@@ -210,7 +210,6 @@ class ContextUse:
         archive_ids: list[str],
         *,
         since: datetime | None = None,
-        sync: bool = False,
     ) -> MemoriesResult:
         """Create batches from ETL results and run the memory pipeline.
 
@@ -224,8 +223,6 @@ class ContextUse:
             archive_ids: Archives to process.
             since: If set, only include threads with ``asat >= since``.
                 Useful for demo / fast runs that only need recent data.
-            sync: If ``True``, use real-time OpenAI completions instead
-                of the batch API.  Much faster for small datasets.
         """
         from collections import defaultdict
 
@@ -285,7 +282,6 @@ class ContextUse:
                     "llm_client": llm,
                     "storage": self._storage,
                     "memory_config_resolver": get_memory_config,
-                    "sync_mode": sync,
                 },
             )
 

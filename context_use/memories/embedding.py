@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from context_use.llm.base import EmbedBatchResults, EmbedItem, LLMClient
+from context_use.llm.base import BaseLLMClient, EmbedBatchResults, EmbedItem
 from context_use.models.memory import TapestryMemory
 
 if TYPE_CHECKING:
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 async def submit_memory_embeddings(
     memories: list[TapestryMemory],
     batch_id: str,
-    llm_client: LLMClient,
+    llm_client: BaseLLMClient,
 ) -> str:
     """Submit an embedding batch job for *memories*. Returns the job key."""
     items = [EmbedItem(item_id=m.id, text=m.content) for m in memories]

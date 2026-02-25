@@ -7,7 +7,7 @@ from context_use.models.memory import EMBEDDING_DIMENSIONS
 from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
-    from context_use.llm.base import LLMClient
+    from context_use.llm.base import BaseLLMClient
     from context_use.store.base import Store
 
 
@@ -18,7 +18,7 @@ async def search_memories(
     from_date: date | None = None,
     to_date: date | None = None,
     top_k: int = 5,
-    llm_client: LLMClient | None = None,
+    llm_client: BaseLLMClient | None = None,
 ) -> list[MemorySearchResult]:
     """Search memories by semantic similarity, time range, or both.
 

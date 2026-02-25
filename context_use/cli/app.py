@@ -12,6 +12,7 @@ from itertools import groupby
 from pathlib import Path
 from typing import Any
 
+from context_use import ContextUse
 from context_use.cli import output as out
 from context_use.cli.config import (
     Config,
@@ -40,7 +41,7 @@ No database or config file needed. Results are exported to ./data/output/."""
 # ── Infrastructure helpers ──────────────────────────────────────────
 
 
-def _config_to_dict(cfg: Config) -> dict:
+def _config_to_dict(cfg: Config, *, llm_mode: str = "batch") -> dict:
     """Convert CLI Config into the canonical config dict for ContextUse."""
     store_config: dict[str, Any] = {}
     if cfg.store_provider == "postgres":
@@ -55,7 +56,7 @@ def _config_to_dict(cfg: Config) -> dict:
     return {
         "storage": {"provider": "disk", "config": {"base_path": cfg.storage_path}},
         "store": {"provider": cfg.store_provider, "config": store_config},
-        "llm": {"api_key": cfg.openai_api_key or ""},
+        "llm": {"api_key": cfg.openai_api_key or "", "mode": llm_mode},
     }
 
 
@@ -504,7 +505,8 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
             return
 
     provider = Provider(provider_str)
-    ctx = _build_ctx(cfg)
+    ctx_dict = _config_to_dict(cfg, llm_mode="sync")
+    ctx = ContextUse.from_config(ctx_dict)
     await ctx.init()
 
     # Phase 1: Ingest
@@ -539,9 +541,7 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
         out.info("Processing full archive history.")
     print()
 
-    mem_result = await ctx.generate_memories(
-        [result.archive_id], since=since, sync=True
-    )
+    mem_result = await ctx.generate_memories([result.archive_id], since=since)
 
     out.success("Memories generated")
     out.kv("Batches", mem_result.batches_created)

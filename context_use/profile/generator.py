@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from context_use.llm.base import LLMClient
+from context_use.llm.base import BaseLLMClient
 from context_use.models.memory import MemoryStatus
 from context_use.models.profile import TapestryProfile
 from context_use.profile.prompt import build_profile_prompt
@@ -19,7 +19,7 @@ DEFAULT_LOOKBACK_MONTHS = 6
 
 async def generate_profile(
     store: Store,
-    llm_client: LLMClient,
+    llm_client: BaseLLMClient,
     *,
     current_profile: TapestryProfile | None = None,
     lookback_months: int = DEFAULT_LOOKBACK_MONTHS,
