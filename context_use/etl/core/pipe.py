@@ -19,7 +19,7 @@ class Pipe[Record: BaseModel](ABC):
     stories).  Subclasses implement :meth:`extract` (parse the archive)
     and :meth:`transform` (shape each record into a :class:`ThreadRow`).
 
-    The **Load** step is handled separately by a :class:`Loader`.
+    The **Load** step is handled separately by the :class:`Store`.
     """
 
     provider: ClassVar[str]
