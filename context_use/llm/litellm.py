@@ -42,11 +42,11 @@ def _build_response_format(item: PromptItem) -> dict:
 
 def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     parts: list[dict[str, Any]] = []
-    for path in item.asset_paths:
+    for uri in item.asset_uris:
         try:
-            data_url = _encode_file_as_data_url(path)
+            data_url = _encode_file_as_data_url(uri)
         except FileNotFoundError:
-            logger.warning("Skipping missing asset: %s", path)
+            logger.warning("Skipping missing asset: %s", uri)
             continue
         parts.append({"type": "image_url", "image_url": {"url": data_url}})
     parts.append({"type": "text", "text": item.prompt})
@@ -66,6 +66,18 @@ class _LiteLLMBase(BaseLLMClient):
         self._embedding_model = embedding_model
         self._api_key = api_key
 
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> _LiteLLMBase:
+        api_key = config.get("api_key", "")
+        model = OpenAIModel(config.get("model", OpenAIModel.GPT_4O.value))
+        embedding_model = OpenAIEmbeddingModel(
+            config.get(
+                "embedding_model",
+                OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.value,
+            )
+        )
+        return cls(model=model, api_key=api_key, embedding_model=embedding_model)
+
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
             model=self._model.value,
@@ -74,6 +86,25 @@ class _LiteLLMBase(BaseLLMClient):
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return text.strip()
+
+    async def _raw_structured_completion(self, prompt: PromptItem) -> dict:
+        """Call the LLM with a structured response format and return parsed JSON."""
+        response = await litellm.acompletion(
+            model=self._model.value,
+            messages=_build_messages(prompt),
+            response_format=_build_response_format(prompt),
+            api_key=self._api_key,
+        )
+        text: str = response.choices[0].message.content  # type: ignore[union-attr]
+        return json.loads(text.strip())
+
+    async def structured_completion[T: BaseModel](
+        self,
+        prompt: PromptItem,
+        schema: type[T],
+    ) -> T:
+        parsed = await self._raw_structured_completion(prompt)
+        return schema.model_validate(parsed)
 
     async def embed_query(self, text: str) -> list[float]:
         response = await litellm.aembedding(
@@ -380,14 +411,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
         results: BatchResults = {}  # type: ignore[type-arg]
         for item in prompts:
             try:
-                response = await litellm.acompletion(
-                    model=self._model.value,
-                    messages=_build_messages(item),
-                    response_format=_build_response_format(item),
-                    api_key=self._api_key,
-                )
-                text: str = response.choices[0].message.content  # type: ignore[union-attr]
-                results[item.item_id] = json.loads(text.strip())
+                results[item.item_id] = await self._raw_structured_completion(item)
             except Exception:
                 logger.error(
                     "Sync completion failed for %s: %.200s",

@@ -54,7 +54,7 @@ class ContextUse:
         self,
         storage: StorageBackend,
         store: Store,
-        llm_client: BaseLLMClient | None = None,
+        llm_client: BaseLLMClient,
     ) -> None:
         self._storage = storage
         self._store = store
@@ -63,22 +63,10 @@ class ContextUse:
     @classmethod
     def from_config(cls, config: dict[str, Any]) -> ContextUse:
         """Construct a ContextUse instance from a configuration dict."""
-        from context_use.config import build_llm, parse_config
+        from context_use.config import parse_config
 
-        storage, store = parse_config(config)
-        llm_client = None
-        llm_cfg = config.get("llm", {})
-        if llm_cfg.get("api_key"):
-            llm_client = build_llm(llm_cfg)
+        storage, store, llm_client = parse_config(config)
         return cls(storage=storage, store=store, llm_client=llm_client)
-
-    def _require_llm(self) -> BaseLLMClient:
-        if self._llm_client is None:
-            raise RuntimeError(
-                "LLM client not configured. "
-                "Provide an api_key in the llm config section."
-            )
-        return self._llm_client
 
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
@@ -233,7 +221,6 @@ class ContextUse:
         from context_use.providers.registry import get_memory_config
 
         _ensure_managers_registered()
-        llm = self._require_llm()
         result = MemoriesResult()
 
         tasks = await self._store.get_tasks_by_archive(archive_ids)
@@ -279,7 +266,7 @@ class ContextUse:
                 all_batches,
                 store=self._store,
                 manager_kwargs={
-                    "llm_client": llm,
+                    "llm_client": self._llm_client,
                     "storage": self._storage,
                     "memory_config_resolver": get_memory_config,
                 },
@@ -298,7 +285,6 @@ class ContextUse:
         from context_use.memories.refinement.factory import RefinementBatchFactory
 
         _ensure_managers_registered()
-        llm = self._require_llm()
         result = RefinementResult()
 
         refinement_batches = await RefinementBatchFactory.create_refinement_batches(
@@ -311,7 +297,7 @@ class ContextUse:
             await run_pipeline(
                 refinement_batches,
                 store=self._store,
-                manager_kwargs={"llm_client": llm},
+                manager_kwargs={"llm_client": self._llm_client},
             )
 
         return result
@@ -369,15 +355,13 @@ class ContextUse:
         """Search memories by semantic similarity, time range, or both."""
         from context_use.search.memories import search_memories
 
-        llm = self._require_llm() if query is not None else None
-
         return await search_memories(
             self._store,
             query=query,
             from_date=from_date,
             to_date=to_date,
             top_k=top_k,
-            llm_client=llm,
+            llm_client=self._llm_client,
         )
 
     # ── Profile ──────────────────────────────────────────────────────
@@ -402,13 +386,11 @@ class ContextUse:
         """Generate or regenerate the user profile from active memories."""
         from context_use.profile.generator import generate_profile
 
-        llm = self._require_llm()
-
         current = await self._store.get_latest_profile()
 
         profile = await generate_profile(
             self._store,
-            llm,
+            self._llm_client,
             current_profile=current,
             lookback_months=lookback_months,
         )
@@ -423,8 +405,6 @@ class ContextUse:
 
     async def ask(self, query: str, *, top_k: int = 10) -> str:
         """Answer a question using the profile and relevant memories."""
-        llm = self._require_llm()
-
         profile = await self.get_profile()
         results = await self.search_memories(query=query, top_k=top_k)
 
@@ -445,7 +425,7 @@ class ContextUse:
 
         parts.append(f"\n## Question\n\n{query}")
 
-        return await llm.completion("\n".join(parts))
+        return await self._llm_client.completion("\n".join(parts))
 
     # ── Private helpers ──────────────────────────────────────────────
 
