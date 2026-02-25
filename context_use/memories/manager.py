@@ -75,7 +75,7 @@ class MemoryBatchManager(BaseBatchManager):
         for group in groups:
             for t in group.threads:
                 if t.asset_uri:
-                    t.asset_uri = self.storage.resolve_local_path(t.asset_uri)
+                    t.asset_uri = self.storage.resolve_uri(t.asset_uri)
             contexts.append(
                 GroupContext(
                     group_id=group.group_id,

@@ -38,6 +38,6 @@ class StorageBackend(ABC):
         ...
 
     @abstractmethod
-    def resolve_local_path(self, key: str) -> str:
-        """Return an absolute local filesystem path for *key*."""
+    def resolve_uri(self, key: str) -> str:
+        """Return a URI suitable for external consumption."""
         ...

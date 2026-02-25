@@ -63,8 +63,5 @@ class GCSStorage(StorageBackend):
         blob = self._bucket.blob(self._full_key(key))
         blob.delete()
 
-    def resolve_local_path(self, key: str) -> str:
-        # TODO: Implement this
-        raise NotImplementedError(
-            "resolve_local_path is not implemented for GCSStorage"
-        )
+    def resolve_uri(self, key: str) -> str:
+        return f"gs://{self._bucket.name}/{self._full_key(key)}"

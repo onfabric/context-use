@@ -48,5 +48,5 @@ class DiskStorage(StorageBackend):
         if path.is_file():
             path.unlink()
 
-    def resolve_local_path(self, key: str) -> str:
+    def resolve_uri(self, key: str) -> str:
         return str(self._resolve(key).resolve())
