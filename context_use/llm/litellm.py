@@ -87,7 +87,9 @@ class _LiteLLMBase(BaseLLMClient):
         return json.loads(text.strip())
 
     async def structured_completion[T: BaseModel](
-        self, prompt: PromptItem, schema: type[T],
+        self,
+        prompt: PromptItem,
+        schema: type[T],
     ) -> T:
         parsed = await self._raw_structured_completion(prompt)
         return schema.model_validate(parsed)
@@ -460,4 +462,3 @@ class LiteLLMSyncClient(_LiteLLMBase):
         job_key: str,
     ) -> EmbedBatchResults | None:
         return self._embed_cache.pop(job_key, None)
-

@@ -126,7 +126,9 @@ def build_llm(config: dict[str, Any]):
 
 
 def _build_llm_from_factory(
-    provider: str, factory: type, config: dict[str, Any],
+    provider: str,
+    factory: type,
+    config: dict[str, Any],
 ):
     """Dispatch to the right constructor based on provider."""
     if provider in ("openai", "openai-sync"):
@@ -172,7 +174,7 @@ def parse_config(
     if not llm_cfg:
         raise ValueError(
             "Missing 'llm' config section. "
-            "Provide at least {\"llm\": {\"api_key\": \"sk-...\"}}."
+            'Provide at least {"llm": {"api_key": "sk-..."}}.'
         )
 
     storage = build_storage(
