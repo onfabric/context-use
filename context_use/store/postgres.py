@@ -4,11 +4,17 @@ import logging
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from datetime import date
 
 from sqlalchemy import and_, func, literal, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.sql import text
 
 from context_use.batch.grouper import ThreadGroup
@@ -46,6 +52,17 @@ class PostgresStore(Store):
 
     def __init__(
         self,
+        session_factory: async_sessionmaker[AsyncSession],
+    ) -> None:
+        self._session_factory = session_factory
+        self._engine: AsyncEngine | None = None
+        self._current_session: ContextVar[AsyncSession | None] = ContextVar(
+            f"pg_session_{id(self)}", default=None
+        )
+
+    @classmethod
+    def from_params(
+        cls,
         host: str,
         port: int,
         database: str,
@@ -54,29 +71,25 @@ class PostgresStore(Store):
         *,
         pool_size: int = 10,
         max_overflow: int = 20,
-    ) -> None:
+    ) -> PostgresStore:
         url = f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
-        self._engine = create_async_engine(
+        engine = create_async_engine(
             url,
             echo=False,
             pool_size=pool_size,
             max_overflow=max_overflow,
         )
-        self._session_factory = async_sessionmaker(self._engine, expire_on_commit=False)
-        self._scoped_session: AsyncSession | None = None
-
-    def _session(self) -> AsyncSession:
-        """Return the scoped session (inside ``atomic()``) or a new one."""
-        if self._scoped_session is not None:
-            return self._scoped_session
-        return self._session_factory()
+        store = cls(async_sessionmaker(engine, expire_on_commit=False))
+        store._engine = engine
+        return store
 
     @asynccontextmanager
     async def _auto_session(self) -> AsyncIterator[AsyncSession]:
         """Yield the scoped session if inside ``atomic()``, else a fresh
         auto-committing session that is closed after use."""
-        if self._scoped_session is not None:
-            yield self._scoped_session
+        scoped = self._current_session.get()
+        if scoped is not None:
+            yield scoped
             return
         session = self._session_factory()
         try:
@@ -90,26 +103,37 @@ class PostgresStore(Store):
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
+    def _require_engine(self, operation: str) -> AsyncEngine:
+        if self._engine is None:
+            raise RuntimeError(
+                f"Cannot {operation}() on a PostgresStore without an owned engine. "
+                "Use from_params() or manage the schema/engine externally."
+            )
+        return self._engine
+
     async def init(self) -> None:
+        engine = self._require_engine("init")
         self._register_models()
-        async with self._engine.begin() as conn:
+        async with engine.begin() as conn:
             await conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.run_sync(Base.metadata.create_all)
 
     async def reset(self) -> None:
+        engine = self._require_engine("reset")
         self._register_models()
-        async with self._engine.begin() as conn:
+        async with engine.begin() as conn:
             await conn.execute(text("DROP SCHEMA public CASCADE"))
         await self.init()
 
     async def close(self) -> None:
-        await self._engine.dispose()
+        if self._engine is not None:
+            await self._engine.dispose()
 
     @asynccontextmanager
     async def atomic(self) -> AsyncIterator[None]:
         session = self._session_factory()
-        self._scoped_session = session
+        token = self._current_session.set(session)
         try:
             yield
             await session.commit()
@@ -118,7 +142,7 @@ class PostgresStore(Store):
             raise
         finally:
             await session.close()
-            self._scoped_session = None
+            self._current_session.reset(token)
 
     @staticmethod
     def _register_models() -> None:

@@ -63,6 +63,10 @@ def build_store(provider: str, config: dict[str, Any]) -> Store:
             f"Unknown store provider '{provider}'. "
             f"Available: {list(_STORE_FACTORIES.keys())}"
         )
+    if provider == "postgres":
+        from context_use.store.postgres import PostgresStore
+
+        return PostgresStore.from_params(**config)
     return cls(**config)
 
 

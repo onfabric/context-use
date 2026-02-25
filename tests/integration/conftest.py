@@ -62,7 +62,7 @@ async def db(settings: Settings) -> AsyncGenerator[PostgresBackend]:
 @pytest.fixture()
 async def store(settings: Settings) -> AsyncGenerator[PostgresStore]:
     """Create a PostgresStore with a clean slate for each test."""
-    pg_store = PostgresStore(
+    pg_store = PostgresStore.from_params(
         host=settings.host,
         port=settings.port,
         database=settings.database,
