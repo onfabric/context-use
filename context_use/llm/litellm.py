@@ -450,4 +450,3 @@ class LiteLLMSyncClient(_LiteLLMBase):
         job_key: str,
     ) -> EmbedBatchResults | None:
         return self._embed_cache.pop(job_key, None)
-

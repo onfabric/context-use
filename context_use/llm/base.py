@@ -52,9 +52,7 @@ class BaseLLMClient(ABC):
     """
 
     @abstractmethod
-    async def batch_submit(
-        self, batch_id: str, prompts: list[PromptItem]
-    ) -> str: ...
+    async def batch_submit(self, batch_id: str, prompts: list[PromptItem]) -> str: ...
 
     @abstractmethod
     async def batch_get_results[T: BaseModel](
@@ -68,7 +66,8 @@ class BaseLLMClient(ABC):
 
     @abstractmethod
     async def embed_batch_get_results(
-        self, job_key: str,
+        self,
+        job_key: str,
     ) -> EmbedBatchResults | None: ...
 
     @abstractmethod
