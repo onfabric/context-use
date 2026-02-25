@@ -11,7 +11,7 @@ from context_use.batch.states import (
     SkippedState,
     State,
 )
-from context_use.llm.base import LLMClient
+from context_use.llm.base import BaseLLMClient
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
@@ -56,7 +56,7 @@ class RefinementBatchManager(BaseBatchManager):
         self,
         batch: Batch,
         store: Store,
-        llm_client: LLMClient,
+        llm_client: BaseLLMClient,
         **kwargs: object,
     ) -> None:
         super().__init__(batch, store)

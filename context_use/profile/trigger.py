@@ -8,7 +8,7 @@ from context_use.profile.generator import generate_profile
 from context_use.profile.rules import RegenerationRule
 
 if TYPE_CHECKING:
-    from context_use.llm.base import LLMClient
+    from context_use.llm.base import BaseLLMClient
     from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def trigger_profile_regeneration(
     store: Store,
-    llm_client: LLMClient,
+    llm_client: BaseLLMClient,
     *,
     rules: list[RegenerationRule] | None = None,
     lookback_months: int = 6,

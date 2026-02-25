@@ -12,7 +12,7 @@ from context_use.batch.states import (
     SkippedState,
     State,
 )
-from context_use.llm.base import BatchResults, EmbedItem, LLMClient
+from context_use.llm.base import BaseLLMClient, BatchResults
 from context_use.memories.config import MemoryConfig
 from context_use.memories.embedding import (
     store_memory_embeddings,
@@ -56,10 +56,9 @@ class MemoryBatchManager(BaseBatchManager):
         self,
         batch: Batch,
         store: Store,
-        llm_client: LLMClient,
+        llm_client: BaseLLMClient,
         storage: StorageBackend,
         memory_config_resolver: Callable[[str], MemoryConfig],
-        sync_mode: bool = False,
     ) -> None:
         super().__init__(batch, store)
         self.batch: Batch = batch
@@ -68,7 +67,6 @@ class MemoryBatchManager(BaseBatchManager):
         self._memory_config_resolver = memory_config_resolver
         self.extractor = MemoryExtractor(llm_client)
         self.batch_factory = MemoryBatchFactory
-        self.sync_mode = sync_mode
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
@@ -136,23 +134,12 @@ class MemoryBatchManager(BaseBatchManager):
             return SkippedState(reason="Prompt builder produced no prompts")
 
         logger.info(
-            "[%s] Submitting %s for %d groups (%d prompts, %d total threads)",
+            "[%s] Submitting batch job for %d groups (%d prompts, %d total threads)",
             self.batch.id,
-            "sync completions" if self.sync_mode else "batch job",
             len(contexts),
             len(prompts),
             len(all_threads),
         )
-
-        if self.sync_mode:
-            results = await self.llm_client.batch_submit_sync(
-                self.batch.id, prompts, MemorySchema
-            )
-            memory_ids = await self._store_memories(results)
-            return MemoryGenerateCompleteState(
-                memories_count=len(memory_ids),
-                created_memory_ids=memory_ids,
-            )
 
         job_key = await self.extractor.submit(self.batch.id, prompts)
         return MemoryGeneratePendingState(job_key=job_key)
@@ -199,14 +186,6 @@ class MemoryBatchManager(BaseBatchManager):
         memories = await self.store.get_unembedded_memories(memory_ids)
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
-
-        if self.sync_mode:
-            items = [EmbedItem(item_id=m.id, text=m.content) for m in memories]
-            results = await self.llm_client.embed_batch_submit_sync(
-                self.batch.id, items
-            )
-            count = await store_memory_embeddings(results, self.batch.id, self.store)
-            return MemoryEmbedCompleteState(embedded_count=count)
 
         job_key = await submit_memory_embeddings(
             memories, self.batch.id, self.llm_client
