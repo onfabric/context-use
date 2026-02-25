@@ -114,7 +114,7 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
             sorted_threads = sorted(threads_with_assets, key=lambda t: t.asat)
             from_date = sorted_threads[0].asat.date()
             to_date = sorted_threads[-1].asat.date()
-            posts_block, asset_paths = self._format_posts(threads_with_assets)
+            posts_block, asset_uris = self._format_posts(threads_with_assets)
             context_block = self._format_context(ctx)
 
             prompt = (
@@ -137,7 +137,7 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
                     item_id=ctx.group_id,
                     prompt=prompt,
                     response_schema=response_schema,
-                    asset_paths=asset_paths,
+                    asset_uris=asset_uris,
                 )
             )
         return items
@@ -153,7 +153,7 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
 
         multi_day = len(by_day) > 1
         sections: list[str] = []
-        asset_paths: list[str] = []
+        asset_uris: list[str] = []
         img_idx = 0
 
         for day, day_threads in sorted(by_day.items()):
@@ -165,9 +165,9 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
                 if t.asset_uri:
                     img_idx += 1
                     lines.append(f"- [{ts}] [Image {img_idx}] {t.preview}")
-                    asset_paths.append(t.asset_uri)
+                    asset_uris.append(t.asset_uri)
                 else:
                     lines.append(f"- [{ts}] {t.preview}")
             sections.append("\n".join(lines))
 
-        return "\n\n".join(sections), asset_paths
+        return "\n\n".join(sections), asset_uris

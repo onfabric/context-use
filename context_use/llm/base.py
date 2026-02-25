@@ -17,13 +17,13 @@ class PromptItem:
         item_id:         Unique key for this item (thread_id, date string, etc.)
         prompt:          The text prompt.
         response_schema: JSON schema dict the LLM should conform to.
-        asset_paths:     Local file paths for images/videos to include as parts.
+        asset_uris:      URIs for images/videos to include as parts.
     """
 
     item_id: str
     prompt: str
     response_schema: dict
-    asset_paths: list[str] = field(default_factory=list)
+    asset_uris: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -44,7 +44,7 @@ class BaseLLMClient(ABC):
 
     Implementations must support two batch workflows (generation and
     embedding) each with a submit/poll pattern, plus single-shot
-    completion and embedding.
+    completion, structured completion, and embedding.
 
     The submit methods return an opaque *job key*; the corresponding
     ``get_results`` method polls using that key and returns ``None``
@@ -52,9 +52,7 @@ class BaseLLMClient(ABC):
     """
 
     @abstractmethod
-    async def batch_submit(
-        self, batch_id: str, prompts: list[PromptItem]
-    ) -> str: ...
+    async def batch_submit(self, batch_id: str, prompts: list[PromptItem]) -> str: ...
 
     @abstractmethod
     async def batch_get_results[T: BaseModel](
@@ -68,11 +66,19 @@ class BaseLLMClient(ABC):
 
     @abstractmethod
     async def embed_batch_get_results(
-        self, job_key: str,
+        self,
+        job_key: str,
     ) -> EmbedBatchResults | None: ...
 
     @abstractmethod
     async def completion(self, prompt: str) -> str: ...
+
+    @abstractmethod
+    async def structured_completion[T: BaseModel](
+        self,
+        prompt: PromptItem,
+        schema: type[T],
+    ) -> T: ...
 
     @abstractmethod
     async def embed_query(self, text: str) -> list[float]: ...

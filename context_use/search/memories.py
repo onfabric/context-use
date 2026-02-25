@@ -18,7 +18,7 @@ async def search_memories(
     from_date: date | None = None,
     to_date: date | None = None,
     top_k: int = 5,
-    llm_client: BaseLLMClient | None = None,
+    llm_client: BaseLLMClient,
 ) -> list[MemorySearchResult]:
     """Search memories by semantic similarity, time range, or both.
 
@@ -30,8 +30,6 @@ async def search_memories(
 
     query_embedding: list[float] | None = None
     if query is not None:
-        if llm_client is None:
-            raise ValueError("llm_client is required for semantic search")
         query_embedding = await llm_client.embed_query(query)
         assert len(query_embedding) == EMBEDDING_DIMENSIONS
 
