@@ -8,144 +8,88 @@ from context_use.store.base import Store
 if TYPE_CHECKING:
     from context_use.llm.base import BaseLLMClient
 
-_STORAGE_FACTORIES: dict[str, type] = {}
 
+class _Registry[T]:
+    """Lazily-populated factory registry.
 
-def _register_storage_defaults() -> None:
-    """Lazily register built-in storage backends."""
-    if _STORAGE_FACTORIES:
-        return
-
-    from context_use.storage.disk import DiskStorage
-
-    _STORAGE_FACTORIES["disk"] = DiskStorage
-
-    try:
-        from context_use.storage.gcs import GCSStorage
-
-        _STORAGE_FACTORIES["gcs"] = GCSStorage
-    except ImportError:
-        pass
-
-
-def build_storage(provider: str, config: dict[str, Any]) -> StorageBackend:
-    _register_storage_defaults()
-    cls = _STORAGE_FACTORIES.get(provider)
-    if cls is None:
-        raise ValueError(
-            f"Unknown storage provider '{provider}'. "
-            f"Available: {list(_STORAGE_FACTORIES.keys())}"
-        )
-    return cls(**config)
-
-
-_STORE_FACTORIES: dict[str, type] = {}
-
-
-def _register_store_defaults() -> None:
-    if _STORE_FACTORIES:
-        return
-
-    from context_use.store.memory import InMemoryStore
-
-    _STORE_FACTORIES["memory"] = InMemoryStore
-
-    try:
-        from context_use.store.postgres import PostgresStore
-
-        _STORE_FACTORIES["postgres"] = PostgresStore
-    except ImportError:
-        pass
-
-
-def build_store(provider: str, config: dict[str, Any]) -> Store:
-    _register_store_defaults()
-    cls = _STORE_FACTORIES.get(provider)
-    if cls is None:
-        raise ValueError(
-            f"Unknown store provider '{provider}'. "
-            f"Available: {list(_STORE_FACTORIES.keys())}"
-        )
-    return cls(**config)
-
-
-_LLM_FACTORIES: dict[str, type] = {}
-
-
-def _register_llm_defaults() -> None:
-    """Lazily register built-in LLM backends."""
-    if _LLM_FACTORIES:
-        return
-
-    from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
-
-    _LLM_FACTORIES["openai"] = LiteLLMBatchClient
-    _LLM_FACTORIES["openai-sync"] = LiteLLMSyncClient
-
-
-def build_llm(config: dict[str, Any]):
-    """Build a BaseLLMClient from a config dict.
-
-    Expected shape for OpenAI (default)::
-
-        {"provider": "openai", "api_key": "sk-...",
-         "model": "gpt-4o", "embedding_model": "text-embedding-3-large",
-         "mode": "batch"}
-
-    The ``provider`` key selects the backend; defaults to ``"openai"``.
-    For OpenAI, ``mode`` can be ``"sync"`` (real-time completions) or
-    ``"batch"`` (default, uses the OpenAI batch API).
-
-    Additional backends (e.g. Gemini) can be registered at import time
-    or by calling ``_LLM_FACTORIES["gemini"] = GeminiBatchClient``.
+    Each backend module registers itself via :meth:`register`.
+    :meth:`build` resolves a provider name to a factory, calling
+    ``factory.from_config(config)`` if available, otherwise
+    ``factory(**config)``.
     """
-    from context_use.llm.base import BaseLLMClient
 
-    _register_llm_defaults()
+    def __init__(self, label: str) -> None:
+        self._label = label
+        self._factories: dict[str, type[T]] = {}
+        self._defaults_loaded = False
 
-    provider = config.get("provider", "openai")
+    def register(self, name: str, cls: type[T]) -> None:
+        self._factories[name] = cls
 
-    # OpenAI shorthand: "mode": "sync" maps to the "openai-sync" factory.
-    if provider == "openai" and config.get("mode") == "sync":
-        provider = "openai-sync"
+    def build(self, provider: str, config: dict[str, Any]) -> T:
+        if not self._defaults_loaded:
+            self._load_defaults()
+            self._defaults_loaded = True
 
-    factory = _LLM_FACTORIES.get(provider)
-    if factory is None:
-        raise ValueError(
-            f"Unknown LLM provider '{provider}'. "
-            f"Available: {list(_LLM_FACTORIES.keys())}"
-        )
+        factory = self._factories.get(provider)
+        if factory is None:
+            raise ValueError(
+                f"Unknown {self._label} provider '{provider}'. "
+                f"Available: {list(self._factories)}"
+            )
+        if hasattr(factory, "from_config"):
+            return factory.from_config(config)  # type: ignore[return-value]
+        return factory(**config)  # type: ignore[return-value]
 
-    client = _build_llm_from_factory(provider, factory, config)
-    if not isinstance(client, BaseLLMClient):
-        raise TypeError(
-            f"LLM factory for '{provider}' returned {type(client).__name__}, "
-            f"expected BaseLLMClient"
-        )
-    return client
-
-
-def _build_llm_from_factory(
-    provider: str,
-    factory: type,
-    config: dict[str, Any],
-):
-    """Dispatch to the right constructor based on provider."""
-    if provider in ("openai", "openai-sync"):
-        return _build_openai_llm(factory, config)
-    return factory(**config)
+    def _load_defaults(self) -> None:
+        """Override point — subclasses populate built-in factories here."""
 
 
-def _build_openai_llm(factory: type, config: dict[str, Any]):
-    """Construct an OpenAI-backed LLM client from config."""
-    from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+class _StorageRegistry(_Registry[StorageBackend]):
+    def _load_defaults(self) -> None:
+        from context_use.storage.disk import DiskStorage
 
-    api_key = config.get("api_key", "")
-    model = OpenAIModel(config.get("model", OpenAIModel.GPT_4O.value))
-    embedding_model = OpenAIEmbeddingModel(
-        config.get("embedding_model", OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.value)
-    )
-    return factory(model=model, api_key=api_key, embedding_model=embedding_model)
+        self.register("disk", DiskStorage)
+
+        try:
+            from context_use.storage.gcs import GCSStorage
+
+            self.register("gcs", GCSStorage)
+        except ImportError:
+            pass
+
+
+class _StoreRegistry(_Registry[Store]):
+    def _load_defaults(self) -> None:
+        from context_use.store.memory import InMemoryStore
+
+        self.register("memory", InMemoryStore)
+
+        try:
+            from context_use.store.postgres import PostgresStore
+
+            self.register("postgres", PostgresStore)
+        except ImportError:
+            pass
+
+
+class _LLMRegistry(_Registry["BaseLLMClient"]):
+    def _load_defaults(self) -> None:
+        from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
+
+        self.register("openai", LiteLLMBatchClient)
+        self.register("openai-sync", LiteLLMSyncClient)
+
+    def build(self, provider: str, config: dict[str, Any]) -> BaseLLMClient:
+        if provider == "openai" and config.get("mode") == "sync":
+            provider = "openai-sync"
+        return super().build(provider, config)
+
+
+# Singleton instances
+storage_registry = _StorageRegistry("storage")
+store_registry = _StoreRegistry("store")
+llm_registry = _LLMRegistry("llm")
 
 
 def parse_config(
@@ -157,10 +101,7 @@ def parse_config(
 
         {
             "storage": {"provider": "disk", "config": {"base_path": "/tmp"}},
-            "store": {
-              "provider": "memory",
-              "config": {},
-            },
+            "store": {"provider": "memory", "config": {}},
             "llm": {"api_key": "sk-..."},
         }
 
@@ -177,14 +118,17 @@ def parse_config(
             'Provide at least {"llm": {"api_key": "sk-..."}}.'
         )
 
-    storage = build_storage(
+    storage = storage_registry.build(
         storage_cfg.get("provider", "disk"),
         storage_cfg.get("config", {}),
     )
-    store = build_store(
+    store = store_registry.build(
         store_cfg.get("provider", "memory"),
         store_cfg.get("config", {}),
     )
-    llm_client = build_llm(llm_cfg)
+    llm_client = llm_registry.build(
+        llm_cfg.get("provider", "openai"),
+        llm_cfg,
+    )
 
     return storage, store, llm_client
