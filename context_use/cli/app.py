@@ -38,29 +38,59 @@ No database or config file needed. Results are exported to ./data/output/."""
 # ── Infrastructure helpers ──────────────────────────────────────────
 
 
-def _config_to_dict(cfg: Config, *, llm_mode: str = "batch") -> dict:
-    """Convert CLI Config into the canonical config dict for ContextUse."""
-    store_config: dict[str, Any] = {}
+def _build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
+    """Construct a :class:`ContextUse` from CLI config."""
+    from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
+    from context_use.storage.disk import DiskStorage
+
+    storage = DiskStorage(cfg.storage_path)
+
     if cfg.store_provider == "postgres":
-        store_config = {
-            "host": cfg.db_host,
-            "port": cfg.db_port,
-            "database": cfg.db_name,
-            "user": cfg.db_user,
-            "password": cfg.db_password,
-        }
+        from context_use.store.postgres import PostgresStore
 
-    return {
-        "storage": {"provider": "disk", "config": {"base_path": cfg.storage_path}},
-        "store": {"provider": cfg.store_provider, "config": store_config},
-        "llm": {"api_key": cfg.openai_api_key or "", "mode": llm_mode},
-    }
+        store = PostgresStore(
+            host=cfg.db_host,
+            port=cfg.db_port,
+            database=cfg.db_name,
+            user=cfg.db_user,
+            password=cfg.db_password,
+        )
+    else:
+        from context_use.store.memory import InMemoryStore
+
+        store = InMemoryStore()
+
+    from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+
+    api_key = cfg.openai_api_key or ""
+    model = OpenAIModel.GPT_4O
+    embedding_model = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
+    if llm_mode == "sync":
+        llm_client = LiteLLMSyncClient(
+            model=model, api_key=api_key, embedding_model=embedding_model,
+        )
+    else:
+        llm_client = LiteLLMBatchClient(
+            model=model, api_key=api_key, embedding_model=embedding_model,
+        )
+
+    return ContextUse(storage=storage, store=store, llm_client=llm_client)
 
 
-def _build_ctx(cfg: Config):
-    from context_use import ContextUse
+async def _run_batches(ctx: ContextUse, batches: list) -> None:
+    """Drive all batches to completion using an asyncio loop."""
+    from context_use.batch.manager import ScheduleInstruction
 
-    return ContextUse.from_config(_config_to_dict(cfg))
+    pending = [b.id for b in batches]
+    while pending:
+        still_pending = []
+        for batch_id in pending:
+            instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
+            if not instruction.stop:
+                if instruction.countdown:
+                    await asyncio.sleep(instruction.countdown)
+                still_pending.append(batch_id)
+        pending = still_pending
 
 
 def _providers() -> list[str]:
@@ -502,8 +532,7 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
             return
 
     provider = Provider(provider_str)
-    ctx_dict = _config_to_dict(cfg, llm_mode="sync")
-    ctx = ContextUse.from_config(ctx_dict)
+    ctx = _build_ctx(cfg, llm_mode="sync")
     await ctx.init()
 
     # Phase 1: Ingest
@@ -538,10 +567,11 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
         out.info("Processing full archive history.")
     print()
 
-    mem_result = await ctx.generate_memories([result.archive_id], since=since)
+    batches = await ctx.create_memory_batches([result.archive_id], since=since)
+    await _run_batches(ctx, batches)
 
     out.success("Memories generated")
-    out.kv("Batches", mem_result.batches_created)
+    out.kv("Batches", len(batches))
 
     count = await ctx.count_memories()
     out.kv("Active memories", f"{count:,}")
@@ -549,16 +579,8 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
 
     if count == 0:
         out.warn("No memories generated — skipping profile")
-        if (
-            not full
-            and mem_result.threads_total > 0
-            and mem_result.threads_after_filter == 0
-        ):
+        if not full:
             print()
-            out.info(
-                f"All {mem_result.threads_total} threads are older than "
-                f"{args.last_days} days."
-            )
             out.info("Try including more history:")
             out.next_step(
                 f"context-use quickstart --last-days 90 {provider.value} {zip_path}"
@@ -710,10 +732,11 @@ async def cmd_pipeline(args: argparse.Namespace) -> None:
     out.header("Step 2/3 · Generating memories")
     out.info("Using batch API. This typically takes 2-10 minutes.\n")
 
-    mem_result = await ctx.generate_memories([result.archive_id])
+    batches = await ctx.create_memory_batches([result.archive_id])
+    await _run_batches(ctx, batches)
 
     out.success("Memories generated")
-    out.kv("Batches created", mem_result.batches_created)
+    out.kv("Batches created", len(batches))
 
     count = await ctx.count_memories()
     out.kv("Active memories", f"{count:,}")
@@ -804,14 +827,11 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
     out.info("It typically takes 2-10 minutes depending on data volume.\n")
     out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
-    result = await ctx.generate_memories([selected_id])
+    batches = await ctx.create_memory_batches([selected_id])
+    await _run_batches(ctx, batches)
 
     out.success("Memories generated")
-    out.kv("Tasks processed", result.tasks_processed)
-    out.kv("Batches created", result.batches_created)
-    if result.errors:
-        for e in result.errors:
-            out.error(e)
+    out.kv("Batches created", len(batches))
 
     memories = await ctx.list_memories()
 
@@ -859,13 +879,11 @@ async def cmd_memories_refine(args: argparse.Namespace) -> None:
     out.info("It typically takes 1-5 minutes.\n")
     out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
-    result = await ctx.refine_memories([selected_id])
+    batches = await ctx.create_refinement_batches()
+    await _run_batches(ctx, batches)
 
     out.success("Refinement complete")
-    out.kv("Batches created", result.batches_created)
-    if result.errors:
-        for e in result.errors:
-            out.error(e)
+    out.kv("Batches created", len(batches))
 
     print()
     out.header("Next steps:")
@@ -1154,11 +1172,36 @@ async def cmd_ask(args: argparse.Namespace) -> None:
         else:
             query = args.query
 
-        answer = await ctx.ask(query)
+        answer = await _ask(ctx, query)
         print(f"\n{answer}\n")
 
         if not interactive:
             break
+
+
+async def _ask(ctx: ContextUse, query: str, *, top_k: int = 10) -> str:
+    """Answer a question using the profile and relevant memories."""
+    profile = await ctx.get_profile()
+    results = await ctx.search_memories(query=query, top_k=top_k)
+
+    parts: list[str] = [
+        "You are a helpful assistant with access to the user's personal "
+        "memories and profile. Answer their question based on the context "
+        "below. Be specific and reference dates/details from the memories. "
+        "If the context doesn't contain enough information, say so honestly."
+    ]
+
+    if profile:
+        parts.append(f"\n## User Profile\n\n{profile.content}")
+
+    if results:
+        parts.append("\n## Relevant Memories\n")
+        for r in results:
+            parts.append(f"- [{r.from_date}] {r.content}")
+
+    parts.append(f"\n## Question\n\n{query}")
+
+    return await ctx._llm_client.completion("\n".join(parts))
 
 
 # ── Parser ──────────────────────────────────────────────────────────

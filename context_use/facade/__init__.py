@@ -1,21 +1,20 @@
+from context_use.batch.manager import BatchContext, ScheduleInstruction
 from context_use.facade.core import ContextUse
 from context_use.facade.types import (
     ArchiveSummary,
-    MemoriesResult,
     MemorySummary,
     PipelineResult,
     ProfileSummary,
-    RefinementResult,
     TaskBreakdown,
 )
 
 __all__ = [
     "ArchiveSummary",
+    "BatchContext",
     "ContextUse",
-    "MemoriesResult",
     "MemorySummary",
     "PipelineResult",
     "ProfileSummary",
-    "RefinementResult",
+    "ScheduleInstruction",
     "TaskBreakdown",
 ]

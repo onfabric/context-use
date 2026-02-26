@@ -66,18 +66,6 @@ class _LiteLLMBase(BaseLLMClient):
         self._embedding_model = embedding_model
         self._api_key = api_key
 
-    @classmethod
-    def from_config(cls, config: dict[str, Any]) -> _LiteLLMBase:
-        api_key = config.get("api_key", "")
-        model = OpenAIModel(config.get("model", OpenAIModel.GPT_4O.value))
-        embedding_model = OpenAIEmbeddingModel(
-            config.get(
-                "embedding_model",
-                OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.value,
-            )
-        )
-        return cls(model=model, api_key=api_key, embedding_model=embedding_model)
-
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
             model=self._model.value,

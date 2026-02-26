@@ -8,11 +8,10 @@ sub-packages directly.
 from context_use.facade import (
     ArchiveSummary,
     ContextUse,
-    MemoriesResult,
     MemorySummary,
     PipelineResult,
     ProfileSummary,
-    RefinementResult,
+    ScheduleInstruction,
     TaskBreakdown,
 )
 from context_use.providers.registry import Provider
@@ -22,12 +21,11 @@ __all__ = [
     "ArchiveSummary",
     "ContextUse",
     "InMemoryStore",
-    "MemoriesResult",
     "MemorySummary",
     "PipelineResult",
     "ProfileSummary",
     "Provider",
-    "RefinementResult",
+    "ScheduleInstruction",
     "Store",
     "TaskBreakdown",
 ]

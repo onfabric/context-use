@@ -16,6 +16,8 @@ from context_use.batch.states import (
 from context_use.models.batch import Batch, BatchCategory
 
 if TYPE_CHECKING:
+    from context_use.llm.base import BaseLLMClient
+    from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,15 @@ class ScheduleInstruction:
 
     stop: bool = False
     countdown: int | None = None
+
+
+@dataclass
+class BatchContext:
+    """Shared resources that batch managers need."""
+
+    store: Store
+    llm_client: BaseLLMClient
+    storage: StorageBackend
 
 
 _category_manager_registry: dict[BatchCategory, type[BaseBatchManager]] = {}
@@ -61,16 +72,13 @@ def get_manager_for_category(category: BatchCategory) -> type[BaseBatchManager]:
 class BaseBatchManager(ABC):
     """State-machine orchestrator for a single batch.
 
-    Each manager owns a ``Store`` reference.  A fresh ``atomic()`` scope
-    is opened per ``try_advance_state`` call.
-
     Sub-classes implement ``_transition`` which maps
     ``current_state → new_state | None``.
     """
 
-    def __init__(self, batch: Batch, store: Store) -> None:
+    def __init__(self, batch: Batch, ctx: BatchContext) -> None:
         self.batch = batch
-        self.store = store
+        self.ctx = ctx
 
     @abstractmethod
     async def _transition(self, current_state: State) -> State | None:
@@ -81,8 +89,8 @@ class BaseBatchManager(ABC):
         batch_id = self.batch.id
         current_status = self.batch.current_status
 
-        async with self.store.atomic():
-            refreshed = await self.store.get_batch(batch_id)
+        async with self.ctx.store.atomic():
+            refreshed = await self.ctx.store.get_batch(batch_id)
             if refreshed is None:
                 logger.error("[%s] Batch not found in store", batch_id)
                 return ScheduleInstruction(stop=True)
@@ -126,7 +134,7 @@ class BaseBatchManager(ABC):
                         )
 
                 self.batch.push_state(new_state)
-                await self.store.update_batch(self.batch)
+                await self.ctx.store.update_batch(self.batch)
 
             except Exception as exc:
                 logger.error(
@@ -141,7 +149,7 @@ class BaseBatchManager(ABC):
                         previous_status=current_status,
                     )
                 )
-                await self.store.update_batch(self.batch)
+                await self.ctx.store.update_batch(self.batch)
                 return ScheduleInstruction(stop=True)
 
         final_state = self.batch.parse_current_state()

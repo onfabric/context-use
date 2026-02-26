@@ -5,19 +5,23 @@ from __future__ import annotations
 import logging
 import zipfile
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from context_use.batch.manager import (
+    BatchContext,
+    ScheduleInstruction,
+    get_manager_for_category,
+)
 from context_use.facade.types import (
     ArchiveSummary,
-    MemoriesResult,
     MemorySummary,
     PipelineResult,
     ProfileSummary,
-    RefinementResult,
     TaskBreakdown,
 )
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
+from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
 from context_use.models.memory import MemoryStatus
 from context_use.providers.registry import Provider
@@ -41,11 +45,15 @@ class ContextUse:
 
     Usage::
 
-        ctx = ContextUse.from_config({
-            "storage": {"provider": "disk", "config": {"base_path": "./data"}},
-            "store": {"provider": "memory"},
-            "llm": {"api_key": "sk-..."},
-        })
+        from context_use.storage.disk import DiskStorage
+        from context_use.store.memory import InMemoryStore
+        from context_use.llm.litellm import LiteLLMBatchClient
+
+        ctx = ContextUse(
+            storage=DiskStorage("./data"),
+            store=InMemoryStore(),
+            llm_client=LiteLLMBatchClient(...),
+        )
         await ctx.init()
         result = await ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
     """
@@ -60,14 +68,6 @@ class ContextUse:
         self._store = store
         self._llm_client = llm_client
 
-    @classmethod
-    def from_config(cls, config: dict[str, Any]) -> ContextUse:
-        """Construct a ContextUse instance from a configuration dict."""
-        from context_use.config import parse_config
-
-        storage, store, llm_client = parse_config(config)
-        return cls(storage=storage, store=store, llm_client=llm_client)
-
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
         await self._store.init()
@@ -75,13 +75,6 @@ class ContextUse:
     async def reset(self) -> None:
         """Drop all data and recreate from scratch."""
         await self._store.reset()
-
-    # kept for backward-compat; delegates to init()
-    async def init_db(self) -> None:
-        await self.init()
-
-    async def reset_db(self) -> None:
-        await self.reset()
 
     # ── ETL ──────────────────────────────────────────────────────────
 
@@ -191,15 +184,15 @@ class ContextUse:
 
         return result
 
-    # ── Memory generation ────────────────────────────────────────────
+    # ── Memory batches ────────────────────────────────────────────────
 
-    async def generate_memories(
+    async def create_memory_batches(
         self,
         archive_ids: list[str],
         *,
         since: datetime | None = None,
-    ) -> MemoriesResult:
-        """Create batches from ETL results and run the memory pipeline.
+    ) -> list[Batch]:
+        """Group threads from archives and create memory batches.
 
         Threads from all ETL tasks are collected and grouped per
         interaction type using each type's configured grouper.  The
@@ -207,36 +200,29 @@ class ContextUse:
         into batches — so a batch can contain groups from different
         interaction types.
 
-        Args:
-            archive_ids: Archives to process.
-            since: If set, only include threads with ``asat >= since``.
-                Useful for demo / fast runs that only need recent data.
+        Returns persisted :class:`Batch` objects ready to be advanced
+        via :meth:`advance_batch`.
         """
         from collections import defaultdict
 
         from context_use.batch.grouper import ThreadGroup
-        from context_use.batch.runner import run_pipeline
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.models.thread import Thread
         from context_use.providers.registry import get_memory_config
 
-        _ensure_managers_registered()
-        result = MemoriesResult()
-
         tasks = await self._store.get_tasks_by_archive(archive_ids)
-        result.tasks_processed = len(tasks)
 
         task_ids = [t.id for t in tasks]
         if not task_ids:
-            return result
+            return []
 
         threads = await self._store.get_threads_by_task(task_ids)
-        result.threads_total = len(threads)
 
         if since is not None:
             threads = [t for t in threads if t.asat >= since]
 
-        result.threads_after_filter = len(threads)
+        if not threads:
+            return []
 
         by_type: dict[str, list[Thread]] = defaultdict(list)
         for t in threads:
@@ -257,50 +243,35 @@ class ContextUse:
             groups = grouper.group(type_threads)  # type: ignore[arg-type]
             all_groups.extend(groups)
 
-        all_batches = await MemoryBatchFactory.create_batches(all_groups, self._store)
+        return await MemoryBatchFactory.create_batches(all_groups, self._store)
 
-        result.batches_created = len(all_batches)
+    async def create_refinement_batches(self) -> list[Batch]:
+        """Discover overlapping memories and create refinement batches.
 
-        if all_batches:
-            await run_pipeline(
-                all_batches,
-                store=self._store,
-                manager_kwargs={
-                    "llm_client": self._llm_client,
-                    "storage": self._storage,
-                    "memory_config_resolver": get_memory_config,
-                },
-            )
-
-        return result
-
-    # ── Memory refinement ────────────────────────────────────────────
-
-    async def refine_memories(
-        self,
-        archive_ids: list[str],
-    ) -> RefinementResult:
-        """Discover and refine overlapping memories from completed archives."""
-        from context_use.batch.runner import run_pipeline
+        Returns persisted :class:`Batch` objects ready to be advanced
+        via :meth:`advance_batch`.
+        """
         from context_use.memories.refinement.factory import RefinementBatchFactory
 
-        _ensure_managers_registered()
-        result = RefinementResult()
-
-        refinement_batches = await RefinementBatchFactory.create_refinement_batches(
+        return await RefinementBatchFactory.create_refinement_batches(
             store=self._store,
         )
 
-        result.batches_created = len(refinement_batches)
+    async def advance_batch(self, batch_id: str) -> ScheduleInstruction:
+        """Advance a batch one step through its state machine.
 
-        if refinement_batches:
-            await run_pipeline(
-                refinement_batches,
-                store=self._store,
-                manager_kwargs={"llm_client": self._llm_client},
-            )
+        The correct manager is resolved from the batch's ``category`` field.
+        """
+        _ensure_managers_registered()
 
-        return result
+        batch = await self._store.get_batch(batch_id)
+        if batch is None:
+            return ScheduleInstruction(stop=True)
+
+        category = BatchCategory(batch.category)
+        manager_cls = get_manager_for_category(category)
+        manager = manager_cls(batch=batch, ctx=self._batch_context())
+        return await manager.try_advance_state()
 
     # ── Queries ──────────────────────────────────────────────────────
 
@@ -401,33 +372,14 @@ class ContextUse:
             memory_count=profile.memory_count,
         )
 
-    # ── Conversational agent ─────────────────────────────────────────
-
-    async def ask(self, query: str, *, top_k: int = 10) -> str:
-        """Answer a question using the profile and relevant memories."""
-        profile = await self.get_profile()
-        results = await self.search_memories(query=query, top_k=top_k)
-
-        parts: list[str] = [
-            "You are a helpful assistant with access to the user's personal "
-            "memories and profile. Answer their question based on the context "
-            "below. Be specific and reference dates/details from the memories. "
-            "If the context doesn't contain enough information, say so honestly."
-        ]
-
-        if profile:
-            parts.append(f"\n## User Profile\n\n{profile.content}")
-
-        if results:
-            parts.append("\n## Relevant Memories\n")
-            for r in results:
-                parts.append(f"- [{r.from_date}] {r.content}")
-
-        parts.append(f"\n## Question\n\n{query}")
-
-        return await self._llm_client.completion("\n".join(parts))
-
     # ── Private helpers ──────────────────────────────────────────────
+
+    def _batch_context(self) -> BatchContext:
+        return BatchContext(
+            store=self._store,
+            llm_client=self._llm_client,
+            storage=self._storage,
+        )
 
     async def _run_pipe(self, pipe, etl_task: EtlTask) -> int:
         """Execute an ETL task using a Pipe and persist results via the Store."""

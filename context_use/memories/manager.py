@@ -1,29 +1,22 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from datetime import date
-from typing import TYPE_CHECKING
 
-from context_use.batch.manager import BaseBatchManager, register_batch_manager
-from context_use.batch.states import (
-    CompleteState,
-    CreatedState,
-    SkippedState,
-    State,
+from context_use.batch.manager import (
+    BaseBatchManager,
+    BatchContext,
+    register_batch_manager,
 )
-from context_use.llm.base import BaseLLMClient, BatchResults
-from context_use.memories.config import MemoryConfig
+from context_use.batch.states import CompleteState, CreatedState, SkippedState, State
+from context_use.llm.base import BatchResults
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
 )
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
-from context_use.memories.prompt import (
-    GroupContext,
-    MemorySchema,
-)
+from context_use.memories.prompt import GroupContext, MemorySchema
 from context_use.memories.states import (
     MemoryEmbedCompleteState,
     MemoryEmbedPendingState,
@@ -32,10 +25,6 @@ from context_use.memories.states import (
 )
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.memory import TapestryMemory
-from context_use.storage.base import StorageBackend
-
-if TYPE_CHECKING:
-    from context_use.store.base import Store
 
 logger = logging.getLogger(__name__)
 
@@ -44,38 +33,26 @@ logger = logging.getLogger(__name__)
 class MemoryBatchManager(BaseBatchManager):
     """Generates and embeds memories from grouped threads.
 
-    The prompt strategy is resolved via an injected
-    ``memory_config_resolver`` callable (interaction_type → MemoryConfig).
+    The prompt strategy is resolved via the provider registry.
 
     State machine:
         CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE
                 → MEMORY_EMBED_PENDING → MEMORY_EMBED_COMPLETE → COMPLETE
     """
 
-    def __init__(
-        self,
-        batch: Batch,
-        store: Store,
-        llm_client: BaseLLMClient,
-        storage: StorageBackend,
-        memory_config_resolver: Callable[[str], MemoryConfig],
-    ) -> None:
-        super().__init__(batch, store)
-        self.batch: Batch = batch
-        self.llm_client = llm_client
-        self.storage = storage
-        self._memory_config_resolver = memory_config_resolver
-        self.extractor = MemoryExtractor(llm_client)
+    def __init__(self, batch: Batch, ctx: BatchContext) -> None:
+        super().__init__(batch, ctx)
+        self.extractor = MemoryExtractor(ctx.llm_client)
         self.batch_factory = MemoryBatchFactory
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
-        groups = await self.batch_factory.get_batch_groups(self.batch, self.store)
+        groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
         contexts: list[GroupContext] = []
         for group in groups:
             for t in group.threads:
                 if t.asset_uri:
-                    t.asset_uri = self.storage.resolve_uri(t.asset_uri)
+                    t.asset_uri = self.ctx.storage.resolve_uri(t.asset_uri)
             contexts.append(
                 GroupContext(
                     group_id=group.group_id,
@@ -125,7 +102,9 @@ class MemoryBatchManager(BaseBatchManager):
             by_type.setdefault(it, []).append(ctx)
 
         for interaction_type, type_contexts in by_type.items():
-            config = self._memory_config_resolver(interaction_type)
+            from context_use.providers.registry import get_memory_config
+
+            config = get_memory_config(interaction_type)
             builder = config.create_prompt_builder(type_contexts)
             if builder.has_content():
                 prompts.extend(builder.build())
@@ -141,7 +120,7 @@ class MemoryBatchManager(BaseBatchManager):
             len(all_threads),
         )
 
-        job_key = await self.extractor.submit(self.batch.id, prompts)
+        job_key = await self.extractor.submit(self.batch.id, prompts)  # noqa: E501
         return MemoryGeneratePendingState(job_key=job_key)
 
     async def _check_memory_generation_status(
@@ -176,26 +155,26 @@ class MemoryBatchManager(BaseBatchManager):
                     to_date=date.fromisoformat(memory.to_date),
                     group_id=group_id,
                 )
-                row = await self.store.create_memory(row)
+                row = await self.ctx.store.create_memory(row)
                 memory_ids.append(row.id)
 
         logger.info("[%s] Stored %d memories", self.batch.id, len(memory_ids))
         return memory_ids
 
     async def _trigger_embedding(self, memory_ids: list[str]) -> State:
-        memories = await self.store.get_unembedded_memories(memory_ids)
+        memories = await self.ctx.store.get_unembedded_memories(memory_ids)
         if not memories:
             return MemoryEmbedCompleteState(embedded_count=0)
 
         job_key = await submit_memory_embeddings(
-            memories, self.batch.id, self.llm_client
+            memories, self.batch.id, self.ctx.llm_client
         )
         return MemoryEmbedPendingState(job_key=job_key)
 
     async def _check_embedding_status(self, state: MemoryEmbedPendingState) -> State:
-        results = await self.llm_client.embed_batch_get_results(state.job_key)
+        results = await self.ctx.llm_client.embed_batch_get_results(state.job_key)
         if results is None:
             return state
 
-        count = await store_memory_embeddings(results, self.batch.id, self.store)
+        count = await store_memory_embeddings(results, self.batch.id, self.ctx.store)
         return MemoryEmbedCompleteState(embedded_count=count)
