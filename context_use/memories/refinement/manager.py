@@ -2,16 +2,13 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import TYPE_CHECKING
 
-from context_use.batch.manager import BaseBatchManager, register_batch_manager
-from context_use.batch.states import (
-    CompleteState,
-    CreatedState,
-    SkippedState,
-    State,
+from context_use.batch.manager import (
+    BaseBatchManager,
+    BatchContext,
+    register_batch_manager,
 )
-from context_use.llm.base import BaseLLMClient
+from context_use.batch.states import CompleteState, CreatedState, SkippedState, State
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
@@ -33,9 +30,6 @@ from context_use.models.batch import Batch, BatchCategory
 from context_use.models.memory import MemoryStatus, TapestryMemory
 from context_use.models.utils import generate_uuidv4
 
-if TYPE_CHECKING:
-    from context_use.store.base import Store
-
 logger = logging.getLogger(__name__)
 
 
@@ -52,16 +46,8 @@ class RefinementBatchManager(BaseBatchManager):
                 -> COMPLETE
     """
 
-    def __init__(
-        self,
-        batch: Batch,
-        store: Store,
-        llm_client: BaseLLMClient,
-        **kwargs: object,
-    ) -> None:
-        super().__init__(batch, store)
-        self.batch: Batch = batch
-        self.llm_client = llm_client
+    def __init__(self, batch: Batch, ctx: BatchContext) -> None:
+        super().__init__(batch, ctx)
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -100,7 +86,7 @@ class RefinementBatchManager(BaseBatchManager):
         if not seed_ids:
             return SkippedState(reason="No seed memory IDs for refinement")
 
-        raw_clusters = await discover_refinement_clusters(seed_ids, self.store)
+        raw_clusters = await discover_refinement_clusters(seed_ids, self.ctx.store)
         if not raw_clusters:
             return SkippedState(reason="No refinement clusters found")
 
@@ -128,7 +114,7 @@ class RefinementBatchManager(BaseBatchManager):
     async def _submit_refinement(self, state: RefinementDiscoverState) -> State:
         prompts = []
         for cluster_id, cluster_ids in state.clusters.items():
-            memories = await self.store.get_memories(cluster_ids)
+            memories = await self.ctx.store.get_memories(cluster_ids)
             if len(memories) < 2:
                 continue
 
@@ -144,11 +130,11 @@ class RefinementBatchManager(BaseBatchManager):
         logger.info(
             "[%s] Submitting %d refinement prompts", self.batch.id, len(prompts)
         )
-        job_key = await self.llm_client.batch_submit(self.batch.id, prompts)
+        job_key = await self.ctx.llm_client.batch_submit(self.batch.id, prompts)
         return RefinementPendingState(job_key=job_key)
 
     async def _check_refinement_status(self, state: RefinementPendingState) -> State:
-        results = await self.llm_client.batch_get_results(
+        results = await self.ctx.llm_client.batch_get_results(
             state.job_key, RefinementSchema
         )
         if results is None:
@@ -180,19 +166,19 @@ class RefinementBatchManager(BaseBatchManager):
                     source_memory_ids=refined.source_ids,
                     group_id=cluster_id,
                 )
-                new_memory = await self.store.create_memory(new_memory)
+                new_memory = await self.ctx.store.create_memory(new_memory)
                 memory_ids.append(new_memory.id)
 
                 to_check = [
                     s for s in refined.source_ids if s not in all_superseded_ids
                 ]
                 if to_check:
-                    sources = await self.store.get_memories(to_check)
+                    sources = await self.ctx.store.get_memories(to_check)
                     for source in sources:
                         if source.status == MemoryStatus.active.value:
                             source.status = MemoryStatus.superseded.value
                             source.superseded_by = new_memory.id
-                            await self.store.update_memory(source)
+                            await self.ctx.store.update_memory(source)
                             all_superseded_ids.add(source.id)
                             superseded_count += 1
 
@@ -205,21 +191,21 @@ class RefinementBatchManager(BaseBatchManager):
         return memory_ids, superseded_count
 
     async def _trigger_embedding(self, memory_ids: list[str]) -> State:
-        memories = await self.store.get_unembedded_memories(memory_ids)
+        memories = await self.ctx.store.get_unembedded_memories(memory_ids)
         if not memories:
             return RefinementEmbedCompleteState(embedded_count=0)
 
         job_key = await submit_memory_embeddings(
-            memories, self.batch.id, self.llm_client
+            memories, self.batch.id, self.ctx.llm_client
         )
         return RefinementEmbedPendingState(job_key=job_key)
 
     async def _check_embedding_status(
         self, state: RefinementEmbedPendingState
     ) -> State:
-        results = await self.llm_client.embed_batch_get_results(state.job_key)
+        results = await self.ctx.llm_client.embed_batch_get_results(state.job_key)
         if results is None:
             return state
 
-        count = await store_memory_embeddings(results, self.batch.id, self.store)
+        count = await store_memory_embeddings(results, self.batch.id, self.ctx.store)
         return RefinementEmbedCompleteState(embedded_count=count)

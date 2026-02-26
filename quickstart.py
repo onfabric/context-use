@@ -17,7 +17,10 @@ import argparse
 import asyncio
 
 from context_use import ContextUse
+from context_use.llm.litellm import LiteLLMBatchClient
 from context_use.providers.registry import Provider
+from context_use.storage.disk import DiskStorage
+from context_use.store.postgres import PostgresStore
 
 parser = argparse.ArgumentParser(description="contextuse quickstart")
 parser.add_argument("--chatgpt", metavar="PATH", help="Path to a ChatGPT export zip")
@@ -31,22 +34,18 @@ if not args.chatgpt and not args.instagram:
 
 
 async def main() -> None:
-    ctx = ContextUse.from_config(
-        {
-            "storage": {"provider": "disk", "config": {"base_path": "./data"}},
-            "db": {
-                "provider": "postgres",
-                "config": {
-                    "host": "localhost",
-                    "port": 5432,
-                    "database": "context_use",
-                    "user": "postgres",
-                    "password": "postgres",
-                },
-            },
-        }
+    ctx = ContextUse(
+        storage=DiskStorage("./data"),
+        store=PostgresStore(
+            host="localhost",
+            port=5432,
+            database="context_use",
+            user="postgres",
+            password="postgres",
+        ),
+        llm_client=LiteLLMBatchClient(api_key=""),
     )
-    await ctx.init_db()
+    await ctx.init()
 
     if args.chatgpt:
         print(f"Processing ChatGPT archive: {args.chatgpt}")

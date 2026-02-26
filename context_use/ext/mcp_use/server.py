@@ -6,7 +6,7 @@ Usage::
     from context_use import ContextUse
     from context_use.ext.mcp_use.server import create_server
 
-    ctx = ContextUse.from_config({...})
+    ctx = ContextUse(storage=..., store=..., llm_client=...)
     server = create_server(ctx)
     server.run(transport="streamable-http")
 """

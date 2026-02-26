@@ -27,25 +27,6 @@ class TaskBreakdown:
 
 
 @dataclass
-class MemoriesResult:
-    """Result from :meth:`ContextUse.generate_memories`."""
-
-    tasks_processed: int = 0
-    batches_created: int = 0
-    threads_total: int = 0
-    threads_after_filter: int = 0
-    errors: list[str] = field(default_factory=list)
-
-
-@dataclass
-class RefinementResult:
-    """Result from :meth:`ContextUse.refine_memories`."""
-
-    batches_created: int = 0
-    errors: list[str] = field(default_factory=list)
-
-
-@dataclass
 class ArchiveSummary:
     """Summary of a completed archive."""
 
