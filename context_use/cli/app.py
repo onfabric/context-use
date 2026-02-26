@@ -67,11 +67,15 @@ def _build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     embedding_model = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
     if llm_mode == "sync":
         llm_client = LiteLLMSyncClient(
-            model=model, api_key=api_key, embedding_model=embedding_model,
+            model=model,
+            api_key=api_key,
+            embedding_model=embedding_model,
         )
     else:
         llm_client = LiteLLMBatchClient(
-            model=model, api_key=api_key, embedding_model=embedding_model,
+            model=model,
+            api_key=api_key,
+            embedding_model=embedding_model,
         )
 
     return ContextUse(storage=storage, store=store, llm_client=llm_client)
