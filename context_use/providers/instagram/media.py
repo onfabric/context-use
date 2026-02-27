@@ -55,7 +55,7 @@ def _items_to_records(
 class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
     """Shared transform logic for Instagram media (stories and reels).
 
-    Subclasses implement :meth:`extract` to parse their specific
+    Subclasses implement :meth:`extract_file` to parse their specific
     manifest format; :meth:`transform` is inherited.
     """
 

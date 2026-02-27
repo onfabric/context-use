@@ -16,8 +16,9 @@ class Pipe[Record: BaseModel](ABC):
 
     A Pipe encapsulates the **Extract** and **Transform** steps for a
     single interaction type (e.g. ChatGPT conversations, Instagram
-    stories).  Subclasses implement :meth:`extract` (parse the archive)
-    and :meth:`transform` (shape each record into a :class:`ThreadRow`).
+    stories).  Subclasses implement :meth:`extract_file` (parse one
+    source file) and :meth:`transform` (shape each record into a
+    :class:`ThreadRow`).
 
     The **Load** step is handled separately by the :class:`Store`.
     """
