@@ -20,7 +20,7 @@ class _FakeRecord(BaseModel):
 class FakePipeA(Pipe[_FakeRecord]):
     provider = "test"
     interaction_type = "test_alpha"
-    archive_version = "v1"
+    archive_version = 1
     archive_path_pattern = "data.json"
     record_schema = _FakeRecord
 
@@ -44,7 +44,7 @@ class FakePipeA(Pipe[_FakeRecord]):
 class FakePipeB(Pipe[_FakeRecord]):
     provider = "test"
     interaction_type = "test_beta"
-    archive_version = "v1"
+    archive_version = 1
     archive_path_pattern = "nested/other.json"
     record_schema = _FakeRecord
 
@@ -70,7 +70,7 @@ class FakePipeGlob(Pipe[_FakeRecord]):
 
     provider = "test"
     interaction_type = "test_glob"
-    archive_version = "v1"
+    archive_version = 1
     archive_path_pattern = "inbox/*/message_1.json"
     record_schema = _FakeRecord
 

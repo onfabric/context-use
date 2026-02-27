@@ -91,7 +91,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
 
     provider = "chatgpt"
     interaction_type = "chatgpt_conversations"
-    archive_version = "v1"
+    archive_version = 1
     archive_path_pattern = "conversations*.json"
     record_schema = ChatGPTConversationRecord
 

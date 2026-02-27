@@ -151,6 +151,8 @@ class PipeTestKit:
         cls = self.pipe_class
         assert cls.provider, "provider ClassVar must be set"
         assert cls.interaction_type, "interaction_type ClassVar must be set"
-        assert cls.archive_version, "archive_version ClassVar must be set"
+        assert isinstance(cls.archive_version, int), (
+            "archive_version ClassVar must be set to an int"
+        )
         assert cls.archive_path_pattern, "archive_path_pattern ClassVar must be set"
         assert cls.record_schema is not None, "record_schema ClassVar must be set"

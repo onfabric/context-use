@@ -29,8 +29,8 @@ class Pipe[Record: BaseModel](ABC):
     interaction_type: ClassVar[str]
     """Interaction type identifier (e.g. ``"chatgpt_conversations"``)."""
 
-    archive_version: ClassVar[str]
-    """Archive format version this pipe handles (e.g. ``"v1"``).
+    archive_version: ClassVar[int]
+    """Archive format version this pipe handles (e.g. ``1``).
 
     Bumps when the **provider's export format** changes (e.g. ChatGPT
     ships a new ``conversations.json`` structure).  Used for registry
@@ -39,6 +39,11 @@ class Pipe[Record: BaseModel](ABC):
     This is distinct from ``ThreadRow.version``, which tracks the
     *payload schema* version (``CURRENT_THREAD_PAYLOAD_VERSION``).
     """
+
+    @classmethod
+    def archive_version_label(cls) -> str:
+        """Return ``'v{N}'`` string for GCS paths and display."""
+        return f"v{cls.archive_version}"
 
     archive_path_pattern: ClassVar[str]
     """``fnmatch`` glob for the relative path inside the zip archive.
