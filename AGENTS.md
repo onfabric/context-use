@@ -142,9 +142,10 @@ See `context_use/providers/` for working implementations — each provider subdi
 
 Every `Pipe` subclass must set: `provider`, `interaction_type`, `archive_version`, `archive_path_pattern`, `record_schema`. See the base class docstrings for details.
 
-#### `extract()` Contract
+#### `extract_file()` Contract
 
-- Read from `storage.read(task.source_uri)` (small files) or `storage.open_stream(task.source_uri)` (large files — streaming with `ijson`).
+- Subclasses implement `extract_file(source_uri, storage)` — single-file logic only. The base class `extract()` loops over `task.source_uris` and delegates to `extract_file()` for each file.
+- Read from `storage.read(source_uri)` (small files) or `storage.open_stream(source_uri)` (large files — streaming with `ijson`).
 - Yield one validated Pydantic model per logical item.
 - Filter bad/irrelevant records here — don't push that into `transform()`.
 
@@ -171,7 +172,7 @@ See existing schemas in each provider's `schemas.py`.
 
 ### Glob Patterns (`archive_path_pattern`)
 
-Uses Python's `fnmatch` syntax relative to the archive root (not including the archive ID prefix). Patterns without wildcards match exactly one file. Patterns with wildcards create **one EtlTask per matched file** (fan-out). See `ProviderConfig.discover_tasks()` in `context_use/providers/types.py`.
+Uses Python's `fnmatch` syntax relative to the archive root (not including the archive ID prefix). Patterns without wildcards match exactly one file. Patterns with wildcards bundle **all matched files into one EtlTask** via `source_uris` (sorted for determinism). The base class `extract()` loops over `source_uris` and calls `extract_file()` for each, so subclasses always implement single-file logic. See `ProviderConfig.discover_tasks()` in `context_use/providers/types.py`.
 
 ### Extending Payload Models
 

@@ -82,14 +82,17 @@ async def test_task_crud(store: InMemoryStore) -> None:
         archive_id="a1",
         provider="chatgpt",
         interaction_type="chatgpt_conversations",
-        source_uri="archive/conversations.json",
+        source_uris=["archive/conversations.json"],
     )
     created = await store.create_task(task)
     assert created.id == task.id
 
     fetched = await store.get_task(task.id)
     assert fetched is not None
-    assert fetched.source_uri == "archive/conversations.json"
+    assert fetched.source_uris == ["archive/conversations.json"]
+    assert (
+        fetched.source_uri == "archive/conversations.json"
+    )  # backward-compat property
 
     task.status = EtlTaskStatus.COMPLETED.value
     await store.update_task(task)
@@ -99,9 +102,15 @@ async def test_task_crud(store: InMemoryStore) -> None:
 
 
 async def test_get_tasks_by_archive(store: InMemoryStore) -> None:
-    t1 = EtlTask(archive_id="a1", provider="p", interaction_type="t", source_uri="f1")
-    t2 = EtlTask(archive_id="a2", provider="p", interaction_type="t", source_uri="f2")
-    t3 = EtlTask(archive_id="a1", provider="p", interaction_type="t", source_uri="f3")
+    t1 = EtlTask(
+        archive_id="a1", provider="p", interaction_type="t", source_uris=["f1"]
+    )
+    t2 = EtlTask(
+        archive_id="a2", provider="p", interaction_type="t", source_uris=["f2"]
+    )
+    t3 = EtlTask(
+        archive_id="a1", provider="p", interaction_type="t", source_uris=["f3"]
+    )
     await store.create_task(t1)
     await store.create_task(t2)
     await store.create_task(t3)
@@ -148,7 +157,9 @@ async def test_get_threads_by_task_ordered_by_asat(store: InMemoryStore) -> None
 
 
 async def test_count_threads_for_archive(store: InMemoryStore) -> None:
-    task = EtlTask(archive_id="a1", provider="p", interaction_type="t", source_uri="f")
+    task = EtlTask(
+        archive_id="a1", provider="p", interaction_type="t", source_uris=["f"]
+    )
     await store.create_task(task)
     await store.insert_threads([_make_row("k1"), _make_row("k2")], task_id=task.id)
 

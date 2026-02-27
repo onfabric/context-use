@@ -27,7 +27,9 @@ class MockPipe(Pipe[MockRecord]):
     archive_path_pattern = "conversations.json"
     record_schema = MockRecord
 
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[MockRecord]:
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[MockRecord]:
         yield MockRecord(role="user", content="hello")
         yield MockRecord(role="assistant", content="world")
 
@@ -52,7 +54,9 @@ class DroppingPipe(Pipe[MockRecord]):
     archive_path_pattern = "conversations.json"
     record_schema = MockRecord
 
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[MockRecord]:
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[MockRecord]:
         yield MockRecord(role="user", content="keep-me")
         yield MockRecord(role="system", content="drop-me")
         yield MockRecord(role="assistant", content="also-keep")
@@ -93,7 +97,7 @@ class TestPipe:
             archive_id="fake",
             provider="test",
             interaction_type="test_conversations",
-            source_uri="conversations.json",
+            source_uris=["conversations.json"],
         )
         rows = list(pipe.run(task, storage=None))  # type: ignore[arg-type]
 
@@ -110,7 +114,7 @@ class TestPipe:
             archive_id="fake",
             provider="test",
             interaction_type="test_conversations",
-            source_uri="conversations.json",
+            source_uris=["conversations.json"],
         )
         rows = list(pipe.run(task, storage=None))  # type: ignore[arg-type]
 
@@ -125,10 +129,38 @@ class TestPipe:
             archive_id="fake",
             provider="test",
             interaction_type="test_conversations",
-            source_uri="conversations.json",
+            source_uris=["conversations.json"],
         )
         rows = list(pipe.run(task, storage=None))  # type: ignore[arg-type]
 
         assert pipe.extracted_count == 3
         assert pipe.transformed_count == 2
         assert len(rows) == 2
+
+    def test_source_uri_property_returns_first(self):
+        """Backward-compat ``source_uri`` property returns the first URI."""
+        task = EtlTask(
+            archive_id="a1",
+            provider="test",
+            interaction_type="test_conversations",
+            source_uris=["first.json", "second.json"],
+        )
+        assert task.source_uri == "first.json"
+
+    def test_source_uris_stored_on_domain_model(self):
+        task = EtlTask(
+            archive_id="a1",
+            provider="test",
+            interaction_type="test_conversations",
+            source_uris=["a.json", "b.json"],
+        )
+        assert task.source_uris == ["a.json", "b.json"]
+
+    def test_source_uris_empty_raises(self):
+        with pytest.raises(ValueError, match="source_uris must not be empty"):
+            EtlTask(
+                archive_id="a1",
+                provider="test",
+                interaction_type="test_conversations",
+                source_uris=[],
+            )

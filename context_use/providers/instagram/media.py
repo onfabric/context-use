@@ -55,7 +55,7 @@ def _items_to_records(
 class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
     """Shared transform logic for Instagram media (stories and reels).
 
-    Subclasses implement :meth:`extract` to parse their specific
+    Subclasses implement :meth:`extract_file` to parse their specific
     manifest format; :meth:`transform` is inherited.
     """
 
@@ -119,14 +119,14 @@ class InstagramStoriesPipe(_InstagramMediaPipe):
     interaction_type = "instagram_stories"
     archive_path_pattern = "your_instagram_activity/media/stories.json"
 
-    def extract(
+    def extract_file(
         self,
-        task: EtlTask,
+        source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
-        raw = storage.read(task.source_uri)
+        raw = storage.read(source_uri)
         manifest = InstagramStoriesManifest.model_validate_json(raw)
-        yield from _items_to_records(manifest.ig_stories, task.source_uri)
+        yield from _items_to_records(manifest.ig_stories, source_uri)
 
 
 class InstagramReelsPipe(_InstagramMediaPipe):
@@ -140,19 +140,19 @@ class InstagramReelsPipe(_InstagramMediaPipe):
     interaction_type = "instagram_reels"
     archive_path_pattern = "your_instagram_activity/media/reels.json"
 
-    def extract(
+    def extract_file(
         self,
-        task: EtlTask,
+        source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
-        raw = storage.read(task.source_uri)
+        raw = storage.read(source_uri)
         manifest = InstagramReelsManifest.model_validate_json(raw)
 
         all_items: list[InstagramMediaItem] = []
         for entry in manifest.ig_reels_media:
             all_items.extend(entry.media)
 
-        yield from _items_to_records(all_items, task.source_uri)
+        yield from _items_to_records(all_items, source_uri)
 
 
 _MEDIA_MEMORY_CONFIG = MemoryConfig(
