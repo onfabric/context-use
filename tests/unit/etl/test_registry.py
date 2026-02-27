@@ -24,7 +24,9 @@ class FakePipeA(Pipe[_FakeRecord]):
     archive_path_pattern = "data.json"
     record_schema = _FakeRecord
 
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[_FakeRecord]:
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[_FakeRecord]:
         yield _FakeRecord(value="a")
 
     def transform(self, record: _FakeRecord, task: EtlTask) -> ThreadRow:
@@ -46,7 +48,9 @@ class FakePipeB(Pipe[_FakeRecord]):
     archive_path_pattern = "nested/other.json"
     record_schema = _FakeRecord
 
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[_FakeRecord]:
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[_FakeRecord]:
         yield _FakeRecord(value="b")
 
     def transform(self, record: _FakeRecord, task: EtlTask) -> ThreadRow:
@@ -70,7 +74,9 @@ class FakePipeGlob(Pipe[_FakeRecord]):
     archive_path_pattern = "inbox/*/message_1.json"
     record_schema = _FakeRecord
 
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[_FakeRecord]:
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[_FakeRecord]:
         yield _FakeRecord(value="g")
 
     def transform(self, record: _FakeRecord, task: EtlTask) -> ThreadRow:
@@ -126,8 +132,8 @@ class TestDiscoverTasks:
         assert len(tasks) == 1
         assert tasks[0].source_uri == "a1/data.json"
 
-    def test_glob_pattern_creates_one_task_per_match(self):
-        """Wildcard pattern fans out to one EtlTask per matched file."""
+    def test_glob_pattern_bundles_into_one_task(self):
+        """Wildcard pattern bundles all matched files into one EtlTask."""
         cfg = ProviderConfig(interactions=[InteractionConfig(pipe=FakePipeGlob)])
         files = [
             "a1/inbox/alice/message_1.json",
@@ -136,13 +142,12 @@ class TestDiscoverTasks:
         ]
         tasks = cfg.discover_tasks("a1", files, "test")
 
-        assert len(tasks) == 3
-        uris = {t.source_uri for t in tasks}
-        assert uris == set(files)
-        for t in tasks:
-            assert t.interaction_type == "test_glob"
-            assert t.provider == "test"
-            assert t.archive_id == "a1"
+        assert len(tasks) == 1
+        task = tasks[0]
+        assert task.source_uris == sorted(files)
+        assert task.interaction_type == "test_glob"
+        assert task.provider == "test"
+        assert task.archive_id == "a1"
 
     def test_glob_pattern_no_match(self):
         """Wildcard pattern yields no tasks when nothing matches."""
@@ -165,13 +170,41 @@ class TestDiscoverTasks:
         ]
         tasks = cfg.discover_tasks("a1", files, "test")
 
-        assert len(tasks) == 3
+        assert len(tasks) == 2
         types = {t.interaction_type for t in tasks}
         assert types == {"test_alpha", "test_glob"}
         alpha_tasks = [t for t in tasks if t.interaction_type == "test_alpha"]
         glob_tasks = [t for t in tasks if t.interaction_type == "test_glob"]
         assert len(alpha_tasks) == 1
-        assert len(glob_tasks) == 2
+        assert alpha_tasks[0].source_uris == ["a1/data.json"]
+        assert len(glob_tasks) == 1
+        assert glob_tasks[0].source_uris == [
+            "a1/inbox/alice/message_1.json",
+            "a1/inbox/bob/message_1.json",
+        ]
+
+    def test_source_uri_property_returns_first(self, cfg: ProviderConfig):
+        """Backward-compat ``source_uri`` property on discovered tasks."""
+        tasks = cfg.discover_tasks("a1", ["a1/data.json"], "test")
+        assert len(tasks) == 1
+        assert tasks[0].source_uri == "a1/data.json"
+
+    def test_source_uris_sorted(self):
+        """Files within a bundled task are sorted for determinism."""
+        cfg = ProviderConfig(interactions=[InteractionConfig(pipe=FakePipeGlob)])
+        # Files deliberately out of order
+        files = [
+            "a1/inbox/carol/message_1.json",
+            "a1/inbox/alice/message_1.json",
+            "a1/inbox/bob/message_1.json",
+        ]
+        tasks = cfg.discover_tasks("a1", files, "test")
+        assert len(tasks) == 1
+        assert tasks[0].source_uris == [
+            "a1/inbox/alice/message_1.json",
+            "a1/inbox/bob/message_1.json",
+            "a1/inbox/carol/message_1.json",
+        ]
 
 
 class TestGetPipe:

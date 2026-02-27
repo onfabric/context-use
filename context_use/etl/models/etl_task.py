@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import ForeignKey, Index, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from context_use.db.models import Base, TimeStampMixin
@@ -28,7 +29,7 @@ class EtlTask(TimeStampMixin, Base):
 
     provider: Mapped[str] = mapped_column(String, nullable=False)
     interaction_type: Mapped[str] = mapped_column(String, nullable=False)
-    source_uri: Mapped[str] = mapped_column(String, nullable=False)
+    source_uris: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False)
     status: Mapped[str] = mapped_column(
         String,
         nullable=False,

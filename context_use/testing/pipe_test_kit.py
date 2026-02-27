@@ -54,7 +54,7 @@ class PipeTestKit:
             archive_id="a1",
             provider=self.pipe_class.provider,
             interaction_type=self.pipe_class.interaction_type,
-            source_uri=key,
+            source_uris=[key],
             status=EtlTaskStatus.CREATED.value,
         )
 

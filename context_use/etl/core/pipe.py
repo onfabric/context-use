@@ -44,9 +44,10 @@ class Pipe[Record: BaseModel](ABC):
 
     Patterns without wildcards behave as exact matches (backward-compatible).
     Patterns with wildcards (e.g. ``inbox/*/message_1.json``) match multiple
-    files; ``discover_tasks`` creates **one EtlTask per matched file**, so
-    each pipe's ``extract()`` always reads a single file via
-    ``task.source_uri``.
+    files; ``discover_tasks`` bundles **all matched files into one EtlTask**
+    via ``task.source_uris``.  The base class :meth:`extract` loops over
+    ``source_uris`` and calls :meth:`extract_file` for each, so subclasses
+    always implement single-file logic.
     """
 
     record_schema: ClassVar[type[BaseModel]]
@@ -59,9 +60,25 @@ class Pipe[Record: BaseModel](ABC):
     """
 
     @abstractmethod
-    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[Record]:
-        """Parse raw archive data and yield validated records."""
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[Record]:
+        """Parse one source file and yield validated records.
+
+        Subclasses implement this for single-file logic.  The base
+        class :meth:`extract` loops over ``task.source_uris`` and
+        delegates to this method for each file.
+        """
         ...
+
+    def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[Record]:
+        """Iterate over all source URIs, delegating to :meth:`extract_file`.
+
+        Not intended to be overridden.  Subclasses implement
+        :meth:`extract_file` for single-file logic.
+        """
+        for uri in task.source_uris:
+            yield from self.extract_file(uri, storage)
 
     @abstractmethod
     def transform(self, record: Record, task: EtlTask) -> ThreadRow:

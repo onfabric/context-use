@@ -95,12 +95,12 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
     archive_path_pattern = "conversations*.json"
     record_schema = ChatGPTConversationRecord
 
-    def extract(
+    def extract_file(
         self,
-        task: EtlTask,
+        source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[ChatGPTConversationRecord]:
-        stream = storage.open_stream(task.source_uri)
+        stream = storage.open_stream(source_uri)
 
         try:
             for conversation in ijson.items(stream, "item"):

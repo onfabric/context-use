@@ -41,24 +41,24 @@ class ProviderConfig:
         """Match extracted archive files against registered pipes.
 
         Uses :func:`fnmatch.fnmatch` to match each file against the
-        pipe's ``archive_path_pattern``.  Patterns without wildcards
-        behave as exact matches.  Patterns with wildcards create **one
-        EtlTask per matched file** (fan-out).
+        pipe's ``archive_path_pattern``.  All matched files for a given
+        pipe are bundled into **one EtlTask** with ``source_uris``
+        containing every match (sorted for determinism).
         """
         prefix = f"{archive_id}/"
         tasks: list[EtlTask] = []
         for pipe_cls in self.pipes:
             pattern = f"{prefix}{pipe_cls.archive_path_pattern}"
-            for f in files:
-                if fnmatch.fnmatch(f, pattern):
-                    tasks.append(
-                        EtlTask(
-                            archive_id=archive_id,
-                            provider=provider,
-                            interaction_type=pipe_cls.interaction_type,
-                            source_uri=f,
-                        )
+            matched = sorted(f for f in files if fnmatch.fnmatch(f, pattern))
+            if matched:
+                tasks.append(
+                    EtlTask(
+                        archive_id=archive_id,
+                        provider=provider,
+                        interaction_type=pipe_cls.interaction_type,
+                        source_uris=matched,
                     )
+                )
         return tasks
 
     def get_pipe(self, interaction_type: str) -> type[Pipe]:
