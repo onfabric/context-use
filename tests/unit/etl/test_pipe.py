@@ -23,7 +23,7 @@ MOCK_PAYLOAD_VERSION = "1.0.0"
 class MockPipe(Pipe[MockRecord]):
     provider = "test"
     interaction_type = "test_conversations"
-    archive_version = "v1"
+    archive_version = 1
     archive_path_pattern = "conversations.json"
     record_schema = MockRecord
 
@@ -50,7 +50,7 @@ class DroppingPipe(Pipe[MockRecord]):
 
     provider = "test"
     interaction_type = "test_conversations"
-    archive_version = "v1"
+    archive_version = 1
     archive_path_pattern = "conversations.json"
     record_schema = MockRecord
 
@@ -82,7 +82,7 @@ class TestPipe:
             class IncompletePipe(Pipe[MockRecord]):
                 provider = "test"
                 interaction_type = "test"
-                archive_version = "v1"
+                archive_version = 1
                 archive_path_pattern = "data.json"
                 record_schema = MockRecord
 

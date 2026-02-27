@@ -60,7 +60,7 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
     """
 
     provider = "instagram"
-    archive_version = "v1"
+    archive_version = 1
     record_schema = InstagramMediaRecord
 
     def transform(
