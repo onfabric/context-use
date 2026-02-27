@@ -161,11 +161,11 @@ _MEDIA_MEMORY_CONFIG = MemoryConfig(
 )
 
 STORIES_CONFIG = InteractionConfig(
-    pipe=InstagramStoriesPipe,
+    pipes=[InstagramStoriesPipe],
     memory=_MEDIA_MEMORY_CONFIG,
 )
 
 REELS_CONFIG = InteractionConfig(
-    pipe=InstagramReelsPipe,
+    pipes=[InstagramReelsPipe],
     memory=_MEDIA_MEMORY_CONFIG,
 )

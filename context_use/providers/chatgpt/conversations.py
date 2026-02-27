@@ -175,7 +175,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
 
 
 INTERACTION_CONFIG = InteractionConfig(
-    pipe=ChatGPTConversationsPipe,
+    pipes=[ChatGPTConversationsPipe],
     memory=MemoryConfig(
         prompt_builder=ConversationMemoryPromptBuilder,
         grouper=CollectionGrouper,
