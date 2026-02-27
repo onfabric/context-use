@@ -13,9 +13,6 @@ def _utcnow() -> datetime:
 
 class EtlTaskStatus(enum.StrEnum):
     CREATED = "created"
-    EXTRACTING = "extracting"
-    TRANSFORMING = "transforming"
-    UPLOADING = "uploading"
     COMPLETED = "completed"
     FAILED = "failed"
 
