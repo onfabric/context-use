@@ -1,0 +1,35 @@
+{
+  "impressions_history_videos_watched": [
+    {
+      "string_map_data": {
+        "Author": {
+          "value": "synthetic_creator_1"
+        },
+        "Time": {
+          "timestamp": 1743840091
+        }
+      }
+    },
+    {
+      "string_map_data": {
+        "Author": {
+          "value": "synthetic_creator_2"
+        },
+        "Time": {
+          "timestamp": 1743840379
+        }
+      }
+    },
+    {
+      "string_map_data": {
+        "Author": {
+          "value": "synthetic_creator_1"
+        },
+        "Time": {
+          "timestamp": 1743840506
+        }
+      }
+    }
+  ]
+}
+
