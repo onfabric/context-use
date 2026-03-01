@@ -290,6 +290,32 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
         return self.object.get_collection()
 
 
+class FibreViewObject(View, _BaseFibreMixin):
+    fibreKind: Literal["View"] = Field("View", alias="fibre_kind")
+    object: Page | Video  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        parts = [
+            f"Viewed {self.object.type.lower()}",
+        ]
+        if self.object.name:
+            parts.append(f'"{self.object.name}"')
+        else:
+            if self.object.url:
+                parts.append(f"{self.object.url}")
+        if self.object.attributedTo:
+            attr = self.object.attributedTo
+            if isinstance(attr, list):
+                attr = attr[0]
+            parts.append(f"by {attr.name}")
+        if provider:
+            if provider.lower() == "google":
+                parts.append(f"via {provider}")
+            else:
+                parts.append(f"on {provider}")
+        return " ".join(parts)
+
+
 # --- Discriminated union ---
 
 FibreByType = Annotated[
@@ -298,7 +324,8 @@ FibreByType = Annotated[
     | FibreVideo
     | FibreCollection
     | FibreSendMessage
-    | FibreReceiveMessage,
+    | FibreReceiveMessage
+    | FibreViewObject,
     Field(discriminator="fibreKind"),
 ]
 
@@ -313,3 +340,4 @@ FibreCollection.model_rebuild()
 FibreCreateObject.model_rebuild()
 FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
+FibreViewObject.model_rebuild()

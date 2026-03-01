@@ -11,6 +11,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 ALICE_CHATGPT_DIR = FIXTURES_DIR / "users" / "alice" / "chatgpt" / "v1"
 ALICE_INSTAGRAM_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v1"
+ALICE_INSTAGRAM_V0_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v0"
 
 
 CHATGPT_CONVERSATIONS: list[dict] = json.loads(
@@ -27,6 +28,24 @@ INSTAGRAM_STORIES_JSON: dict = json.loads(
 INSTAGRAM_REELS_JSON: dict = json.loads(
     (
         ALICE_INSTAGRAM_DIR / "your_instagram_activity" / "media" / "reels.json"
+    ).read_text()
+)
+
+INSTAGRAM_VIDEOS_WATCHED_V0_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_V0_DIR
+        / "ads_information"
+        / "ads_and_topics"
+        / "videos_watched.json"
+    ).read_text()
+)
+
+INSTAGRAM_VIDEOS_WATCHED_V1_JSON: list[dict] = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR
+        / "ads_information"
+        / "ads_and_topics"
+        / "videos_watched.json"
     ).read_text()
 )
 
