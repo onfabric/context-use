@@ -290,6 +290,34 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
         return self.object.get_collection()
 
 
+class FibreFollow(Follow, _BaseFibreMixin):
+    """A follow relationship.
+
+    Outbound (user follows someone): ``object`` is the followed profile.
+    Inbound (someone follows user): ``actor`` is the follower profile.
+    """
+
+    fibreKind: Literal["Follow"] = Field("Follow", alias="fibre_kind")
+    object: Profile | None = None  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: Profile | None = None  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def is_inbound(self) -> bool:
+        return self.actor is not None
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        if self.actor:
+            name = self.actor.name if isinstance(self.actor.name, str) else "someone"
+            parts = f"Followed by {name}"
+        elif self.object:
+            name = self.object.name if isinstance(self.object.name, str) else "someone"
+            parts = f"Followed {name}"
+        else:
+            return None
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
 # --- Discriminated union ---
 
 FibreByType = Annotated[
@@ -298,7 +326,8 @@ FibreByType = Annotated[
     | FibreVideo
     | FibreCollection
     | FibreSendMessage
-    | FibreReceiveMessage,
+    | FibreReceiveMessage
+    | FibreFollow,
     Field(discriminator="fibreKind"),
 ]
 
@@ -313,3 +342,4 @@ FibreCollection.model_rebuild()
 FibreCreateObject.model_rebuild()
 FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
+FibreFollow.model_rebuild()

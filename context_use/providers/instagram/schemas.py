@@ -42,3 +42,36 @@ class InstagramMediaRecord(BaseModel):
     title: str = ""
     media_type: str  # "Image" or "Video", inferred from URI extension
     source: str | None = None
+
+
+# --- Connection schemas (followers / following) ---
+
+
+class InstagramConnectionStringData(BaseModel):
+    """One entry inside ``string_list_data`` for a connection item."""
+
+    href: str
+    value: str = ""
+    timestamp: int
+
+
+class InstagramConnectionItem(BaseModel):
+    """Raw archive item for a follower or following entry."""
+
+    title: str = ""
+    string_list_data: list[InstagramConnectionStringData]
+
+
+class InstagramFollowingManifest(BaseModel):
+    """Top-level schema for ``following.json``."""
+
+    relationships_following: list[InstagramConnectionItem]
+
+
+class InstagramConnectionRecord(BaseModel):
+    """Flat extraction record for a single follower/following connection."""
+
+    username: str
+    profile_url: str
+    timestamp: int
+    source: str | None = None

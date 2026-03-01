@@ -30,6 +30,24 @@ INSTAGRAM_REELS_JSON: dict = json.loads(
     ).read_text()
 )
 
+INSTAGRAM_FOLLOWERS_JSON: list[dict] = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR
+        / "connections"
+        / "followers_and_following"
+        / "followers_1.json"
+    ).read_text()
+)
+
+INSTAGRAM_FOLLOWING_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR
+        / "connections"
+        / "followers_and_following"
+        / "following.json"
+    ).read_text()
+)
+
 
 def build_zip(files: dict[str, bytes | str]) -> bytes:
     """Create an in-memory zip archive from a dict of {path: content}."""
