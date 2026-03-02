@@ -6,10 +6,10 @@ import logging
 from datetime import datetime
 from typing import Annotated, Literal, cast
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-from context_use.activitystreams.activities import Create, View
-from context_use.activitystreams.actors import Application
+from context_use.activitystreams.activities import Add, Create, Follow, Like, View
+from context_use.activitystreams.actors import Application, Person
 from context_use.activitystreams.core import Collection, Object
 from context_use.activitystreams.objects import Image, Note, Page, Profile, Video
 
@@ -131,6 +131,51 @@ class FibreCollection(Collection, _BaseFibreMixin):
         return " ".join(parts)
 
 
+class FibrePost(Note, _BaseFibreMixin):
+    """A post object — nested-only, not in FibreByType."""
+
+    fibreKind: Literal["Post"] = Field("Post", alias="fibre_kind")
+    attributedTo: Profile | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+
+class FibreCollectionFavourites(FibreCollection):
+    """Favourites collection — nested-only, not in FibreByType."""
+
+    fibreKind: Literal["CollectionFavourites"] = Field(  # type: ignore[reportIncompatibleVariableOverride]
+        "CollectionFavourites", alias="fibre_kind"
+    )
+    name: Literal["Favourites"] = "Favourites"  # type: ignore[reportIncompatibleVariableOverride]
+
+
+# --- Fibre Mixins ---
+
+
+class _BaseFibreFollowXORMixin:
+    """Validates that exactly one of actor or object is set on Follow fibres."""
+
+    @model_validator(mode="after")
+    def _xor(self):
+        has_actor = self.actor is not None  # type: ignore[attr-defined]
+        has_object = self.object is not None  # type: ignore[attr-defined]
+        if has_actor == has_object:
+            raise ValueError("Exactly one of actor or object must be set")
+        return self
+
+
+class FibreReaction(BaseModel):
+    """Marker mixin for reaction-type activities (Like, Dislike)."""
+
+    fibreKind: Literal["Reaction"] = Field("Reaction", alias="fibre_kind")
+    object: FibrePost | Video
+    content: str | None = None
+
+    @model_validator(mode="after")
+    def _validate_content(self):
+        if self.content is not None and not self.content:
+            raise ValueError("Reaction content must be non-empty when provided")
+        return self
+
+
 # --- Fibre Activities ---
 
 
@@ -189,12 +234,14 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
 
 class FibreViewObject(View, _BaseFibreMixin):
     fibreKind: Literal["View"] = Field("View", alias="fibre_kind")
-    object: Page | Video  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    object: Page | Video | FibrePost  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
     def _get_preview(self, provider: str | None) -> str | None:
-        parts = [
-            f"Viewed {self.object.type.lower()}",
-        ]
+        if isinstance(self.object, FibrePost):
+            type_label = "post"
+        else:
+            type_label = self.object.type.lower()
+        parts = [f"Viewed {type_label}"]
         if self.object.name:
             parts.append(f'"{self.object.name}"')
         else:
@@ -213,20 +260,131 @@ class FibreViewObject(View, _BaseFibreMixin):
         return " ".join(parts)
 
 
-# --- Discriminated union ---
+class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
+    """Inherits fibreKind="Reaction" from FibreReaction, type="Like" from Like.
+
+    When FibreDislike is added, the FibreByType slot becomes a nested
+    discriminated union on ``type`` (Like vs Dislike).
+    """
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        if isinstance(self.object, FibrePost):
+            parts = "Liked post"
+            if self.object.attributedTo:
+                parts += f" by {self.object.attributedTo.name}"
+        else:
+            parts = f"Liked {self.object.type.lower()}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+class FibreComment(Create, _BaseFibreMixin):
+    fibreKind: Literal["Comment"] = Field("Comment", alias="fibre_kind")
+    object: Note  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    inReplyTo: FibrePost | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        content = self.object.content if isinstance(self.object.content, str) else ""
+        truncated = content[:80] + ("..." if len(content) > 80 else "")
+        parts = f'Commented "{truncated}"'
+        if self.inReplyTo and self.inReplyTo.attributedTo:
+            parts += f" on {self.inReplyTo.attributedTo.name}'s post"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+class FibreSearch(View, _BaseFibreMixin):
+    fibreKind: Literal["Search"] = Field("Search", alias="fibre_kind")
+    object: FibrePost | Page | Profile  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        if isinstance(self.object, Profile):
+            parts = f'Searched for profile "{self.object.name}"'
+        elif isinstance(self.object, FibrePost):
+            parts = "Searched for post"
+        else:
+            name = self.object.name or ""
+            parts = f'Searched "{name}"'
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+class FibreAddObjectToCollection(Add, _BaseFibreMixin):
+    fibreKind: Literal["AddToCollection"] = Field("AddToCollection", alias="fibre_kind")
+    object: Video | Image | Page | FibrePost  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    target: FibreCollectionFavourites | FibreCollection | Collection  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        if isinstance(self.target, FibreCollectionFavourites):
+            parts = "Saved"
+        elif self.target and self.target.name:
+            parts = f'Saved to "{self.target.name}"'
+        else:
+            parts = "Saved"
+        if isinstance(self.object, FibrePost):
+            if self.object.attributedTo:
+                parts += f" post by {self.object.attributedTo.name}"
+            else:
+                parts += " post"
+        elif isinstance(self.object, (Image, Video)):
+            parts += f" {self.object.type.lower()}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+class FibreFollowedBy(Follow, _BaseFibreMixin, _BaseFibreFollowXORMixin):
+    fibreKind: Literal["FollowedBy"] = Field("FollowedBy", alias="fibre_kind")
+    actor: Person  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    object: None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def is_inbound(self) -> bool:
+        return True
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        name = self.actor.name if self.actor else "someone"
+        parts = f"Followed by {name}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+class FibreFollowing(Follow, _BaseFibreMixin, _BaseFibreFollowXORMixin):
+    fibreKind: Literal["Following"] = Field("Following", alias="fibre_kind")
+    object: Profile | Page  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        name = self.object.name if self.object else "someone"
+        parts = f"Following {name}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+# --- Discriminated unions ---
 
 FibreByType = Annotated[
-    FibreCreateObject
+    FibreViewObject
+    | FibreCreateObject
+    | FibreAddObjectToCollection
+    | FibreSearch
+    | FibreLike
     | FibreImage
     | FibreVideo
     | FibreCollection
     | FibreSendMessage
     | FibreReceiveMessage
-    | FibreViewObject,
+    | FibreComment,
     Field(discriminator="fibreKind"),
 ]
 
-ThreadPayload = FibreByType
+FibreFollow = FibreFollowedBy | FibreFollowing
+Fibre = FibreByType | FibreFollow
+ThreadPayload = Fibre
 
 
 # Rebuild all fibre models
@@ -234,7 +392,16 @@ FibreTextMessage.model_rebuild()
 FibreImage.model_rebuild()
 FibreVideo.model_rebuild()
 FibreCollection.model_rebuild()
+FibrePost.model_rebuild()
+FibreCollectionFavourites.model_rebuild()
+FibreReaction.model_rebuild()
 FibreCreateObject.model_rebuild()
 FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
 FibreViewObject.model_rebuild()
+FibreLike.model_rebuild()
+FibreComment.model_rebuild()
+FibreSearch.model_rebuild()
+FibreAddObjectToCollection.model_rebuild()
+FibreFollowedBy.model_rebuild()
+FibreFollowing.model_rebuild()
