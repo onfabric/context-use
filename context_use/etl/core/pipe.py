@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from typing import ClassVar
@@ -9,6 +10,8 @@ from pydantic import BaseModel
 from context_use.etl.core.types import ThreadRow
 from context_use.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
+
+logger = logging.getLogger(__name__)
 
 
 class Pipe[Record: BaseModel](ABC):
@@ -80,11 +83,25 @@ class Pipe[Record: BaseModel](ABC):
     def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[Record]:
         """Iterate over all source URIs, delegating to :meth:`extract_file`.
 
+        If :meth:`extract_file` raises mid-stream for a given file,
+        records already yielded from that file are kept; the remaining
+        records in that file are skipped and extraction continues with
+        the next URI.
+
         Not intended to be overridden.  Subclasses implement
         :meth:`extract_file` for single-file logic.
         """
         for uri in task.source_uris:
-            yield from self.extract_file(uri, storage)
+            try:
+                for record in self.extract_file(uri, storage):  # noqa: UP028
+                    yield record
+            except Exception:
+                logger.warning(
+                    "%s: error extracting from %s — skipping rest of file",
+                    self.__class__.__name__,
+                    uri,
+                    exc_info=True,
+                )
 
     @abstractmethod
     def transform(self, record: Record, task: EtlTask) -> ThreadRow:
@@ -95,16 +112,28 @@ class Pipe[Record: BaseModel](ABC):
         """Run the extract → transform loop.
 
         Yields :class:`ThreadRow` instances one at a time, keeping memory
-        bounded.  Not intended to be overridden.
+        bounded.  Individual records that fail during :meth:`transform`
+        are logged and skipped.  Not intended to be overridden.
 
-        After the iterator is fully consumed, :attr:`extracted_count` and
-        :attr:`transformed_count` reflect the totals.
+        After the iterator is fully consumed, :attr:`extracted_count`,
+        :attr:`transformed_count`, and :attr:`error_count` reflect the
+        totals.
         """
         self.extracted_count: int = 0
         self.transformed_count: int = 0
+        self.error_count: int = 0
         for record in self.extract(task, storage):
             self.extracted_count += 1
-            row = self.transform(record, task)
+            try:
+                row = self.transform(record, task)
+            except Exception:
+                logger.warning(
+                    "%s: error transforming record — skipping",
+                    self.__class__.__name__,
+                    exc_info=True,
+                )
+                self.error_count += 1
+                continue
             # Today transform() always returns a ThreadRow, but when it
             # evolves to -> ThreadRow | None (Phase A5), this guard is ready.
             if row is not None:
