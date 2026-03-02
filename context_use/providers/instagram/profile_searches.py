@@ -51,12 +51,14 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
         items = data.get("searches_user", [])
         for raw_item in items:
             parsed = _SearchItem.model_validate(raw_item)
+            title = raw_item.get("title")
             for entry in parsed.string_list_data:
+                username = entry.value or title
                 # Skip entries with no username — preview would be unusable
-                if not entry.value:
+                if not username:
                     continue
                 yield InstagramProfileSearchRecord(
-                    username=entry.value,
+                    username=username,
                     href=entry.href,
                     timestamp=entry.timestamp,
                     source=json.dumps(raw_item),
