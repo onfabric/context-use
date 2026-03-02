@@ -1,13 +1,30 @@
 import datetime
 
+import pytest
+from pydantic import ValidationError
+
 from context_use.etl.payload.core import make_thread_payload
 from context_use.etl.payload.models import (
     Application,
+    FibreAddObjectToCollection,
+    FibreCollection,
+    FibreCollectionFavourites,
+    FibreComment,
     FibreCreateObject,
+    FibreFollowedBy,
+    FibreFollowing,
+    FibreLike,
+    FibrePost,
     FibreReceiveMessage,
+    FibreSearch,
     FibreSendMessage,
     FibreTextMessage,
+    FibreViewObject,
     Image,
+    Note,
+    Page,
+    Person,
+    Profile,
     Video,
 )
 
@@ -93,3 +110,216 @@ class TestFibreAsat:
     def test_get_asat_without_published(self):
         msg = FibreTextMessage(content="test")  # pyright: ignore[reportCallIssue]
         assert msg.get_asat() is None
+
+
+class TestFibreLike:
+    def test_reaction_rejects_empty_content(self):
+        post = FibrePost()  # pyright: ignore[reportCallIssue]
+        with pytest.raises(ValidationError, match="non-empty"):
+            FibreLike(object=post, content="")  # pyright: ignore[reportCallIssue]
+
+    def test_preview_post(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        like = FibreLike(object=post)  # pyright: ignore[reportCallIssue]
+        assert like.get_preview("Instagram") == "Liked post by alice on Instagram"
+
+    def test_preview_video(self):
+        vid = Video()  # pyright: ignore[reportCallIssue]
+        like = FibreLike(object=vid)  # pyright: ignore[reportCallIssue]
+        assert like.get_preview() == "Liked video"
+
+
+class TestFibreComment:
+    def test_preview_with_reply_to(self):
+        note = Note(content="amazing!")  # pyright: ignore[reportCallIssue]
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        comment = FibreComment(object=note, inReplyTo=post)  # pyright: ignore[reportCallIssue]
+        preview = comment.get_preview("Instagram")
+        assert preview is not None
+        assert "Commented" in preview
+        assert "alice" in preview
+        assert "Instagram" in preview
+
+    def test_preview_without_reply_to(self):
+        note = Note(content="standalone comment")  # pyright: ignore[reportCallIssue]
+        comment = FibreComment(object=note)  # pyright: ignore[reportCallIssue]
+        preview = comment.get_preview()
+        assert preview is not None
+        assert "Commented" in preview
+
+
+class TestFibreSearch:
+    def test_preview_profile(self):
+        profile = Profile(name="alice")  # pyright: ignore[reportCallIssue]
+        search = FibreSearch(object=profile)  # pyright: ignore[reportCallIssue]
+        assert search.get_preview() == 'Searched for profile "alice"'
+
+    def test_preview_post(self):
+        post = FibrePost()  # pyright: ignore[reportCallIssue]
+        search = FibreSearch(object=post)  # pyright: ignore[reportCallIssue]
+        assert search.get_preview() == "Searched for post"
+
+
+class TestFibreAddObjectToCollection:
+    def test_preview_saved_to_favourites(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        fav = FibreCollectionFavourites()  # pyright: ignore[reportCallIssue]
+        add = FibreAddObjectToCollection(object=post, target=fav)  # pyright: ignore[reportCallIssue]
+        assert add.get_preview("Instagram") == "Saved post by alice on Instagram"
+
+    def test_preview_saved_to_named_collection(self):
+        post = FibrePost()  # pyright: ignore[reportCallIssue]
+        coll = FibreCollection(name="Travel")  # pyright: ignore[reportCallIssue]
+        add = FibreAddObjectToCollection(object=post, target=coll)  # pyright: ignore[reportCallIssue]
+        assert add.get_preview() == 'Saved to "Travel" post'
+
+
+class TestFibreFollowedBy:
+    def test_is_inbound(self):
+        fb = FibreFollowedBy(  # pyright: ignore[reportCallIssue]
+            actor=Person(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        assert fb.is_inbound() is True
+
+    def test_preview(self):
+        fb = FibreFollowedBy(  # pyright: ignore[reportCallIssue]
+            actor=Person(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        assert fb.get_preview("Instagram") == "Followed by alice on Instagram"
+
+    def test_rejects_both_actor_and_object(self):
+        with pytest.raises(ValidationError):
+            FibreFollowedBy(  # pyright: ignore[reportCallIssue]
+                actor=Person(name="alice"),  # pyright: ignore[reportCallIssue]
+                object=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+            )
+
+    def test_rejects_missing_actor(self):
+        with pytest.raises(ValidationError):
+            FibreFollowedBy()  # pyright: ignore[reportCallIssue]
+
+
+class TestFibreFollowing:
+    def test_is_not_inbound(self):
+        fg = FibreFollowing(  # pyright: ignore[reportCallIssue]
+            object=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+        )
+        assert fg.is_inbound() is False
+
+    def test_preview(self):
+        fg = FibreFollowing(  # pyright: ignore[reportCallIssue]
+            object=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+        )
+        assert fg.get_preview("Instagram") == "Following bob on Instagram"
+
+    def test_rejects_both_actor_and_object(self):
+        with pytest.raises(ValidationError):
+            FibreFollowing(  # pyright: ignore[reportCallIssue]
+                actor=Person(name="alice"),  # pyright: ignore[reportCallIssue]
+                object=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+            )
+
+
+class TestFibreViewObjectWidened:
+    def test_view_post_preview(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        view = FibreViewObject(object=post)  # pyright: ignore[reportCallIssue]
+        preview = view.get_preview("Instagram")
+        assert preview is not None
+        assert "Viewed post" in preview
+        assert "alice" in preview
+        assert "Instagram" in preview
+
+    def test_view_video_still_works(self):
+        vid = Video(name="clip")  # pyright: ignore[reportCallIssue]
+        view = FibreViewObject(object=vid)  # pyright: ignore[reportCallIssue]
+        preview = view.get_preview()
+        assert preview is not None
+        assert "Viewed video" in preview
+
+    def test_view_page_still_works(self):
+        page = Page(name="example", url="http://example.com")  # pyright: ignore[reportCallIssue]
+        view = FibreViewObject(object=page)  # pyright: ignore[reportCallIssue]
+        preview = view.get_preview()
+        assert preview is not None
+        assert "Viewed page" in preview
+
+
+class TestMakeThreadPayloadRoundTrip:
+    """Construct → to_dict → make_thread_payload → same type + same unique_key."""
+
+    def _roundtrip(self, fibre):
+        d = fibre.to_dict()
+        return make_thread_payload(d)
+
+    def test_like_roundtrip(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        like = FibreLike(object=post)  # pyright: ignore[reportCallIssue]
+        result = self._roundtrip(like)
+        assert isinstance(result, FibreLike)
+        assert result.unique_key() == like.unique_key()
+
+    def test_comment_roundtrip(self):
+        note = Note(content="great!")  # pyright: ignore[reportCallIssue]
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+        )
+        comment = FibreComment(object=note, inReplyTo=post)  # pyright: ignore[reportCallIssue]
+        result = self._roundtrip(comment)
+        assert isinstance(result, FibreComment)
+        assert result.unique_key() == comment.unique_key()
+
+    def test_search_roundtrip(self):
+        search = FibreSearch(  # pyright: ignore[reportCallIssue]
+            object=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        result = self._roundtrip(search)
+        assert isinstance(result, FibreSearch)
+        assert result.unique_key() == search.unique_key()
+
+    def test_add_to_collection_roundtrip(self):
+        add = FibreAddObjectToCollection(  # pyright: ignore[reportCallIssue]
+            object=FibrePost(  # pyright: ignore[reportCallIssue]
+                url="http://example.com/post/1",
+            ),
+            target=FibreCollectionFavourites(),  # pyright: ignore[reportCallIssue]
+        )
+        result = self._roundtrip(add)
+        assert isinstance(result, FibreAddObjectToCollection)
+        assert result.unique_key() == add.unique_key()
+
+    def test_followed_by_roundtrip(self):
+        fb = FibreFollowedBy(  # pyright: ignore[reportCallIssue]
+            actor=Person(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        result = self._roundtrip(fb)
+        assert isinstance(result, FibreFollowedBy)
+        assert result.unique_key() == fb.unique_key()
+
+    def test_following_roundtrip(self):
+        fg = FibreFollowing(  # pyright: ignore[reportCallIssue]
+            object=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+        )
+        result = self._roundtrip(fg)
+        assert isinstance(result, FibreFollowing)
+        assert result.unique_key() == fg.unique_key()
+
+    def test_view_post_roundtrip(self):
+        view = FibreViewObject(  # pyright: ignore[reportCallIssue]
+            object=FibrePost(  # pyright: ignore[reportCallIssue]
+                attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+            ),
+        )
+        result = self._roundtrip(view)
+        assert isinstance(result, FibreViewObject)
+        assert result.unique_key() == view.unique_key()
