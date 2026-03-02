@@ -100,6 +100,63 @@ class ExplodingTransformPipe(Pipe[MockRecord]):
         )
 
 
+class ExplodingExtractPipe(Pipe[MockRecord]):
+    """A pipe whose extract_file() raises mid-stream."""
+
+    provider = "test"
+    interaction_type = "test_conversations"
+    archive_version = 1
+    archive_path_pattern = "conversations.json"
+    record_schema = MockRecord
+
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[MockRecord]:
+        yield MockRecord(role="user", content="before-boom")
+        raise ValueError("corrupt data mid-stream")
+
+    def transform(self, record: MockRecord, task: EtlTask) -> ThreadRow:
+        return ThreadRow(
+            unique_key=f"mock:{record.content}",
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=record.content,
+            payload={"role": record.role, "text": record.content},
+            version=MOCK_PAYLOAD_VERSION,
+            asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+        )
+
+
+class ExplodingTransformPipe(Pipe[MockRecord]):
+    """A pipe whose transform() raises for some records."""
+
+    provider = "test"
+    interaction_type = "test_conversations"
+    archive_version = 1
+    archive_path_pattern = "conversations.json"
+    record_schema = MockRecord
+
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[MockRecord]:
+        yield MockRecord(role="user", content="good")
+        yield MockRecord(role="system", content="bad")
+        yield MockRecord(role="assistant", content="also-good")
+
+    def transform(self, record: MockRecord, task: EtlTask) -> ThreadRow:
+        if record.role == "system":
+            raise ValueError("cannot transform system messages")
+        return ThreadRow(
+            unique_key=f"mock:{record.content}",
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=record.content,
+            payload={"role": record.role, "text": record.content},
+            version=MOCK_PAYLOAD_VERSION,
+            asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+        )
+
+
 class DroppingPipe(Pipe[MockRecord]):
     """A pipe whose transform() returns None for some records."""
 
