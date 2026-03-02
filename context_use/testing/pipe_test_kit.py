@@ -146,6 +146,10 @@ class PipeTestKit:
             f"transformed_count {pipe.transformed_count} "
             f"!= expected {self.expected_transform_count}"
         )
+        assert pipe.error_count == 0, (
+            f"error_count {pipe.error_count} != 0 — "
+            "fixture data should not trigger errors"
+        )
 
     def test_class_vars_set(self):
         cls = self.pipe_class
