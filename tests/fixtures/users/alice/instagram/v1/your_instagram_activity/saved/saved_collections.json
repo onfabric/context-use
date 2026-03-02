@@ -1,7 +1,7 @@
 {
   "saved_saved_collections": [
     {
-      "title": "Recipes",
+      "title": "Collection",
       "string_map_data": {
         "Name": {
           "value": "Recipes"
@@ -13,7 +13,42 @@
           "timestamp": 1719946930
         }
       }
+    },
+    {
+      "string_map_data": {
+        "Name": {
+          "href": "https://www.instagram.com/p/BBBBBBBBBBB/",
+          "value": "synthetic_chef"
+        },
+        "Added Time": {
+          "timestamp": 1719947100
+        }
+      }
+    },
+    {
+      "string_map_data": {
+        "Name": {
+          "href": "https://www.instagram.com/p/CCCCCCCCCCC/",
+          "value": "pasta_queen"
+        },
+        "Added Time": {
+          "timestamp": 1719947200
+        }
+      }
+    },
+    {
+      "title": "Collection",
+      "string_map_data": {
+        "Name": {
+          "value": "Empty Collection"
+        },
+        "Creation Time": {
+          "timestamp": 1719950000
+        },
+        "Update Time": {
+          "timestamp": 1719950000
+        }
+      }
     }
   ]
 }
-

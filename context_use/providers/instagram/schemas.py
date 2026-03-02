@@ -247,6 +247,40 @@ class InstagramFollowingManifest(InstagramBaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Extracted records — saved posts
+# ---------------------------------------------------------------------------
+
+
+class InstagramSavedPostRecord(BaseModel):
+    """Normalised record for a saved post."""
+
+    title: str
+    href: str | None = None
+    timestamp: int
+    source: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Extracted records — saved collections
+# ---------------------------------------------------------------------------
+
+
+class InstagramSavedCollectionRecord(BaseModel):
+    """Normalised record for a post saved to a named collection.
+
+    Each record pairs the collection-level metadata (name, creation time)
+    with one child item (post author, href, added time).
+    """
+
+    collection_name: str
+    collection_created_at: int
+    item_author: str
+    item_href: str | None = None
+    item_added_at: int
+    source: str | None = None
+
+
+# ---------------------------------------------------------------------------
 # Media schemas (stories, reels, posts)
 # ---------------------------------------------------------------------------
 

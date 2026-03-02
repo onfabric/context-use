@@ -11,7 +11,7 @@ class TestE2EInstagram:
     async def test_full_flow(self, ctx: ContextUse, instagram_zip):
         result = await ctx.process_archive(Provider.INSTAGRAM, str(instagram_zip))
 
-        assert result.tasks_completed >= 8
+        assert result.tasks_completed >= 10
         assert result.tasks_failed == 0
         assert result.threads_created > 0
         assert len(result.errors) == 0
@@ -28,6 +28,8 @@ class TestE2EInstagram:
         assert "instagram_followers" in interaction_types
         assert "instagram_following" in interaction_types
         assert "instagram_comments_posts" in interaction_types
+        assert "instagram_saved_posts" in interaction_types
+        assert "instagram_saved_collections" in interaction_types
 
         for t in tasks:
             assert t.status == EtlTaskStatus.COMPLETED.value
