@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
+from context_use.etl.payload import CURRENT_THREAD_PAYLOAD_VERSION
 from context_use.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
 
@@ -15,9 +16,6 @@ from context_use.storage.base import StorageBackend
 class MockRecord(BaseModel):
     role: str
     content: str
-
-
-MOCK_PAYLOAD_VERSION = "1.0.0"
 
 
 class MockPipe(Pipe[MockRecord]):
@@ -40,7 +38,7 @@ class MockPipe(Pipe[MockRecord]):
             interaction_type=self.interaction_type,
             preview=record.content,
             payload={"role": record.role, "text": record.content},
-            version=MOCK_PAYLOAD_VERSION,
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
@@ -67,7 +65,7 @@ class ExplodingExtractPipe(Pipe[MockRecord]):
             interaction_type=self.interaction_type,
             preview=record.content,
             payload={"role": record.role, "text": record.content},
-            version=MOCK_PAYLOAD_VERSION,
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
@@ -97,7 +95,7 @@ class ExplodingTransformPipe(Pipe[MockRecord]):
             interaction_type=self.interaction_type,
             preview=record.content,
             payload={"role": record.role, "text": record.content},
-            version=MOCK_PAYLOAD_VERSION,
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
@@ -127,7 +125,7 @@ class DroppingPipe(Pipe[MockRecord]):
             interaction_type=self.interaction_type,
             preview=record.content,
             payload={"role": record.role, "text": record.content},
-            version=MOCK_PAYLOAD_VERSION,
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
@@ -163,7 +161,7 @@ class TestPipe:
         assert rows[0].unique_key == "mock:hello"
         assert rows[1].unique_key == "mock:world"
         assert rows[0].provider == "test"
-        assert rows[0].version == MOCK_PAYLOAD_VERSION
+        assert rows[0].version == CURRENT_THREAD_PAYLOAD_VERSION
 
     def test_run_tracks_counts(self):
         pipe = MockPipe()

@@ -16,7 +16,7 @@ from context_use.activitystreams.objects import Image, Note, Page, Profile, Vide
 logger = logging.getLogger(__name__)
 
 
-CURRENT_THREAD_PAYLOAD_VERSION: str = "1.0.0"
+CURRENT_THREAD_PAYLOAD_VERSION: str = "1.1.0"
 
 
 class _BaseFibreMixin:

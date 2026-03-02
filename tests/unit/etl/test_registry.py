@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
+from context_use.etl.payload import CURRENT_THREAD_PAYLOAD_VERSION
 from context_use.models.etl_task import EtlTask
 from context_use.providers.types import InteractionConfig, ProviderConfig
 from context_use.storage.base import StorageBackend
@@ -36,7 +37,7 @@ class FakePipeA(Pipe[_FakeRecord]):
             interaction_type=self.interaction_type,
             preview=record.value,
             payload={"v": record.value},
-            version="1.0.0",
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
@@ -60,7 +61,7 @@ class FakePipeB(Pipe[_FakeRecord]):
             interaction_type=self.interaction_type,
             preview=record.value,
             payload={"v": record.value},
-            version="1.0.0",
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
@@ -86,7 +87,7 @@ class FakePipeGlob(Pipe[_FakeRecord]):
             interaction_type=self.interaction_type,
             preview=record.value,
             payload={"v": record.value},
-            version="1.0.0",
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
         )
 
