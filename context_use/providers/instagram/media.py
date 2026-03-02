@@ -94,13 +94,9 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
         published = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
 
         if record.media_type == "Video":
-            media_obj = Video(
-                url=record.uri, name=record.title or None, published=published
-            )  # type: ignore[reportCallIssue]
+            media_obj = Video(name=record.title or None, published=published)  # type: ignore[reportCallIssue]
         else:
-            media_obj = Image(
-                url=record.uri, name=record.title or None, published=published
-            )  # type: ignore[reportCallIssue]
+            media_obj = Image(name=record.title or None, published=published)  # type: ignore[reportCallIssue]
 
         return FibreCreateObject(  # type: ignore[reportCallIssue]
             object=media_obj,
