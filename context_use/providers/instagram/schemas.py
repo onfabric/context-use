@@ -167,6 +167,90 @@ class InstagramProfileSearchRecord(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Extracted records — liked posts and story likes
+# ---------------------------------------------------------------------------
+
+
+class InstagramLikedPostRecord(BaseModel):
+    """Normalised record for a liked post."""
+
+    title: str
+    href: str | None = None
+    timestamp: int
+    source: str | None = None
+
+
+class InstagramStoryLikeRecord(BaseModel):
+    """Normalised record for a story like."""
+
+    title: str
+    timestamp: int
+    source: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Extracted records — comments
+# ---------------------------------------------------------------------------
+
+
+class InstagramCommentSchema(InstagramBaseModel):
+    """``string_map_data`` shape for comment items.
+
+    ``{Comment: {value}, "Media Owner": {value}, Time: {timestamp}}``
+    """
+
+    Comment: InstagramValueSchema
+    Time: InstagramTimestampSchema
+
+
+class InstagramCommentRecord(BaseModel):
+    """Normalised record for a comment on a post or reel."""
+
+    comment: str
+    media_owner: str | None = None
+    timestamp: int
+    source: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Extracted records — connections (followers / following)
+# ---------------------------------------------------------------------------
+
+
+class InstagramConnectionRecord(BaseModel):
+    """Normalised record for a follower or following connection."""
+
+    username: str
+    profile_url: str | None = None
+    timestamp: int
+    source: str | None = None
+
+
+class InstagramConnectionItem(InstagramBaseModel):
+    """One item in a followers JSON array."""
+
+    string_list_data: list[InstagramHrefTimestampSchema]
+
+
+class InstagramFollowingItem(InstagramBaseModel):
+    """One item in the ``relationships_following`` array."""
+
+    title: str
+    string_list_data: list[InstagramHrefTimestampSchema]
+
+
+class InstagramFollowingManifest(InstagramBaseModel):
+    """Top-level schema for ``following.json``."""
+
+    relationships_following: list[InstagramFollowingItem]
+
+
+# ---------------------------------------------------------------------------
+# Media schemas (stories, reels, posts)
+# ---------------------------------------------------------------------------
+
+
 class InstagramMediaItem(BaseModel):
     """A single media item (story frame, reel clip, etc.)."""
 

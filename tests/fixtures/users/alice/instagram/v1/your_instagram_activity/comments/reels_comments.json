@@ -1,0 +1,23 @@
+{
+  "comments_reels_comments": [
+    {
+      "media_list_data": [
+        {
+          "uri": ""
+        }
+      ],
+      "string_map_data": {
+        "Comment": {
+          "value": "This reel is so funny!"
+        },
+        "Media Owner": {
+          "value": "synthetic_comedian"
+        },
+        "Time": {
+          "timestamp": 1766000000
+        }
+      }
+    }
+  ]
+}
+
