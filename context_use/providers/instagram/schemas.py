@@ -111,6 +111,62 @@ class InstagramVideoWatchedRecord(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# V1 string_list_data helper schemas (shared across many interaction types)
+# ---------------------------------------------------------------------------
+
+
+class InstagramHrefTimestampSchema(InstagramBaseModel):
+    """One entry inside a ``string_list_data`` array.
+
+    Fields ``href`` and ``value`` are optional — some interaction types
+    (e.g. story likes) only carry a ``timestamp``.
+    """
+
+    href: str | None = None
+    value: str | None = None
+    timestamp: int
+
+
+class InstagramStringListDataWrapper[T](InstagramBaseModel):
+    """Generic wrapper for items that carry a ``string_list_data`` key."""
+
+    string_list_data: list[T]
+
+
+# ---------------------------------------------------------------------------
+# Extracted records — posts viewed
+# ---------------------------------------------------------------------------
+
+
+class InstagramPostsViewedRecord(BaseModel):
+    """Normalised record for a viewed post (v0 and v1 share this)."""
+
+    author: str | None = None
+    post_url: str | None = None
+    timestamp: int
+    source: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Extracted records — profile searches
+# ---------------------------------------------------------------------------
+
+
+class InstagramProfileSearchRecord(BaseModel):
+    """Normalised record for a profile search."""
+
+    username: str | None = None
+    href: str | None = None
+    timestamp: int
+    source: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Media schemas (stories, reels, posts)
+# ---------------------------------------------------------------------------
+
+
 class InstagramMediaItem(BaseModel):
     """A single media item (story frame, reel clip, etc.)."""
 
