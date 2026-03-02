@@ -287,7 +287,7 @@ class TestMakeThreadPayloadRoundTrip:
         assert isinstance(result, FibreSearch)
         assert result.unique_key() == search.unique_key()
 
-    def test_add_to_collection_roundtrip(self):
+    def test_add_to_favourites_roundtrip(self):
         add = FibreAddObjectToCollection(  # pyright: ignore[reportCallIssue]
             object=FibrePost(  # pyright: ignore[reportCallIssue]
                 url="http://example.com/post/1",
@@ -296,6 +296,22 @@ class TestMakeThreadPayloadRoundTrip:
         )
         result = self._roundtrip(add)
         assert isinstance(result, FibreAddObjectToCollection)
+        assert isinstance(result.target, FibreCollectionFavourites)
+        assert result.unique_key() == add.unique_key()
+
+    def test_add_to_named_collection_roundtrip(self):
+        add = FibreAddObjectToCollection(  # pyright: ignore[reportCallIssue]
+            object=FibrePost(  # pyright: ignore[reportCallIssue]
+                url="http://example.com/post/2",
+                attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+            ),
+            target=FibreCollection(name="Travel"),  # pyright: ignore[reportCallIssue]
+        )
+        result = self._roundtrip(add)
+        assert isinstance(result, FibreAddObjectToCollection)
+        assert isinstance(result.target, FibreCollection)
+        assert not isinstance(result.target, FibreCollectionFavourites)
+        assert result.target.name == "Travel"
         assert result.unique_key() == add.unique_key()
 
     def test_followed_by_roundtrip(self):

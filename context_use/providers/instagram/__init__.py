@@ -54,6 +54,16 @@ from context_use.providers.instagram.profile_searches import (
 from context_use.providers.instagram.profile_searches import (
     InstagramProfileSearchesPipe,
 )
+from context_use.providers.instagram.saved import (
+    SAVED_COLLECTIONS_CONFIG as _SAVED_COLLECTIONS_CONFIG,
+)
+from context_use.providers.instagram.saved import (
+    SAVED_POSTS_CONFIG as _SAVED_POSTS_CONFIG,
+)
+from context_use.providers.instagram.saved import (
+    InstagramSavedCollectionsPipe,
+    InstagramSavedPostsPipe,
+)
 from context_use.providers.instagram.schemas import InstagramMediaRecord
 from context_use.providers.instagram.videos_watched import (
     VIDEOS_WATCHED_V0_CONFIG as _VIDEOS_WATCHED_V0_CONFIG,
@@ -82,6 +92,8 @@ PROVIDER_CONFIG = ProviderConfig(
         _COMMENTS_REELS_CONFIG,
         _FOLLOWERS_CONFIG,
         _FOLLOWING_CONFIG,
+        _SAVED_POSTS_CONFIG,
+        _SAVED_COLLECTIONS_CONFIG,
     ]
 )
 
@@ -96,6 +108,8 @@ __all__ = [
     "InstagramPostsViewedV0Pipe",
     "InstagramProfileSearchesPipe",
     "InstagramReelsPipe",
+    "InstagramSavedCollectionsPipe",
+    "InstagramSavedPostsPipe",
     "InstagramStoriesPipe",
     "InstagramStoryLikesPipe",
     "InstagramVideosWatchedPipe",
