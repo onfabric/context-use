@@ -88,7 +88,7 @@ class InstagramLabelValue(InstagramBaseModel):
     """One entry inside the ``label_values`` array of a v1 item."""
 
     label: str
-    value: str
+    value: str | None = None
     href: str | None = None
 
 

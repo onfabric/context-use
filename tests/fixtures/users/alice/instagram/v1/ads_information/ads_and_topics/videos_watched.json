@@ -1,14 +1,16 @@
 [
-  {
-    "timestamp": 1770746034,
-    "media": [],
-    "label_values": [
-      {
-        "label": "URL",
-        "value": "https://www.instagram.com/reel/SYNTHETIC_VIDEO/",
-        "href": "https://www.instagram.com/reel/SYNTHETIC_VIDEO/"
-      }
-    ]
-  }
+    {
+        "timestamp": 1770746034,
+        "media": [],
+        "label_values": [
+            {
+                "label": "Ad library public URL"
+            },
+            {
+                "label": "URL",
+                "value": "https://www.instagram.com/reel/SYNTHETIC_VIDEO/",
+                "href": "https://www.instagram.com/reel/SYNTHETIC_VIDEO/"
+            }
+        ]
+    }
 ]
-
