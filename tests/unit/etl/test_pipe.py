@@ -45,6 +45,63 @@ class MockPipe(Pipe[MockRecord]):
         )
 
 
+class ExplodingExtractPipe(Pipe[MockRecord]):
+    """A pipe whose extract_file() raises mid-stream."""
+
+    provider = "test"
+    interaction_type = "test_conversations"
+    archive_version = 1
+    archive_path_pattern = "conversations.json"
+    record_schema = MockRecord
+
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[MockRecord]:
+        yield MockRecord(role="user", content="before-boom")
+        raise ValueError("corrupt data mid-stream")
+
+    def transform(self, record: MockRecord, task: EtlTask) -> ThreadRow:
+        return ThreadRow(
+            unique_key=f"mock:{record.content}",
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=record.content,
+            payload={"role": record.role, "text": record.content},
+            version=MOCK_PAYLOAD_VERSION,
+            asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+        )
+
+
+class ExplodingTransformPipe(Pipe[MockRecord]):
+    """A pipe whose transform() raises for some records."""
+
+    provider = "test"
+    interaction_type = "test_conversations"
+    archive_version = 1
+    archive_path_pattern = "conversations.json"
+    record_schema = MockRecord
+
+    def extract_file(
+        self, source_uri: str, storage: StorageBackend
+    ) -> Iterator[MockRecord]:
+        yield MockRecord(role="user", content="good")
+        yield MockRecord(role="system", content="bad")
+        yield MockRecord(role="assistant", content="also-good")
+
+    def transform(self, record: MockRecord, task: EtlTask) -> ThreadRow:
+        if record.role == "system":
+            raise ValueError("cannot transform system messages")
+        return ThreadRow(
+            unique_key=f"mock:{record.content}",
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=record.content,
+            payload={"role": record.role, "text": record.content},
+            version=MOCK_PAYLOAD_VERSION,
+            asat=datetime.datetime(2025, 1, 1, tzinfo=datetime.UTC),
+        )
+
+
 class DroppingPipe(Pipe[MockRecord]):
     """A pipe whose transform() returns None for some records."""
 
@@ -136,6 +193,52 @@ class TestPipe:
         assert pipe.extracted_count == 3
         assert pipe.transformed_count == 2
         assert len(rows) == 2
+
+    def test_run_survives_extract_error(self):
+        """Records yielded before extract_file() raises are kept."""
+        pipe = ExplodingExtractPipe()
+        task = EtlTask(
+            archive_id="fake",
+            provider="test",
+            interaction_type="test_conversations",
+            source_uris=["conversations.json"],
+        )
+        rows = list(pipe.run(task, storage=None))  # type: ignore[arg-type]
+
+        assert len(rows) == 1
+        assert rows[0].unique_key == "mock:before-boom"
+        assert pipe.extracted_count == 1
+        assert pipe.transformed_count == 1
+        assert pipe.error_count == 0
+
+    def test_run_survives_transform_error(self):
+        """A record that fails transform() is skipped; others succeed."""
+        pipe = ExplodingTransformPipe()
+        task = EtlTask(
+            archive_id="fake",
+            provider="test",
+            interaction_type="test_conversations",
+            source_uris=["conversations.json"],
+        )
+        rows = list(pipe.run(task, storage=None))  # type: ignore[arg-type]
+
+        assert len(rows) == 2
+        assert rows[0].unique_key == "mock:good"
+        assert rows[1].unique_key == "mock:also-good"
+        assert pipe.extracted_count == 3
+        assert pipe.transformed_count == 2
+        assert pipe.error_count == 1
+
+    def test_error_count_zero_on_success(self):
+        pipe = MockPipe()
+        task = EtlTask(
+            archive_id="fake",
+            provider="test",
+            interaction_type="test_conversations",
+            source_uris=["conversations.json"],
+        )
+        list(pipe.run(task, storage=None))  # type: ignore[arg-type]
+        assert pipe.error_count == 0
 
     def test_source_uri_property_returns_first(self):
         """Backward-compat ``source_uri`` property returns the first URI."""
