@@ -17,8 +17,8 @@ ARCHIVE_PATH = "logged_information/recent_searches/profile_searches.json"
 
 class TestInstagramProfileSearchesPipe(PipeTestKit):
     pipe_class = InstagramProfileSearchesPipe
-    expected_extract_count = 2
-    expected_transform_count = 2
+    expected_extract_count = 3
+    expected_transform_count = 3
 
     @pytest.fixture()
     def pipe_fixture(self, tmp_path: Path):
@@ -99,8 +99,26 @@ class TestInstagramProfileSearchesPipe(PipeTestKit):
         for row in rows:
             assert row.interaction_type == "instagram_profile_searches"
 
+    def test_title_fallback_for_username(self, pipe_fixture):
+        """When ``value`` is absent, the outer ``title`` is used as username."""
+        storage, key = pipe_fixture
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        records = list(pipe.extract(task, storage))
+        # Third fixture entry has title but no value in string_list_data
+        title_record = records[2]
+        assert title_record.username == "synthetic_fitness_coach"
+        assert (
+            title_record.href == "https://www.instagram.com/_u/synthetic_fitness_coach"
+        )
+
+        rows = list(pipe.run(task, storage))
+        obj = rows[2].payload["object"]
+        assert obj["name"] == "synthetic_fitness_coach"
+
     def test_skips_entries_with_no_username(self, tmp_path: Path):
-        """Entries where ``value`` is empty/None should be skipped."""
+        """Entries where both ``value`` and ``title`` are empty should be skipped."""
         data = {
             "searches_user": [
                 {
