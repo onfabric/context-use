@@ -1,0 +1,55 @@
+[
+    {
+        "timestamp": 1771848416,
+        "media": [],
+        "label_values": [
+            {
+                "label": "Ad library public URL"
+            },
+            {
+                "label": "URL",
+                "value": "https://www.instagram.com/p/SYNTHETIC_POST_1/",
+                "href": "https://www.instagram.com/p/SYNTHETIC_POST_1/"
+            },
+            {
+                "dict": [
+                    {
+                        "dict": [
+                            {
+                                "label": "URL",
+                                "value": "https://linktr.ee/synthetic_artist"
+                            },
+                            {
+                                "label": "Name",
+                                "value": "Synthetic Artist"
+                            },
+                            {
+                                "label": "Username",
+                                "value": "synthetic_artist"
+                            }
+                        ],
+                        "title": ""
+                    }
+                ],
+                "title": "Owner"
+            }
+        ],
+        "fbid": "17841401108516601:17851661370628034:1771848416::DYIImpressionsData"
+    },
+    {
+        "timestamp": 1771762100,
+        "media": [],
+        "label_values": [
+            {
+                "label": "Ad library public URL"
+            },
+            {
+                "label": "URL",
+                "value": "https://www.instagram.com/p/SYNTHETIC_POST_2/",
+                "href": "https://www.instagram.com/p/SYNTHETIC_POST_2/"
+            }
+        ],
+        "fbid": "17841401108516601:17851661370628035:1771762100::DYIImpressionsData"
+    }
+]
+

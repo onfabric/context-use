@@ -49,6 +49,30 @@ INSTAGRAM_VIDEOS_WATCHED_V1_JSON: list[dict] = json.loads(
     ).read_text()
 )
 
+INSTAGRAM_POSTS_VIEWED_V0_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_V0_DIR
+        / "ads_information"
+        / "ads_and_topics"
+        / "posts_viewed.json"
+    ).read_text()
+)
+
+INSTAGRAM_POSTS_VIEWED_V1_JSON: list[dict] = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR / "ads_information" / "ads_and_topics" / "posts_viewed.json"
+    ).read_text()
+)
+
+INSTAGRAM_PROFILE_SEARCHES_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR
+        / "logged_information"
+        / "recent_searches"
+        / "profile_searches.json"
+    ).read_text()
+)
+
 
 def build_zip(files: dict[str, bytes | str]) -> bytes:
     """Create an in-memory zip archive from a dict of {path: content}."""
