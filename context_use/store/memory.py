@@ -59,16 +59,6 @@ class InMemoryStore(Store):
     async def update_archive(self, archive: Archive) -> None:
         self._archives[archive.id] = archive
 
-    async def list_archives(self, *, status: str | None = None) -> list[Archive]:
-        archives = list(self._archives.values())
-        if status is not None:
-            archives = [a for a in archives if a.status == status]
-        return sorted(archives, key=lambda a: a.created_at)
-
-    async def count_threads_for_archive(self, archive_id: str) -> int:
-        task_ids = {t.id for t in self._tasks.values() if t.archive_id == archive_id}
-        return sum(1 for t in self._threads.values() if t.etl_task_id in task_ids)
-
     # ── ETL Tasks ────────────────────────────────────────────────────
 
     async def create_task(self, task: EtlTask) -> EtlTask:

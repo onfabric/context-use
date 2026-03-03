@@ -56,20 +56,6 @@ async def test_archive_crud(store: InMemoryStore) -> None:
     assert updated.status == ArchiveStatus.COMPLETED.value
 
 
-async def test_list_archives_filters_by_status(store: InMemoryStore) -> None:
-    a1 = Archive(provider="a", status=ArchiveStatus.COMPLETED.value)
-    a2 = Archive(provider="b", status=ArchiveStatus.FAILED.value)
-    await store.create_archive(a1)
-    await store.create_archive(a2)
-
-    completed = await store.list_archives(status=ArchiveStatus.COMPLETED.value)
-    assert len(completed) == 1
-    assert completed[0].id == a1.id
-
-    all_archives = await store.list_archives()
-    assert len(all_archives) == 2
-
-
 async def test_get_archive_returns_none_for_missing(store: InMemoryStore) -> None:
     assert await store.get_archive("nonexistent") is None
 
@@ -168,17 +154,6 @@ async def test_get_unprocessed_threads_interaction_type_filter(
     threads = await store.get_unprocessed_threads(interaction_types=["type_a"])
     assert len(threads) == 2
     assert all(t.interaction_type == "type_a" for t in threads)
-
-
-async def test_count_threads_for_archive(store: InMemoryStore) -> None:
-    task = EtlTask(
-        archive_id="a1", provider="p", interaction_type="t", source_uris=["f"]
-    )
-    await store.create_task(task)
-    await store.insert_threads([_make_row("k1"), _make_row("k2")], task_id=task.id)
-
-    assert await store.count_threads_for_archive("a1") == 2
-    assert await store.count_threads_for_archive("nonexistent") == 0
 
 
 # ── Batches ──────────────────────────────────────────────────────────

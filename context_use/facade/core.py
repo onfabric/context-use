@@ -13,7 +13,6 @@ from context_use.batch.manager import (
     get_manager_for_category,
 )
 from context_use.facade.types import (
-    ArchiveSummary,
     MemorySummary,
     PipelineResult,
     ProfileSummary,
@@ -266,25 +265,6 @@ class ContextUse:
         return await manager.try_advance_state()
 
     # ── Queries ──────────────────────────────────────────────────────
-
-    async def list_archives(self) -> list[ArchiveSummary]:
-        """Return summaries of all completed archives."""
-        archives = await self._store.list_archives(
-            status=ArchiveStatus.COMPLETED.value,
-        )
-
-        summaries: list[ArchiveSummary] = []
-        for a in archives:
-            count = await self._store.count_threads_for_archive(a.id)
-            summaries.append(
-                ArchiveSummary(
-                    id=a.id,
-                    provider=a.provider,
-                    created_at=a.created_at,
-                    thread_count=count,
-                )
-            )
-        return summaries
 
     async def list_memories(self, *, limit: int | None = None) -> list[MemorySummary]:
         """Return active memories, ordered by date."""

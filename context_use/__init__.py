@@ -6,7 +6,6 @@ sub-packages directly.
 """
 
 from context_use.facade import (
-    ArchiveSummary,
     ContextUse,
     MemorySummary,
     PipelineResult,
@@ -18,7 +17,6 @@ from context_use.providers.registry import Provider
 from context_use.store import InMemoryStore, Store
 
 __all__ = [
-    "ArchiveSummary",
     "ContextUse",
     "InMemoryStore",
     "MemorySummary",

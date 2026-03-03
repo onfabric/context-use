@@ -28,16 +28,6 @@ class TaskBreakdown:
 
 
 @dataclass
-class ArchiveSummary:
-    """Summary of a completed archive."""
-
-    id: str
-    provider: str
-    created_at: datetime
-    thread_count: int
-
-
-@dataclass
 class MemorySummary:
     """Public representation of a single memory."""
 
