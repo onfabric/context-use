@@ -139,7 +139,9 @@ async def test_get_unprocessed_threads_ordered_by_asat(store: InMemoryStore) -> 
 
 
 async def test_get_unprocessed_threads_excludes_batched(store: InMemoryStore) -> None:
-    await store.insert_threads([_make_row("k1"), _make_row("k2"), _make_row("k3")], task_id="t1")
+    await store.insert_threads(
+        [_make_row("k1"), _make_row("k2"), _make_row("k3")], task_id="t1"
+    )
     all_threads = await store.get_unprocessed_threads()
 
     group = ThreadGroup(threads=all_threads[:1], group_id="g1")  # type: ignore[arg-type]
@@ -151,7 +153,9 @@ async def test_get_unprocessed_threads_excludes_batched(store: InMemoryStore) ->
     assert all_threads[0].id not in {t.id for t in remaining}
 
 
-async def test_get_unprocessed_threads_interaction_type_filter(store: InMemoryStore) -> None:
+async def test_get_unprocessed_threads_interaction_type_filter(
+    store: InMemoryStore,
+) -> None:
     await store.insert_threads(
         [
             _make_row("k1", interaction_type="type_a"),
