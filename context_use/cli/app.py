@@ -277,6 +277,27 @@ async def cmd_config_path(args: argparse.Namespace) -> None:
     print(config_path_display())
 
 
+async def cmd_config_reset_db(args: argparse.Namespace) -> None:
+    cfg = load_config()
+    _require_persistent(cfg, "config reset-db")
+
+    print()
+    out.header("Reset database")
+    out.warn("This will permanently delete ALL data.")
+    print()
+
+    if not args.yes:
+        confirm = input("  Type 'yes' to confirm: ").strip().lower()
+        if confirm != "yes":
+            out.info("Aborted.")
+            return
+
+    ctx = _build_ctx(cfg)
+    await ctx.reset()
+    out.success("Database reset. Schema recreated from current models.")
+    print()
+
+
 def _start_docker_postgres(cfg: Config) -> None:
     """Start a Postgres container via docker run."""
     # Verify the Docker daemon is reachable before attempting anything.
@@ -1392,6 +1413,16 @@ def _build_parser() -> argparse.ArgumentParser:
 
     cfg_sub.add_parser("path", help="Print config file location")
 
+    p_cfg_reset = cfg_sub.add_parser(
+        "reset-db", help="Drop and recreate the database schema"
+    )
+    p_cfg_reset.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompt",
+    )
+
     return parser
 
 
@@ -1425,6 +1456,7 @@ _CONFIG_MAP: dict[str, _CommandHandler] = {
     "set-key": cmd_config_set_key,
     "set-store": cmd_config_set_store,
     "path": cmd_config_path,
+    "reset-db": cmd_config_reset_db,
 }
 
 
