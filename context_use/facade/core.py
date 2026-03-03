@@ -155,6 +155,7 @@ class ContextUse:
                 result.threads_created += count
                 result.breakdown.append(
                     TaskBreakdown(
+                        task_id=task_model.id,
                         interaction_type=task_model.interaction_type,
                         thread_count=count,
                     )
@@ -188,17 +189,16 @@ class ContextUse:
 
     async def create_memory_batches(
         self,
-        archive_ids: list[str],
         *,
         since: datetime | None = None,
     ) -> list[Batch]:
-        """Group threads from archives and create memory batches.
+        """Group all unprocessed threads and create memory batches.
 
-        Threads from all ETL tasks are collected and grouped per
-        interaction type using each type's configured grouper.  The
-        resulting groups are merged into a single pool and bin-packed
-        into batches — so a batch can contain groups from different
-        interaction types.
+        Only threads for interaction types with a registered memory config
+        are considered.  Threads are grouped per interaction type using each
+        type's configured grouper.  The resulting groups are merged into a
+        single pool and bin-packed into batches — so a batch can contain
+        groups from different interaction types.
 
         Returns persisted :class:`Batch` objects ready to be advanced
         via :meth:`advance_batch`.
@@ -208,15 +208,15 @@ class ContextUse:
         from context_use.batch.grouper import ThreadGroup
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.models.thread import Thread
-        from context_use.providers.registry import get_memory_config
+        from context_use.providers.registry import (
+            get_memory_config,
+            get_memory_interaction_types,
+        )
 
-        tasks = await self._store.get_tasks_by_archive(archive_ids)
-
-        task_ids = [t.id for t in tasks]
-        if not task_ids:
-            return []
-
-        threads = await self._store.get_threads_by_task(task_ids)
+        supported = get_memory_interaction_types()
+        threads = await self._store.get_unprocessed_threads(
+            interaction_types=supported,
+        )
 
         if since is not None:
             threads = [t for t in threads if t.asat >= since]
@@ -230,15 +230,7 @@ class ContextUse:
 
         all_groups: list[ThreadGroup] = []
         for interaction_type, type_threads in by_type.items():
-            try:
-                config = get_memory_config(interaction_type)
-            except KeyError:
-                logger.info(
-                    "No memory config for %s — skipping",
-                    interaction_type,
-                )
-                continue
-
+            config = get_memory_config(interaction_type)
             grouper = config.create_grouper()
             groups = grouper.group(type_threads)  # type: ignore[arg-type]
             all_groups.extend(groups)

@@ -81,10 +81,6 @@ class InMemoryStore(Store):
     async def update_task(self, task: EtlTask) -> None:
         self._tasks[task.id] = task
 
-    async def get_tasks_by_archive(self, archive_ids: list[str]) -> list[EtlTask]:
-        ids = set(archive_ids)
-        return [t for t in self._tasks.values() if t.archive_id in ids]
-
     # ── Threads ──────────────────────────────────────────────────────
 
     async def insert_threads(self, rows: list[ThreadRow], task_id: str) -> int:
@@ -109,9 +105,19 @@ class InMemoryStore(Store):
             count += 1
         return count
 
-    async def get_threads_by_task(self, task_ids: list[str]) -> list[Thread]:
-        ids = set(task_ids)
-        threads = [t for t in self._threads.values() if t.etl_task_id in ids]
+    async def get_unprocessed_threads(
+        self,
+        *,
+        interaction_types: list[str] | None = None,
+    ) -> list[Thread]:
+        batched_ids = {bt.thread_id for bt in self._batch_threads}
+        allowed = set(interaction_types) if interaction_types is not None else None
+        threads = [
+            t
+            for t in self._threads.values()
+            if t.id not in batched_ids
+            and (allowed is None or t.interaction_type in allowed)
+        ]
         return sorted(threads, key=lambda t: (t.asat, t.id))
 
     # ── Batches ──────────────────────────────────────────────────────

@@ -1,6 +1,5 @@
 from context_use import ContextUse
 from context_use.models.archive import ArchiveStatus
-from context_use.models.etl_task import EtlTaskStatus
 from context_use.providers.registry import Provider
 
 # Interaction types that produce threads with asset_uri
@@ -20,8 +19,7 @@ class TestE2EInstagram:
         assert archive is not None
         assert archive.status == ArchiveStatus.COMPLETED.value
 
-        tasks = await ctx._store.get_tasks_by_archive([result.archive_id])
-        interaction_types = {t.interaction_type for t in tasks}
+        interaction_types = {b.interaction_type for b in result.breakdown}
         assert "instagram_stories" in interaction_types
         assert "instagram_reels" in interaction_types
         assert "instagram_liked_posts" in interaction_types
@@ -31,11 +29,7 @@ class TestE2EInstagram:
         assert "instagram_saved_posts" in interaction_types
         assert "instagram_saved_collections" in interaction_types
 
-        for t in tasks:
-            assert t.status == EtlTaskStatus.COMPLETED.value
-
-        task_ids = [t.id for t in tasks]
-        threads = await ctx._store.get_threads_by_task(task_ids)
+        threads = await ctx._store.get_unprocessed_threads()
         assert len(threads) == result.threads_created
 
         thread_types = {t.interaction_type for t in threads}

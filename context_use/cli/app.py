@@ -571,7 +571,7 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
         out.info("Processing full archive history.")
     print()
 
-    batches = await ctx.create_memory_batches([result.archive_id], since=since)
+    batches = await ctx.create_memory_batches(since=since)
     await _run_batches(ctx, batches)
 
     out.success("Memories generated")
@@ -736,7 +736,7 @@ async def cmd_pipeline(args: argparse.Namespace) -> None:
     out.header("Step 2/3 · Generating memories")
     out.info("Using batch API. This typically takes 2-10 minutes.\n")
 
-    batches = await ctx.create_memory_batches([result.archive_id])
+    batches = await ctx.create_memory_batches()
     await _run_batches(ctx, batches)
 
     out.success("Memories generated")
@@ -776,43 +776,6 @@ async def cmd_pipeline(args: argparse.Namespace) -> None:
 # ── memories generate ───────────────────────────────────────────────
 
 
-async def _pick_archive(ctx) -> tuple[str, str] | None:
-    """Show archive picker and return (archive_id, provider) or None."""
-    archives = await ctx.list_archives()
-
-    if not archives:
-        out.warn("No completed archives found. Run 'context-use ingest' first.")
-        return None
-
-    out.header("Completed archives")
-    print()
-    for i, a in enumerate(archives, 1):
-        ts = a.created_at.strftime("%Y-%m-%d %H:%M")
-        print(
-            f"  {out.bold(str(i))}. {a.provider}"
-            f"  {out.dim(f'{a.thread_count} threads')}"
-            f"  {out.dim(ts)}"
-            f"  {out.dim(a.id[:8])}"
-        )
-    print()
-
-    try:
-        choice = input(f"  Which archive? [1-{len(archives)}]: ").strip()
-    except (EOFError, KeyboardInterrupt):
-        print()
-        return None
-
-    try:
-        idx = int(choice) - 1
-        if not (0 <= idx < len(archives)):
-            raise ValueError
-    except ValueError:
-        out.error("Invalid choice.")
-        return None
-
-    return archives[idx].id, archives[idx].provider
-
-
 async def cmd_memories_generate(args: argparse.Namespace) -> None:
     cfg = load_config()
     _require_persistent(cfg, "memories generate")
@@ -821,17 +784,12 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
     ctx = _build_ctx(cfg)
     await ctx.init()
 
-    picked = await _pick_archive(ctx)
-    if picked is None:
-        return
-    selected_id, selected_provider = picked
-
     out.header("Generating memories")
+    out.info("Processes all unprocessed threads across all archives.")
     out.info("This submits batch jobs to OpenAI and polls for results.")
     out.info("It typically takes 2-10 minutes depending on data volume.\n")
-    out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
-    batches = await ctx.create_memory_batches([selected_id])
+    batches = await ctx.create_memory_batches()
     await _run_batches(ctx, batches)
 
     out.success("Memories generated")
@@ -873,15 +831,9 @@ async def cmd_memories_refine(args: argparse.Namespace) -> None:
     ctx = _build_ctx(cfg)
     await ctx.init()
 
-    picked = await _pick_archive(ctx)
-    if picked is None:
-        return
-    selected_id, selected_provider = picked
-
     out.header("Refining memories")
     out.info("This discovers overlapping memories and merges them via LLM.")
     out.info("It typically takes 1-5 minutes.\n")
-    out.kv("Archive", f"{selected_provider} ({selected_id[:8]})")
 
     batches = await ctx.create_refinement_batches()
     await _run_batches(ctx, batches)

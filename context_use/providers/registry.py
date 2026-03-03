@@ -39,3 +39,13 @@ def get_memory_config(interaction_type: str) -> MemoryConfig:
         except KeyError:
             continue
     raise KeyError(f"No memory config for interaction_type={interaction_type!r}")
+
+
+def get_memory_interaction_types() -> list[str]:
+    """Return all interaction types that have a memory config registered."""
+    return [
+        ic.pipe.interaction_type
+        for config in PROVIDER_REGISTRY.values()
+        for ic in config.interactions
+        if ic.memory is not None
+    ]

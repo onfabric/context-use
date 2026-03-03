@@ -1,6 +1,7 @@
 from context_use.providers.registry import (
     Provider,
     get_memory_config,
+    get_memory_interaction_types,
     get_provider_config,
 )
 from context_use.providers.types import (
@@ -13,5 +14,6 @@ __all__ = [
     "Provider",
     "ProviderConfig",
     "get_memory_config",
+    "get_memory_interaction_types",
     "get_provider_config",
 ]
