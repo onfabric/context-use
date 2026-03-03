@@ -158,23 +158,6 @@ class PostgresStore(Store):
             row.status = archive.status
             row.file_uris = archive.file_uris
 
-    async def list_archives(self, *, status: str | None = None) -> list[Archive]:
-        async with self._auto_session() as s:
-            stmt = select(OrmArchive).order_by(OrmArchive.created_at)
-            if status is not None:
-                stmt = stmt.where(OrmArchive.status == status)
-            rows = list((await s.execute(stmt)).scalars().all())
-        return [_archive_from_orm(r) for r in rows]
-
-    async def count_threads_for_archive(self, archive_id: str) -> int:
-        async with self._auto_session() as s:
-            stmt = (
-                select(func.count(OrmThread.id))
-                .join(OrmEtlTask, OrmThread.etl_task_id == OrmEtlTask.id)
-                .where(OrmEtlTask.archive_id == archive_id)
-            )
-            return (await s.execute(stmt)).scalar() or 0
-
     # ── ETL Tasks ────────────────────────────────────────────────────
 
     async def create_task(self, task: EtlTask) -> EtlTask:

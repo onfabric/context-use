@@ -94,16 +94,6 @@ class Store(ABC):
         """Persist changes to an existing archive."""
         ...
 
-    @abstractmethod
-    async def list_archives(self, *, status: str | None = None) -> list[Archive]:
-        """Return archives, optionally filtered by status."""
-        ...
-
-    @abstractmethod
-    async def count_threads_for_archive(self, archive_id: str) -> int:
-        """Count threads belonging to an archive (via its ETL tasks)."""
-        ...
-
     # ── ETL Tasks ────────────────────────────────────────────────────
 
     @abstractmethod
