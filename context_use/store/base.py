@@ -121,11 +121,6 @@ class Store(ABC):
         """Persist changes to an existing task."""
         ...
 
-    @abstractmethod
-    async def get_tasks_by_archive(self, archive_ids: list[str]) -> list[EtlTask]:
-        """Return all tasks whose ``archive_id`` is in *archive_ids*."""
-        ...
-
     # ── Threads ──────────────────────────────────────────────────────
 
     @abstractmethod
@@ -137,10 +132,16 @@ class Store(ABC):
         ...
 
     @abstractmethod
-    async def get_threads_by_task(self, task_ids: list[str]) -> list[Thread]:
-        """
-        Return threads whose ``etl_task_id`` is in *task_ids*,
-        ordered by ``asat``.
+    async def get_unprocessed_threads(
+        self,
+        *,
+        interaction_types: list[str] | None = None,
+    ) -> list[Thread]:
+        """Return threads not yet assigned to any batch.
+
+        If *interaction_types* is given, only threads whose
+        ``interaction_type`` is in that list are returned.
+        Results are ordered by ``asat``, then ``id``.
         """
         ...
 

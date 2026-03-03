@@ -101,24 +101,6 @@ async def test_task_crud(store: InMemoryStore) -> None:
     assert updated.status == EtlTaskStatus.COMPLETED.value
 
 
-async def test_get_tasks_by_archive(store: InMemoryStore) -> None:
-    t1 = EtlTask(
-        archive_id="a1", provider="p", interaction_type="t", source_uris=["f1"]
-    )
-    t2 = EtlTask(
-        archive_id="a2", provider="p", interaction_type="t", source_uris=["f2"]
-    )
-    t3 = EtlTask(
-        archive_id="a1", provider="p", interaction_type="t", source_uris=["f3"]
-    )
-    await store.create_task(t1)
-    await store.create_task(t2)
-    await store.create_task(t3)
-
-    result = await store.get_tasks_by_archive(["a1"])
-    assert {t.id for t in result} == {t1.id, t3.id}
-
-
 # ── Threads ──────────────────────────────────────────────────────────
 
 
@@ -145,15 +127,47 @@ async def test_insert_threads_deduplicates(store: InMemoryStore) -> None:
     assert count2 == 1
 
 
-async def test_get_threads_by_task_ordered_by_asat(store: InMemoryStore) -> None:
+async def test_get_unprocessed_threads_ordered_by_asat(store: InMemoryStore) -> None:
     r1 = _make_row("k1", asat=datetime(2024, 3, 1, tzinfo=UTC))
     r2 = _make_row("k2", asat=datetime(2024, 1, 1, tzinfo=UTC))
     r3 = _make_row("k3", asat=datetime(2024, 2, 1, tzinfo=UTC))
     await store.insert_threads([r1, r2, r3], task_id="t1")
 
-    threads = await store.get_threads_by_task(["t1"])
+    threads = await store.get_unprocessed_threads()
     assert len(threads) == 3
     assert [t.unique_key for t in threads] == ["k2", "k3", "k1"]
+
+
+async def test_get_unprocessed_threads_excludes_batched(store: InMemoryStore) -> None:
+    await store.insert_threads(
+        [_make_row("k1"), _make_row("k2"), _make_row("k3")], task_id="t1"
+    )
+    all_threads = await store.get_unprocessed_threads()
+
+    group = ThreadGroup(threads=all_threads[:1], group_id="g1")  # type: ignore[arg-type]
+    batch = Batch(batch_number=1, category="memories", states=[])
+    await store.create_batch(batch, [group])
+
+    remaining = await store.get_unprocessed_threads()
+    assert len(remaining) == 2
+    assert all_threads[0].id not in {t.id for t in remaining}
+
+
+async def test_get_unprocessed_threads_interaction_type_filter(
+    store: InMemoryStore,
+) -> None:
+    await store.insert_threads(
+        [
+            _make_row("k1", interaction_type="type_a"),
+            _make_row("k2", interaction_type="type_b"),
+            _make_row("k3", interaction_type="type_a"),
+        ],
+        task_id="t1",
+    )
+
+    threads = await store.get_unprocessed_threads(interaction_types=["type_a"])
+    assert len(threads) == 2
+    assert all(t.interaction_type == "type_a" for t in threads)
 
 
 async def test_count_threads_for_archive(store: InMemoryStore) -> None:
@@ -175,7 +189,7 @@ async def test_batch_crud_with_groups(store: InMemoryStore) -> None:
         [_make_row("k1"), _make_row("k2"), _make_row("k3")],
         task_id="t1",
     )
-    threads = await store.get_threads_by_task(["t1"])
+    threads = await store.get_unprocessed_threads()
 
     group = ThreadGroup(threads=threads[:2], group_id="g1")  # type: ignore[arg-type]
     batch = Batch(batch_number=1, category="memories", states=[{"status": "CREATED"}])
@@ -197,7 +211,7 @@ async def test_get_batch_groups(store: InMemoryStore) -> None:
         [_make_row("k1"), _make_row("k2"), _make_row("k3")],
         task_id="t1",
     )
-    threads = await store.get_threads_by_task(["t1"])
+    threads = await store.get_unprocessed_threads()
 
     g1 = ThreadGroup(threads=threads[:2], group_id="g1")  # type: ignore[arg-type]
     g2 = ThreadGroup(threads=threads[2:], group_id="g2")  # type: ignore[arg-type]

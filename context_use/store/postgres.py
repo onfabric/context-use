@@ -213,12 +213,6 @@ class PostgresStore(Store):
             row.transformed_count = task.transformed_count
             row.uploaded_count = task.uploaded_count
 
-    async def get_tasks_by_archive(self, archive_ids: list[str]) -> list[EtlTask]:
-        async with self._auto_session() as s:
-            stmt = select(OrmEtlTask).where(OrmEtlTask.archive_id.in_(archive_ids))
-            rows = list((await s.execute(stmt)).scalars().all())
-        return [_task_from_orm(r) for r in rows]
-
     # ── Threads ──────────────────────────────────────────────────────
 
     async def insert_threads(self, rows: list[ThreadRow], task_id: str) -> int:
@@ -249,13 +243,20 @@ class PostgresStore(Store):
                 total += await _flush_thread_batch(s, batch)
         return total
 
-    async def get_threads_by_task(self, task_ids: list[str]) -> list[Thread]:
+    async def get_unprocessed_threads(
+        self,
+        *,
+        interaction_types: list[str] | None = None,
+    ) -> list[Thread]:
         async with self._auto_session() as s:
             stmt = (
                 select(OrmThread)
-                .where(OrmThread.etl_task_id.in_(task_ids))
-                .order_by(OrmThread.asat, OrmThread.id)
+                .outerjoin(OrmBatchThread, OrmBatchThread.thread_id == OrmThread.id)
+                .where(OrmBatchThread.thread_id.is_(None))
             )
+            if interaction_types is not None:
+                stmt = stmt.where(OrmThread.interaction_type.in_(interaction_types))
+            stmt = stmt.order_by(OrmThread.asat, OrmThread.id)
             rows = list((await s.execute(stmt)).scalars().all())
         return [_thread_from_orm(r) for r in rows]
 

@@ -18,16 +18,19 @@ class TestE2EChatGPT:
         assert archive.status == ArchiveStatus.COMPLETED.value
         assert archive.provider == "chatgpt"
 
-        tasks = await ctx._store.get_tasks_by_archive([result.archive_id])
-        assert len(tasks) == 1
-        assert tasks[0].interaction_type == "chatgpt_conversations"
-        assert tasks[0].status == EtlTaskStatus.COMPLETED.value
-        assert tasks[0].uploaded_count > 0
-        assert tasks[0].extracted_count > 0
-        assert tasks[0].transformed_count > 0
-        assert tasks[0].extracted_count >= tasks[0].transformed_count
+        assert len(result.breakdown) == 1
+        breakdown = result.breakdown[0]
+        assert breakdown.interaction_type == "chatgpt_conversations"
 
-        threads = await ctx._store.get_threads_by_task([tasks[0].id])
+        task = await ctx._store.get_task(breakdown.task_id)
+        assert task is not None
+        assert task.status == EtlTaskStatus.COMPLETED.value
+        assert task.uploaded_count > 0
+        assert task.extracted_count > 0
+        assert task.transformed_count > 0
+        assert task.extracted_count >= task.transformed_count
+
+        threads = await ctx._store.get_unprocessed_threads()
         assert len(threads) == result.threads_created
         for thread in threads:
             assert thread.provider == "chatgpt"

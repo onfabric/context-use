@@ -22,6 +22,7 @@ class PipelineResult:
 class TaskBreakdown:
     """Per-interaction-type stats included in :class:`PipelineResult`."""
 
+    task_id: str
     interaction_type: str
     thread_count: int
 
