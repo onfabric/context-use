@@ -5,9 +5,8 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
-import litellm
-
 try:
+    from google.adk.models.lite_llm import LiteLlm
     from google.adk.runners import Runner
     from google.adk.sessions import InMemorySessionService
     from google.genai import types
@@ -26,8 +25,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MAX_LLM_CALLS = 50
-
 _TRIGGER_MESSAGE = (
     "Review and curate all memories in the store. "
     "Identify and fix duplicate, overlapping, and low-quality memories: "
@@ -37,47 +34,42 @@ _TRIGGER_MESSAGE = (
 )
 
 
-class _RefinementRunner(Runner):
-    """Internal ADK Runner — one instance per refinement run."""
+async def _run_refinement(
+    store: Store,
+    llm_client: BaseLLMClient,
+    model: LiteLlm,
+) -> str:
+    agent = create_refinement_agent(store, llm_client, model=model)
+    runner = Runner(
+        agent=agent,
+        app_name=agent.name,
+        session_service=InMemorySessionService(),
+    )
 
-    def __init__(
-        self,
-        store: Store,
-        llm_client: BaseLLMClient,
-        model: str,
-    ) -> None:
-        agent = create_refinement_agent(store, llm_client, model=model)
-        super().__init__(
-            agent=agent,
-            app_name=agent.name,
-            session_service=InMemorySessionService(),
-        )
+    session_id = str(uuid.uuid4())
+    await runner.session_service.create_session(
+        app_name=runner.app_name,
+        user_id="refinement",
+        session_id=session_id,
+    )
+    logger.info("Refinement agent started (session=%s)", session_id)
 
-    async def run_refinement(self) -> str:
-        session_id = str(uuid.uuid4())
-        await self.session_service.create_session(
-            app_name=self.app_name,
-            user_id="refinement",
-            session_id=session_id,
-        )
-        logger.info("Refinement agent started (session=%s)", session_id)
+    final_text = ""
+    async for event in runner.run_async(
+        user_id="refinement",
+        session_id=session_id,
+        new_message=types.Content(
+            role="user",
+            parts=[types.Part(text=_TRIGGER_MESSAGE)],
+        ),
+    ):
+        if event.is_final_response():
+            if event.content and event.content.parts:
+                final_text = event.content.parts[0].text or ""
+            break
 
-        final_text = ""
-        async for event in self.run_async(
-            user_id="refinement",
-            session_id=session_id,
-            new_message=types.Content(
-                role="user",
-                parts=[types.Part(text=_TRIGGER_MESSAGE)],
-            ),
-        ):
-            if event.is_final_response():
-                if event.content and event.content.parts:
-                    final_text = event.content.parts[0].text or ""
-                break
-
-        logger.info("Refinement agent complete (session=%s)", session_id)
-        return final_text
+    logger.info("Refinement agent complete (session=%s)", session_id)
+    return final_text
 
 
 class AdkRefinementBackend(RefinementBackend):
@@ -99,14 +91,11 @@ class AdkRefinementBackend(RefinementBackend):
     ) -> None:
         """
         Args:
-            api_key: OpenAI (or compatible) API key. Set globally on
-                     litellm so the ``LiteLlm`` model wrapper picks it up.
+            api_key: OpenAI (or compatible) API key.
             model:   LiteLLM model string.
         """
-        litellm.openai_key = api_key
-        self._model = model
+        self._model = LiteLlm(model=model, api_key=api_key)
 
     async def run(self, store: Store, llm_client: BaseLLMClient) -> RefinementResult:
-        runner = _RefinementRunner(store, llm_client, self._model)
-        summary = await runner.run_refinement()
+        summary = await _run_refinement(store, llm_client, self._model)
         return RefinementResult(summary=summary)

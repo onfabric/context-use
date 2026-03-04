@@ -28,17 +28,12 @@ logger = logging.getLogger(__name__)
 _PROMPT_PATH = (
     Path(_pkg.__file__).parent / "memories" / "refinement" / "agent_prompt.md"
 )
-_PROMPT_TEMPLATE = _PROMPT_PATH.read_text()
 
 
-def _make_instruction() -> Any:
-    """Return a callable that renders the prompt with the current time injected."""
-
-    def _render(_ctx: Any) -> str:
-        current_time = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
-        return _PROMPT_TEMPLATE.format(current_time=current_time)
-
-    return _render
+def _render_instruction(_ctx: Any) -> str:
+    """Render the agent prompt with the current time injected."""
+    current_time = datetime.now().strftime("%A, %B %d, %Y at %I:%M %p")
+    return _PROMPT_PATH.read_text().format(current_time=current_time)
 
 
 def _handle_tool_error(
@@ -56,7 +51,7 @@ def create_refinement_agent(
     store: Store,
     llm_client: BaseLLMClient,
     *,
-    model: str,
+    model: LiteLlm,
 ) -> LlmAgent:
     """Create a memory refinement LlmAgent bound to *store* and *llm_client*.
 
@@ -67,7 +62,7 @@ def create_refinement_agent(
     Args:
         store:      The Store instance to read from and write to.
         llm_client: Used by the search tool to embed text queries.
-        model:      LiteLLM model string passed to ``LiteLlm``.
+        model:      Configured ``LiteLlm`` instance.
     """
     from context_use.memories.refinement.tools import make_refinement_tools
 
@@ -75,8 +70,8 @@ def create_refinement_agent(
 
     return LlmAgent(
         name="memory_refinement_agent",
-        model=LiteLlm(model=model),
-        instruction=_make_instruction(),
+        model=model,
+        instruction=_render_instruction,
         tools=tools,
         on_tool_error_callback=_handle_tool_error,
     )
