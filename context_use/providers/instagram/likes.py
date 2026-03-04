@@ -16,6 +16,7 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     InstagramHrefTimestampSchema,
+    InstagramLabelValue,
     InstagramLikedPostRecord,
     InstagramStringListDataWrapper,
 )
@@ -35,7 +36,6 @@ class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
     """
 
     provider = "instagram"
-    archive_version = 1
     record_schema = InstagramLikedPostRecord
 
     def transform(
@@ -72,8 +72,13 @@ class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
         )
 
 
-class InstagramLikedPostsPipe(_InstagramLikePipe):
-    """ETL pipe for Instagram liked posts.
+# ---------------------------------------------------------------------------
+# V0 pipes — string_list_data format (top-level wrapper key)
+# ---------------------------------------------------------------------------
+
+
+class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
+    """ETL pipe for Instagram liked posts — v0 archive format.
 
     Reads ``likes_media_likes`` from
     ``your_instagram_activity/likes/liked_posts.json``.
@@ -82,6 +87,7 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
     """
 
     interaction_type = "instagram_liked_posts"
+    archive_version = 0
     archive_path_pattern = "your_instagram_activity/likes/liked_posts.json"
 
     def extract_file(
@@ -104,8 +110,8 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
                 )
 
 
-class InstagramStoryLikesPipe(_InstagramLikePipe):
-    """ETL pipe for Instagram story likes.
+class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
+    """ETL pipe for Instagram story likes — v0 archive format.
 
     Reads ``story_activities_story_likes`` from
     ``your_instagram_activity/story_interactions/story_likes.json``.
@@ -114,6 +120,7 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
     """
 
     interaction_type = "instagram_story_likes"
+    archive_version = 0
     archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
 
     def extract_file(
@@ -136,12 +143,153 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
                 )
 
 
-LIKED_POSTS_CONFIG = InteractionConfig(
+# ---------------------------------------------------------------------------
+# V1 pipes — label_values format (bare JSON array)
+# ---------------------------------------------------------------------------
+
+
+class InstagramLikedPostsPipe(_InstagramLikePipe):
+    """ETL pipe for Instagram liked posts — v1 archive format.
+
+    V1 files are a bare JSON array of ``{timestamp, media, label_values}``
+    items.  The post URL is in ``label_values`` with ``label == "URL"``,
+    and the author username is nested inside an ``Owner`` dict entry.
+    Creates ``FibreLike(object=FibrePost(...))``.
+    """
+
+    interaction_type = "instagram_liked_posts"
+    archive_version = 1
+    archive_path_pattern = "your_instagram_activity/likes/liked_posts.json"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramLikedPostRecord]:
+        raw = storage.read(source_uri)
+        items: list[dict] = json.loads(raw)
+        for raw_item in items:
+            timestamp = raw_item.get("timestamp")
+            if timestamp is None:
+                continue
+
+            href: str | None = None
+            title: str | None = None
+
+            for lv_data in raw_item.get("label_values", []):
+                # Simple label_value entries have "label"
+                if "label" in lv_data:
+                    lv = InstagramLabelValue.model_validate(lv_data)
+                    if lv.label == "URL":
+                        href = lv.href or lv.value
+
+                # Nested Owner dict: {title: "Owner", dict: [{dict: [...]}]}
+                if lv_data.get("title") == "Owner":
+                    title = self._extract_owner_username(lv_data)
+
+            yield InstagramLikedPostRecord(
+                title=title or "",
+                href=href,
+                timestamp=timestamp,
+                source=json.dumps(raw_item),
+            )
+
+    @staticmethod
+    def _extract_owner_username(owner_data: dict) -> str | None:
+        """Extract the username from the nested Owner dict structure.
+
+        The Owner entry looks like::
+
+            {
+                "title": "Owner",
+                "dict": [
+                    {
+                        "title": "",
+                        "dict": [
+                            {"label": "Username", "value": "some_user"},
+                            {"label": "Name", "value": "Some User"},
+                            ...
+                        ]
+                    }
+                ]
+            }
+        """
+        for outer in owner_data.get("dict", []):
+            for inner in outer.get("dict", []):
+                if inner.get("label") == "Username":
+                    return inner.get("value")
+        return None
+
+
+class InstagramStoryLikesPipe(_InstagramLikePipe):
+    """ETL pipe for Instagram story likes — v1 archive format.
+
+    V1 files are a bare JSON array of ``{timestamp, media, label_values}``
+    items.  The story author username is nested inside an ``Owner`` dict entry.
+    Creates ``FibreLike(object=FibrePost(attributedTo=Profile(...)))``.
+    """
+
+    interaction_type = "instagram_story_likes"
+    archive_version = 1
+    archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramLikedPostRecord]:
+        raw = storage.read(source_uri)
+        items: list[dict] = json.loads(raw)
+        for raw_item in items:
+            timestamp = raw_item.get("timestamp")
+            if timestamp is None:
+                continue
+
+            href: str | None = None
+            title: str | None = None
+
+            for lv_data in raw_item.get("label_values", []):
+                if "label" in lv_data:
+                    lv = InstagramLabelValue.model_validate(lv_data)
+                    if lv.label == "URL":
+                        href = lv.href or lv.value
+
+                if lv_data.get("title") == "Owner":
+                    title = self._extract_owner_username(lv_data)
+
+            yield InstagramLikedPostRecord(
+                title=title or "",
+                href=href,
+                timestamp=timestamp,
+                source=json.dumps(raw_item),
+            )
+
+    @staticmethod
+    def _extract_owner_username(owner_data: dict) -> str | None:
+        """Extract the username from the nested Owner dict structure."""
+        for outer in owner_data.get("dict", []):
+            for inner in outer.get("dict", []):
+                if inner.get("label") == "Username":
+                    return inner.get("value")
+        return None
+
+
+LIKED_POSTS_V0_CONFIG = InteractionConfig(
+    pipe=InstagramLikedPostsV0Pipe,
+    memory=None,
+)
+
+LIKED_POSTS_V1_CONFIG = InteractionConfig(
     pipe=InstagramLikedPostsPipe,
     memory=None,
 )
 
-STORY_LIKES_CONFIG = InteractionConfig(
+STORY_LIKES_V0_CONFIG = InteractionConfig(
+    pipe=InstagramStoryLikesV0Pipe,
+    memory=None,
+)
+
+STORY_LIKES_V1_CONFIG = InteractionConfig(
     pipe=InstagramStoryLikesPipe,
     memory=None,
 )
