@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
+def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
     """Build the memory tool set for the refinement agent."""
 
     async def list_memories(
