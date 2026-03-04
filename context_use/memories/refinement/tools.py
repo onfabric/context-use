@@ -17,11 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
-    """Build the memory tool set for the refinement agent.
-
-    Each tool is a plain async function whose docstring and type annotations
-    are used by ADK (and other frameworks) to generate the LLM tool schema.
-    """
+    """Build the memory tool set for the refinement agent."""
 
     async def list_memories(
         from_date: Annotated[
@@ -40,9 +36,7 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
         ] = None,
         limit: Annotated[
             int,
-            Field(
-                default=50, description="Maximum number of memories to return (1–200)."
-            ),
+            Field(default=50, description="Maximum number of memories to return."),
         ] = 50,
     ) -> dict:
         """List active memories, optionally filtered by date range.

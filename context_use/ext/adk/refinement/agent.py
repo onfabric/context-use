@@ -25,9 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_PROMPT_PATH = (
-    Path(_pkg.__file__).parent / "memories" / "refinement" / "agent_prompt.md"
-)
+_PROMPT_PATH = Path(_pkg.__file__).parent / "memories" / "refinement" / "prompt.md"
 
 
 def _render_instruction(_ctx: Any) -> str:
