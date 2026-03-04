@@ -78,8 +78,9 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
     ) -> dict:
         """Find memories semantically similar to a text query.
 
-        Use this to discover memories related to a specific topic or theme,
-        which helps identify duplicates and closely related entries.
+        This is the primary tool for pattern synthesis. Query with topic
+        descriptions (e.g. "running and fitness", "work projects and career")
+        to pull the most relevant memories for a given life area.
         """
         query_embedding = await llm_client.embed_query(query)
         results = await store.search_memories(
@@ -190,18 +191,19 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
             Field(
                 default=None,
                 description=(
-                    "IDs of the memories this was synthesised from "
-                    "(required for merges and splits)."
+                    "IDs of the memories this was synthesised from. "
+                    "Required for pattern memories and merges. "
+                    "Pass every event memory used as evidence."
                 ),
             ),
         ] = None,
     ) -> dict:
         """Write a new memory to the store.
 
-        Use this when merging two memories (create the combined result, then
-        call archive_memories on the sources) or when splitting an over-broad
-        memory into focused fragments (create each fragment, then archive the
-        original). Always pass source_memory_ids so the audit trail is intact.
+        Call this to create a higher-level pattern memory distilled from multiple event
+        memories. Pass all source event IDs in source_memory_ids for the audit trail.
+        Do NOT archive the source memories when creating a pattern — they remain
+        individually useful.
         """
         embedding = await llm_client.embed_query(content)
         memory = TapestryMemory(
@@ -236,9 +238,9 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
     ) -> dict:
         """Mark one or more memories as superseded.
 
-        Always call this after create_memory when merging or splitting,
-        passing the new memory's ID as superseded_by. This preserves
-        the full audit trail without losing any historical content.
+        Use this after create_memory when merging duplicate event memories or
+        splitting an over-broad memory, passing the new memory's ID as
+        superseded_by.
         """
         memories = await store.get_memories(memory_ids)
         found_ids = {m.id for m in memories}

@@ -17,7 +17,7 @@ from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 _DEFAULT_CONFIG_DIR = Path("~/.config/context-use").expanduser()
 _DEFAULT_DATA_DIR = Path("./data")
 
-_DEFAULT_MODEL = OpenAIModel.GPT_4O
+_DEFAULT_MODEL = OpenAIModel.GPT_5_2
 _DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
 
 

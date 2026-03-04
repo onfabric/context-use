@@ -26,11 +26,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _TRIGGER_MESSAGE = (
-    "Review and curate all memories in the store. "
-    "Identify and fix duplicate, overlapping, and low-quality memories: "
-    "merge duplicates, split over-broad entries, correct wrong date ranges, "
-    "and archive superseded content. "
-    "Return a structured summary of every change you made."
+    "Investigate the memory store and synthesise pattern memories. "
+    "For each topic, search broadly, follow the threads that emerge, "
+    "and keep digging until you have converged on everything the store holds "
+    "for that area of the user's life. "
+    "Then synthesise a pattern memory capturing what is consistently true. "
+    "Repeat for at least 6–8 meaningfully different topics. "
+    "Do not archive the source event memories — patterns are additive. "
+    "Return a structured summary of every pattern created or updated."
 )
 
 
