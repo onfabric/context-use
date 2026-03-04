@@ -192,9 +192,7 @@ async def cmd_config_show(args: argparse.Namespace) -> None:
     out.next_step("context-use config set-key", "change OpenAI API key")
     out.next_step("context-use config set-store postgres", "set up PostgreSQL")
     out.next_step("context-use config set-store memory", "switch to in-memory")
-    out.next_step(
-        "context-use config set-agent adk", "configure agent backend"
-    )
+    out.next_step("context-use config set-agent adk", "configure agent backend")
     print()
 
 
@@ -904,7 +902,6 @@ def _build_agent_backend(cfg: Config):  # type: ignore[return]
     return None
 
 
-
 async def cmd_agent_synthesise(args: argparse.Namespace) -> None:
     """Run the synthesise skill."""
     from context_use.memories.agent.skill import get_skill
@@ -922,7 +919,9 @@ async def cmd_agent_synthesise(args: argparse.Namespace) -> None:
 
     out.header("Synthesising memories")
     out.info("The agent will explore your memories topic by topic and synthesise")
-    out.info("higher-level pattern memories. This makes multiple API calls — typically 2-5 min.\n")  # noqa: E501
+    out.info(
+        "higher-level pattern memories. This makes multiple API calls — typically 2-5 min.\n"
+    )  # noqa: E501
 
     skill = get_skill("synthesise")
     result = await ctx.run_agent(backend, skill.prompt)
@@ -1543,9 +1542,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Store backend to use",
     )
 
-    p_cfg_agent = cfg_sub.add_parser(
-        "set-agent", help="Configure the agent backend"
-    )
+    p_cfg_agent = cfg_sub.add_parser("set-agent", help="Configure the agent backend")
     p_cfg_agent.add_argument(
         "backend",
         choices=["adk"],
