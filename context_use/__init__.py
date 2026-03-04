@@ -9,7 +9,6 @@ from context_use.facade import (
     ContextUse,
     MemorySummary,
     PipelineResult,
-    ProfileSummary,
     ScheduleInstruction,
     TaskBreakdown,
 )
@@ -21,7 +20,6 @@ __all__ = [
     "InMemoryStore",
     "MemorySummary",
     "PipelineResult",
-    "ProfileSummary",
     "Provider",
     "ScheduleInstruction",
     "Store",

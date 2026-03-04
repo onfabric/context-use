@@ -28,7 +28,7 @@ def create_server(
     name: str = "context-use",
     version: str = "0.1.0",
 ) -> MCPServer:
-    """Build an MCPServer with search and profile tools registered.
+    """Build an MCPServer with memory search tools registered.
 
     Requires the ``mcp-use`` extra (``uv sync --extra mcp-use``).
 
@@ -50,31 +50,10 @@ def create_server(
         name=name,
         version=version,
         instructions=(
-            "Context server. Use get_profile to load the user's profile "
-            "at the start of a conversation, and search_memories to recall "
-            "specific episodes."
+            "Context server. Use search_memories to recall specific episodes "
+            "from the user's memory archive."
         ),
     )
-
-    @server.tool(
-        title="Get User Profile",
-        annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
-    )
-    async def get_profile() -> dict:
-        """Get the user's profile — a structured summary of who they are.
-
-        Returns a markdown profile distilled from the user's memories.
-        Call this at the start of a conversation to understand who the
-        user is. Use ``search_memories`` for specific episode recall.
-        """
-        profile = await ctx.get_profile()
-        if profile is None:
-            return {"content": None, "generated_at": None}
-        return {
-            "content": profile.content,
-            "generated_at": profile.generated_at.isoformat(),
-            "memory_count": profile.memory_count,
-        }
 
     @server.tool(
         title="Search Memories",

@@ -13,7 +13,6 @@ from context_use.models import (
     EtlTask,
     MemoryStatus,
     TapestryMemory,
-    TapestryProfile,
     Thread,
 )
 from context_use.store.base import MemorySearchResult, Store
@@ -34,7 +33,6 @@ class InMemoryStore(Store):
         self._batches: dict[str, Batch] = {}
         self._batch_threads: list[BatchThread] = []
         self._memories: dict[str, TapestryMemory] = {}
-        self._profiles: dict[str, TapestryProfile] = {}
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
@@ -237,16 +235,6 @@ class InMemoryStore(Store):
             )
             for m in candidates[:top_k]
         ]
-
-    # ── Profiles ─────────────────────────────────────────────────────
-
-    async def get_latest_profile(self) -> TapestryProfile | None:
-        if not self._profiles:
-            return None
-        return max(self._profiles.values(), key=lambda p: p.generated_at)
-
-    async def save_profile(self, profile: TapestryProfile) -> None:
-        self._profiles[profile.id] = profile
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:

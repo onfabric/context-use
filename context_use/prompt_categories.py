@@ -72,24 +72,6 @@ LIFE_CATEGORIES: tuple[LifeCategory, ...] = (
 )
 
 
-_PROFILE_EXTRA_CATEGORIES: tuple[LifeCategory, ...] = (
-    LifeCategory(
-        "Personality and communication",
-        "how they think, communicate, make decisions. "
-        "Analytical or intuitive? Detail-oriented or big-picture?",
-    ),
-    LifeCategory(
-        "Preferences and taste",
-        "food, travel style, tools, aesthetic, brands, communication preferences.",
-    ),
-    LifeCategory(
-        "Current life context",
-        "what is happening in their life right now. "
-        "Recent moves, transitions, projects, challenges.",
-    ),
-)
-
-
 def _render_bullets(categories: tuple[LifeCategory, ...]) -> str:
     return "\n".join(f"- **{c.name}** — {c.description}" for c in categories)
 
@@ -99,13 +81,4 @@ WHAT_TO_CAPTURE: str = (
     "\n"
     "Extract anything that reveals who this person is:\n"
     "\n" + _render_bullets(LIFE_CATEGORIES)
-)
-
-PROFILE_SECTIONS: str = (
-    "### Suggested sections\n"
-    "\n"
-    "Organise the profile into sections that best fit the evidence. These are "
-    "suggestions — add, remove, rename, or merge sections as the data "
-    "warrants:\n"
-    "\n" + _render_bullets(LIFE_CATEGORIES + _PROFILE_EXTRA_CATEGORIES)
 )
