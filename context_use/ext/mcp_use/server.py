@@ -30,7 +30,7 @@ def create_server(
 ) -> MCPServer:
     """Build an MCPServer with search and profile tools registered.
 
-    Requires the ``mcp-use`` extra (``pip install context-use[mcp-use]``).
+    Requires the ``mcp-use`` extra (``uv sync --extra mcp-use``).
 
     Args:
         ctx: A fully configured :class:`ContextUse` instance.
@@ -43,7 +43,7 @@ def create_server(
     except ImportError:
         raise ImportError(
             "mcp-use is required for MCP server support. "
-            "Install it with: pip install context-use[mcp-use]"
+            "Install it with: uv sync --extra mcp-use"
         ) from None
 
     server = _MCPServer(

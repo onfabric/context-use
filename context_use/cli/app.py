@@ -292,11 +292,18 @@ async def cmd_config_set_refinement(args: argparse.Namespace) -> None:
     out.success(f"Refinement backend set to '{backend}'. Config written to {path}")
 
     if backend == "adk":
-        out.info('Requires the adk extra: pip install "context-use[adk]"')
+        out.info("Requires the adk extra: uv sync --extra adk")
+
+    if not cfg.uses_postgres:
+        out.warn("Refinement requires PostgreSQL for persistent storage.")
+        out.info("Set it up first with:")
+        out.next_step("context-use config set-store postgres")
+        print()
 
     print()
-    out.header("Next step:")
-    out.next_step("context-use memories refine", "run memory refinement")
+    out.header("Next steps:")
+    out.next_step("context-use pipeline", "ingest archives and generate memories first")
+    out.next_step("context-use memories refine", "then run memory refinement")
     print()
 
 
@@ -894,7 +901,7 @@ async def cmd_memories_refine(args: argparse.Namespace) -> None:
             from context_use.ext.adk.refinement.runner import AdkRefinementBackend
         except ImportError:
             out.error("The adk extra is required for the adk backend.")
-            out.info('Install it with: pip install "context-use[adk]"')
+            out.info("Install it with: uv sync --extra adk")
             return
         backend = AdkRefinementBackend(
             api_key=cfg.openai_api_key or "",
@@ -1272,6 +1279,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "View your profile\n"
             '  context-use ask "question"                   '
             "Ask about your memories\n"
+            "\n"
+            "Memory refinement (requires PostgreSQL + adk extra):\n"
+            "  1. uv sync --extra adk                       "
+            "Install the ADK extra\n"
+            "  2. context-use config set-refinement adk     "
+            "Enable the refinement backend\n"
+            "  3. context-use memories refine               "
+            "Run the refinement agent\n"
             "\n"
             "MCP server:\n"
             "  python -m context_use.ext.mcp_use.run       "

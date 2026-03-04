@@ -14,7 +14,7 @@ try:
 except ImportError as _exc:
     raise ImportError(
         "The adk extra is required for the refinement agent.\n"
-        "Install it with: pip install context-use[adk]"
+        "Install it with: uv sync --extra adk"
     ) from _exc
 
 import context_use as _pkg

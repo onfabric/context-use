@@ -13,7 +13,7 @@ try:
 except ImportError as _exc:
     raise ImportError(
         "The adk extra is required for AdkRefinementBackend.\n"
-        "Install it with: pip install context-use[adk]"
+        "Install it with: uv sync --extra adk"
     ) from _exc
 
 from context_use.ext.adk.refinement.agent import create_refinement_agent
@@ -80,7 +80,7 @@ class AdkRefinementBackend(RefinementBackend):
 
     Requires the ``adk`` extra::
 
-        pip install context-use[adk]
+        uv sync --extra adk
     """
 
     def __init__(
