@@ -168,6 +168,8 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
         m = memories[0]
         if content is not None:
             m.content = content
+            embedding = await llm_client.embed_query(content)
+            m.embedding = embedding
         if from_date is not None:
             m.from_date = date.fromisoformat(from_date)
         if to_date is not None:
@@ -207,6 +209,7 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
         memory into focused fragments (create each fragment, then archive the
         original). Always pass source_memory_ids so the audit trail is intact.
         """
+        embedding = await llm_client.embed_query(content)
         memory = TapestryMemory(
             content=content,
             from_date=date.fromisoformat(from_date),
@@ -214,6 +217,7 @@ def make_refinement_tools(store: Store, llm_client: BaseLLMClient) -> list:
             group_id=generate_uuidv4(),
             status=MemoryStatus.active.value,
             source_memory_ids=source_memory_ids,
+            embedding=embedding,
         )
         created = await store.create_memory(memory)
         logger.info("Created memory %s (sources=%s)", created.id, source_memory_ids)
