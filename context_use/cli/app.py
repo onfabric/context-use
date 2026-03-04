@@ -834,38 +834,9 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
 
     print()
     out.header("Next steps:")
-    out.next_step("context-use memories refine", "refine overlapping memories")
     out.next_step("context-use profile generate", "create your profile")
     out.next_step("context-use memories list", "browse your memories")
     out.next_step("context-use memories export", "export to markdown")
-    print()
-
-
-# ── memories refine ─────────────────────────────────────────────────
-
-
-async def cmd_memories_refine(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    _require_persistent(cfg, "memories refine")
-    _require_api_key(cfg)
-
-    ctx = _build_ctx(cfg)
-    await ctx.init()
-
-    out.header("Refining memories")
-    out.info("This discovers overlapping memories and merges them via LLM.")
-    out.info("It typically takes 1-5 minutes.\n")
-
-    batches = await ctx.create_refinement_batches()
-    await _run_batches(ctx, batches)
-
-    out.success("Refinement complete")
-    out.kv("Batches created", len(batches))
-
-    print()
-    out.header("Next steps:")
-    out.next_step("context-use profile generate", "create your profile")
-    out.next_step("context-use memories list", "browse your memories")
     print()
 
 
@@ -1345,7 +1316,6 @@ def _build_parser() -> argparse.ArgumentParser:
     mem_sub.add_parser(
         "generate", help="Step 2: Generate memories from ingested archives (batch API)"
     )
-    mem_sub.add_parser("refine", help="Refine overlapping memories")
 
     p_mem_list = mem_sub.add_parser("list", help="List memories")
     p_mem_list.add_argument(
@@ -1439,7 +1409,6 @@ _COMMAND_MAP: dict[str, _CommandHandler] = {
 
 _MEMORIES_MAP: dict[str, _CommandHandler] = {
     "generate": cmd_memories_generate,
-    "refine": cmd_memories_refine,
     "list": cmd_memories_list,
     "search": cmd_memories_search,
     "export": cmd_memories_export,

@@ -6,7 +6,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import date
 
-from sqlalchemy import and_, func, literal, select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.sql import text
@@ -441,51 +441,6 @@ class PostgresStore(Store):
                 )
             )
         return results
-
-    async def get_refinable_memory_ids(self) -> list[str]:
-        async with self._auto_session() as s:
-            stmt = select(OrmMemory.id).where(
-                OrmMemory.status == MemoryStatus.active.value,
-                OrmMemory.embedding.isnot(None),
-                OrmMemory.source_memory_ids.is_(None),
-            )
-            result = await s.execute(stmt)
-        return [row[0] for row in result.all()]
-
-    async def find_similar_memories(
-        self,
-        seed_id: str,
-        *,
-        date_proximity_days: int = 7,
-        similarity_threshold: float = 0.4,
-        max_candidates: int = 10,
-    ) -> list[str]:
-        async with self._auto_session() as s:
-            seed = await s.get(OrmMemory, seed_id)
-            if seed is None or seed.embedding is None:
-                return []
-
-            cosine_threshold = 1.0 - similarity_threshold
-            proximity = func.make_interval(0, 0, 0, date_proximity_days)
-
-            stmt = (
-                select(OrmMemory.id)
-                .where(
-                    and_(
-                        OrmMemory.status == MemoryStatus.active.value,
-                        OrmMemory.embedding.isnot(None),
-                        OrmMemory.id != seed_id,
-                        OrmMemory.from_date <= literal(seed.to_date) + proximity,
-                        OrmMemory.to_date >= literal(seed.from_date) - proximity,
-                        OrmMemory.embedding.cosine_distance(seed.embedding)
-                        < cosine_threshold,
-                    )
-                )
-                .order_by(OrmMemory.embedding.cosine_distance(seed.embedding))
-                .limit(max_candidates)
-            )
-            result = await s.execute(stmt)
-        return [row[0] for row in result.all()]
 
     # ── Profiles ─────────────────────────────────────────────────────
 

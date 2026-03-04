@@ -142,8 +142,6 @@ class Store(ABC):
         """Persist a batch and its thread-group mappings.
 
         The store creates ``BatchThread`` records internally from *groups*.
-        Pass an empty list for batches that carry group info in state
-        (e.g. refinement batches).
         """
         ...
 
@@ -215,23 +213,6 @@ class Store(ABC):
         similarity (descending).  Otherwise they are ordered by
         ``from_date`` descending.
         """
-        ...
-
-    @abstractmethod
-    async def get_refinable_memory_ids(self) -> list[str]:
-        """Return IDs of active, embedded memories that have not been refined."""
-        ...
-
-    @abstractmethod
-    async def find_similar_memories(
-        self,
-        seed_id: str,
-        *,
-        date_proximity_days: int = 7,
-        similarity_threshold: float = 0.4,
-        max_candidates: int = 10,
-    ) -> list[str]:
-        """Find memory IDs similar to *seed_id* by date proximity and embedding."""
         ...
 
     # ── Profiles ─────────────────────────────────────────────────────
