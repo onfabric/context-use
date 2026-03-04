@@ -19,6 +19,7 @@ dependencies = [
 disk = []  # no extra deps needed, uses stdlib pathlib
 gcs = ["google-cloud-storage>=2.10.0,<3"]
 mcp-use = ["mcp-use>=1.6.0", "langchain-openai>=1.1.10"]
+adk = ["google-adk>=1.26"]
 
 [dependency-groups]
 dev = [

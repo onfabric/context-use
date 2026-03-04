@@ -18,6 +18,7 @@ from context_use.facade.types import (
     ProfileSummary,
     TaskBreakdown,
 )
+from context_use.memories.refinement.backend import RefinementBackend, RefinementResult
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
@@ -251,6 +252,22 @@ class ContextUse:
         manager_cls = get_manager_for_category(category)
         manager = manager_cls(batch=batch, ctx=self._batch_context())
         return await manager.try_advance_state()
+
+    # ── Memory refinement ────────────────────────────────────────────
+
+    async def refine_memories(
+        self,
+        backend: RefinementBackend,
+    ) -> RefinementResult:
+        """Refine memories using the given backend.
+
+        The facade injects its internal store and LLM client so backends
+        only carry configuration::
+
+            backend = AdkRefinementBackend(api_key=key, model=cfg.openai_model)
+            result = await ctx.refine_memories(backend)
+        """
+        return await backend.run(self._store, self._llm_client)
 
     # ── Queries ──────────────────────────────────────────────────────
 
