@@ -919,9 +919,7 @@ async def cmd_agent_synthesise(args: argparse.Namespace) -> None:
 
     out.header("Synthesising memories")
     out.info("The agent will explore your memories topic by topic and synthesise")
-    out.info(
-        "higher-level pattern memories. This makes multiple API calls — typically 2-5 min.\n"
-    )  # noqa: E501
+    out.info("higher-level pattern memories. Might take a few minutes.\n")  # noqa: E501
 
     skill = get_skill("synthesise")
     result = await ctx.run_agent(backend, skill.prompt)
