@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date
 
 from context_use.batch.grouper import ThreadGroup
 from context_use.etl.core.types import ThreadRow
@@ -237,50 +237,6 @@ class InMemoryStore(Store):
             )
             for m in candidates[:top_k]
         ]
-
-    async def get_refinable_memory_ids(self) -> list[str]:
-        return [
-            m.id
-            for m in self._memories.values()
-            if m.status == MemoryStatus.active.value
-            and m.embedding is not None
-            and m.source_memory_ids is None
-        ]
-
-    async def find_similar_memories(
-        self,
-        seed_id: str,
-        *,
-        date_proximity_days: int = 7,
-        similarity_threshold: float = 0.4,
-        max_candidates: int = 10,
-    ) -> list[str]:
-        seed = self._memories.get(seed_id)
-        if seed is None or seed.embedding is None:
-            return []
-
-        proximity = timedelta(days=date_proximity_days)
-        cosine_threshold = 1.0 - similarity_threshold
-
-        scored: list[tuple[str, float]] = []
-        for m in self._memories.values():
-            if m.id == seed_id:
-                continue
-            if m.status != MemoryStatus.active.value:
-                continue
-            if m.embedding is None:
-                continue
-            if m.from_date > seed.to_date + proximity:
-                continue
-            if m.to_date < seed.from_date - proximity:
-                continue
-
-            distance = 1.0 - _cosine_similarity(seed.embedding, m.embedding)
-            if distance < cosine_threshold:
-                scored.append((m.id, distance))
-
-        scored.sort(key=lambda x: x[1])
-        return [mid for mid, _ in scored[:max_candidates]]
 
     # ── Profiles ─────────────────────────────────────────────────────
 

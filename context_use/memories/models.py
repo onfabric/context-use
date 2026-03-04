@@ -59,7 +59,7 @@ class TapestryMemory(TimeStampMixin, Base):
     source_memory_ids: Mapped[list | None] = mapped_column(
         JSON,
         nullable=True,
-        comment="IDs of memories consumed to produce this refined memory",
+        comment="IDs of memories consumed to produce this memory",
     )
 
     __table_args__ = (

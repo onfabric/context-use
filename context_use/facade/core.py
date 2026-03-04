@@ -40,7 +40,7 @@ class ContextUse:
     """Main entry point for the context_use library.
 
     Provides a unified API for the full pipeline: ingest archives,
-    generate memories, refine memories, search, and generate profiles.
+    generate memories, search, and generate profiles.
 
     Usage::
 
@@ -236,18 +236,6 @@ class ContextUse:
 
         return await MemoryBatchFactory.create_batches(all_groups, self._store)
 
-    async def create_refinement_batches(self) -> list[Batch]:
-        """Discover overlapping memories and create refinement batches.
-
-        Returns persisted :class:`Batch` objects ready to be advanced
-        via :meth:`advance_batch`.
-        """
-        from context_use.memories.refinement.factory import RefinementBatchFactory
-
-        return await RefinementBatchFactory.create_refinement_batches(
-            store=self._store,
-        )
-
     async def advance_batch(self, batch_id: str) -> ScheduleInstruction:
         """Advance a batch one step through its state machine.
 
@@ -377,4 +365,3 @@ class ContextUse:
 def _ensure_managers_registered() -> None:
     """Import manager modules to trigger their @register_batch_manager decorators."""
     import context_use.memories.manager  # noqa: F401
-    import context_use.memories.refinement.manager  # noqa: F401

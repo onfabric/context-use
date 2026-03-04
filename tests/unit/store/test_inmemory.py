@@ -203,7 +203,7 @@ async def test_get_batch_groups(store: InMemoryStore) -> None:
 
 
 async def test_create_batch_with_empty_groups(store: InMemoryStore) -> None:
-    batch = Batch(batch_number=1, category="refinement", states=[])
+    batch = Batch(batch_number=1, category="memories", states=[])
     created = await store.create_batch(batch, [])
     assert created.id == batch.id
     assert await store.get_batch_groups(batch.id) == []
@@ -326,64 +326,6 @@ async def test_search_memories_by_embedding(store: InMemoryStore) -> None:
     assert results[0].content == "similar"
     assert results[0].similarity is not None
     assert results[0].similarity > results[1].similarity  # type: ignore[operator]
-
-
-async def test_get_refinable_memory_ids(store: InMemoryStore) -> None:
-    m1 = _make_memory(embedding=[1.0])
-    m2 = _make_memory()  # no embedding
-    m3 = _make_memory(embedding=[1.0], source_memory_ids=["other"])  # already refined
-    m4 = _make_memory(
-        embedding=[1.0], status=MemoryStatus.superseded.value
-    )  # superseded
-    await store.create_memory(m1)
-    await store.create_memory(m2)
-    await store.create_memory(m3)
-    await store.create_memory(m4)
-
-    ids = await store.get_refinable_memory_ids()
-    assert ids == [m1.id]
-
-
-async def test_find_similar_memories(store: InMemoryStore) -> None:
-    seed = _make_memory(
-        content="seed",
-        from_d=date(2024, 1, 1),
-        to_d=date(2024, 1, 5),
-        embedding=[1.0, 0.0, 0.0],
-    )
-    close = _make_memory(
-        content="close",
-        from_d=date(2024, 1, 3),
-        to_d=date(2024, 1, 8),
-        embedding=[0.9, 0.1, 0.0],
-    )
-    far_date = _make_memory(
-        content="far date",
-        from_d=date(2024, 6, 1),
-        to_d=date(2024, 6, 5),
-        embedding=[0.9, 0.1, 0.0],
-    )
-    orthogonal = _make_memory(
-        content="orthogonal",
-        from_d=date(2024, 1, 1),
-        to_d=date(2024, 1, 5),
-        embedding=[0.0, 1.0, 0.0],
-    )
-    await store.create_memory(seed)
-    await store.create_memory(close)
-    await store.create_memory(far_date)
-    await store.create_memory(orthogonal)
-
-    similar = await store.find_similar_memories(
-        seed.id, date_proximity_days=7, similarity_threshold=0.4
-    )
-    assert close.id in similar
-    assert far_date.id not in similar  # outside date range
-    assert orthogonal.id not in similar  # too dissimilar
-
-
-async def test_find_similar_memories_missing_seed(store: InMemoryStore) -> None:
-    assert await store.find_similar_memories("nonexistent") == []
 
 
 # ── Profiles ─────────────────────────────────────────────────────────
