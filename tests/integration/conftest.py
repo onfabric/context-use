@@ -8,8 +8,6 @@ import pytest
 from pydantic import BaseModel
 
 from context_use import ContextUse
-from context_use.db.models import Base
-from context_use.db.postgres import PostgresBackend
 from context_use.llm.base import (
     BaseLLMClient,
     BatchResults,
@@ -18,7 +16,7 @@ from context_use.llm.base import (
     PromptItem,
 )
 from context_use.storage.disk import DiskStorage
-from context_use.store.postgres import PostgresStore
+from context_use.store.postgres import Base, PostgresBackend, PostgresStore
 
 
 def pytest_collection_modifyitems(items: list, config) -> None:  # noqa: ANN001

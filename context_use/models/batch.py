@@ -35,7 +35,7 @@ class Batch:
 
     def parse_current_state(self) -> State:
         """Parse the head of ``states`` into a typed State object."""
-        from context_use.batch.models import parse_batch_state
+        from context_use.batch.registry import parse_batch_state
 
         if not self.states:
             raise ValueError(f"Batch {self.id} has no states")

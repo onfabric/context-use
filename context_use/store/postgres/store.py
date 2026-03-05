@@ -1,3 +1,4 @@
+# pyright: reportMissingImports=false
 from __future__ import annotations
 
 import logging
@@ -9,17 +10,11 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import text
 
 from context_use.batch.grouper import ThreadGroup
-from context_use.batch.models import Batch as OrmBatch
-from context_use.batch.models import BatchThread as OrmBatchThread
-from context_use.db.models import Base
 from context_use.etl.core.types import ThreadRow
-from context_use.etl.models.archive import Archive as OrmArchive
-from context_use.etl.models.etl_task import EtlTask as OrmEtlTask
-from context_use.etl.models.thread import Thread as OrmThread
-from context_use.memories.models import TapestryMemory as OrmMemory
 from context_use.models import (
     Archive,
     Batch,
@@ -29,6 +24,13 @@ from context_use.models import (
     Thread,
 )
 from context_use.store.base import MemorySearchResult, Store
+from context_use.store.postgres.orm import Archive as OrmArchive
+from context_use.store.postgres.orm import Base
+from context_use.store.postgres.orm import Batch as OrmBatch
+from context_use.store.postgres.orm import BatchThread as OrmBatchThread
+from context_use.store.postgres.orm import EtlTask as OrmEtlTask
+from context_use.store.postgres.orm import TapestryMemory as OrmMemory
+from context_use.store.postgres.orm import Thread as OrmThread
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +40,8 @@ BULK_INSERT_BATCH_SIZE = 500
 class PostgresStore(Store):
     """Store backed by PostgreSQL via SQLAlchemy + asyncpg.
 
-    Wraps the existing ORM models and translates to/from domain
-    dataclasses at the boundary.
+    Wraps the ORM models and translates to/from domain dataclasses at the
+    boundary.
     """
 
     def __init__(
@@ -89,14 +91,12 @@ class PostgresStore(Store):
     # ── Lifecycle ────────────────────────────────────────────────────
 
     async def init(self) -> None:
-        self._register_models()
         async with self._engine.begin() as conn:
             await conn.execute(text("CREATE SCHEMA IF NOT EXISTS public"))
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
             await conn.run_sync(Base.metadata.create_all)
 
     async def reset(self) -> None:
-        self._register_models()
         async with self._engine.begin() as conn:
             await conn.execute(text("DROP SCHEMA public CASCADE"))
         await self.init()
@@ -117,12 +117,6 @@ class PostgresStore(Store):
         finally:
             await session.close()
             self._scoped_session = None
-
-    @staticmethod
-    def _register_models() -> None:
-        import context_use.batch.models  # noqa: F401
-        import context_use.etl.models  # noqa: F401
-        import context_use.memories.models  # noqa: F401
 
     # ── Archives ─────────────────────────────────────────────────────
 
@@ -280,8 +274,6 @@ class PostgresStore(Store):
             if row is None:
                 raise ValueError(f"Batch {batch.id} not found")
             row.states = batch.states
-            from sqlalchemy.orm.attributes import flag_modified
-
             flag_modified(row, "states")
 
     async def get_batch_groups(self, batch_id: str) -> list[ThreadGroup]:
