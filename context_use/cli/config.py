@@ -1,10 +1,3 @@
-"""Configuration management for the context-use CLI.
-
-Reads/writes a TOML config file and provides a typed Config dataclass.
-Default location: ``~/.config/context-use/config.toml``.
-Override with the ``CONTEXT_USE_CONFIG`` environment variable.
-"""
-
 from __future__ import annotations
 
 import os

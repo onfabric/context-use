@@ -1,10 +1,3 @@
-"""Terminal output helpers for the context-use CLI.
-
-Provides simple, dependency-free formatting with ANSI colors.
-Automatically disables color when stdout is not a TTY or when
-the ``NO_COLOR`` environment variable is set.
-"""
-
 from __future__ import annotations
 
 import os
