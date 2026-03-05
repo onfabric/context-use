@@ -68,7 +68,7 @@ class _LiteLLMBase(BaseLLMClient):
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
-            model=self._model.value,
+            model=self._model,
             messages=[{"role": "user", "content": prompt}],
             api_key=self._api_key,
         )
@@ -78,7 +78,7 @@ class _LiteLLMBase(BaseLLMClient):
     async def _raw_structured_completion(self, prompt: PromptItem) -> dict:
         """Call the LLM with a structured response format and return parsed JSON."""
         response = await litellm.acompletion(
-            model=self._model.value,
+            model=self._model,
             messages=_build_messages(prompt),
             response_format=_build_response_format(prompt),
             api_key=self._api_key,
@@ -96,7 +96,7 @@ class _LiteLLMBase(BaseLLMClient):
 
     async def embed_query(self, text: str) -> list[float]:
         response = await litellm.aembedding(
-            model=self._embedding_model.value,
+            model=self._embedding_model,
             input=[text],
             api_key=self._api_key,
         )
@@ -110,7 +110,7 @@ def _build_batch_jsonl_line(
     item: PromptItem,
     model: OpenAIModel,
 ) -> dict[str, Any]:
-    model_name = model.value.split("/", 1)[-1]
+    model_name = model.model_name()
     return {
         "custom_id": item.item_id,
         "method": "POST",
@@ -127,7 +127,7 @@ def _build_embed_batch_jsonl_line(
     item: EmbedItem,
     model: OpenAIEmbeddingModel,
 ) -> dict[str, Any]:
-    model_name = model.value.split("/", 1)[-1]
+    model_name = model.model_name()
     return {
         "custom_id": item.item_id,
         "method": "POST",
@@ -436,7 +436,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
         for item in items:
             try:
                 response = await litellm.aembedding(
-                    model=self._embedding_model.value,
+                    model=self._embedding_model,
                     input=[item.text],
                     api_key=self._api_key,
                 )

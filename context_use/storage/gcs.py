@@ -18,7 +18,7 @@ class GCSStorage(StorageBackend):
 
     Requires ``google-cloud-storage``.  Install via::
 
-        pip install "context_use[gcs]"
+        uv sync --extra gcs
     """
 
     def __init__(
@@ -27,7 +27,7 @@ class GCSStorage(StorageBackend):
         if gcs_storage is None:
             raise ImportError(
                 "google-cloud-storage is required for GCSStorage. "
-                "Install with: pip install 'context_use[gcs]'"
+                "Install with: uv sync --extra gcs"
             )
         self._client = gcs_storage.Client(project=project)
         self._bucket = self._client.bucket(bucket)

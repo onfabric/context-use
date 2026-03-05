@@ -21,6 +21,7 @@ from context_use.cli.config import (
     load_config,
     save_config,
 )
+from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 
 DESCRIPTION = """\
 context-use — turn your data exports into AI memory
@@ -60,11 +61,9 @@ def _build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
 
         store = InMemoryStore()
 
-    from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
-
     api_key = cfg.openai_api_key or ""
-    model = OpenAIModel.GPT_4O
-    embedding_model = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
+    model = OpenAIModel(cfg.openai_model)
+    embedding_model = OpenAIEmbeddingModel(cfg.openai_embedding_model)
     if llm_mode == "sync":
         llm_client = LiteLLMSyncClient(
             model=model,
@@ -173,10 +172,18 @@ async def cmd_config_show(args: argparse.Namespace) -> None:
     else:
         out.kv("OpenAI API key", out.dim("not set"))
 
+    out.kv("Model", cfg.openai_model)
+    out.kv("Embedding model", cfg.openai_embedding_model)
+
     if cfg.store_provider == "postgres":
         out.kv("Store", f"postgres ({cfg.db_host}:{cfg.db_port}/{cfg.db_name})")
     else:
         out.kv("Store", "memory (in-memory, no persistence)")
+
+    if cfg.refinement_backend:
+        out.kv("Refinement backend", cfg.refinement_backend)
+    else:
+        out.kv("Refinement backend", out.dim("not configured"))
 
     out.kv("Data directory", cfg.data_dir)
 
@@ -185,6 +192,9 @@ async def cmd_config_show(args: argparse.Namespace) -> None:
     out.next_step("context-use config set-key", "change OpenAI API key")
     out.next_step("context-use config set-store postgres", "set up PostgreSQL")
     out.next_step("context-use config set-store memory", "switch to in-memory")
+    out.next_step(
+        "context-use config set-refinement adk", "configure refinement backend"
+    )
     print()
 
 
@@ -269,6 +279,31 @@ async def cmd_config_set_store(args: argparse.Namespace) -> None:
     out.next_step("context-use profile generate")
     out.info("Start the MCP server:")
     out.next_step("python -m context_use.ext.mcp_use.run")
+    print()
+
+
+async def cmd_config_set_refinement(args: argparse.Namespace) -> None:
+    """Configure the refinement backend."""
+    cfg = load_config() if config_exists() else Config()
+    backend = args.backend  # e.g. "adk"
+
+    cfg.refinement_backend = backend
+    path = save_config(cfg)
+    out.success(f"Refinement backend set to '{backend}'. Config written to {path}")
+
+    if backend == "adk":
+        out.info("Requires the adk extra: uv sync --extra adk")
+
+    if not cfg.uses_postgres:
+        out.warn("Refinement requires PostgreSQL for persistent storage.")
+        out.info("Set it up first with:")
+        out.next_step("context-use config set-store postgres")
+        print()
+
+    print()
+    out.header("Next steps:")
+    out.next_step("context-use pipeline", "ingest archives and generate memories first")
+    out.next_step("context-use memories refine", "then run memory refinement")
     print()
 
 
@@ -840,6 +875,58 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
     print()
 
 
+# ── memories refine ─────────────────────────────────────────────────
+
+
+async def cmd_memories_refine(args: argparse.Namespace) -> None:
+    cfg = load_config()
+    _require_persistent(cfg, "memories refine")
+    _require_api_key(cfg)
+
+    if not cfg.refinement_backend:
+        out.error("No refinement backend configured.")
+        print()
+        out.info("Configure one with:")
+        out.next_step(
+            "context-use config set-refinement adk",
+            "use the ADK multi-turn agent backend",
+        )
+        return
+
+    ctx = _build_ctx(cfg)
+    await ctx.init()
+
+    if cfg.refinement_backend == "adk":
+        try:
+            from context_use.ext.adk.refinement.runner import AdkRefinementBackend
+        except ImportError:
+            out.error("The adk extra is required for the adk backend.")
+            out.info("Install it with: uv sync --extra adk")
+            return
+        backend = AdkRefinementBackend(
+            api_key=cfg.openai_api_key or "",
+            model=cfg.openai_model,
+        )
+        out.header("Refining memories")
+        out.info("A multi-turn AI agent will explore and improve your memories.")
+        out.info("It may merge, split, fix dates, and archive superseded content.")
+        out.info("This makes multiple API calls and typically takes 1-5 minutes.\n")
+    else:
+        out.error(f"Unknown refinement backend: {cfg.refinement_backend!r}")
+        out.info("Valid backends: adk")
+        return
+
+    result = await ctx.refine_memories(backend)
+
+    out.success("Refinement complete")
+    print()
+    if result.summary:
+        print(result.summary)
+    print()
+    out.next_step("context-use memories list", "browse your memories")
+    print()
+
+
 # ── memories list ───────────────────────────────────────────────────
 
 
@@ -1193,6 +1280,14 @@ def _build_parser() -> argparse.ArgumentParser:
             '  context-use ask "question"                   '
             "Ask about your memories\n"
             "\n"
+            "Memory refinement (requires PostgreSQL + adk extra):\n"
+            "  1. uv sync --extra adk                       "
+            "Install the ADK extra\n"
+            "  2. context-use config set-refinement adk     "
+            "Enable the refinement backend\n"
+            "  3. context-use memories refine               "
+            "Run the refinement agent\n"
+            "\n"
             "MCP server:\n"
             "  python -m context_use.ext.mcp_use.run       "
             "Start MCP server for Claude/Cursor\n"
@@ -1317,6 +1412,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "generate", help="Step 2: Generate memories from ingested archives (batch API)"
     )
 
+    mem_sub.add_parser(
+        "refine",
+        help="Refine memories using the configured backend (requires set-refinement)",
+        description=(
+            "Review the existing memories and improve their quality using the "
+            "configured refinement backend. Configure one first with: "
+            "context-use config set-refinement adk"
+        ),
+    )
+
     p_mem_list = mem_sub.add_parser("list", help="List memories")
     p_mem_list.add_argument(
         "--limit", type=int, default=None, help="Max memories to show"
@@ -1381,6 +1486,15 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Store backend to use",
     )
 
+    p_cfg_refinement = cfg_sub.add_parser(
+        "set-refinement", help="Configure the memory refinement backend"
+    )
+    p_cfg_refinement.add_argument(
+        "backend",
+        choices=["adk"],
+        help="Refinement backend to use (adk = multi-turn agent)",
+    )
+
     cfg_sub.add_parser("path", help="Print config file location")
 
     p_cfg_reset = cfg_sub.add_parser(
@@ -1409,6 +1523,7 @@ _COMMAND_MAP: dict[str, _CommandHandler] = {
 
 _MEMORIES_MAP: dict[str, _CommandHandler] = {
     "generate": cmd_memories_generate,
+    "refine": cmd_memories_refine,
     "list": cmd_memories_list,
     "search": cmd_memories_search,
     "export": cmd_memories_export,
@@ -1424,6 +1539,7 @@ _CONFIG_MAP: dict[str, _CommandHandler] = {
     "show": cmd_config_show,
     "set-key": cmd_config_set_key,
     "set-store": cmd_config_set_store,
+    "set-refinement": cmd_config_set_refinement,
     "path": cmd_config_path,
     "reset-db": cmd_config_reset_db,
 }

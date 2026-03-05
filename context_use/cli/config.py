@@ -3,13 +3,6 @@
 Reads/writes a TOML config file and provides a typed Config dataclass.
 Default location: ``~/.config/context-use/config.toml``.
 Override with the ``CONTEXT_USE_CONFIG`` environment variable.
-
-Data directory layout::
-
-    data/
-      input/       <- drop your .zip archives here
-      output/      <- exported memories and profiles land here
-      storage/     <- internal extracted archive data
 """
 
 from __future__ import annotations
@@ -19,8 +12,13 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
+from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+
 _DEFAULT_CONFIG_DIR = Path("~/.config/context-use").expanduser()
 _DEFAULT_DATA_DIR = Path("./data")
+
+_DEFAULT_MODEL = OpenAIModel.GPT_5_2
+_DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
 
 
 def _config_path() -> Path:
@@ -34,6 +32,10 @@ def _config_path() -> Path:
 class Config:
     openai_api_key: str = ""
 
+    # LLM models — shared by the memories pipeline and the refinement agent
+    openai_model: str = _DEFAULT_MODEL
+    openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
+
     # Store backend: "memory" (default, no external deps) or "postgres"
     store_provider: str = "memory"
 
@@ -43,6 +45,9 @@ class Config:
     db_name: str = "context_use"
     db_user: str = "postgres"
     db_password: str = "postgres"
+
+    # Refinement backend: "" (not configured), "adk", …
+    refinement_backend: str = ""
 
     data_dir: str = str(_DEFAULT_DATA_DIR)
 
@@ -84,9 +89,14 @@ def load_config() -> Config:
         openai_section = data.get("openai", {})
         store_section = data.get("store", {})
         db_section = data.get("database", {})
+        refinement_section = data.get("refinement", {})
         data_section = data.get("data", {})
 
         cfg.openai_api_key = openai_section.get("api_key", cfg.openai_api_key)
+        cfg.openai_model = openai_section.get("model", cfg.openai_model)
+        cfg.openai_embedding_model = openai_section.get(
+            "embedding_model", cfg.openai_embedding_model
+        )
 
         cfg.store_provider = store_section.get("provider", cfg.store_provider)
 
@@ -101,16 +111,27 @@ def load_config() -> Config:
         cfg.db_user = db_section.get("user", cfg.db_user)
         cfg.db_password = db_section.get("password", cfg.db_password)
 
+        cfg.refinement_backend = refinement_section.get(
+            "backend", cfg.refinement_backend
+        )
+
         cfg.data_dir = data_section.get("dir", cfg.data_dir)
 
     # Environment variables always take precedence
     cfg.openai_api_key = os.environ.get("OPENAI_API_KEY", cfg.openai_api_key)
+    cfg.openai_model = os.environ.get("OPENAI_MODEL", cfg.openai_model)
+    cfg.openai_embedding_model = os.environ.get(
+        "OPENAI_EMBEDDING_MODEL", cfg.openai_embedding_model
+    )
     cfg.store_provider = os.environ.get("CONTEXT_USE_STORE", cfg.store_provider)
     cfg.db_host = os.environ.get("POSTGRES_HOST", cfg.db_host)
     cfg.db_port = int(os.environ.get("POSTGRES_PORT", str(cfg.db_port)))
     cfg.db_name = os.environ.get("POSTGRES_DB", cfg.db_name)
     cfg.db_user = os.environ.get("POSTGRES_USER", cfg.db_user)
     cfg.db_password = os.environ.get("POSTGRES_PASSWORD", cfg.db_password)
+    cfg.refinement_backend = os.environ.get(
+        "CONTEXT_USE_REFINEMENT_BACKEND", cfg.refinement_backend
+    )
 
     return cfg
 
@@ -123,7 +144,14 @@ def save_config(cfg: Config) -> Path:
     lines = [
         "[openai]",
         f'api_key = "{cfg.openai_api_key}"',
-        "",
+    ]
+    if cfg.openai_model != _DEFAULT_MODEL:
+        lines.append(f'model = "{cfg.openai_model}"')
+    if cfg.openai_embedding_model != _DEFAULT_EMBEDDING_MODEL:
+        lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
+    lines.append("")
+
+    lines += [
         "[store]",
         f'provider = "{cfg.store_provider}"',
         "",
@@ -138,6 +166,15 @@ def save_config(cfg: Config) -> Path:
                 f'name = "{cfg.db_name}"',
                 f'user = "{cfg.db_user}"',
                 f'password = "{cfg.db_password}"',
+                "",
+            ]
+        )
+
+    if cfg.refinement_backend:
+        lines.extend(
+            [
+                "[refinement]",
+                f'backend = "{cfg.refinement_backend}"',
                 "",
             ]
         )
