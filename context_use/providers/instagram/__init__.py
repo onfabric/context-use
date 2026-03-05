@@ -19,14 +19,22 @@ from context_use.providers.instagram.connections import (
     InstagramFollowingPipe,
 )
 from context_use.providers.instagram.likes import (
-    LIKED_POSTS_CONFIG as _LIKED_POSTS_CONFIG,
+    LIKED_POSTS_V0_CONFIG as _LIKED_POSTS_V0_CONFIG,
 )
 from context_use.providers.instagram.likes import (
-    STORY_LIKES_CONFIG as _STORY_LIKES_CONFIG,
+    LIKED_POSTS_V1_CONFIG as _LIKED_POSTS_V1_CONFIG,
+)
+from context_use.providers.instagram.likes import (
+    STORY_LIKES_V0_CONFIG as _STORY_LIKES_V0_CONFIG,
+)
+from context_use.providers.instagram.likes import (
+    STORY_LIKES_V1_CONFIG as _STORY_LIKES_V1_CONFIG,
 )
 from context_use.providers.instagram.likes import (
     InstagramLikedPostsPipe,
+    InstagramLikedPostsV0Pipe,
     InstagramStoryLikesPipe,
+    InstagramStoryLikesV0Pipe,
 )
 from context_use.providers.instagram.media import (
     REELS_CONFIG as _REELS_CONFIG,
@@ -86,8 +94,10 @@ PROVIDER_CONFIG = ProviderConfig(
         _POSTS_VIEWED_V0_CONFIG,
         _POSTS_VIEWED_V1_CONFIG,
         _PROFILE_SEARCHES_CONFIG,
-        _LIKED_POSTS_CONFIG,
-        _STORY_LIKES_CONFIG,
+        _LIKED_POSTS_V0_CONFIG,
+        _LIKED_POSTS_V1_CONFIG,
+        _STORY_LIKES_V0_CONFIG,
+        _STORY_LIKES_V1_CONFIG,
         _COMMENTS_POSTS_CONFIG,
         _COMMENTS_REELS_CONFIG,
         _FOLLOWERS_CONFIG,
@@ -103,6 +113,7 @@ __all__ = [
     "InstagramFollowersPipe",
     "InstagramFollowingPipe",
     "InstagramLikedPostsPipe",
+    "InstagramLikedPostsV0Pipe",
     "InstagramMediaRecord",
     "InstagramPostsViewedPipe",
     "InstagramPostsViewedV0Pipe",
@@ -112,6 +123,7 @@ __all__ = [
     "InstagramSavedPostsPipe",
     "InstagramStoriesPipe",
     "InstagramStoryLikesPipe",
+    "InstagramStoryLikesV0Pipe",
     "InstagramVideosWatchedPipe",
     "InstagramVideosWatchedV0Pipe",
     "PROVIDER_CONFIG",
