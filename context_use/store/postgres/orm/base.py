@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime
@@ -9,7 +11,7 @@ def _utcnow() -> datetime:
 
 
 class Base(DeclarativeBase):
-    """Declarative base for all context_use models."""
+    """Declarative base for all context_use ORM models."""
 
     pass
 

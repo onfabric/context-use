@@ -405,13 +405,9 @@ name = "context-use"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "asyncpg" },
-    { name = "greenlet" },
     { name = "ijson" },
     { name = "litellm" },
-    { name = "pgvector" },
     { name = "pydantic" },
-    { name = "sqlalchemy" },
     { name = "tenacity" },
 ]
 
@@ -426,9 +422,16 @@ mcp-use = [
     { name = "langchain-openai" },
     { name = "mcp-use" },
 ]
+postgres = [
+    { name = "asyncpg" },
+    { name = "greenlet" },
+    { name = "pgvector" },
+    { name = "sqlalchemy" },
+]
 
 [package.dev-dependencies]
 dev = [
+    { name = "context-use", extra = ["adk", "gcs", "mcp-use", "postgres"] },
     { name = "pre-commit" },
     { name = "pyright" },
     { name = "pytest" },
@@ -439,23 +442,24 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "asyncpg", specifier = ">=0.30.0" },
+    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.30.0" },
     { name = "google-adk", marker = "extra == 'adk'", specifier = ">=1.26" },
     { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=2.10.0,<3" },
-    { name = "greenlet", specifier = ">=3.3.1" },
+    { name = "greenlet", marker = "extra == 'postgres'", specifier = ">=3.3.1" },
     { name = "ijson", specifier = ">=3.0" },
     { name = "langchain-openai", marker = "extra == 'mcp-use'", specifier = ">=1.1.10" },
     { name = "litellm", specifier = ">=1.81.13" },
     { name = "mcp-use", marker = "extra == 'mcp-use'", specifier = ">=1.6.0" },
-    { name = "pgvector", specifier = ">=0.4.2" },
+    { name = "pgvector", marker = "extra == 'postgres'", specifier = ">=0.4.2" },
     { name = "pydantic", specifier = ">=2.0" },
-    { name = "sqlalchemy", specifier = ">=2.0" },
+    { name = "sqlalchemy", marker = "extra == 'postgres'", specifier = ">=2.0" },
     { name = "tenacity", specifier = ">=9.1.4" },
 ]
-provides-extras = ["disk", "gcs", "mcp-use", "adk"]
+provides-extras = ["postgres", "gcs", "mcp-use", "adk"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "context-use", extras = ["postgres", "gcs", "mcp-use", "adk"] },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=8.0" },

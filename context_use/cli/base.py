@@ -308,7 +308,11 @@ class ContextCommand(BaseCommand, ABC):
     async def execute(self, args: argparse.Namespace) -> None:
         cfg = load_config()
         cfg = self._prepare(cfg, args)
-        ctx = build_ctx(cfg, llm_mode=self.llm_mode)
+        try:
+            ctx = build_ctx(cfg, llm_mode=self.llm_mode)
+        except ImportError as exc:
+            out.error(str(exc))
+            sys.exit(1)
         await ctx.init()
         await self.run(cfg, ctx, args)
 

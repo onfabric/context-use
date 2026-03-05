@@ -6,11 +6,9 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import JSON, Date, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from context_use.db.models import Base, TimeStampMixin
 from context_use.models.memory import EMBEDDING_DIMENSIONS, MemoryStatus
 from context_use.models.utils import generate_uuidv4
-
-__all__ = ["EMBEDDING_DIMENSIONS", "MemoryStatus", "TapestryMemory"]
+from context_use.store.postgres.orm.base import Base, TimeStampMixin
 
 
 class TapestryMemory(TimeStampMixin, Base):
@@ -23,39 +21,29 @@ class TapestryMemory(TimeStampMixin, Base):
         primary_key=True,
         default=generate_uuidv4,
     )
-
-    content: Mapped[str] = mapped_column(
-        Text,
-        nullable=False,
-    )
-
+    content: Mapped[str] = mapped_column(Text, nullable=False)
     from_date: Mapped[date] = mapped_column(Date, nullable=False)
     to_date: Mapped[date] = mapped_column(Date, nullable=False)
-
     group_id: Mapped[str] = mapped_column(
         String(36),
         nullable=False,
         comment="UUID of the group instance that produced this memory",
     )
-
     embedding: Mapped[list[float] | None] = mapped_column(
         Vector(EMBEDDING_DIMENSIONS),
         nullable=True,
     )
-
     status: Mapped[str] = mapped_column(
         String(16),
         nullable=False,
         default=MemoryStatus.active.value,
         server_default=MemoryStatus.active.value,
     )
-
     superseded_by: Mapped[str | None] = mapped_column(
         String(36),
         ForeignKey("tapestry_memories.id"),
         nullable=True,
     )
-
     source_memory_ids: Mapped[list | None] = mapped_column(
         JSON,
         nullable=True,

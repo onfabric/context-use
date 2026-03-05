@@ -11,7 +11,7 @@ from typing import Literal
 
 from pydantic import Field
 
-from context_use.batch.models import register_batch_state_parser
+from context_use.batch.registry import register_batch_state_parser
 from context_use.batch.states import (
     CompleteState,
     CreatedState,
