@@ -18,7 +18,7 @@ from context_use.cli.base import (
     PersistentCommand,
     run_batches,
 )
-from context_use.cli.config import Config
+from context_use.config import Config
 
 # ── Export helpers ────────────────────────────────────────────────────────────
 

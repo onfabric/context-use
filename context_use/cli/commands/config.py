@@ -10,7 +10,7 @@ from context_use.cli.base import (
     CommandGroup,
     build_ctx,
 )
-from context_use.cli.config import (
+from context_use.config import (
     Config,
     config_path,
     load_config,

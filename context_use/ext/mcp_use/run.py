@@ -16,6 +16,9 @@ from __future__ import annotations
 import argparse
 import sys
 
+from context_use.cli.app import _build_ctx
+from context_use.config import load_config
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(
@@ -30,9 +33,6 @@ def main() -> None:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8000)
     args = parser.parse_args()
-
-    from context_use.cli.app import _build_ctx
-    from context_use.cli.config import load_config
 
     cfg = load_config()
     if cfg.store_provider != "postgres":

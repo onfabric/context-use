@@ -18,7 +18,7 @@ from context_use.cli.commands.memories import (
     export_memories_json,
     export_memories_markdown,
 )
-from context_use.cli.config import Config
+from context_use.config import Config
 
 if TYPE_CHECKING:
     from context_use import ContextUse

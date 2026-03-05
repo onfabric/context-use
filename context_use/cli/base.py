@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.cli.config import Config, load_config, save_config
+from context_use.config import Config, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
