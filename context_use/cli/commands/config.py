@@ -9,7 +9,6 @@ from context_use.cli.base import (
     BaseCommand,
     CommandGroup,
     build_ctx,
-    require_persistent,
 )
 from context_use.cli.config import (
     Config,
@@ -265,48 +264,6 @@ class ConfigPathCommand(BaseCommand):
         print(config_path_display())
 
 
-# ── reset-db ─────────────────────────────────────────────────────────────────
-
-
-class ConfigResetDbCommand(BaseCommand):
-    """Drop and recreate the database schema.
-
-    Intentionally does NOT use PersistentCommand — we call ``ctx.reset()``
-    directly, bypassing ``ctx.init()``, to avoid creating the schema before
-    immediately dropping it.
-    """
-
-    name = "reset-db"
-    help = "Drop and recreate the database schema"
-
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "--yes", "-y",
-            action="store_true",
-            help="Skip confirmation prompt",
-        )
-
-    async def execute(self, args: argparse.Namespace) -> None:
-        cfg = load_config()
-        require_persistent(cfg, "config reset-db")
-
-        print()
-        out.header("Reset database")
-        out.warn("This will permanently delete ALL data.")
-        print()
-
-        if not args.yes:
-            confirm = input("  Type 'yes' to confirm: ").strip().lower()
-            if confirm != "yes":
-                out.info("Aborted.")
-                return
-
-        ctx = build_ctx(cfg)
-        await ctx.reset()
-        out.success("Database reset. Schema recreated from current models.")
-        print()
-
-
 # ── group ─────────────────────────────────────────────────────────────────────
 
 
@@ -319,5 +276,4 @@ class ConfigGroup(CommandGroup):
         ConfigSetStoreCommand,
         ConfigSetAgentCommand,
         ConfigPathCommand,
-        ConfigResetDbCommand,
     ]
