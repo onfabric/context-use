@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from context_use.cli.base import BaseCommand, CommandGroup
 from context_use.cli.commands.agent import AgentGroup
-from context_use.cli.commands.ask import AskCommand
 from context_use.cli.commands.config import ConfigGroup
 from context_use.cli.commands.ingest import IngestCommand
 from context_use.cli.commands.memories import MemoriesGroup
@@ -13,7 +12,6 @@ TOP_LEVEL_COMMANDS: list[type[BaseCommand]] = [
     QuickstartCommand,
     PipelineCommand,
     IngestCommand,
-    AskCommand,
     ResetCommand,
 ]
 

@@ -8,7 +8,6 @@ Turn your data exports into portable AI memory.
 - **Quickstart** — zero-database preview mode; results written to `data/output/` with no setup beyond an OpenAI key
 - **Full pipeline** — persistent storage in PostgreSQL with pgvector; full archive history, batch API for cost-efficient memory generation
 - **Semantic search** — `memories search` queries your memory store by meaning, not just keywords
-- **Ask** — `ask` command for RAG-style Q&A grounded in your memories, including interactive chat mode
 - **MCP server** — expose memories and semantic search to Claude Desktop, Cursor, or any MCP client
 - **Personal agent** — multi-turn agent that synthesises higher-level pattern memories, generates a first-person profile, or runs ad-hoc queries against your memory store
 
@@ -83,15 +82,13 @@ Prompts to start a local container via Docker, then saves connection details to 
 context-use pipeline
 ```
 
-Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in PostgreSQL and persist across sessions, enabling semantic search, the `ask` command, the MCP server, and the personal agent.
+Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in PostgreSQL and persist across sessions, enabling semantic search, the MCP server, and the personal agent.
 
 **3. Explore your memories**
 
 ```bash
 context-use memories list
 context-use memories search "hiking trips in 2024"
-context-use ask "What have I been cooking lately?"
-context-use ask --interactive
 ```
 
 ## MCP server
