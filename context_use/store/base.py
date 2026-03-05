@@ -14,7 +14,6 @@ from context_use.models import (
     Batch,
     EtlTask,
     TapestryMemory,
-    TapestryProfile,
     Thread,
 )
 
@@ -213,16 +212,4 @@ class Store(ABC):
         similarity (descending).  Otherwise they are ordered by
         ``from_date`` descending.
         """
-        ...
-
-    # ── Profiles ─────────────────────────────────────────────────────
-
-    @abstractmethod
-    async def get_latest_profile(self) -> TapestryProfile | None:
-        """Return the most recently generated profile, or ``None``."""
-        ...
-
-    @abstractmethod
-    async def save_profile(self, profile: TapestryProfile) -> None:
-        """Insert or update a profile."""
         ...

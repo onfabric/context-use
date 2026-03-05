@@ -15,7 +15,6 @@ from context_use.batch.manager import (
 from context_use.facade.types import (
     MemorySummary,
     PipelineResult,
-    ProfileSummary,
     TaskBreakdown,
 )
 from context_use.memories.agent.backend import AgentBackend, AgentResult
@@ -41,7 +40,7 @@ class ContextUse:
     """Main entry point for the context_use library.
 
     Provides a unified API for the full pipeline: ingest archives,
-    generate memories, search, and generate profiles.
+    generate memories, and search.
 
     Usage::
 
@@ -312,43 +311,6 @@ class ContextUse:
             to_date=to_date,
             top_k=top_k,
             llm_client=self._llm_client,
-        )
-
-    # ── Profile ──────────────────────────────────────────────────────
-
-    async def get_profile(self) -> ProfileSummary | None:
-        """Return the most recent profile, or ``None`` if none exists."""
-        profile = await self._store.get_latest_profile()
-        if profile is None:
-            return None
-
-        return ProfileSummary(
-            content=profile.content,
-            generated_at=profile.generated_at,
-            memory_count=profile.memory_count,
-        )
-
-    async def generate_profile(
-        self,
-        *,
-        lookback_months: int = 6,
-    ) -> ProfileSummary:
-        """Generate or regenerate the user profile from active memories."""
-        from context_use.profile.generator import generate_profile
-
-        current = await self._store.get_latest_profile()
-
-        profile = await generate_profile(
-            self._store,
-            self._llm_client,
-            current_profile=current,
-            lookback_months=lookback_months,
-        )
-
-        return ProfileSummary(
-            content=profile.content,
-            generated_at=profile.generated_at,
-            memory_count=profile.memory_count,
         )
 
     # ── Private helpers ──────────────────────────────────────────────

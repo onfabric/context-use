@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 
 
 @dataclass
@@ -35,12 +35,3 @@ class MemorySummary:
     content: str
     from_date: date
     to_date: date
-
-
-@dataclass
-class ProfileSummary:
-    """Public representation of a generated profile."""
-
-    content: str
-    generated_at: datetime
-    memory_count: int

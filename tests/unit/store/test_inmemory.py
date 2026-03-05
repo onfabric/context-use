@@ -14,7 +14,6 @@ from context_use.models import (
     EtlTaskStatus,
     MemoryStatus,
     TapestryMemory,
-    TapestryProfile,
 )
 from context_use.store.memory import InMemoryStore
 
@@ -326,32 +325,6 @@ async def test_search_memories_by_embedding(store: InMemoryStore) -> None:
     assert results[0].content == "similar"
     assert results[0].similarity is not None
     assert results[0].similarity > results[1].similarity  # type: ignore[operator]
-
-
-# ── Profiles ─────────────────────────────────────────────────────────
-
-
-async def test_profile_save_and_get_latest(store: InMemoryStore) -> None:
-    assert await store.get_latest_profile() is None
-
-    p1 = TapestryProfile(
-        content="old",
-        generated_at=datetime(2024, 1, 1, tzinfo=UTC),
-        memory_count=5,
-    )
-    await store.save_profile(p1)
-    assert (await store.get_latest_profile()) is not None
-
-    p2 = TapestryProfile(
-        content="new",
-        generated_at=datetime(2024, 6, 1, tzinfo=UTC),
-        memory_count=10,
-    )
-    await store.save_profile(p2)
-
-    latest = await store.get_latest_profile()
-    assert latest is not None
-    assert latest.content == "new"
 
 
 # ── atomic() ─────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # context-use
 
-Turn your data exports into AI memory. Import your Instagram or ChatGPT archives, generate first-person memories and a personal profile, then connect them to any AI assistant via MCP.
+Turn your data exports into AI memory. Import your Instagram or ChatGPT archives, generate first-person memories, then connect them to any AI assistant via MCP.
 
 ```
 Your archive (.zip)
@@ -12,10 +12,7 @@ Your archive (.zip)
   Memories          LLM distills threads into first-person memories
       │
       ▼
-   Profile          LLM builds a structured profile from your memories
-      │
-      ▼
-  MCP Server        Expose profile + semantic search to any AI assistant
+  MCP Server        Expose memories + semantic search to any AI assistant
 ```
 
 ## Supported providers
@@ -48,7 +45,19 @@ context-use config set-store postgres
 context-use pipeline
 ```
 
-Or run the steps individually (`ingest`, `memories generate`, `profile generate`). Run `context-use --help` to see everything available — the CLI is self-documenting and prints next steps after every command.
+Or run the steps individually (`ingest`, `memories generate`). Run `context-use --help` to see everything available — the CLI is self-documenting and prints next steps after every command.
+
+## Memory refinement
+
+After generating memories you can run a multi-turn AI agent that reviews the full memory store and automatically merges duplicates, splits over-broad entries, fixes wrong date ranges, and archives superseded content.
+
+Requires PostgreSQL and the `adk` extra:
+
+```bash
+uv sync --extra adk
+context-use config set-refinement adk
+context-use memories refine
+```
 
 ## Memory refinement
 

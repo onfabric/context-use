@@ -26,10 +26,8 @@ from context_use.models import (
     EtlTask,
     MemoryStatus,
     TapestryMemory,
-    TapestryProfile,
     Thread,
 )
-from context_use.profile.models import TapestryProfile as OrmProfile
 from context_use.store.base import MemorySearchResult, Store
 
 logger = logging.getLogger(__name__)
@@ -125,7 +123,6 @@ class PostgresStore(Store):
         import context_use.batch.models  # noqa: F401
         import context_use.etl.models  # noqa: F401
         import context_use.memories.models  # noqa: F401
-        import context_use.profile.models  # noqa: F401
 
     # ── Archives ─────────────────────────────────────────────────────
 
@@ -442,33 +439,6 @@ class PostgresStore(Store):
             )
         return results
 
-    # ── Profiles ─────────────────────────────────────────────────────
-
-    async def get_latest_profile(self) -> TapestryProfile | None:
-        async with self._auto_session() as s:
-            stmt = select(OrmProfile).order_by(OrmProfile.generated_at.desc()).limit(1)
-            row = (await s.execute(stmt)).scalar_one_or_none()
-        if row is None:
-            return None
-        return _profile_from_orm(row)
-
-    async def save_profile(self, profile: TapestryProfile) -> None:
-        async with self._auto_session() as s:
-            existing = await s.get(OrmProfile, profile.id)
-            if existing is not None:
-                existing.content = profile.content
-                existing.generated_at = profile.generated_at
-                existing.memory_count = profile.memory_count
-            else:
-                s.add(
-                    OrmProfile(
-                        id=profile.id,
-                        content=profile.content,
-                        generated_at=profile.generated_at,
-                        memory_count=profile.memory_count,
-                    )
-                )
-
 
 # ── ORM → domain converters ─────────────────────────────────────────
 
@@ -539,17 +509,6 @@ def _batch_from_orm(row: OrmBatch) -> Batch:
         batch_number=row.batch_number,
         category=row.category,
         states=row.states,
-        id=row.id,
-        created_at=row.created_at,
-        updated_at=row.updated_at,
-    )
-
-
-def _profile_from_orm(row: OrmProfile) -> TapestryProfile:
-    return TapestryProfile(
-        content=row.content,
-        generated_at=row.generated_at,
-        memory_count=row.memory_count,
         id=row.id,
         created_at=row.created_at,
         updated_at=row.updated_at,

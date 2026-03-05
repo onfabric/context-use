@@ -274,7 +274,6 @@ async def cmd_config_set_store(args: argparse.Namespace) -> None:
     out.info("Or step by step:")
     out.next_step("context-use ingest")
     out.next_step("context-use memories generate")
-    out.next_step("context-use profile generate")
     out.info("Start the MCP server:")
     out.next_step("python -m context_use.ext.mcp_use.run")
     print()
@@ -530,7 +529,7 @@ async def cmd_ingest(args: argparse.Namespace) -> None:
     print()
 
 
-# ── quickstart (ingest → memories → profile, always real-time API) ──
+# ── quickstart (ingest → memories, always real-time API) ────────────
 
 
 async def cmd_quickstart(args: argparse.Namespace) -> None:
@@ -595,7 +594,7 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
 
     # Phase 1: Ingest
     print()
-    out.header(f"Phase 1/3 · Ingesting {provider.value} archive")
+    out.header(f"Phase 1/2 · Ingesting {provider.value} archive")
     out.kv("File", zip_path)
     print()
 
@@ -616,7 +615,7 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
         return
 
     # Phase 2: Memories (always real-time API)
-    out.header("Phase 2/3 · Generating memories")
+    out.header("Phase 2/2 · Generating memories")
     out.info("Using real-time API.")
     if since:
         out.kv("Since", since.strftime("%Y-%m-%d"))
@@ -636,7 +635,6 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
     print()
 
     if count == 0:
-        out.warn("No memories generated — skipping profile")
         if not full:
             print()
             out.info("Try including more history:")
@@ -646,20 +644,6 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
             out.info("Or process the full archive:")
             out.next_step(f"context-use quickstart --full {provider.value} {zip_path}")
         return
-
-    # Phase 3: Profile
-    profile = None
-    if not args.skip_profile:
-        out.header("Phase 3/3 · Generating profile")
-        print()
-
-        profile_summary = await ctx.generate_profile()
-        profile = profile_summary
-
-        out.success("Profile generated")
-        out.kv("Memory count", profile.memory_count)
-        out.kv("Length", f"{len(profile.content):,} chars")
-        print()
 
     # ── Show results ─────────────────────────────────────────────
     memories = await ctx.list_memories()
@@ -674,13 +658,6 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
             out.info(f"  ... and {len(memories) - 10:,} more")
         print()
 
-    if profile is not None:
-        out.header("Your profile")
-        out.rule()
-        print(profile.content)
-        out.rule()
-        print()
-
     # ── Export to files ──────────────────────────────────────────
     ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
     exported: list[str] = []
@@ -692,11 +669,6 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
         _export_memories_json(memories, json_path)
         exported.append(f"Memories  → {md_path}")
         exported.append(f"           {json_path}")
-
-    if profile is not None:
-        prof_path = cfg.output_dir / f"profile_{ts}.md"
-        prof_path.write_text(profile.content, encoding="utf-8")
-        exported.append(f"Profile   → {prof_path}")
 
     if exported:
         out.header("Exported")
@@ -721,11 +693,11 @@ async def cmd_quickstart(args: argparse.Namespace) -> None:
     print()
 
 
-# ── pipeline (ingest → memories → profile, persistent store) ────────
+# ── pipeline (ingest → memories, persistent store) ──────────────────
 
 
 async def cmd_pipeline(args: argparse.Namespace) -> None:
-    """Run the full pipeline (ingest → memories → profile) with PostgreSQL.
+    """Run the full pipeline (ingest → memories) with PostgreSQL.
 
     Uses the batch API for memory generation. Interactive archive picker
     when no arguments are provided.
@@ -766,7 +738,7 @@ async def cmd_pipeline(args: argparse.Namespace) -> None:
 
     # Step 1: Ingest
     print()
-    out.header(f"Step 1/3 · Ingesting {provider.value} archive")
+    out.header(f"Step 1/2 · Ingesting {provider.value} archive")
     out.kv("File", zip_path)
     print()
 
@@ -787,7 +759,7 @@ async def cmd_pipeline(args: argparse.Namespace) -> None:
         return
 
     # Step 2: Memories (batch API)
-    out.header("Step 2/3 · Generating memories")
+    out.header("Step 2/2 · Generating memories")
     out.info("Using batch API. This typically takes 2-10 minutes.\n")
 
     batches = await ctx.create_memory_batches()
@@ -801,27 +773,13 @@ async def cmd_pipeline(args: argparse.Namespace) -> None:
     print()
 
     if count == 0:
-        out.warn("No memories generated — skipping profile.")
         return
-
-    # Step 3: Profile
-    if not args.skip_profile:
-        out.header("Step 3/3 · Generating profile")
-        print()
-
-        profile = await ctx.generate_profile()
-
-        out.success("Profile generated")
-        out.kv("Length", f"{len(profile.content):,} characters")
-        out.kv("Memories used", profile.memory_count)
-        print()
 
     out.success("Pipeline complete!")
     print()
     out.header("What's next:")
     out.next_step("context-use memories list", "browse your memories")
     out.next_step('context-use memories search "query"', "semantic search")
-    out.next_step("context-use profile show", "view your profile")
     out.next_step('context-use ask "Tell me about myself"', "try the built-in agent")
     out.next_step("python -m context_use.ext.mcp_use.run", "start the MCP server")
     print()
@@ -867,7 +825,6 @@ async def cmd_memories_generate(args: argparse.Namespace) -> None:
 
     print()
     out.header("Next steps:")
-    out.next_step("context-use profile generate", "create your profile")
     out.next_step("context-use memories list", "browse your memories")
     out.next_step("context-use memories export", "export to markdown")
     print()
@@ -1112,116 +1069,11 @@ def _export_memories_json(memories: list, path: Path) -> None:
     path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-# ── profile generate ────────────────────────────────────────────────
-
-
-async def cmd_profile_generate(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    _require_persistent(cfg, "profile generate")
-    _require_api_key(cfg)
-
-    ctx = _build_ctx(cfg)
-    await ctx.init()
-
-    out.header("Generating profile")
-
-    count = await ctx.count_memories()
-
-    if count == 0:
-        out.warn("No memories found. Run 'context-use memories generate' first.")
-        return
-
-    out.kv("Active memories", f"{count:,}")
-    out.kv("Lookback", f"{args.lookback} months")
-    print()
-
-    profile = await ctx.generate_profile(lookback_months=args.lookback)
-
-    out.success("Profile generated")
-    out.kv("Length", f"{len(profile.content):,} characters")
-    out.kv("Memories used", profile.memory_count)
-    print()
-
-    out.info("Preview:")
-    out.rule()
-    preview_lines = profile.content.split("\n")[:12]
-    for line in preview_lines:
-        print(f"  {line}")
-    if len(profile.content.split("\n")) > 12:
-        out.info("  ...")
-    out.rule()
-
-    print()
-    out.header("Next steps:")
-    out.next_step("context-use profile show", "view the full profile")
-    out.next_step("context-use profile export", "save to a markdown file")
-    out.next_step("python -m context_use.ext.mcp_use.run", "start the MCP server")
-    out.next_step('context-use ask "Tell me about myself"', "try the built-in agent")
-    print()
-
-
-# ── profile show ────────────────────────────────────────────────────
-
-
-async def cmd_profile_show(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    _require_persistent(cfg, "profile show")
-
-    ctx = _build_ctx(cfg)
-    await ctx.init()
-
-    profile = await ctx.get_profile()
-
-    if profile is None:
-        out.warn("No profile found. Run 'context-use profile generate' first.")
-        return
-
-    print()
-    print(profile.content)
-    print()
-    out.info(
-        out.dim(
-            f"Generated at {profile.generated_at.isoformat()} "
-            f"from {profile.memory_count} memories"
-        )
-    )
-    print()
-
-
-# ── profile export ──────────────────────────────────────────────────
-
-
-async def cmd_profile_export(args: argparse.Namespace) -> None:
-    cfg = load_config()
-    _require_persistent(cfg, "profile export")
-
-    ctx = _build_ctx(cfg)
-    await ctx.init()
-
-    profile = await ctx.get_profile()
-
-    if profile is None:
-        out.warn("No profile found. Run 'context-use profile generate' first.")
-        return
-
-    ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-
-    if args.out:
-        out_path = Path(args.out)
-    else:
-        cfg.ensure_dirs()
-        out_path = cfg.output_dir / f"profile_{ts}.md"
-
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(profile.content, encoding="utf-8")
-    out.success(f"Profile exported to {out_path}")
-
-
 # ── ask ─────────────────────────────────────────────────────────────
 
 
 async def cmd_ask(args: argparse.Namespace) -> None:
-    """Simple RAG agent: search memories + profile, then answer."""
+    """Simple RAG agent: search memories, then answer."""
     cfg = load_config()
     _require_persistent(cfg, "ask")
     _require_api_key(cfg)
@@ -1256,19 +1108,15 @@ async def cmd_ask(args: argparse.Namespace) -> None:
 
 
 async def _ask(ctx: ContextUse, query: str, *, top_k: int = 10) -> str:
-    """Answer a question using the profile and relevant memories."""
-    profile = await ctx.get_profile()
+    """Answer a question using relevant memories."""
     results = await ctx.search_memories(query=query, top_k=top_k)
 
     parts: list[str] = [
         "You are a helpful assistant with access to the user's personal "
-        "memories and profile. Answer their question based on the context "
+        "memories. Answer their question based on the context "
         "below. Be specific and reference dates/details from the memories. "
         "If the context doesn't contain enough information, say so honestly."
     ]
-
-    if profile:
-        parts.append(f"\n## User Profile\n\n{profile.content}")
 
     if results:
         parts.append("\n## Relevant Memories\n")
@@ -1299,15 +1147,13 @@ def _build_parser() -> argparse.ArgumentParser:
             "  1. context-use config set-store postgres     "
             "Set up PostgreSQL (one-time)\n"
             "  2. context-use pipeline                      "
-            "Ingest → memories → profile (batch API)\n"
+            "Ingest → memories (batch API)\n"
             "\n"
             "Or step by step:\n"
             "  1. context-use ingest                        "
             "Parse an archive\n"
             "  2. context-use memories generate             "
             "Generate memories (batch API)\n"
-            "  3. context-use profile generate              "
-            "Build your profile\n"
             "\n"
             "Explore:\n"
             "  context-use memories list                    "
@@ -1316,8 +1162,6 @@ def _build_parser() -> argparse.ArgumentParser:
             "Semantic search\n"
             "  context-use memories export                  "
             "Export to file\n"
-            "  context-use profile show                     "
-            "View your profile\n"
             '  context-use ask "question"                   '
             "Ask about your memories\n"
             "\n"
@@ -1354,12 +1198,12 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", title="commands")
 
-    # quickstart (ingest → memories → profile in one session, real-time API)
+    # quickstart (ingest → memories in one session, real-time API)
     p_qs = sub.add_parser(
         "quickstart",
-        help="Try it out — ingest + memories + profile in one session",
+        help="Try it out — ingest + memories in one session",
         description=(
-            "Run the full pipeline (ingest, memories, profile) in one session "
+            "Run the full pipeline (ingest, memories) in one session "
             "using the real-time API. No database needed. "
             "By default processes the last 30 days; use --full for all history."
         ),
@@ -1378,11 +1222,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to .zip archive (omit for interactive mode)",
     )
     p_qs.add_argument(
-        "--skip-profile",
-        action="store_true",
-        help="Skip profile generation",
-    )
-    p_qs.add_argument(
         "--full",
         action="store_true",
         help="Process full archive history (default: last 30 days)",
@@ -1394,12 +1233,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Only process threads from the last N days (default: 30)",
     )
 
-    # pipeline (ingest → memories → profile, persistent store, batch API)
+    # pipeline (ingest → memories, persistent store, batch API)
     p_pipe = sub.add_parser(
         "pipeline",
-        help="Full pipeline — ingest + memories + profile (requires PostgreSQL)",
+        help="Full pipeline — ingest + memories (requires PostgreSQL)",
         description=(
-            "Run the full pipeline (ingest, memories, profile) using PostgreSQL "
+            "Run the full pipeline (ingest, memories) using PostgreSQL "
             "and the batch API. Run without arguments to interactively pick an "
             "archive from data/input/."
         ),
@@ -1416,11 +1255,6 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default=None,
         help="Path to .zip archive (omit for interactive mode)",
-    )
-    p_pipe.add_argument(
-        "--skip-profile",
-        action="store_true",
-        help="Skip profile generation",
     )
 
     # ingest
@@ -1476,25 +1310,6 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Output format (default: markdown)",
     )
     p_mem_export.add_argument("--out", metavar="PATH", help="Output file path")
-
-    # profile
-    p_prof = sub.add_parser("profile", help="Manage your profile (requires PostgreSQL)")
-    prof_sub = p_prof.add_subparsers(dest="profile_command", title="profile commands")
-
-    p_prof_gen = prof_sub.add_parser(
-        "generate", help="Step 3: Generate or update your profile"
-    )
-    p_prof_gen.add_argument(
-        "--lookback",
-        type=int,
-        default=6,
-        help="Lookback window in months (default: 6)",
-    )
-
-    prof_sub.add_parser("show", help="Display your current profile")
-
-    p_prof_export = prof_sub.add_parser("export", help="Export profile to markdown")
-    p_prof_export.add_argument("--out", metavar="PATH", help="Output file path")
 
     # ask
     p_ask = sub.add_parser(
@@ -1585,12 +1400,6 @@ _AGENT_MAP: dict[str, _CommandHandler] = {
     "ask": cmd_agent_ask,
 }
 
-_PROFILE_MAP: dict[str, _CommandHandler] = {
-    "generate": cmd_profile_generate,
-    "show": cmd_profile_show,
-    "export": cmd_profile_export,
-}
-
 _CONFIG_MAP: dict[str, _CommandHandler] = {
     "show": cmd_config_show,
     "set-key": cmd_config_set_key,
@@ -1630,11 +1439,6 @@ def main() -> None:
             parser.parse_args(["agent", "--help"])
             return
         handler = _AGENT_MAP.get(args.agent_command)
-    elif args.command == "profile":
-        if not args.profile_command:
-            parser.parse_args(["profile", "--help"])
-            return
-        handler = _PROFILE_MAP.get(args.profile_command)
     elif args.command == "config":
         if not args.config_command:
             parser.parse_args(["config", "--help"])
