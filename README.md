@@ -59,18 +59,6 @@ context-use config set-refinement adk
 context-use memories refine
 ```
 
-## Memory refinement
-
-After generating memories you can run a multi-turn AI agent that reviews the full memory store and automatically merges duplicates, splits over-broad entries, fixes wrong date ranges, and archives superseded content.
-
-Requires PostgreSQL and the `adk` extra:
-
-```bash
-uv sync --extra adk
-context-use config set-refinement adk
-context-use memories refine
-```
-
 ## MCP server
 
 ```bash

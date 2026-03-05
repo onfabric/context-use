@@ -890,6 +890,34 @@ async def cmd_agent_synthesise(args: argparse.Namespace) -> None:
     print()
 
 
+async def cmd_agent_user_profile(args: argparse.Namespace) -> None:
+    """Run the user-profile skill."""
+    from context_use.memories.agent.skill import get_skill
+
+    cfg = load_config()
+    _require_persistent(cfg, "agent profile")
+    _require_api_key(cfg)
+
+    backend = _build_agent_backend(cfg)
+    if backend is None:
+        return
+
+    ctx = _build_ctx(cfg)
+    await ctx.init()
+
+    out.header("Generating user profile")
+    out.info("The agent will explore your memories topic by topic and compile")
+    out.info("a first-person profile. Might take a few minutes.\n")
+
+    skill = get_skill("profile")
+    result = await ctx.run_agent(backend, skill.prompt)
+
+    print()
+    if result.summary:
+        print(result.summary)
+    print()
+
+
 async def cmd_agent_ask(args: argparse.Namespace) -> None:
     """Send an arbitrary query to the personal agent."""
     from context_use.memories.agent.skill import make_adhoc_skill
@@ -1335,6 +1363,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "synthesise",
         help="Synthesise pattern memories from event memories",
     )
+    agent_sub.add_parser(
+        "profile",
+        help="Compile a first-person user profile from memories (printed to stdout)",
+    )
     p_agent_ask = agent_sub.add_parser(
         "ask",
         help="Send a free-form query to the personal agent",
@@ -1397,6 +1429,7 @@ _MEMORIES_MAP: dict[str, _CommandHandler] = {
 
 _AGENT_MAP: dict[str, _CommandHandler] = {
     "synthesise": cmd_agent_synthesise,
+    "profile": cmd_agent_user_profile,
     "ask": cmd_agent_ask,
 }
 
