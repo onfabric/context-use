@@ -194,7 +194,13 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     storage = DiskStorage(cfg.storage_path)
 
     if cfg.store_provider == "postgres":
-        from context_use.store.postgres import PostgresStore
+        try:
+            from context_use.store.postgres import PostgresStore
+        except ImportError:
+            raise ImportError(
+                "The postgres extra is required for persistent storage. "
+                "Install it with: uv sync --extra postgres"
+            ) from None
 
         store = PostgresStore(
             host=cfg.db_host,
