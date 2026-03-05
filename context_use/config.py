@@ -6,7 +6,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, NamedTuple
 
+from context_use import ContextUse
+from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
 from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+from context_use.storage.disk import DiskStorage
 
 _DEFAULT_MODEL = OpenAIModel.GPT_5_2
 _DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
@@ -183,3 +186,43 @@ def save_config(cfg: Config) -> Path:
 
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
+
+
+def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
+    """Construct a :class:`ContextUse` from a :class:`Config`."""
+
+    storage = DiskStorage(cfg.storage_path)
+
+    if cfg.store_provider == "postgres":
+        from context_use.store.postgres import PostgresStore
+
+        store = PostgresStore(
+            host=cfg.db_host,
+            port=cfg.db_port,
+            database=cfg.db_name,
+            user=cfg.db_user,
+            password=cfg.db_password,
+        )
+    else:
+        from context_use.store.memory import InMemoryStore
+
+        store = InMemoryStore()
+
+    api_key = cfg.openai_api_key or ""
+    model = OpenAIModel(cfg.openai_model)
+    embedding_model = OpenAIEmbeddingModel(cfg.openai_embedding_model)
+
+    if llm_mode == "sync":
+        llm_client = LiteLLMSyncClient(
+            model=model,
+            api_key=api_key,
+            embedding_model=embedding_model,
+        )
+    else:
+        llm_client = LiteLLMBatchClient(
+            model=model,
+            api_key=api_key,
+            embedding_model=embedding_model,
+        )
+
+    return ContextUse(storage=storage, store=store, llm_client=llm_client)

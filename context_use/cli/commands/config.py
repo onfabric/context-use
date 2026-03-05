@@ -5,13 +5,10 @@ import subprocess
 import sys
 
 from context_use.cli import output as out
-from context_use.cli.base import (
-    BaseCommand,
-    CommandGroup,
-    build_ctx,
-)
+from context_use.cli.base import BaseCommand, CommandGroup
 from context_use.config import (
     Config,
+    build_ctx,
     config_path,
     load_config,
     load_config_with_sources,
@@ -46,7 +43,10 @@ class ConfigShowCommand(BaseCommand):
             out.kv("OpenAI API key", f"{out.dim('not set')} {badge('openai_api_key')}")
 
         out.kv("Model", f"{cfg.openai_model} {badge('openai_model')}")
-        out.kv("Embedding model", f"{cfg.openai_embedding_model} {badge('openai_embedding_model')}")
+        out.kv(
+            "Embedding model",
+            f"{cfg.openai_embedding_model} {badge('openai_embedding_model')}",
+        )
 
         if cfg.store_provider == "postgres":
             store_val = f"postgres ({cfg.db_host}:{cfg.db_port}/{cfg.db_name})"
@@ -57,14 +57,18 @@ class ConfigShowCommand(BaseCommand):
         if cfg.agent_backend:
             out.kv("Agent backend", f"{cfg.agent_backend} {badge('agent_backend')}")
         else:
-            out.kv("Agent backend", f"{out.dim('not configured')} {badge('agent_backend')}")
+            out.kv(
+                "Agent backend", f"{out.dim('not configured')} {badge('agent_backend')}"
+            )
 
         out.kv("Data directory", f"{cfg.data_dir} {badge('data_dir')}")
 
         print()
-        out.info(f"{out.cyan('[env]')} = set by environment variable  "
-                 f"{out.dim('[file]')} = from config file  "
-                 f"{out.dim('[default]')} = built-in default")
+        out.info(
+            f"{out.cyan('[env]')} = set by environment variable  "
+            f"{out.dim('[file]')} = from config file  "
+            f"{out.dim('[default]')} = built-in default"
+        )
         print()
         out.info("To change settings:")
         out.next_step("context-use config set-key", "change OpenAI API key")

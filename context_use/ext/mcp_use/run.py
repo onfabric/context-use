@@ -16,8 +16,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from context_use.cli.app import _build_ctx
-from context_use.config import load_config
+from context_use.config import build_ctx, load_config
 
 
 def main() -> None:
@@ -43,7 +42,7 @@ def main() -> None:
 
     from context_use.ext.mcp_use.server import create_server
 
-    server = create_server(_build_ctx(cfg))
+    server = create_server(build_ctx(cfg))
 
     kwargs: dict = {"transport": args.transport}
     if args.transport == "streamable-http":
