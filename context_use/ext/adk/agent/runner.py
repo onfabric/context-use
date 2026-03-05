@@ -59,8 +59,8 @@ async def _run_agent(
         if event.is_final_response():
             if event.content and event.content.parts:
                 final_text = "".join(
-                        part.text for part in event.content.parts if part.text
-                    )
+                    part.text for part in event.content.parts if part.text
+                )
             break
 
     logger.info("Personal agent complete (session=%s)", session_id)
