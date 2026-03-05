@@ -1,4 +1,3 @@
-# pyright: reportMissingImports=false
 try:
     from context_use.store.postgres.backend import DatabaseBackend, PostgresBackend
     from context_use.store.postgres.orm import Base

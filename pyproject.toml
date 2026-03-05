@@ -25,6 +25,8 @@ dev = [
     "pytest-cov",
     "pytest-asyncio",
     "pre-commit>=4.5.1",
+    # All optional extras included so Pyright can resolve every import.
+    "context-use[postgres,gcs,mcp-use,adk]",
 ]
 
 [project.scripts]

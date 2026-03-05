@@ -431,6 +431,7 @@ postgres = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "context-use", extra = ["adk", "gcs", "mcp-use", "postgres"] },
     { name = "pre-commit" },
     { name = "pyright" },
     { name = "pytest" },
@@ -458,6 +459,7 @@ provides-extras = ["postgres", "gcs", "mcp-use", "adk"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "context-use", extras = ["postgres", "gcs", "mcp-use", "adk"] },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=8.0" },
