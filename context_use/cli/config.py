@@ -2,23 +2,48 @@ from __future__ import annotations
 
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal, NamedTuple
 
 from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
-
-_DEFAULT_CONFIG_DIR = Path("~/.config/context-use").expanduser()
-_DEFAULT_DATA_DIR = Path("./data")
 
 _DEFAULT_MODEL = OpenAIModel.GPT_5_2
 _DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
 
+ConfigSource = Literal["env", "file", "default"]
 
-def _config_path() -> Path:
+
+def config_path() -> Path:
     env = os.environ.get("CONTEXT_USE_CONFIG")
     if env:
         return Path(env).expanduser()
-    return _DEFAULT_CONFIG_DIR / "config.toml"
+    return Path("~/.config/context-use").expanduser() / "config.toml"
+
+
+class _FieldSpec(NamedTuple):
+    attr: str  # Config dataclass field name
+    toml_section: str  # TOML [section]
+    toml_key: str  # key within that section
+    env_var: str | None  # env var name, or None if no env override
+    cast: type = str  # type to coerce raw values to
+
+
+_FIELDS: list[_FieldSpec] = [
+    _FieldSpec("openai_api_key", "openai", "api_key", "OPENAI_API_KEY"),
+    _FieldSpec("openai_model", "openai", "model", "OPENAI_MODEL"),
+    _FieldSpec(
+        "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
+    ),
+    _FieldSpec("store_provider", "store", "provider", "CONTEXT_USE_STORE"),
+    _FieldSpec("db_host", "database", "host", "POSTGRES_HOST"),
+    _FieldSpec("db_port", "database", "port", "POSTGRES_PORT", int),
+    _FieldSpec("db_name", "database", "name", "POSTGRES_DB"),
+    _FieldSpec("db_user", "database", "user", "POSTGRES_USER"),
+    _FieldSpec("db_password", "database", "password", "POSTGRES_PASSWORD"),
+    _FieldSpec("agent_backend", "agent", "backend", "CONTEXT_USE_AGENT_BACKEND"),
+    _FieldSpec("data_dir", "data", "dir", None, Path),
+]
 
 
 @dataclass
@@ -42,7 +67,7 @@ class Config:
     # Agent backend: "" (not configured), "adk", …
     agent_backend: str = ""
 
-    data_dir: str = str(_DEFAULT_DATA_DIR)
+    data_dir: Path = field(default_factory=lambda: Path("./data"))
 
     @property
     def is_configured(self) -> bool:
@@ -50,15 +75,15 @@ class Config:
 
     @property
     def input_dir(self) -> Path:
-        return Path(self.data_dir) / "input"
+        return self.data_dir / "input"
 
     @property
     def output_dir(self) -> Path:
-        return Path(self.data_dir) / "output"
+        return self.data_dir / "output"
 
     @property
     def storage_path(self) -> str:
-        return str(Path(self.data_dir) / "storage")
+        return str(self.data_dir / "storage")
 
     @property
     def uses_postgres(self) -> bool:
@@ -68,66 +93,46 @@ class Config:
         """Create the data directory structure if it doesn't exist."""
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        Path(self.storage_path).mkdir(parents=True, exist_ok=True)
+        (self.data_dir / "storage").mkdir(parents=True, exist_ok=True)
+
+
+def load_config_with_sources() -> tuple[Config, dict[str, ConfigSource]]:
+    """Load config and return it alongside a per-field source map.
+
+    Each key in the returned dict is a :class:`Config` field name; the value is
+    one of ``"env"``, ``"file"``, or ``"default"`` indicating where the active
+    value came from.  Env vars always take precedence over the file.
+    """
+    path = config_path()
+    cfg = Config()
+    sources: dict[str, ConfigSource] = {spec.attr: "default" for spec in _FIELDS}
+    toml_data: dict = {}
+
+    if path.exists():
+        with open(path, "rb") as f:
+            toml_data = tomllib.load(f)
+
+    for spec in _FIELDS:
+        section = toml_data.get(spec.toml_section, {})
+        if spec.toml_key in section:
+            setattr(cfg, spec.attr, spec.cast(section[spec.toml_key]))
+            sources[spec.attr] = "file"
+        if spec.env_var and (env_val := os.environ.get(spec.env_var)) is not None:
+            setattr(cfg, spec.attr, spec.cast(env_val))
+            sources[spec.attr] = "env"
+
+    return cfg, sources
 
 
 def load_config() -> Config:
     """Load config from disk, falling back to defaults + env overrides."""
-    path = _config_path()
-    cfg = Config()
-
-    if path.exists():
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
-        openai_section = data.get("openai", {})
-        store_section = data.get("store", {})
-        db_section = data.get("database", {})
-        agent_section = data.get("agent", {})
-        data_section = data.get("data", {})
-
-        cfg.openai_api_key = openai_section.get("api_key", cfg.openai_api_key)
-        cfg.openai_model = openai_section.get("model", cfg.openai_model)
-        cfg.openai_embedding_model = openai_section.get(
-            "embedding_model", cfg.openai_embedding_model
-        )
-
-        cfg.store_provider = store_section.get("provider", cfg.store_provider)
-
-        # Legacy: if [database] section exists but no [store] section,
-        # infer postgres provider from the presence of DB settings
-        if db_section and "store" not in data:
-            cfg.store_provider = "postgres"
-
-        cfg.db_host = db_section.get("host", cfg.db_host)
-        cfg.db_port = int(db_section.get("port", cfg.db_port))
-        cfg.db_name = db_section.get("name", cfg.db_name)
-        cfg.db_user = db_section.get("user", cfg.db_user)
-        cfg.db_password = db_section.get("password", cfg.db_password)
-
-        cfg.agent_backend = agent_section.get("backend", cfg.agent_backend)
-
-        cfg.data_dir = data_section.get("dir", cfg.data_dir)
-
-    # Environment variables always take precedence
-    cfg.openai_api_key = os.environ.get("OPENAI_API_KEY", cfg.openai_api_key)
-    cfg.openai_model = os.environ.get("OPENAI_MODEL", cfg.openai_model)
-    cfg.openai_embedding_model = os.environ.get(
-        "OPENAI_EMBEDDING_MODEL", cfg.openai_embedding_model
-    )
-    cfg.store_provider = os.environ.get("CONTEXT_USE_STORE", cfg.store_provider)
-    cfg.db_host = os.environ.get("POSTGRES_HOST", cfg.db_host)
-    cfg.db_port = int(os.environ.get("POSTGRES_PORT", str(cfg.db_port)))
-    cfg.db_name = os.environ.get("POSTGRES_DB", cfg.db_name)
-    cfg.db_user = os.environ.get("POSTGRES_USER", cfg.db_user)
-    cfg.db_password = os.environ.get("POSTGRES_PASSWORD", cfg.db_password)
-    cfg.agent_backend = os.environ.get("CONTEXT_USE_AGENT_BACKEND", cfg.agent_backend)
-
+    cfg, _ = load_config_with_sources()
     return cfg
 
 
 def save_config(cfg: Config) -> Path:
     """Write config to the TOML file. Returns the path written."""
-    path = _config_path()
+    path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
 
     lines = [
@@ -178,11 +183,3 @@ def save_config(cfg: Config) -> Path:
 
     path.write_text("\n".join(lines), encoding="utf-8")
     return path
-
-
-def config_exists() -> bool:
-    return _config_path().exists()
-
-
-def config_path_display() -> str:
-    return str(_config_path())

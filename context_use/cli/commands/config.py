@@ -12,9 +12,9 @@ from context_use.cli.base import (
 )
 from context_use.cli.config import (
     Config,
-    config_exists,
-    config_path_display,
+    config_path,
     load_config,
+    load_config_with_sources,
     save_config,
 )
 
@@ -23,35 +23,48 @@ from context_use.cli.config import (
 
 class ConfigShowCommand(BaseCommand):
     name = "show"
-    help = "Show current settings"
+    help = "Show current settings and where each value comes from"
 
     async def execute(self, args: argparse.Namespace) -> None:
-        cfg = load_config()
+        cfg, sources = load_config_with_sources()
 
-        out.header(f"Configuration ({config_path_display()})")
+        def badge(attr: str) -> str:
+            src = sources.get(attr, "default")
+            if src == "env":
+                return out.cyan("[env]")
+            if src == "file":
+                return out.dim("[file]")
+            return out.dim("[default]")
+
+        out.header(f"Configuration ({config_path()})")
         print()
 
         if cfg.openai_api_key:
             masked = cfg.openai_api_key[:7] + "..." + cfg.openai_api_key[-4:]
-            out.kv("OpenAI API key", masked)
+            out.kv("OpenAI API key", f"{masked} {badge('openai_api_key')}")
         else:
-            out.kv("OpenAI API key", out.dim("not set"))
+            out.kv("OpenAI API key", f"{out.dim('not set')} {badge('openai_api_key')}")
 
-        out.kv("Model", cfg.openai_model)
-        out.kv("Embedding model", cfg.openai_embedding_model)
+        out.kv("Model", f"{cfg.openai_model} {badge('openai_model')}")
+        out.kv("Embedding model", f"{cfg.openai_embedding_model} {badge('openai_embedding_model')}")
 
         if cfg.store_provider == "postgres":
-            out.kv("Store", f"postgres ({cfg.db_host}:{cfg.db_port}/{cfg.db_name})")
+            store_val = f"postgres ({cfg.db_host}:{cfg.db_port}/{cfg.db_name})"
         else:
-            out.kv("Store", "memory (in-memory, no persistence)")
+            store_val = "memory (in-memory, no persistence)"
+        out.kv("Store", f"{store_val} {badge('store_provider')}")
 
         if cfg.agent_backend:
-            out.kv("Agent backend", cfg.agent_backend)
+            out.kv("Agent backend", f"{cfg.agent_backend} {badge('agent_backend')}")
         else:
-            out.kv("Agent backend", out.dim("not configured"))
+            out.kv("Agent backend", f"{out.dim('not configured')} {badge('agent_backend')}")
 
-        out.kv("Data directory", cfg.data_dir)
+        out.kv("Data directory", f"{cfg.data_dir} {badge('data_dir')}")
 
+        print()
+        out.info(f"{out.cyan('[env]')} = set by environment variable  "
+                 f"{out.dim('[file]')} = from config file  "
+                 f"{out.dim('[default]')} = built-in default")
         print()
         out.info("To change settings:")
         out.next_step("context-use config set-key", "change OpenAI API key")
@@ -69,7 +82,7 @@ class ConfigSetKeyCommand(BaseCommand):
     help = "Change OpenAI API key"
 
     async def execute(self, args: argparse.Namespace) -> None:
-        cfg = load_config() if config_exists() else Config()
+        cfg = load_config() if config_path().exists() else Config()
 
         out.info("Get an API key at https://platform.openai.com/api-keys")
         print()
@@ -161,7 +174,7 @@ class ConfigSetStoreCommand(BaseCommand):
     async def execute(self, args: argparse.Namespace) -> None:
         import shutil
 
-        cfg = load_config() if config_exists() else Config()
+        cfg = load_config() if config_path().exists() else Config()
         backend = args.backend
 
         if backend == "memory":
@@ -236,7 +249,7 @@ class ConfigSetAgentCommand(BaseCommand):
         )
 
     async def execute(self, args: argparse.Namespace) -> None:
-        cfg = load_config() if config_exists() else Config()
+        cfg = load_config() if config_path().exists() else Config()
         backend = args.backend
 
         cfg.agent_backend = backend
@@ -269,7 +282,7 @@ class ConfigPathCommand(BaseCommand):
     help = "Print config file location"
 
     async def execute(self, args: argparse.Namespace) -> None:
-        print(config_path_display())
+        print(config_path())
 
 
 # ── group ─────────────────────────────────────────────────────────────────────
