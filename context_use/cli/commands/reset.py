@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse
 
 from context_use.cli import output as out
-from context_use.cli.base import BaseCommand, build_ctx, require_persistent
-from context_use.cli.config import load_config
+from context_use.cli.base import BaseCommand, require_persistent
+from context_use.config import build_ctx, load_config
 
 
 class ResetCommand(BaseCommand):
