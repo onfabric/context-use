@@ -73,13 +73,31 @@ INSTAGRAM_PROFILE_SEARCHES_JSON: dict = json.loads(
     ).read_text()
 )
 
-INSTAGRAM_LIKED_POSTS_JSON: dict = json.loads(
+INSTAGRAM_LIKED_POSTS_V0_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_V0_DIR
+        / "your_instagram_activity"
+        / "likes"
+        / "liked_posts.json"
+    ).read_text()
+)
+
+INSTAGRAM_LIKED_POSTS_V1_JSON: list[dict] = json.loads(
     (
         ALICE_INSTAGRAM_DIR / "your_instagram_activity" / "likes" / "liked_posts.json"
     ).read_text()
 )
 
-INSTAGRAM_STORY_LIKES_JSON: dict = json.loads(
+INSTAGRAM_STORY_LIKES_V0_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_V0_DIR
+        / "your_instagram_activity"
+        / "story_interactions"
+        / "story_likes.json"
+    ).read_text()
+)
+
+INSTAGRAM_STORY_LIKES_V1_JSON: list[dict] = json.loads(
     (
         ALICE_INSTAGRAM_DIR
         / "your_instagram_activity"

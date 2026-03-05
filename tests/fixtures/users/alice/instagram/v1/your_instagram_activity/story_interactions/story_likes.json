@@ -1,13 +1,31 @@
-{
-  "story_activities_story_likes": [
+[
     {
-      "title": "synthetic_photographer",
-      "string_list_data": [
-        {
-          "timestamp": 1771028852
-        }
-      ]
+        "timestamp": 1771028852,
+        "media": [],
+        "label_values": [
+            {
+                "dict": [
+                    {
+                        "dict": [
+                            {
+                                "label": "URL",
+                                "value": ""
+                            },
+                            {
+                                "label": "Name",
+                                "value": "Synthetic Photographer"
+                            },
+                            {
+                                "label": "Username",
+                                "value": "synthetic_photographer"
+                            }
+                        ],
+                        "title": ""
+                    }
+                ],
+                "title": "Owner"
+            }
+        ],
+        "fbid": "18079916561048003"
     }
-  ]
-}
-
+]
