@@ -12,12 +12,12 @@ try:
     from google.genai import types
 except ImportError as _exc:
     raise ImportError(
-        "The adk extra is required for AdkRefinementBackend.\n"
+        "The adk extra is required for AdkAgentBackend.\n"
         "Install it with: uv sync --extra adk"
     ) from _exc
 
-from context_use.ext.adk.refinement.agent import create_refinement_agent
-from context_use.memories.refinement.backend import RefinementBackend, RefinementResult
+from context_use.ext.adk.agent.agent import create_agent
+from context_use.memories.agent.backend import AgentBackend, AgentResult
 
 if TYPE_CHECKING:
     from context_use.llm.base import BaseLLMClient
@@ -25,24 +25,14 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_TRIGGER_MESSAGE = (
-    "Investigate the memory store and synthesise pattern memories. "
-    "For each topic, search broadly, follow the threads that emerge, "
-    "and keep digging until you have converged on everything the store holds "
-    "for that area of the user's life. "
-    "Then synthesise a pattern memory capturing what is consistently true. "
-    "Repeat for at least 6–8 meaningfully different topics. "
-    "Do not archive the source event memories — patterns are additive. "
-    "Return a structured summary of every pattern created or updated."
-)
 
-
-async def _run_refinement(
+async def _run_agent(
     store: Store,
     llm_client: BaseLLMClient,
     model: LiteLlm,
+    message: str,
 ) -> str:
-    agent = create_refinement_agent(store, llm_client, model=model)
+    agent = create_agent(store, llm_client, model=model)
     runner = Runner(
         agent=agent,
         app_name=agent.name,
@@ -52,18 +42,18 @@ async def _run_refinement(
     session_id = str(uuid.uuid4())
     await runner.session_service.create_session(
         app_name=runner.app_name,
-        user_id="refinement",
+        user_id="agent",
         session_id=session_id,
     )
-    logger.info("Refinement agent started (session=%s)", session_id)
+    logger.info("Personal agent started (session=%s)", session_id)
 
     final_text = ""
     async for event in runner.run_async(
-        user_id="refinement",
+        user_id="agent",
         session_id=session_id,
         new_message=types.Content(
             role="user",
-            parts=[types.Part(text=_TRIGGER_MESSAGE)],
+            parts=[types.Part(text=message)],
         ),
     ):
         if event.is_final_response():
@@ -71,15 +61,12 @@ async def _run_refinement(
                 final_text = event.content.parts[0].text or ""
             break
 
-    logger.info("Refinement agent complete (session=%s)", session_id)
+    logger.info("Personal agent complete (session=%s)", session_id)
     return final_text
 
 
-class AdkRefinementBackend(RefinementBackend):
-    """ADK-based refinement backend. Runs a multi-turn LlmAgent.
-
-    The agent explores the memory store across multiple tool calls, then
-    executes merges, splits, date corrections, and archives autonomously.
+class AdkAgentBackend(AgentBackend):
+    """ADK-based personal agent backend.
 
     Requires the ``adk`` extra::
 
@@ -99,6 +86,11 @@ class AdkRefinementBackend(RefinementBackend):
         """
         self._model = LiteLlm(model=model, api_key=api_key)
 
-    async def run(self, store: Store, llm_client: BaseLLMClient) -> RefinementResult:
-        summary = await _run_refinement(store, llm_client, self._model)
-        return RefinementResult(summary=summary)
+    async def run(
+        self,
+        store: Store,
+        llm_client: BaseLLMClient,
+        message: str,
+    ) -> AgentResult:
+        summary = await _run_agent(store, llm_client, self._model, message)
+        return AgentResult(summary=summary)

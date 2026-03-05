@@ -32,7 +32,7 @@ def _config_path() -> Path:
 class Config:
     openai_api_key: str = ""
 
-    # LLM models — shared by the memories pipeline and the refinement agent
+    # LLM models — shared by the memories pipeline and the personal agent
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
 
@@ -46,8 +46,8 @@ class Config:
     db_user: str = "postgres"
     db_password: str = "postgres"
 
-    # Refinement backend: "" (not configured), "adk", …
-    refinement_backend: str = ""
+    # Agent backend: "" (not configured), "adk", …
+    agent_backend: str = ""
 
     data_dir: str = str(_DEFAULT_DATA_DIR)
 
@@ -89,7 +89,7 @@ def load_config() -> Config:
         openai_section = data.get("openai", {})
         store_section = data.get("store", {})
         db_section = data.get("database", {})
-        refinement_section = data.get("refinement", {})
+        agent_section = data.get("agent", {})
         data_section = data.get("data", {})
 
         cfg.openai_api_key = openai_section.get("api_key", cfg.openai_api_key)
@@ -111,9 +111,7 @@ def load_config() -> Config:
         cfg.db_user = db_section.get("user", cfg.db_user)
         cfg.db_password = db_section.get("password", cfg.db_password)
 
-        cfg.refinement_backend = refinement_section.get(
-            "backend", cfg.refinement_backend
-        )
+        cfg.agent_backend = agent_section.get("backend", cfg.agent_backend)
 
         cfg.data_dir = data_section.get("dir", cfg.data_dir)
 
@@ -129,9 +127,7 @@ def load_config() -> Config:
     cfg.db_name = os.environ.get("POSTGRES_DB", cfg.db_name)
     cfg.db_user = os.environ.get("POSTGRES_USER", cfg.db_user)
     cfg.db_password = os.environ.get("POSTGRES_PASSWORD", cfg.db_password)
-    cfg.refinement_backend = os.environ.get(
-        "CONTEXT_USE_REFINEMENT_BACKEND", cfg.refinement_backend
-    )
+    cfg.agent_backend = os.environ.get("CONTEXT_USE_AGENT_BACKEND", cfg.agent_backend)
 
     return cfg
 
@@ -170,11 +166,11 @@ def save_config(cfg: Config) -> Path:
             ]
         )
 
-    if cfg.refinement_backend:
+    if cfg.agent_backend:
         lines.extend(
             [
-                "[refinement]",
-                f'backend = "{cfg.refinement_backend}"',
+                "[agent]",
+                f'backend = "{cfg.agent_backend}"',
                 "",
             ]
         )

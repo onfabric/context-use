@@ -18,7 +18,7 @@ from context_use.facade.types import (
     ProfileSummary,
     TaskBreakdown,
 )
-from context_use.memories.refinement.backend import RefinementBackend, RefinementResult
+from context_use.memories.agent.backend import AgentBackend, AgentResult
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
@@ -253,21 +253,23 @@ class ContextUse:
         manager = manager_cls(batch=batch, ctx=self._batch_context())
         return await manager.try_advance_state()
 
-    # ── Memory refinement ────────────────────────────────────────────
+    # ── Personal agent ───────────────────────────────────────────────
 
-    async def refine_memories(
+    async def run_agent(
         self,
-        backend: RefinementBackend,
-    ) -> RefinementResult:
-        """Refine memories using the given backend.
+        backend: AgentBackend,
+        message: str,
+    ) -> AgentResult:
+        """Run the personal agent with *message* as the user task.
 
         The facade injects its internal store and LLM client so backends
         only carry configuration::
 
-            backend = AdkRefinementBackend(api_key=key, model=cfg.openai_model)
-            result = await ctx.refine_memories(backend)
+            from context_use.memories.agent.skill import get_skill
+            backend = AdkAgentBackend(api_key=key, model=cfg.openai_model)
+            result = await ctx.run_agent(backend, get_skill("synthesise").prompt)
         """
-        return await backend.run(self._store, self._llm_client)
+        return await backend.run(self._store, self._llm_client, message)
 
     # ── Queries ──────────────────────────────────────────────────────
 
