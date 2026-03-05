@@ -35,5 +35,3 @@ class MemorySummary:
     content: str
     from_date: date
     to_date: date
-
-

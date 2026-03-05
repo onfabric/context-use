@@ -213,4 +213,3 @@ class Store(ABC):
         ``from_date`` descending.
         """
         ...
-
