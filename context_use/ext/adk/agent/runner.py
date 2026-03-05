@@ -58,7 +58,7 @@ async def _run_agent(
     ):
         if event.is_final_response():
             if event.content and event.content.parts:
-                final_text = "".join(
+                final_text = "\n".join(
                     part.text for part in event.content.parts if part.text
                 )
             break
