@@ -8,7 +8,14 @@ from typing import Annotated, Literal, cast
 
 from pydantic import BaseModel, Field, model_validator
 
-from context_use.activitystreams.activities import Add, Create, Follow, Like, View
+from context_use.activitystreams.activities import (
+    Add,
+    Create,
+    Dislike,
+    Follow,
+    Like,
+    View,
+)
 from context_use.activitystreams.actors import Application, Person
 from context_use.activitystreams.core import Collection, Object
 from context_use.activitystreams.objects import Image, Note, Page, Profile, Video
@@ -261,11 +268,7 @@ class FibreViewObject(View, _BaseFibreMixin):
 
 
 class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
-    """Inherits fibreKind="Reaction" from FibreReaction, type="Like" from Like.
-
-    When FibreDislike is added, the FibreByType slot becomes a nested
-    discriminated union on ``type`` (Like vs Dislike).
-    """
+    """Inherits fibreKind="Reaction" from FibreReaction, type="Like" from Like."""
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, FibrePost):
@@ -274,6 +277,21 @@ class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportInc
                 parts += f" by {self.object.attributedTo.name}"
         else:
             parts = f"Liked {self.object.type.lower()}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
+class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
+    """Inherits fibreKind="Reaction" from FibreReaction, type="Dislike" from Dislike."""
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        if isinstance(self.object, FibrePost):
+            parts = "Disliked post"
+            if self.object.attributedTo:
+                parts += f" by {self.object.attributedTo.name}"
+        else:
+            parts = f"Disliked {self.object.type.lower()}"
         if provider:
             parts += f" on {provider}"
         return parts
@@ -367,12 +385,17 @@ class FibreFollowing(Follow, _BaseFibreMixin, _BaseFibreFollowXORMixin):
 
 # --- Discriminated unions ---
 
+FibreReactionByType = Annotated[
+    FibreLike | FibreDislike,
+    Field(discriminator="type"),
+]
+
 FibreByType = Annotated[
     FibreViewObject
     | FibreCreateObject
     | FibreAddObjectToCollection
     | FibreSearch
-    | FibreLike
+    | FibreReactionByType
     | FibreImage
     | FibreVideo
     | FibreCollection
@@ -400,6 +423,7 @@ FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
 FibreViewObject.model_rebuild()
 FibreLike.model_rebuild()
+FibreDislike.model_rebuild()
 FibreComment.model_rebuild()
 FibreSearch.model_rebuild()
 FibreAddObjectToCollection.model_rebuild()

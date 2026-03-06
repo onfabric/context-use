@@ -11,6 +11,7 @@ from context_use.etl.payload.models import (
     FibreCollectionFavourites,
     FibreComment,
     FibreCreateObject,
+    FibreDislike,
     FibreFollowedBy,
     FibreFollowing,
     FibreLike,
@@ -129,6 +130,31 @@ class TestFibreLike:
         vid = Video()  # pyright: ignore[reportCallIssue]
         like = FibreLike(object=vid)  # pyright: ignore[reportCallIssue]
         assert like.get_preview() == "Liked video"
+
+
+class TestFibreDislike:
+    def test_reaction_rejects_empty_content(self):
+        post = FibrePost()  # pyright: ignore[reportCallIssue]
+        with pytest.raises(ValidationError, match="non-empty"):
+            FibreDislike(object=post, content="")  # pyright: ignore[reportCallIssue]
+
+    def test_preview_post(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        dislike = FibreDislike(object=post)  # pyright: ignore[reportCallIssue]
+        assert dislike.get_preview("YouTube") == "Disliked post by alice on YouTube"
+
+    def test_preview_video(self):
+        vid = Video()  # pyright: ignore[reportCallIssue]
+        dislike = FibreDislike(object=vid)  # pyright: ignore[reportCallIssue]
+        assert dislike.get_preview() == "Disliked video"
+
+    def test_type_is_dislike(self):
+        vid = Video()  # pyright: ignore[reportCallIssue]
+        dislike = FibreDislike(object=vid)  # pyright: ignore[reportCallIssue]
+        assert dislike.type == "Dislike"
+        assert dislike.fibreKind == "Reaction"
 
 
 class TestFibreComment:
@@ -268,6 +294,13 @@ class TestMakeThreadPayloadRoundTrip:
         result = self._roundtrip(like)
         assert isinstance(result, FibreLike)
         assert result.unique_key() == like.unique_key()
+
+    def test_dislike_roundtrip(self):
+        vid = Video(name="bad video")  # pyright: ignore[reportCallIssue]
+        dislike = FibreDislike(object=vid)  # pyright: ignore[reportCallIssue]
+        result = self._roundtrip(dislike)
+        assert isinstance(result, FibreDislike)
+        assert result.unique_key() == dislike.unique_key()
 
     def test_comment_roundtrip(self):
         note = Note(content="great!")  # pyright: ignore[reportCallIssue]
