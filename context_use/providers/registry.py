@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import types
 from collections import defaultdict
 
 from context_use.memories.config import MemoryConfig
@@ -12,9 +13,9 @@ _interactions_by_provider: dict[str, list[InteractionConfig]] = defaultdict(list
 def declare_interaction(config: InteractionConfig) -> None:
     """Declare an :class:`InteractionConfig` for its provider.
 
-    Call this at module level in a pipe module. The provider package
-    ``__init__.py`` is responsible for importing the
-    module so that the declaration fires at import time.
+    Call this at module level in a pipe module. The provider package ``__init__.py``
+    is responsible for importing the module so that the declaration fires at
+    import time.
 
     Example::
 
@@ -28,31 +29,36 @@ def declare_interaction(config: InteractionConfig) -> None:
     _interactions_by_provider[config.pipe.provider].append(config)
 
 
-def register_provider(name: str) -> None:
+def register_provider(name: str, modules: list[types.ModuleType]) -> None:
     """Assemble and register a :class:`ProviderConfig` for *name*.
 
-    Call this once in a provider package ``__init__.py``, *after* importing all
-    pipe modules (so their :func:`declare_interaction` calls have already
-    fired).
+    Call this once in a provider package ``__init__.py``.  Pass every pipe
+    module as *modules* to make the dependency on those imports structurally explicit.
 
     Example::
 
         # providers/instagram/__init__.py
-        from context_use.providers.instagram import (
-            comments, connections, likes, media, ...  # triggers declare_interaction
-        )
+        from context_use.providers.instagram import comments, connections, media, ...
+        from context_use.providers.instagram.schemas import PROVIDER
         from context_use.providers.registry import register_provider
 
-        register_provider(PROVIDER)
+        register_provider(PROVIDER, modules=[comments, connections, media, ...])
     """
-    interactions = list(_interactions_by_provider.get(name, []))
-    if not interactions:
+    if not modules:
         raise ValueError(
-            f"register_provider({name!r}) called with no declared interactions "
-            "— make sure all pipe modules are imported before calling this "
-            "function."
+            f"register_provider({name!r}) called with an empty modules list."
         )
-    _provider_registry[name] = ProviderConfig(interactions=interactions)
+    declared = _interactions_by_provider.get(name, [])
+    modules_with_interactions = {config.pipe.__module__ for config in declared}
+    missing = [
+        m.__name__ for m in modules if m.__name__ not in modules_with_interactions
+    ]
+    if missing:
+        raise ValueError(
+            f"register_provider({name!r}): the following modules were passed "
+            f"but declared no interactions: {missing!r}"
+        )
+    _provider_registry[name] = ProviderConfig(interactions=list(declared))
 
 
 def list_providers() -> list[str]:

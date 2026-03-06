@@ -157,19 +157,17 @@ declare_interaction(InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_M
 declare_interaction(InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG))
 ```
 
-### `register_provider(name)`
+### `register_provider(name, modules)`
 
-Call this once at the bottom of a provider `__init__.py`, **after** all pipe module imports have fired.  It collects the declared interactions for `name` into a `ProviderConfig` and registers it.  Raises `ValueError` if called before any interactions are declared — this catches the ordering mistake immediately.  Returns `None` — do not assign the result.
+Call this once in a provider `__init__.py`.  Pass every pipe module as `modules` — because module objects must be imported before they can be passed, this makes the dependency on those imports structurally explicit rather than relying on side-effect ordering.  Raises `ValueError` if any module in `modules` declared no interactions.  Returns `None` — do not assign the result.
 
 ```python
 # providers/instagram/__init__.py
-from context_use.providers.instagram import (  # noqa: F401 — triggers declare_interaction
-    comments, connections, likes, media, ...
-)
+from context_use.providers.instagram import comments, connections, likes, media, ...
 from context_use.providers.instagram.schemas import PROVIDER
 from context_use.providers.registry import register_provider
 
-register_provider(PROVIDER)
+register_provider(PROVIDER, modules=[comments, connections, likes, media, ...])
 ```
 
 ### Adding a pipe to an existing provider
@@ -180,7 +178,7 @@ register_provider(PROVIDER)
 ### Adding a new provider
 
 1. Define `PROVIDER = "<name>"` in `schemas.py`. Import it into every pipe module (for the `provider` ClassVar) and into `__init__.py` (for `register_provider`). This is the single source of truth for the provider name.
-2. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` that imports the submodules and calls `register_provider(PROVIDER)`.
+2. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` that imports the submodules and calls `register_provider(PROVIDER, modules=[...])`.
 3. Add one import line for the new provider package in `context_use/providers/__init__.py`.
 
 ---

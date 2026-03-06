@@ -1,4 +1,4 @@
-from context_use.providers.instagram import (  # noqa: F401 — triggers declare_interaction
+from context_use.providers.instagram import (
     comments,
     connections,
     likes,
@@ -11,6 +11,18 @@ from context_use.providers.instagram import (  # noqa: F401 — triggers declare
 from context_use.providers.instagram.schemas import PROVIDER
 from context_use.providers.registry import register_provider
 
-register_provider(PROVIDER)
+register_provider(
+    PROVIDER,
+    modules=[
+        comments,
+        connections,
+        likes,
+        media,
+        posts_viewed,
+        profile_searches,
+        saved,
+        videos_watched,
+    ],
+)
 
 __all__ = ["PROVIDER"]
