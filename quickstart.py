@@ -18,6 +18,7 @@ import asyncio
 
 from context_use import ContextUse
 from context_use.llm.litellm import LiteLLMBatchClient
+from context_use.providers import chatgpt, instagram
 from context_use.storage.disk import DiskStorage
 from context_use.store.postgres import PostgresStore
 
@@ -48,7 +49,7 @@ async def main() -> None:
 
     if args.chatgpt:
         print(f"Processing ChatGPT archive: {args.chatgpt}")
-        result = await ctx.process_archive("chatgpt", args.chatgpt)
+        result = await ctx.process_archive(chatgpt.PROVIDER, args.chatgpt)
         print(
             f"  ChatGPT: {result.threads_created} threads from "
             f"{result.tasks_completed} tasks"
@@ -58,7 +59,7 @@ async def main() -> None:
 
     if args.instagram:
         print(f"\nProcessing Instagram archive: {args.instagram}")
-        result = await ctx.process_archive("instagram", args.instagram)
+        result = await ctx.process_archive(instagram.PROVIDER, args.instagram)
         print(
             f"  Instagram: {result.threads_created} threads from "
             f"{result.tasks_completed} tasks"
