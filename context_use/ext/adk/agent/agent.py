@@ -17,7 +17,7 @@ except ImportError as _exc:
     ) from _exc
 
 import context_use as _pkg
-from context_use.memories.agent.tools import make_agent_tools
+from context_use.agent.tools import make_agent_tools
 
 if TYPE_CHECKING:
     from context_use.llm.base import BaseLLMClient
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT_PATH = Path(_pkg.__file__).parent / "memories" / "agent" / "system.md"
+_SYSTEM_PROMPT_PATH = Path(_pkg.__file__).parent / "agent" / "system.md"
 
 
 def _render_system_prompt(_ctx: Any) -> str:
