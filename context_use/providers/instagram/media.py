@@ -23,6 +23,7 @@ from context_use.providers.instagram.schemas import (
     InstagramReelsManifest,
     InstagramStoriesManifest,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -156,12 +157,5 @@ _MEDIA_MEMORY_CONFIG = MemoryConfig(
     grouper=WindowGrouper,
 )
 
-STORIES_CONFIG = InteractionConfig(
-    pipe=InstagramStoriesPipe,
-    memory=_MEDIA_MEMORY_CONFIG,
-)
-
-REELS_CONFIG = InteractionConfig(
-    pipe=InstagramReelsPipe,
-    memory=_MEDIA_MEMORY_CONFIG,
-)
+register_interaction(InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG))
+register_interaction(InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG))

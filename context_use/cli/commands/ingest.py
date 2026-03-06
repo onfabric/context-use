@@ -34,22 +34,18 @@ class IngestCommand(PersistentCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        from context_use import Provider
-
         picked = resolve_archive(args, cfg, command="ingest")
         if picked is None:
             return
         provider_str, zip_path = picked
 
-        provider = Provider(provider_str)
-
         print()
-        out.header(f"Ingesting {provider.value} archive")
+        out.header(f"Ingesting {provider_str} archive")
         out.kv("File", zip_path)
-        out.kv("Provider", provider.value)
+        out.kv("Provider", provider_str)
         print()
 
-        result = await ctx.process_archive(provider, zip_path)
+        result = await ctx.process_archive(provider_str, zip_path)
 
         out.success("Archive processed")
         out.kv("Archive ID", result.archive_id)

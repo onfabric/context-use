@@ -5,6 +5,7 @@ from this module.  Only unit / integration tests may reach into
 sub-packages directly.
 """
 
+import context_use.providers  # noqa: F401 — triggers provider registration
 from context_use.facade import (
     ContextUse,
     MemorySummary,
@@ -12,7 +13,6 @@ from context_use.facade import (
     ScheduleInstruction,
     TaskBreakdown,
 )
-from context_use.providers.registry import Provider
 from context_use.store import InMemoryStore, Store
 
 __all__ = [
@@ -20,7 +20,6 @@ __all__ = [
     "InMemoryStore",
     "MemorySummary",
     "PipelineResult",
-    "Provider",
     "ScheduleInstruction",
     "Store",
     "TaskBreakdown",

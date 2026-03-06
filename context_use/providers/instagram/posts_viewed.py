@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramPostsViewedRecord,
     InstagramStringMapDataWrapper,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -174,12 +175,5 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
         return None
 
 
-POSTS_VIEWED_V0_CONFIG = InteractionConfig(
-    pipe=InstagramPostsViewedV0Pipe,
-    memory=None,
-)
-
-POSTS_VIEWED_V1_CONFIG = InteractionConfig(
-    pipe=InstagramPostsViewedPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramPostsViewedV0Pipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramPostsViewedPipe, memory=None))

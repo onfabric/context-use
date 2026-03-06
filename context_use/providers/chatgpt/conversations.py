@@ -26,6 +26,7 @@ from context_use.providers.chatgpt.schemas import (
     ChatGPTConversationRecord,
     ChatGPTMessage,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -174,10 +175,12 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
         )
 
 
-INTERACTION_CONFIG = InteractionConfig(
-    pipe=ChatGPTConversationsPipe,
-    memory=MemoryConfig(
-        prompt_builder=ConversationMemoryPromptBuilder,
-        grouper=CollectionGrouper,
-    ),
+register_interaction(
+    InteractionConfig(
+        pipe=ChatGPTConversationsPipe,
+        memory=MemoryConfig(
+            prompt_builder=ConversationMemoryPromptBuilder,
+            grouper=CollectionGrouper,
+        ),
+    )
 )

@@ -1,16 +1,15 @@
-from context_use.providers.chatgpt.conversations import (
-    INTERACTION_CONFIG as _CONVERSATIONS_CONFIG,
+from context_use.providers.chatgpt import (
+    conversations,  # noqa: F401 — triggers register_interaction
 )
-from context_use.providers.chatgpt.conversations import (
-    ChatGPTConversationsPipe,
-)
+from context_use.providers.chatgpt.conversations import ChatGPTConversationsPipe
 from context_use.providers.chatgpt.schemas import ChatGPTConversationRecord
-from context_use.providers.types import ProviderConfig
+from context_use.providers.registry import build_and_register_provider
 
-PROVIDER_CONFIG = ProviderConfig(interactions=[_CONVERSATIONS_CONFIG])
+PROVIDER = "chatgpt"
+build_and_register_provider(PROVIDER)
 
 __all__ = [
     "ChatGPTConversationRecord",
     "ChatGPTConversationsPipe",
-    "PROVIDER_CONFIG",
+    "PROVIDER",
 ]

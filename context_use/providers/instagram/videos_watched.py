@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramStringMapDataWrapper,
     InstagramVideoWatchedRecord,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -140,12 +141,5 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
             )
 
 
-VIDEOS_WATCHED_V0_CONFIG = InteractionConfig(
-    pipe=InstagramVideosWatchedV0Pipe,
-    memory=None,
-)
-
-VIDEOS_WATCHED_V1_CONFIG = InteractionConfig(
-    pipe=InstagramVideosWatchedPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramVideosWatchedV0Pipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramVideosWatchedPipe, memory=None))

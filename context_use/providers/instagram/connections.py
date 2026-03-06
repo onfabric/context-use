@@ -21,6 +21,7 @@ from context_use.providers.instagram.schemas import (
     InstagramConnectionRecord,
     InstagramFollowingManifest,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -150,12 +151,5 @@ class InstagramFollowingPipe(_InstagramConnectionPipe):
             )
 
 
-FOLLOWERS_CONFIG = InteractionConfig(
-    pipe=InstagramFollowersPipe,
-    memory=None,
-)
-
-FOLLOWING_CONFIG = InteractionConfig(
-    pipe=InstagramFollowingPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramFollowersPipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramFollowingPipe, memory=None))

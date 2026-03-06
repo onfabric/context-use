@@ -7,7 +7,6 @@ from context_use.etl.core.exceptions import (
     ArchiveProcessingError,
     UnsupportedProviderError,
 )
-from context_use.providers.registry import Provider
 from tests.conftest import build_zip
 
 
@@ -17,7 +16,7 @@ class TestE2EErrors:
         bad.write_bytes(b"not a zip file")
 
         with pytest.raises(ArchiveProcessingError):
-            await ctx.process_archive(Provider.CHATGPT, str(bad))
+            await ctx.process_archive("chatgpt", str(bad))
 
     async def test_unsupported_provider(self, ctx: ContextUse, tmp_path: Path):
         dummy = tmp_path / "dummy.zip"
@@ -33,7 +32,7 @@ class TestE2EErrors:
         data = build_zip({"readme.txt": "nothing here"})
         empty_zip.write_bytes(data)
 
-        result = await ctx.process_archive(Provider.CHATGPT, str(empty_zip))
+        result = await ctx.process_archive("chatgpt", str(empty_zip))
         assert result.tasks_completed == 0
         assert result.threads_created == 0
 
@@ -43,6 +42,6 @@ class TestE2EErrors:
         data = build_zip({"conversations.json": "{not valid json]]]"})
         bad_json_zip.write_bytes(data)
 
-        result = await ctx.process_archive(Provider.CHATGPT, str(bad_json_zip))
+        result = await ctx.process_archive("chatgpt", str(bad_json_zip))
         assert result.tasks_failed == 1
         assert len(result.errors) > 0

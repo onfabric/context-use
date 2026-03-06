@@ -18,6 +18,7 @@ from context_use.providers.instagram.schemas import (
     InstagramProfileSearchRecord,
     InstagramStringListDataWrapper,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -96,7 +97,4 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
         )
 
 
-PROFILE_SEARCHES_CONFIG = InteractionConfig(
-    pipe=InstagramProfileSearchesPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramProfileSearchesPipe, memory=None))

@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramCommentRecord,
     InstagramCommentSchema,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -131,12 +132,5 @@ class InstagramCommentReelsPipe(_InstagramCommentPipe):
     _json_key = "comments_reels_comments"
 
 
-COMMENTS_POSTS_CONFIG = InteractionConfig(
-    pipe=InstagramCommentPostsPipe,
-    memory=None,
-)
-
-COMMENTS_REELS_CONFIG = InteractionConfig(
-    pipe=InstagramCommentReelsPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramCommentPostsPipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramCommentReelsPipe, memory=None))

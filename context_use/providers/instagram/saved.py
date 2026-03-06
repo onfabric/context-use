@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramSavedCollectionRecord,
     InstagramSavedPostRecord,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -227,12 +228,5 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
         )
 
 
-SAVED_POSTS_CONFIG = InteractionConfig(
-    pipe=InstagramSavedPostsPipe,
-    memory=None,
-)
-
-SAVED_COLLECTIONS_CONFIG = InteractionConfig(
-    pipe=InstagramSavedCollectionsPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramSavedPostsPipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramSavedCollectionsPipe, memory=None))

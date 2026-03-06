@@ -12,18 +12,13 @@ from context_use.batch.manager import (
     ScheduleInstruction,
     get_manager_for_category,
 )
-from context_use.facade.types import (
-    MemorySummary,
-    PipelineResult,
-    TaskBreakdown,
-)
+from context_use.facade.types import MemorySummary, PipelineResult, TaskBreakdown
 from context_use.memories.agent.backend import AgentBackend, AgentResult
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
 from context_use.models.memory import MemoryStatus
-from context_use.providers.registry import Provider
 from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
@@ -54,7 +49,8 @@ class ContextUse:
             llm_client=LiteLLMBatchClient(...),
         )
         await ctx.init()
-        result = await ctx.process_archive(Provider.CHATGPT, "/path/to/export.zip")
+        from context_use.providers import chatgpt
+        result = await ctx.process_archive(chatgpt.PROVIDER, "/path/to/export.zip")
     """
 
     def __init__(
@@ -79,7 +75,7 @@ class ContextUse:
 
     async def process_archive(
         self,
-        provider: Provider,
+        provider: str,
         path: str,
     ) -> PipelineResult:
         """Unzip, discover, and run ETL for the given archive.
@@ -91,19 +87,18 @@ class ContextUse:
             ArchiveProcessingError,
             UnsupportedProviderError,
         )
-        from context_use.providers.registry import (
-            PROVIDER_REGISTRY,
-            get_provider_config,
-        )
+        from context_use.providers.registry import get_provider_config
 
-        if provider not in PROVIDER_REGISTRY:
-            raise UnsupportedProviderError(f"Unsupported provider: {provider}")
-
-        provider_cfg = get_provider_config(provider)
+        try:
+            provider_cfg = get_provider_config(provider)
+        except KeyError as exc:
+            raise UnsupportedProviderError(
+                f"Unsupported provider: {provider!r}"
+            ) from exc
 
         # Phase 1: create archive + discover tasks.
         archive = Archive(
-            provider=provider.value,
+            provider=provider,
             status=ArchiveStatus.CREATED.value,
         )
         archive = await self._store.create_archive(archive)
@@ -116,9 +111,7 @@ class ContextUse:
             files = self._storage.list_keys(archive_id)
             archive.file_uris = files
 
-            discovered_tasks = provider_cfg.discover_tasks(
-                archive_id, files, provider.value
-            )
+            discovered_tasks = provider_cfg.discover_tasks(archive_id, files, provider)
             if not discovered_tasks:
                 logger.warning("No tasks discovered for archive %s", archive_id)
 

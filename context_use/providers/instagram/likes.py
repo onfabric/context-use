@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramLikedPostRecord,
     InstagramStringListDataWrapper,
 )
+from context_use.providers.registry import register_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -274,22 +275,7 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         return None
 
 
-LIKED_POSTS_V0_CONFIG = InteractionConfig(
-    pipe=InstagramLikedPostsV0Pipe,
-    memory=None,
-)
-
-LIKED_POSTS_V1_CONFIG = InteractionConfig(
-    pipe=InstagramLikedPostsPipe,
-    memory=None,
-)
-
-STORY_LIKES_V0_CONFIG = InteractionConfig(
-    pipe=InstagramStoryLikesV0Pipe,
-    memory=None,
-)
-
-STORY_LIKES_V1_CONFIG = InteractionConfig(
-    pipe=InstagramStoryLikesPipe,
-    memory=None,
-)
+register_interaction(InteractionConfig(pipe=InstagramLikedPostsV0Pipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
+register_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))

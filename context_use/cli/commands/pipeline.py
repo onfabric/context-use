@@ -56,8 +56,6 @@ class QuickstartCommand(EphemeralApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        from context_use import Provider
-
         picked = resolve_archive(args, cfg, command="quickstart")
         if picked is None:
             return
@@ -83,15 +81,13 @@ class QuickstartCommand(EphemeralApiCommand):
                 out.info("Aborted.")
                 return
 
-        provider = Provider(provider_str)
-
         # Phase 1: Ingest
         print()
-        out.header(f"Phase 1/2 · Ingesting {provider.value} archive")
+        out.header(f"Phase 1/2 · Ingesting {provider_str} archive")
         out.kv("File", zip_path)
         print()
 
-        result = await ctx.process_archive(provider, zip_path)
+        result = await ctx.process_archive(provider_str, zip_path)
 
         out.success("Archive processed")
         print_ingest_result(result)
@@ -207,22 +203,18 @@ class PipelineCommand(PersistentApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        from context_use import Provider
-
         picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:
             return
         provider_str, zip_path = picked
 
-        provider = Provider(provider_str)
-
         # Step 1: Ingest
         print()
-        out.header(f"Step 1/2 · Ingesting {provider.value} archive")
+        out.header(f"Step 1/2 · Ingesting {provider_str} archive")
         out.kv("File", zip_path)
         print()
 
-        result = await ctx.process_archive(provider, zip_path)
+        result = await ctx.process_archive(provider_str, zip_path)
 
         out.success("Archive processed")
         print_ingest_result(result)
