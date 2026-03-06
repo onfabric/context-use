@@ -4,6 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel, model_validator
 
+PROVIDER = "instagram"
+
+
 # ---------------------------------------------------------------------------
 # Mojibake fix — Instagram encodes UTF-8 bytes as \u00xx Latin-1 codepoints
 # ---------------------------------------------------------------------------

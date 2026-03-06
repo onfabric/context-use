@@ -15,12 +15,13 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramHrefTimestampSchema,
     InstagramLabelValue,
     InstagramLikedPostRecord,
     InstagramStringListDataWrapper,
 )
-from context_use.providers.registry import register_interaction
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -36,7 +37,7 @@ class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
     archive format; :meth:`transform` is inherited.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     record_schema = InstagramLikedPostRecord
 
     def transform(
@@ -275,7 +276,7 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         return None
 
 
-register_interaction(InteractionConfig(pipe=InstagramLikedPostsV0Pipe, memory=None))
-register_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
-register_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
-register_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramLikedPostsV0Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))

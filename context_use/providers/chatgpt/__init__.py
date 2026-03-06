@@ -1,9 +1,9 @@
 from context_use.providers.chatgpt import (
-    conversations,  # noqa: F401 — triggers register_interaction
+    conversations,  # noqa: F401 — triggers declare_interaction
 )
-from context_use.providers.registry import build_and_register_provider
+from context_use.providers.chatgpt.schemas import PROVIDER
+from context_use.providers.registry import register_provider
 
-PROVIDER = "chatgpt"
-build_and_register_provider(PROVIDER)
+register_provider(PROVIDER)
 
 __all__ = ["PROVIDER"]

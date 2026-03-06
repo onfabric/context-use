@@ -40,7 +40,7 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 | Step | File | Action |
 |------|------|--------|
 | 1 | `context_use/providers/<provider>/schemas.py` | Add Pydantic record model(s) |
-| 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `register_interaction()` at module level |
+| 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
 | 3 | `context_use/providers/<provider>/__init__.py` | Import the new module (one line) so the registration fires |
 | 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
 | 5 | `tests/unit/etl/test_<provider>_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
@@ -140,46 +140,48 @@ Providers register themselves via two functions in `context_use/providers/regist
 | Layer | Key file | What to read |
 |-------|----------|-------------|
 | Shared types | `context_use/providers/types.py` | `InteractionConfig`, `ProviderConfig` dataclasses |
-| Per-interaction | `context_use/providers/<provider>/<module>.py` | bare `register_interaction()` calls at module level |
-| Per-provider | `context_use/providers/<provider>/__init__.py` | module imports + `build_and_register_provider()` call |
+| Per-interaction | `context_use/providers/<provider>/<module>.py` | bare `declare_interaction()` calls at module level |
+| Per-provider | `context_use/providers/<provider>/__init__.py` | module imports + `register_provider()` call |
 | Top-level trigger | `context_use/providers/__init__.py` | imports each provider package to fire registration |
 
-### `register_interaction(config)`
+### `declare_interaction(config)`
 
-Call this at module level in a pipe module.  It reads the provider name from `config.pipe.provider` (the ClassVar already on every `Pipe` subclass) and adds the config to an internal list.  Returns `None` — do not assign the result.
+Call this at module level in a pipe module.  It reads the provider name from `config.pipe.provider` (the ClassVar already on every `Pipe` subclass) and accumulates the config into an internal list.  Returns `None` — do not assign the result.
 
 ```python
 # providers/instagram/media.py
-from context_use.providers.registry import register_interaction
+from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.registry import declare_interaction
 
-register_interaction(InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG))
-register_interaction(InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG))
+declare_interaction(InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG))
+declare_interaction(InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG))
 ```
 
-### `build_and_register_provider(name)`
+### `register_provider(name)`
 
-Call this once at the bottom of a provider `__init__.py`, **after** all pipe module imports have fired.  It collects the registered interactions for `name` into a `ProviderConfig` and registers it.  Raises `ValueError` if called before any interactions are registered — this catches the ordering mistake immediately.  Returns `None` — do not assign the result.
+Call this once at the bottom of a provider `__init__.py`, **after** all pipe module imports have fired.  It collects the declared interactions for `name` into a `ProviderConfig` and registers it.  Raises `ValueError` if called before any interactions are declared — this catches the ordering mistake immediately.  Returns `None` — do not assign the result.
 
 ```python
 # providers/instagram/__init__.py
-from context_use.providers.instagram import (  # noqa: F401 — triggers register_interaction
+from context_use.providers.instagram import (  # noqa: F401 — triggers declare_interaction
     comments, connections, likes, media, ...
 )
-from context_use.providers.registry import build_and_register_provider
+from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.registry import register_provider
 
-PROVIDER = "instagram"
-build_and_register_provider(PROVIDER)
+register_provider(PROVIDER)
 ```
 
 ### Adding a pipe to an existing provider
 
-1. In the pipe module, call `register_interaction(InteractionConfig(...))` at module level for each pipe class.
-2. In the provider's `__init__.py`, add one import line for the new module — this is what fires the registration.
+1. In the pipe module, call `declare_interaction(InteractionConfig(...))` at module level for each pipe class.
+2. In the provider's `__init__.py`, add one import line for the new module — this is what fires the declaration.
 
 ### Adding a new provider
 
-1. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` that imports them and calls `build_and_register_provider(PROVIDER)` (where `PROVIDER = "<provider>"` is defined in the same file).
-2. Add one import line for the new provider package in `context_use/providers/__init__.py`.
+1. Define `PROVIDER = "<name>"` in `schemas.py`. Import it into every pipe module (for the `provider` ClassVar) and into `__init__.py` (for `register_provider`). This is the single source of truth for the provider name.
+2. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` that imports the submodules and calls `register_provider(PROVIDER)`.
+3. Add one import line for the new provider package in `context_use/providers/__init__.py`.
 
 ---
 

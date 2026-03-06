@@ -15,12 +15,13 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramAuthorSchema,
     InstagramLabelValue,
     InstagramPostsViewedRecord,
     InstagramStringMapDataWrapper,
 )
-from context_use.providers.registry import register_interaction
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -37,7 +38,7 @@ class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
     archive format; :meth:`transform` is inherited.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     interaction_type = "instagram_posts_viewed"
     record_schema = InstagramPostsViewedRecord
 
@@ -175,5 +176,5 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
         return None
 
 
-register_interaction(InteractionConfig(pipe=InstagramPostsViewedV0Pipe, memory=None))
-register_interaction(InteractionConfig(pipe=InstagramPostsViewedPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramPostsViewedV0Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramPostsViewedPipe, memory=None))

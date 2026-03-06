@@ -17,10 +17,11 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramCommentRecord,
     InstagramCommentSchema,
 )
-from context_use.providers.registry import register_interaction
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -38,7 +39,7 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
     and optionally :attr:`_json_key` for keyed JSON files.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     archive_version = 1
     record_schema = InstagramCommentRecord
 
@@ -132,5 +133,5 @@ class InstagramCommentReelsPipe(_InstagramCommentPipe):
     _json_key = "comments_reels_comments"
 
 
-register_interaction(InteractionConfig(pipe=InstagramCommentPostsPipe, memory=None))
-register_interaction(InteractionConfig(pipe=InstagramCommentReelsPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramCommentPostsPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramCommentReelsPipe, memory=None))

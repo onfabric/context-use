@@ -23,10 +23,11 @@ from context_use.memories.config import MemoryConfig
 from context_use.memories.prompt.conversation import ConversationMemoryPromptBuilder
 from context_use.models.etl_task import EtlTask
 from context_use.providers.chatgpt.schemas import (
+    PROVIDER,
     ChatGPTConversationRecord,
     ChatGPTMessage,
 )
-from context_use.providers.registry import register_interaction
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -90,7 +91,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
     into a :class:`ThreadRow` with an ActivityStreams payload.
     """
 
-    provider = "chatgpt"
+    provider = PROVIDER
     interaction_type = "chatgpt_conversations"
     archive_version = 1
     archive_path_pattern = "conversations*.json"
@@ -175,7 +176,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
         )
 
 
-register_interaction(
+declare_interaction(
     InteractionConfig(
         pipe=ChatGPTConversationsPipe,
         memory=MemoryConfig(

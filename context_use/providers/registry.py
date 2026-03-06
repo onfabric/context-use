@@ -9,48 +9,48 @@ _provider_registry: dict[str, ProviderConfig] = {}
 _interactions_by_provider: dict[str, list[InteractionConfig]] = defaultdict(list)
 
 
-def register_interaction(config: InteractionConfig) -> None:
-    """Register an :class:`InteractionConfig`.
+def declare_interaction(config: InteractionConfig) -> None:
+    """Declare an :class:`InteractionConfig` for its provider.
 
     Call this at module level in a pipe module. The provider package
-    ``__init__.py`` is responsible for importing the module so that the
-    registration fires at import time.
+    ``__init__.py`` is responsible for importing the
+    module so that the declaration fires at import time.
 
     Example::
 
         # providers/instagram/media.py
-        from context_use.providers.registry import register_interaction
+        from context_use.providers.registry import declare_interaction
 
-        register_interaction(
+        declare_interaction(
             InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG)
         )
     """
     _interactions_by_provider[config.pipe.provider].append(config)
 
 
-def build_and_register_provider(name: str) -> None:
-    """Build and register a :class:`ProviderConfig` for *name*.
+def register_provider(name: str) -> None:
+    """Assemble and register a :class:`ProviderConfig` for *name*.
 
     Call this once in a provider package ``__init__.py``, *after* importing all
-    pipe modules (so their :func:`register_interaction` calls have already
+    pipe modules (so their :func:`declare_interaction` calls have already
     fired).
 
     Example::
 
         # providers/instagram/__init__.py
         from context_use.providers.instagram import (
-            comments, connections, likes, media, ...  # triggers register_interaction
+            comments, connections, likes, media, ...  # triggers declare_interaction
         )
-        from context_use.providers.registry import build_and_register_provider
+        from context_use.providers.registry import register_provider
 
-        build_and_register_provider(PROVIDER)
+        register_provider(PROVIDER)
     """
     interactions = list(_interactions_by_provider.get(name, []))
     if not interactions:
         raise ValueError(
-            f"build_and_register_provider({name!r}) called with no registered "
-            "interactions — make sure all pipe modules are imported before "
-            "calling this function."
+            f"register_provider({name!r}) called with no declared interactions "
+            "— make sure all pipe modules are imported before calling this "
+            "function."
         )
     _provider_registry[name] = ProviderConfig(interactions=interactions)
 

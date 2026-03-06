@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
+PROVIDER = "chatgpt"
+
 
 class ChatGPTAuthor(BaseModel):
     role: str

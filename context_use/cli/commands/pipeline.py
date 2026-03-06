@@ -122,11 +122,11 @@ class QuickstartCommand(EphemeralApiCommand):
                 print()
                 out.info("Try including more history:")
                 out.next_step(
-                    f"context-use quickstart --last-days 90 {provider.value} {zip_path}"
+                    f"context-use quickstart --last-days 90 {provider_str} {zip_path}"
                 )
                 out.info("Or process the full archive:")
                 out.next_step(
-                    f"context-use quickstart --full {provider.value} {zip_path}"
+                    f"context-use quickstart --full {provider_str} {zip_path}"
                 )
             return
 

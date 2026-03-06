@@ -17,11 +17,12 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramConnectionItem,
     InstagramConnectionRecord,
     InstagramFollowingManifest,
 )
-from context_use.providers.registry import register_interaction
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -50,7 +51,7 @@ class _InstagramConnectionPipe(Pipe[InstagramConnectionRecord]):
     and :attr:`_is_inbound` then implement :meth:`extract_file`.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     archive_version = 1
     record_schema = InstagramConnectionRecord
 
@@ -151,5 +152,5 @@ class InstagramFollowingPipe(_InstagramConnectionPipe):
             )
 
 
-register_interaction(InteractionConfig(pipe=InstagramFollowersPipe, memory=None))
-register_interaction(InteractionConfig(pipe=InstagramFollowingPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramFollowersPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramFollowingPipe, memory=None))
