@@ -18,11 +18,13 @@ from context_use.memories.config import MemoryConfig
 from context_use.memories.prompt.media import MediaMemoryPromptBuilder
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramMediaItem,
     InstagramMediaRecord,
     InstagramReelsManifest,
     InstagramStoriesManifest,
 )
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -59,7 +61,7 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
     manifest format; :meth:`transform` is inherited.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     archive_version = 1
     record_schema = InstagramMediaRecord
 
@@ -156,12 +158,9 @@ _MEDIA_MEMORY_CONFIG = MemoryConfig(
     grouper=WindowGrouper,
 )
 
-STORIES_CONFIG = InteractionConfig(
-    pipe=InstagramStoriesPipe,
-    memory=_MEDIA_MEMORY_CONFIG,
+declare_interaction(
+    InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG)
 )
-
-REELS_CONFIG = InteractionConfig(
-    pipe=InstagramReelsPipe,
-    memory=_MEDIA_MEMORY_CONFIG,
+declare_interaction(
+    InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG)
 )

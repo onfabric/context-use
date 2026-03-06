@@ -17,9 +17,11 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramSavedCollectionRecord,
     InstagramSavedPostRecord,
 )
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -41,7 +43,7 @@ class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
     target=FibreCollectionFavourites())``.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     interaction_type = "instagram_saved_posts"
     archive_version = 1
     archive_path_pattern = "your_instagram_activity/saved/saved_posts.json"
@@ -126,7 +128,7 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
     that appear before any header are skipped with a warning.
     """  # noqa: E501
 
-    provider = "instagram"
+    provider = PROVIDER
     interaction_type = "instagram_saved_collections"
     archive_version = 1
     archive_path_pattern = "your_instagram_activity/saved/saved_collections.json"
@@ -227,12 +229,5 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
         )
 
 
-SAVED_POSTS_CONFIG = InteractionConfig(
-    pipe=InstagramSavedPostsPipe,
-    memory=None,
-)
-
-SAVED_COLLECTIONS_CONFIG = InteractionConfig(
-    pipe=InstagramSavedCollectionsPipe,
-    memory=None,
-)
+declare_interaction(InteractionConfig(pipe=InstagramSavedPostsPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramSavedCollectionsPipe, memory=None))

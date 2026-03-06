@@ -1,6 +1,6 @@
 from context_use import ContextUse
 from context_use.models.archive import ArchiveStatus
-from context_use.providers.registry import Provider
+from context_use.providers import instagram
 
 # Interaction types that produce threads with asset_uri
 _MEDIA_TYPES = {"instagram_stories", "instagram_reels"}
@@ -8,7 +8,7 @@ _MEDIA_TYPES = {"instagram_stories", "instagram_reels"}
 
 class TestE2EInstagram:
     async def test_full_flow(self, ctx: ContextUse, instagram_zip):
-        result = await ctx.process_archive(Provider.INSTAGRAM, str(instagram_zip))
+        result = await ctx.process_archive(instagram.PROVIDER, str(instagram_zip))
 
         assert result.tasks_completed >= 10
         assert result.tasks_failed == 0

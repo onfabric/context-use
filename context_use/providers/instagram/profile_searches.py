@@ -14,10 +14,12 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramHrefTimestampSchema,
     InstagramProfileSearchRecord,
     InstagramStringListDataWrapper,
 )
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -35,7 +37,7 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
     Creates ``FibreSearch(object=Profile(...))``.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     interaction_type = "instagram_profile_searches"
     archive_version = 1
     archive_path_pattern = "logged_information/recent_searches/profile_searches.json"
@@ -96,7 +98,4 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
         )
 
 
-PROFILE_SEARCHES_CONFIG = InteractionConfig(
-    pipe=InstagramProfileSearchesPipe,
-    memory=None,
-)
+declare_interaction(InteractionConfig(pipe=InstagramProfileSearchesPipe, memory=None))

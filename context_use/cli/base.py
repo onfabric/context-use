@@ -37,9 +37,9 @@ async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
 
 def providers() -> list[str]:
     """Return the list of registered provider names."""
-    from context_use import Provider
+    from context_use.providers.registry import list_providers
 
-    return [p.value for p in Provider]
+    return list_providers()
 
 
 # ── Guard functions ───────────────────────────────────────────────────────────

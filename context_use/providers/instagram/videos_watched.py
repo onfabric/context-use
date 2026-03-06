@@ -15,11 +15,13 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
+    PROVIDER,
     InstagramAuthorSchema,
     InstagramLabelValue,
     InstagramStringMapDataWrapper,
     InstagramVideoWatchedRecord,
 )
+from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
@@ -36,7 +38,7 @@ class _InstagramVideosWatchedPipe(Pipe[InstagramVideoWatchedRecord]):
     archive format; :meth:`transform` is inherited.
     """
 
-    provider = "instagram"
+    provider = PROVIDER
     interaction_type = "instagram_videos_watched"
     record_schema = InstagramVideoWatchedRecord
 
@@ -140,12 +142,5 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
             )
 
 
-VIDEOS_WATCHED_V0_CONFIG = InteractionConfig(
-    pipe=InstagramVideosWatchedV0Pipe,
-    memory=None,
-)
-
-VIDEOS_WATCHED_V1_CONFIG = InteractionConfig(
-    pipe=InstagramVideosWatchedPipe,
-    memory=None,
-)
+declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedV0Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedPipe, memory=None))

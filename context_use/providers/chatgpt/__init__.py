@@ -1,16 +1,7 @@
-from context_use.providers.chatgpt.conversations import (
-    INTERACTION_CONFIG as _CONVERSATIONS_CONFIG,
-)
-from context_use.providers.chatgpt.conversations import (
-    ChatGPTConversationsPipe,
-)
-from context_use.providers.chatgpt.schemas import ChatGPTConversationRecord
-from context_use.providers.types import ProviderConfig
+from context_use.providers.chatgpt import conversations
+from context_use.providers.chatgpt.schemas import PROVIDER
+from context_use.providers.registry import register_provider
 
-PROVIDER_CONFIG = ProviderConfig(interactions=[_CONVERSATIONS_CONFIG])
+register_provider(PROVIDER, modules=[conversations])
 
-__all__ = [
-    "ChatGPTConversationRecord",
-    "ChatGPTConversationsPipe",
-    "PROVIDER_CONFIG",
-]
+__all__ = ["PROVIDER"]

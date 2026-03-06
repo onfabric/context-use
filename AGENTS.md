@@ -40,17 +40,19 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 | Step | File | Action |
 |------|------|--------|
 | 1 | `context_use/providers/<provider>/schemas.py` | Add Pydantic record model(s) |
-| 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract()` + `transform()`, define `INTERACTION_CONFIG` |
-| 3 | `context_use/providers/<provider>/__init__.py` | Add the new config to `PROVIDER_CONFIG.interactions` |
+| 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
+| 3 | `context_use/providers/<provider>/__init__.py` | Import the new module (one line) so the registration fires |
 | 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
-| 5 | `tests/test_<provider>_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
+| 5 | `tests/unit/etl/test_<provider>_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
 
 For a **new** provider, also:
 
 | Step | File | Action |
 |------|------|--------|
-| A | `context_use/providers/<provider>/` | Create package (`__init__.py`, `schemas.py`, pipe module) |
-| B | `context_use/providers/registry.py` | Add `Provider` enum member + import `PROVIDER_CONFIG` into `PROVIDER_REGISTRY` |
+| A | `context_use/providers/<provider>/` | Create package (`__init__.py`, `schemas.py`, pipe module(s)) |
+| B | `context_use/providers/__init__.py` | Import the new provider package (one line) so it registers |
+
+No changes to `registry.py` are ever needed.
 
 If the provider needs a new fibre (payload) type, see [Extending Payload Models](#extending-payload-models).
 
@@ -133,29 +135,51 @@ All Store methods accept and return **domain models** from `context_use/models/`
 
 ## Unified Registry
 
-Configuration flows through three layers — each provider owns its config while the framework stays clean:
+Providers register themselves via two functions in `context_use/providers/registry.py`.  No edits to `registry.py` are ever needed when adding a new provider or interaction type.
 
 | Layer | Key file | What to read |
 |-------|----------|-------------|
 | Shared types | `context_use/providers/types.py` | `InteractionConfig`, `ProviderConfig` dataclasses |
-| Per-interaction | `context_use/providers/<provider>/<module>.py` | `INTERACTION_CONFIG` co-located with each pipe class |
-| Per-provider | `context_use/providers/<provider>/__init__.py` | `PROVIDER_CONFIG` assembling the provider's interaction configs |
-| Global registry | `context_use/providers/registry.py` | `Provider` enum, `PROVIDER_REGISTRY` dict |
+| Per-interaction | `context_use/providers/<provider>/<module>.py` | bare `declare_interaction()` calls at module level |
+| Per-provider | `context_use/providers/<provider>/__init__.py` | module imports + `register_provider()` call |
+| Top-level trigger | `context_use/providers/__init__.py` | imports each provider package to fire registration |
 
-Each provider subdirectory under `context_use/providers/` shows how `INTERACTION_CONFIG` is co-located with its pipe class and assembled into `PROVIDER_CONFIG` in the package `__init__.py`. Browse the existing providers to see the pattern.
+### `declare_interaction(config)`
+
+Call this at module level in a pipe module.  It reads the provider name from `config.pipe.provider` (the ClassVar already on every `Pipe` subclass) and accumulates the config into an internal list.  Returns `None` — do not assign the result.
+
+```python
+# providers/instagram/media.py
+from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.registry import declare_interaction
+
+declare_interaction(InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG))
+declare_interaction(InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG))
+```
+
+### `register_provider(name, modules)`
+
+Call this once in a provider `__init__.py`.  Pass every pipe module as `modules` — because module objects must be imported before they can be passed, this makes the dependency on those imports structurally explicit rather than relying on side-effect ordering.  Raises `ValueError` if any module in `modules` declared no interactions.  Returns `None` — do not assign the result.
+
+```python
+# providers/instagram/__init__.py
+from context_use.providers.instagram import comments, connections, likes, media, ...
+from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.registry import register_provider
+
+register_provider(PROVIDER, modules=[comments, connections, likes, media, ...])
+```
 
 ### Adding a pipe to an existing provider
 
-1. In the pipe module, define `INTERACTION_CONFIG` with the pipe class and its `MemoryConfig` (set `memory=None` for ETL-only interaction types).
-2. In the provider's `__init__.py`, import it and add it to the `PROVIDER_CONFIG.interactions` list.
-
-No changes to `registry.py` needed.
+1. In the pipe module, call `declare_interaction(InteractionConfig(...))` at module level for each pipe class.
+2. In the provider's `__init__.py`, add one import line for the new module — this is what fires the declaration.
 
 ### Adding a new provider
 
-1. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` assembling `PROVIDER_CONFIG`.
-2. Add a member to the `Provider` enum in `context_use/providers/registry.py`.
-3. Import and add the provider config to `PROVIDER_REGISTRY` in the same file.
+1. Define `PROVIDER = "<name>"` in `schemas.py`. Import it into every pipe module (for the `provider` ClassVar) and into `__init__.py` (for `register_provider`). This is the single source of truth for the provider name.
+2. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` that imports the submodules and calls `register_provider(PROVIDER, modules=[...])`.
+3. Add one import line for the new provider package in `context_use/providers/__init__.py`.
 
 ---
 
@@ -182,7 +206,7 @@ Every `Pipe` subclass must set: `provider`, `interaction_type`, `archive_version
 
 - Build an ActivityStreams payload using Fibre models from `context_use/etl/payload/models.py`.
 - Return a `ThreadRow` with all required fields (see `context_use/etl/core/types.py`).
-- Set `unique_key` as `f"{self.interaction_type}:{payload.unique_key_suffix()}"`.
+- Set `unique_key` via `payload.unique_key()` (returns a content hash).
 - Set `preview` via `payload.get_preview(provider)`.
 - For media pipes, set `asset_uri` as `f"{task.archive_id}/{record.uri}"`.
 
@@ -217,7 +241,7 @@ To add a new fibre type:
 4. Call `model_rebuild()` at module level
 5. Add to the `FibreByType` discriminated union at the bottom of the file
 
-The mixin provides: `unique_key_suffix()`, `to_dict()`, `get_preview()`, `get_asat()`. See how existing pipes in `context_use/providers/` build payloads in their `transform()` methods.
+The mixin provides: `unique_key()`, `to_dict()`, `get_preview()`, `get_asat()`. See how existing pipes in `context_use/providers/` build payloads in their `transform()` methods.
 
 ### Shared Base Class Pattern
 
