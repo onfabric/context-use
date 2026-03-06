@@ -1,11 +1,12 @@
 from context_use import ContextUse
 from context_use.models.archive import ArchiveStatus
 from context_use.models.etl_task import EtlTaskStatus
+from context_use.providers import chatgpt
 
 
 class TestE2EChatGPT:
     async def test_full_flow(self, ctx: ContextUse, chatgpt_zip):
-        result = await ctx.process_archive("chatgpt", str(chatgpt_zip))
+        result = await ctx.process_archive(chatgpt.PROVIDER, str(chatgpt_zip))
 
         assert result.tasks_completed == 1
         assert result.tasks_failed == 0
