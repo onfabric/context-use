@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Searched with Google Lens",
+    "time": "2025-06-15T12:00:00.000Z",
+    "products": ["Google Lens"]
+  },
+  {
+    "title": "Searched with Google Lens",
+    "titleUrl": "https://www.google.com/url?q=https://www.example.com/lens-result",
+    "time": "2025-06-14T11:00:00.000Z",
+    "products": ["Google Lens"]
+  }
+]
+

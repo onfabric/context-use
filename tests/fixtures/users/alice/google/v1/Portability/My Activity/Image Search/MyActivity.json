@@ -1,0 +1,15 @@
+[
+  {
+    "title": "Searched for sunset wallpapers",
+    "titleUrl": "https://www.google.com/url?q=https://www.example.com/sunset-wallpapers",
+    "time": "2025-06-15T16:00:00.000Z",
+    "products": ["Image Search"]
+  },
+  {
+    "title": "Viewed sunset photo gallery",
+    "titleUrl": "https://www.google.com/url?q=https://www.example.com/sunset-gallery",
+    "time": "2025-06-15T16:05:00.000Z",
+    "products": ["Image Search"]
+  }
+]
+
