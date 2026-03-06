@@ -16,7 +16,7 @@ except ImportError as _exc:
     ) from _exc
 
 from context_use.ext.adk.agent.agent import create_agent
-from context_use.memories.agent.backend import AgentBackend, AgentResult
+from context_use.agent.backend import AgentBackend, AgentResult
 
 if TYPE_CHECKING:
     from context_use.llm.base import BaseLLMClient

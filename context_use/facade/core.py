@@ -7,13 +7,13 @@ import zipfile
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
+from context_use.agent.backend import AgentBackend, AgentResult
 from context_use.batch.manager import (
     BatchContext,
     ScheduleInstruction,
     get_manager_for_category,
 )
 from context_use.facade.types import MemorySummary, PipelineResult, TaskBreakdown
-from context_use.memories.agent.backend import AgentBackend, AgentResult
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
@@ -257,7 +257,7 @@ class ContextUse:
         The facade injects its internal store and LLM client so backends
         only carry configuration::
 
-            from context_use.memories.agent.skill import get_skill
+            from context_use.agent.skill import get_skill
             backend = AdkAgentBackend(api_key=key, model=cfg.openai_model)
             result = await ctx.run_agent(backend, get_skill("synthesise").prompt)
         """

@@ -56,7 +56,7 @@ class BaseAgentSkillCommand(AgentCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        from context_use.memories.agent.skill import get_skill
+        from context_use.agent.skill import get_skill
 
         backend = _build_agent_backend(cfg)
         if backend is None:
@@ -132,7 +132,7 @@ class AgentAskCommand(AgentCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        from context_use.memories.agent.skill import make_adhoc_skill
+        from context_use.agent.skill import make_adhoc_skill
 
         query: str = args.query
         if not query:
