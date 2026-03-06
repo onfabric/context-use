@@ -18,10 +18,6 @@ from tests.conftest import (
     GOOGLE_VIDEO_SEARCH_JSON,
 )
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 _BASE = "Portability/My Activity"
 
 
@@ -32,11 +28,6 @@ def _write_fixture(
     key = f"archive/{_BASE}/{subdir}/MyActivity.json"
     storage.write(key, json.dumps(data).encode())
     return storage, key
-
-
-# ---------------------------------------------------------------------------
-# Google Search
-# ---------------------------------------------------------------------------
 
 
 class TestGoogleSearchPipe(PipeTestKit):
@@ -100,11 +91,6 @@ class TestGoogleSearchPipe(PipeTestKit):
         assert any("python tutorials" in p for p in previews)
 
 
-# ---------------------------------------------------------------------------
-# Google Video Search
-# ---------------------------------------------------------------------------
-
-
 class TestGoogleVideoSearchPipe(PipeTestKit):
     pipe_class = GoogleVideoSearchPipe
     expected_extract_count = 2
@@ -122,11 +108,6 @@ class TestGoogleVideoSearchPipe(PipeTestKit):
         kinds = {r.payload["fibreKind"] for r in rows}
         assert "Search" in kinds
         assert "View" in kinds
-
-
-# ---------------------------------------------------------------------------
-# Google Image Search
-# ---------------------------------------------------------------------------
 
 
 class TestGoogleImageSearchPipe(PipeTestKit):

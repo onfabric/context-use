@@ -14,19 +14,10 @@ from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
-# ---------------------------------------------------------------------------
-# Title-prefix constants
-# ---------------------------------------------------------------------------
-
 _SEARCH_PREFIXES = ("Searched for ", "Defined ")
 _VIEW_PREFIXES = ("Visited ", "Viewed ")
 
 _RECOGNISED_PREFIXES = _SEARCH_PREFIXES + _VIEW_PREFIXES
-
-
-# ---------------------------------------------------------------------------
-# Shared search base
-# ---------------------------------------------------------------------------
 
 
 class _BaseGoogleSearchPipe(_BaseGooglePipe):
@@ -71,11 +62,6 @@ class _BaseGoogleSearchPipe(_BaseGooglePipe):
         raise ValueError(f"Unrecognised title prefix: {record.title!r}")
 
 
-# ---------------------------------------------------------------------------
-# Concrete search pipes
-# ---------------------------------------------------------------------------
-
-
 class GoogleSearchPipe(_BaseGoogleSearchPipe):
     """Google Search activity."""
 
@@ -96,10 +82,6 @@ class GoogleImageSearchPipe(_BaseGoogleSearchPipe):
     interaction_type = "google_image_search"
     archive_path_pattern = "Portability/My Activity/Image Search/MyActivity.json"
 
-
-# ---------------------------------------------------------------------------
-# Registration
-# ---------------------------------------------------------------------------
 
 declare_interaction(InteractionConfig(pipe=GoogleSearchPipe, memory=None))
 declare_interaction(InteractionConfig(pipe=GoogleVideoSearchPipe, memory=None))
