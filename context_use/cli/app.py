@@ -41,8 +41,6 @@ _EPILOG = (
     "Semantic search\n"
     "  context-use memories export                  "
     "Export to file\n"
-    '  context-use ask "question"                   '
-    "Ask about your memories\n"
     "\n"
     "Personal agent (requires PostgreSQL + adk extra):\n"
     "  1. uv sync --extra adk                       "
