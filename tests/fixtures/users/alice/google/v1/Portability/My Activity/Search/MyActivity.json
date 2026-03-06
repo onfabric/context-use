@@ -1,26 +1,57 @@
 [
-  {
-    "title": "Searched for python tutorials",
-    "titleUrl": "https://www.google.com/url?q=https://www.python.org/about/gettingstarted/",
-    "time": "2025-06-15T10:30:00.000Z",
-    "products": ["Search"]
-  },
-  {
-    "title": "Visited https://www.python.org/",
-    "titleUrl": "https://www.google.com/url?q=https://www.python.org/",
-    "time": "2025-06-15T10:31:00.000Z",
-    "products": ["Search"]
-  },
-  {
-    "title": "Searched for machine learning basics",
-    "titleUrl": "https://www.google.com/url?q=https://en.wikipedia.org/wiki/Machine_learning",
-    "time": "2025-06-14T09:00:00.000Z",
-    "products": ["Search"]
-  },
-  {
-    "title": "Used Google Assistant",
-    "time": "2025-06-13T08:00:00.000Z",
-    "products": ["Search"]
-  }
+    {
+        "header": "Search",
+        "title": "Searched for python tutorials",
+        "titleUrl": "https://www.google.com/search?q=python+tutorials",
+        "time": "2025-06-15T10:30:00.000Z",
+        "products": [
+            "Search"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Search",
+        "title": "Visited Python.org \u2013 Official Website",
+        "titleUrl": "https://www.google.com/url?q=https://www.python.org/&usg=AOvVaw123",
+        "time": "2025-06-15T10:31:00.000Z",
+        "products": [
+            "Search"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Search",
+        "title": "Searched for machine learning basics",
+        "titleUrl": "https://www.google.com/url?q=https://en.wikipedia.org/wiki/Machine_learning&usg=AOvVaw456",
+        "time": "2025-06-14T09:00:00.000Z",
+        "products": [
+            "Search"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Search",
+        "title": "1 notification",
+        "subtitles": [
+            {
+                "name": "Including topics:"
+            },
+            {
+                "name": "Weather"
+            }
+        ],
+        "time": "2025-06-13T08:00:00.000Z",
+        "products": [
+            "Search"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    }
 ]
-

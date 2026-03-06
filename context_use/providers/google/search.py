@@ -20,9 +20,8 @@ from context_use.storage.base import StorageBackend
 
 _SEARCH_PREFIXES = ("Searched for ", "Defined ")
 _VIEW_PREFIXES = ("Visited ", "Viewed ")
-_LENS_PREFIX = "Searched with Google Lens"
 
-_RECOGNISED_PREFIXES = _SEARCH_PREFIXES + _VIEW_PREFIXES + (_LENS_PREFIX,)
+_RECOGNISED_PREFIXES = _SEARCH_PREFIXES + _VIEW_PREFIXES
 
 
 # ---------------------------------------------------------------------------
@@ -54,11 +53,6 @@ class _BaseGoogleSearchPipe(_BaseGooglePipe):
     def _build_payload(self, record: GoogleRecord) -> ThreadPayload:
         url = self.clean_url(record.titleUrl)
         published = record.time
-
-        # --- Lens: title IS the prefix (no additional content) ---
-        if record.title.startswith(_LENS_PREFIX):
-            page = Page(url=url, published=published)  # type: ignore[reportCallIssue]
-            return FibreSearch(object=page, published=published)  # type: ignore[reportCallIssue]
 
         # --- "Searched for ..." / "Defined ..." → FibreSearch ---
         for prefix in _SEARCH_PREFIXES:
@@ -103,20 +97,6 @@ class GoogleImageSearchPipe(_BaseGoogleSearchPipe):
     archive_path_pattern = "Portability/My Activity/Image Search/MyActivity.json"
 
 
-class GoogleLensPipe(_BaseGoogleSearchPipe):
-    """Google Lens activity."""
-
-    interaction_type = "google_lens"
-    archive_path_pattern = "Portability/My Activity/Google Lens/MyActivity.json"
-
-
-class GoogleDiscoverPipe(_BaseGoogleSearchPipe):
-    """Google Discover activity."""
-
-    interaction_type = "google_discover"
-    archive_path_pattern = "Portability/My Activity/Discover/MyActivity.json"
-
-
 # ---------------------------------------------------------------------------
 # Registration
 # ---------------------------------------------------------------------------
@@ -124,5 +104,3 @@ class GoogleDiscoverPipe(_BaseGoogleSearchPipe):
 declare_interaction(InteractionConfig(pipe=GoogleSearchPipe, memory=None))
 declare_interaction(InteractionConfig(pipe=GoogleVideoSearchPipe, memory=None))
 declare_interaction(InteractionConfig(pipe=GoogleImageSearchPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=GoogleLensPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=GoogleDiscoverPipe, memory=None))

@@ -57,12 +57,21 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
 
     @staticmethod
     def clean_url(url: str | None) -> str | None:
-        """Unwrap Google redirect URLs (``google.com/url?q=...``)."""
+        """Unwrap Google redirect URLs (``google.com/url?q=...``).
+
+        Only unwraps when the path is ``/url`` — other Google URLs
+        (``/search``, ``/maps/place/...``, ``local.google.com/place``)
+        are returned as-is.
+        """
         if not url:
             return None
         try:
             parsed = urllib.parse.urlparse(url)
-            if parsed.hostname and "google" in parsed.hostname:
+            if (
+                parsed.hostname
+                and "google" in parsed.hostname
+                and parsed.path == "/url"
+            ):
                 params = urllib.parse.parse_qs(parsed.query)
                 q_values = params.get("q", [])
                 if q_values and q_values[0]:

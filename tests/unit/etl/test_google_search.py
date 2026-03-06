@@ -6,18 +6,14 @@ from pathlib import Path
 import pytest
 
 from context_use.providers.google.search import (
-    GoogleDiscoverPipe,
     GoogleImageSearchPipe,
-    GoogleLensPipe,
     GoogleSearchPipe,
     GoogleVideoSearchPipe,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.conftest import (
-    GOOGLE_DISCOVER_JSON,
     GOOGLE_IMAGE_SEARCH_JSON,
-    GOOGLE_LENS_JSON,
     GOOGLE_SEARCH_JSON,
     GOOGLE_VIDEO_SEARCH_JSON,
 )
@@ -71,8 +67,20 @@ class TestGoogleSearchPipe(PipeTestKit):
         assert "Search" in kinds
         assert "View" in kinds
 
-    def test_url_unwrapped(self, pipe_fixture):
-        """Google redirect URLs should be unwrapped to the actual URL."""
+    def test_redirect_url_unwrapped(self, pipe_fixture):
+        """Google /url redirect URLs should be unwrapped to the actual URL."""
+        storage, key = pipe_fixture
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+        rows = list(pipe.run(task, storage))
+        view_rows = [r for r in rows if r.payload["fibreKind"] == "View"]
+        for row in view_rows:
+            url = row.payload["object"].get("url")
+            if url:
+                assert "google.com/url" not in url
+
+    def test_search_url_preserved(self, pipe_fixture):
+        """Non-redirect Google URLs (google.com/search) should be kept as-is."""
         storage, key = pipe_fixture
         pipe = self.pipe_class()
         task = self._make_task(key)
@@ -80,8 +88,8 @@ class TestGoogleSearchPipe(PipeTestKit):
         search_rows = [r for r in rows if r.payload["fibreKind"] == "Search"]
         for row in search_rows:
             url = row.payload["object"].get("url")
-            if url:
-                assert "google.com/url" not in url
+            if url and "google.com/search" in url:
+                assert url.startswith("https://www.google.com/search")
 
     def test_preview_text(self, pipe_fixture):
         storage, key = pipe_fixture
@@ -139,68 +147,28 @@ class TestGoogleImageSearchPipe(PipeTestKit):
         assert "Search" in kinds
         assert "View" in kinds
 
-
-# ---------------------------------------------------------------------------
-# Google Lens
-# ---------------------------------------------------------------------------
-
-
-class TestGoogleLensPipe(PipeTestKit):
-    pipe_class = GoogleLensPipe
-    expected_extract_count = 2
-    expected_transform_count = 2
-
-    @pytest.fixture()
-    def pipe_fixture(self, tmp_path: Path):
-        return _write_fixture(tmp_path, "Google Lens", GOOGLE_LENS_JSON)
-
-    def test_all_search_fibres(self, pipe_fixture):
-        """Lens records always produce FibreSearch."""
+    def test_search_url_not_unwrapped(self, pipe_fixture):
+        """google.com/search URLs should be preserved, not have q= extracted."""
         storage, key = pipe_fixture
         pipe = self.pipe_class()
         task = self._make_task(key)
         rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.payload["fibreKind"] == "Search"
+        search_rows = [r for r in rows if r.payload["fibreKind"] == "Search"]
+        assert len(search_rows) >= 1
+        url = search_rows[0].payload["object"].get("url")
+        # URL should be the original google.com/search?q=...
+        assert url is not None
+        assert "google.com/search" in url
 
-    def test_page_object_type(self, pipe_fixture):
+    def test_redirect_url_unwrapped(self, pipe_fixture):
+        """google.com/url redirect URLs should be unwrapped."""
         storage, key = pipe_fixture
         pipe = self.pipe_class()
         task = self._make_task(key)
         rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.payload["object"]["type"] == "Page"
-
-
-# ---------------------------------------------------------------------------
-# Google Discover
-# ---------------------------------------------------------------------------
-
-
-class TestGoogleDiscoverPipe(PipeTestKit):
-    pipe_class = GoogleDiscoverPipe
-    # 3 records in fixture, 1 has unrecognised prefix → 2 extracted, 2 transformed
-    expected_extract_count = 2
-    expected_transform_count = 2
-
-    @pytest.fixture()
-    def pipe_fixture(self, tmp_path: Path):
-        return _write_fixture(tmp_path, "Discover", GOOGLE_DISCOVER_JSON)
-
-    def test_all_view_fibres(self, pipe_fixture):
-        """Discover records with 'Viewed' prefix produce FibreViewObject."""
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.payload["fibreKind"] == "View"
-
-    def test_preview_uses_via_google(self, pipe_fixture):
-        """Google provider previews should use 'via google' not 'on google'."""
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert "via google" in row.preview
+        view_rows = [r for r in rows if r.payload["fibreKind"] == "View"]
+        assert len(view_rows) >= 1
+        url = view_rows[0].payload["object"].get("url")
+        assert url is not None
+        assert "example.com" in url
+        assert "google.com/url" not in url
