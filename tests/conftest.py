@@ -46,6 +46,12 @@ GOOGLE_IMAGE_SEARCH_JSON: list[dict] = json.loads(
     ).read_text()
 )
 
+GOOGLE_YOUTUBE_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR / "Portability" / "My Activity" / "YouTube" / "MyActivity.json"
+    ).read_text()
+)
+
 
 INSTAGRAM_STORIES_JSON: dict = json.loads(
     (
