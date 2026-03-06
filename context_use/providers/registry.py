@@ -45,9 +45,14 @@ def build_and_register_provider(name: str) -> None:
 
         build_and_register_provider(PROVIDER)
     """
-    _provider_registry[name] = ProviderConfig(
-        interactions=list(_interactions_by_provider.get(name, []))
-    )
+    interactions = list(_interactions_by_provider.get(name, []))
+    if not interactions:
+        raise ValueError(
+            f"build_and_register_provider({name!r}) called with no registered "
+            "interactions — make sure all pipe modules are imported before "
+            "calling this function."
+        )
+    _provider_registry[name] = ProviderConfig(interactions=interactions)
 
 
 def list_providers() -> list[str]:
