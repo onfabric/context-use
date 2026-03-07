@@ -39,10 +39,14 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
             Field(default=50, description="Maximum number of memories to return."),
         ] = 50,
     ) -> dict:
-        """List active memories, optionally filtered by date range.
+        """List active memories in date order, optionally filtered by a date range.
 
-        Returns a list of memories with their IDs, content, and date spans.
-        Use this to survey what exists before making any changes.
+        Returns memories ordered by date with their IDs, content, and date spans.
+        Use this to survey a specific time window.
+
+        WARNING: results are capped at *limit* and may not include all memories
+        in the requested range. If the window is large or you are unsure how many
+        memories exist, use search_memories with a descriptive query instead.
         """
         from_dt = date.fromisoformat(from_date) if from_date else None
         rows = await store.list_memories(
@@ -71,21 +75,46 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
             str,
             Field(description="Text query to find semantically similar memories."),
         ],
+        from_date: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "ISO date (YYYY-MM-DD). "
+                    "Only return memories from this date onwards."
+                ),
+            ),
+        ] = None,
+        to_date: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description=(
+                    "ISO date (YYYY-MM-DD). Only return memories up to this date."
+                ),
+            ),
+        ] = None,
         top_k: Annotated[
             int,
             Field(default=10, description="Maximum number of results to return."),
         ] = 10,
     ) -> dict:
-        """Find memories semantically similar to a text query.
+        """Find memories semantically similar to a query, with optional date filters.
 
-        This is the primary tool for pattern synthesis. Query with topic
-        descriptions (e.g. "running and fitness", "work projects and career")
-        to pull the most relevant memories for a given life area.
+        Results are ranked by semantic similarity. Use from_date and to_date to further
+        narrow the search to a specific time window.
         """
-        query_embedding = await llm_client.embed_query(query)
-        results = await store.search_memories(
-            query_embedding=query_embedding,
+        from context_use.search.memories import search_memories as _search
+
+        parsed_from = date.fromisoformat(from_date) if from_date else None
+        parsed_to = date.fromisoformat(to_date) if to_date else None
+        results = await _search(
+            store,
+            query=query,
+            from_date=parsed_from,
+            to_date=parsed_to,
             top_k=top_k,
+            llm_client=llm_client,
         )
         return {
             "count": len(results),

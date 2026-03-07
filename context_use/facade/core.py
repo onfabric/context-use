@@ -245,6 +245,19 @@ class ContextUse:
         manager = manager_cls(batch=batch, ctx=self._batch_context())
         return await manager.try_advance_state()
 
+    # ── Tools ────────────────────────────────────────────────────────
+
+    def make_tools(self) -> list:
+        """Return the full memory tool set as plain async functions.
+
+        The returned list is suitable for both ADK (pass directly to
+        ``LlmAgent(tools=...)``) and MCP (register via
+        ``server.tool(title=...)(fn)`` for each function).
+        """
+        from context_use.agent.tools import make_agent_tools
+
+        return make_agent_tools(self._store, self._llm_client)
+
     # ── Personal agent ───────────────────────────────────────────────
 
     async def run_agent(

@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import date
 from typing import TYPE_CHECKING
 
-from context_use.models.memory import EMBEDDING_DIMENSIONS
 from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
@@ -31,7 +30,6 @@ async def search_memories(
     query_embedding: list[float] | None = None
     if query is not None:
         query_embedding = await llm_client.embed_query(query)
-        assert len(query_embedding) == EMBEDDING_DIMENSIONS
 
     return await store.search_memories(
         query_embedding=query_embedding,
