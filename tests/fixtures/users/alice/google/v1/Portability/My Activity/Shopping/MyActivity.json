@@ -1,0 +1,49 @@
+[
+    {
+        "header": "Shopping",
+        "title": "Searched for wireless headphones",
+        "titleUrl": "https://www.google.com/search?q=wireless+headphones&tbm=shop",
+        "time": "2025-06-15T14:00:00.000Z",
+        "products": [
+            "Shopping"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Shopping",
+        "title": "Viewed Acme Noise-Cancel Pro 500",
+        "titleUrl": "https://www.google.com/search?q=Acme+Noise-Cancel+Pro+500&ibp=oshop&udm=28&prds=productid:1234567890",
+        "time": "2025-06-15T14:05:00.000Z",
+        "products": [
+            "Shopping"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Shopping",
+        "title": "Viewed Globex Bluetooth Earbuds X1",
+        "titleUrl": "https://www.google.com/shopping/product/9876543210",
+        "time": "2025-06-14T11:00:00.000Z",
+        "products": [
+            "Shopping"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Shopping",
+        "title": "Used Shopping",
+        "time": "2025-06-13T09:00:00.000Z",
+        "products": [
+            "Shopping"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    }
+]

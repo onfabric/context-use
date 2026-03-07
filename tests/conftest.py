@@ -85,6 +85,49 @@ GOOGLE_YOUTUBE_JSON: list[dict] = json.loads(
 )
 
 
+GOOGLE_SEARCH_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR / "Portability" / "My Activity" / "Search" / "MyActivity.json"
+    ).read_text()
+)
+
+GOOGLE_VIDEO_SEARCH_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR
+        / "Portability"
+        / "My Activity"
+        / "Video Search"
+        / "MyActivity.json"
+    ).read_text()
+)
+
+GOOGLE_IMAGE_SEARCH_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR
+        / "Portability"
+        / "My Activity"
+        / "Image Search"
+        / "MyActivity.json"
+    ).read_text()
+)
+
+GOOGLE_SHOPPING_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR
+        / "Portability"
+        / "My Activity"
+        / "Shopping"
+        / "MyActivity.json"
+    ).read_text()
+)
+
+GOOGLE_YOUTUBE_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR / "Portability" / "My Activity" / "YouTube" / "MyActivity.json"
+    ).read_text()
+)
+
+
 INSTAGRAM_STORIES_JSON: dict = json.loads(
     (
         ALICE_INSTAGRAM_DIR / "your_instagram_activity" / "media" / "stories.json"
