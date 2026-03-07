@@ -11,6 +11,7 @@ FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 ALICE_CHATGPT_DIR = FIXTURES_DIR / "users" / "alice" / "chatgpt" / "v1"
 ALICE_CLAUDE_DIR = FIXTURES_DIR / "users" / "alice" / "claude" / "v1"
+ALICE_GOOGLE_DIR = FIXTURES_DIR / "users" / "alice" / "google" / "v1"
 ALICE_INSTAGRAM_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v1"
 ALICE_INSTAGRAM_V0_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v0"
 
@@ -21,6 +22,33 @@ CHATGPT_CONVERSATIONS: list[dict] = json.loads(
 
 CLAUDE_CONVERSATIONS: list[dict] = json.loads(
     (ALICE_CLAUDE_DIR / "conversations.json").read_text()
+)
+
+
+GOOGLE_SEARCH_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR / "Portability" / "My Activity" / "Search" / "MyActivity.json"
+    ).read_text()
+)
+
+GOOGLE_VIDEO_SEARCH_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR
+        / "Portability"
+        / "My Activity"
+        / "Video Search"
+        / "MyActivity.json"
+    ).read_text()
+)
+
+GOOGLE_IMAGE_SEARCH_JSON: list[dict] = json.loads(
+    (
+        ALICE_GOOGLE_DIR
+        / "Portability"
+        / "My Activity"
+        / "Image Search"
+        / "MyActivity.json"
+    ).read_text()
 )
 
 
@@ -187,6 +215,12 @@ def zip_fixture_dir(fixture_dir: Path, dest: Path) -> Path:
 def chatgpt_zip(tmp_path: Path) -> Path:
     """Zip alice's synthetic ChatGPT archive into a temp file."""
     return zip_fixture_dir(ALICE_CHATGPT_DIR, tmp_path / "chatgpt-export.zip")
+
+
+@pytest.fixture()
+def google_zip(tmp_path: Path) -> Path:
+    """Zip alice's synthetic Google Takeout archive into a temp file."""
+    return zip_fixture_dir(ALICE_GOOGLE_DIR, tmp_path / "google-export.zip")
 
 
 @pytest.fixture()

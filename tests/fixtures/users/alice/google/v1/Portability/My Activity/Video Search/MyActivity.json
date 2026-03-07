@@ -1,0 +1,26 @@
+[
+    {
+        "header": "Video Search",
+        "title": "Searched for cooking tutorials",
+        "titleUrl": "https://www.google.com/search?q=cooking+tutorials&udm=7",
+        "time": "2025-06-15T14:00:00.000Z",
+        "products": [
+            "Video Search"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Video Search",
+        "title": "Viewed cooking masterclass",
+        "titleUrl": "https://www.google.com/url?q=https://www.example.com/cooking-masterclass&usg=AOvVaw789",
+        "time": "2025-06-15T14:05:00.000Z",
+        "products": [
+            "Video Search"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    }
+]
