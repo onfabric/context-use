@@ -4,6 +4,7 @@ import json
 import logging
 import urllib.parse
 from collections.abc import Iterator
+from typing import cast
 
 import ijson
 
@@ -42,7 +43,10 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
             for raw in ijson.items(stream, "item"):
                 source_json = json.dumps(raw, default=str)
                 try:
-                    record = GoogleRecord.model_validate(raw)
+                    record = cast(
+                        GoogleRecord,
+                        self.record_schema.model_validate(raw),
+                    )
                 except Exception:
                     logger.debug(
                         "%s: skipping invalid record in %s",

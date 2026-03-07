@@ -20,3 +20,13 @@ class GoogleRecord(BaseModel):
     products: list[str] | None = None
     locationInfos: list[dict] | None = None
     source: str | None = None
+
+
+class GoogleYoutubeRecord(GoogleRecord):
+    """Extended record for YouTube activity items.
+
+    Adds ``subtitles`` which carries channel name / URL on
+    ``Watched``, ``Liked``, ``Disliked``, and ``Saved`` entries.
+    """
+
+    subtitles: list[dict] | None = None
