@@ -1,0 +1,164 @@
+[
+  {
+    "uuid": "conv-0001-0000-0000-0000-000000000001",
+    "name": "Podcast recommendations like Acquired",
+    "summary": "",
+    "created_at": "2025-12-14T17:14:08.024838Z",
+    "updated_at": "2025-12-14T17:21:03.632585Z",
+    "account": {
+      "uuid": "acct-0000-0000-0000-0000-000000000001"
+    },
+    "chat_messages": [
+      {
+        "uuid": "msg-0001-0000-0000-0000-000000000001",
+        "text": "i love the acquired podcast. can you find some others i might like?",
+        "content": [
+          {
+            "start_timestamp": "2025-12-14T17:14:09.969080Z",
+            "stop_timestamp": "2025-12-14T17:14:09.969080Z",
+            "flags": null,
+            "type": "text",
+            "text": "i love the acquired podcast. can you find some others i might like?",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-12-14T17:14:09.978585Z",
+        "updated_at": "2025-12-14T17:14:09.978585Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "msg-0001-0000-0000-0000-000000000002",
+        "text": "Let me search for that.\n```\nThis block is not supported on your current device yet.\n```\n\nBased on what makes Acquired great—deep-dive storytelling, thorough research, and fascinating business histories—here are some podcasts you'll probably enjoy:\n\n**Closest matches:**\n\n- **Founders** by David Senra — He reads biographies of legendary entrepreneurs and distills the key lessons.\n- **Business Breakdowns** — Deep research and interviews with industry veterans to unveil the secrets behind public and private businesses.\n- **How I Built This** with Guy Raz — Guy Raz interviews the world's best-known entrepreneurs to learn how they built their iconic brands.",
+        "content": [
+          {
+            "start_timestamp": "2025-12-14T17:14:12.645473Z",
+            "stop_timestamp": "2025-12-14T17:14:12.923766Z",
+            "flags": null,
+            "type": "text",
+            "text": "Let me search for that.",
+            "citations": []
+          },
+          {
+            "start_timestamp": "2025-12-14T17:14:13.167632Z",
+            "stop_timestamp": "2025-12-14T17:14:13.214338Z",
+            "flags": null,
+            "type": "tool_use",
+            "id": null,
+            "name": "web_search",
+            "input": {"query": "podcasts similar to Acquired"},
+            "message": "Searching the web",
+            "integration_name": null,
+            "integration_icon_url": null,
+            "icon_name": null,
+            "context": null,
+            "display_content": null,
+            "approval_options": null,
+            "approval_key": null,
+            "is_mcp_app": null
+          },
+          {
+            "start_timestamp": null,
+            "stop_timestamp": null,
+            "flags": null,
+            "type": "tool_result",
+            "tool_use_id": null,
+            "name": "web_search",
+            "content": [],
+            "is_error": false,
+            "structured_content": null,
+            "meta": null,
+            "message": null,
+            "integration_name": null,
+            "integration_icon_url": null,
+            "icon_name": null,
+            "display_content": null
+          },
+          {
+            "start_timestamp": "2025-12-14T17:14:16.807597Z",
+            "stop_timestamp": "2025-12-14T17:14:28.369198Z",
+            "flags": null,
+            "type": "text",
+            "text": "Based on what makes Acquired great—deep-dive storytelling, thorough research, and fascinating business histories—here are some podcasts you'll probably enjoy:\n\n**Closest matches:**\n\n- **Founders** by David Senra — He reads biographies of legendary entrepreneurs and distills the key lessons.\n- **Business Breakdowns** — Deep research and interviews with industry veterans to unveil the secrets behind public and private businesses.\n- **How I Built This** with Guy Raz — Guy Raz interviews the world's best-known entrepreneurs to learn how they built their iconic brands.",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-12-14T17:14:28.431578Z",
+        "updated_at": "2025-12-14T17:14:28.431578Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "msg-0001-0000-0000-0000-000000000003",
+        "text": "what other non-obvious recommendation would you give me (beyond podcasts)?",
+        "content": [
+          {
+            "start_timestamp": "2025-12-14T17:20:50.271261Z",
+            "stop_timestamp": "2025-12-14T17:20:50.271261Z",
+            "flags": null,
+            "type": "text",
+            "text": "what other non-obvious recommendation would you give me (beyond podcasts)?",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-12-14T17:20:50.326856Z",
+        "updated_at": "2025-12-14T17:20:50.326856Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "msg-0001-0000-0000-0000-000000000004",
+        "text": "Great question! Since you love Acquired's deep, well-researched storytelling about how companies actually work, here are some non-obvious directions:\n\n**Books that scratch the same itch:**\n\n- **\"The Outsiders\" by Will Thorndike** — Profiles eight unconventional CEOs who massively outperformed.\n- **\"Poor Charlie's Almanack\"** — Charlie Munger's collected wisdom; complements Acquired's Berkshire and Costco episodes perfectly.",
+        "content": [
+          {
+            "start_timestamp": "2025-12-14T17:20:53.020591Z",
+            "stop_timestamp": "2025-12-14T17:21:03.595175Z",
+            "flags": null,
+            "type": "text",
+            "text": "Great question! Since you love Acquired's deep, well-researched storytelling about how companies actually work, here are some non-obvious directions:\n\n**Books that scratch the same itch:**\n\n- **\"The Outsiders\" by Will Thorndike** — Profiles eight unconventional CEOs who massively outperformed.\n- **\"Poor Charlie's Almanack\"** — Charlie Munger's collected wisdom; complements Acquired's Berkshire and Costco episodes perfectly.",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-12-14T17:21:03.632585Z",
+        "updated_at": "2025-12-14T17:21:03.632585Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  },
+  {
+    "uuid": "conv-0002-0000-0000-0000-000000000002",
+    "name": "Empty message edge case",
+    "summary": "",
+    "created_at": "2025-01-02T09:00:00.000000Z",
+    "updated_at": "2025-01-02T09:00:00.000000Z",
+    "account": {
+      "uuid": "acct-0000-0000-0000-0000-000000000001"
+    },
+    "chat_messages": [
+      {
+        "uuid": "msg-0002-0000-0000-0000-000000000001",
+        "text": "",
+        "content": [
+          {
+            "start_timestamp": "2025-01-02T09:00:01.000000Z",
+            "stop_timestamp": "2025-01-02T09:00:01.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-01-02T09:00:01.000000Z",
+        "updated_at": "2025-01-02T09:00:01.000000Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  }
+]
