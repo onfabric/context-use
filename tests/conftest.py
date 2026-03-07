@@ -10,6 +10,7 @@ import pytest
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 ALICE_CHATGPT_DIR = FIXTURES_DIR / "users" / "alice" / "chatgpt" / "v1"
+ALICE_CLAUDE_DIR = FIXTURES_DIR / "users" / "alice" / "claude" / "v1"
 ALICE_GOOGLE_DIR = FIXTURES_DIR / "users" / "alice" / "google" / "v1"
 ALICE_INSTAGRAM_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v1"
 ALICE_INSTAGRAM_V0_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v0"
@@ -17,6 +18,10 @@ ALICE_INSTAGRAM_V0_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v0"
 
 CHATGPT_CONVERSATIONS: list[dict] = json.loads(
     (ALICE_CHATGPT_DIR / "conversations.json").read_text()
+)
+
+CLAUDE_CONVERSATIONS: list[dict] = json.loads(
+    (ALICE_CLAUDE_DIR / "conversations.json").read_text()
 )
 
 
