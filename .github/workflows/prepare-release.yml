@@ -68,7 +68,8 @@ jobs:
           After merging, tag and push to trigger the publish workflow:
 
           \`\`\`
-          git tag v${VERSION} && git push origin v${VERSION}
+          git tag v${VERSION}
+          git push origin v${VERSION}
           \`\`\`
           EOF
           )"
