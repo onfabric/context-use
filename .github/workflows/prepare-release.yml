@@ -1,0 +1,55 @@
+name: prepare-release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/prepare
+
+      - name: Compute next version
+        id: version
+        run: echo "version=$(uv run git-cliff --bumped-version 2>/dev/null)" >> "$GITHUB_OUTPUT"
+
+      - name: Update pyproject.toml version
+        run: sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Generate changelog
+        run: uv run git-cliff --bump -o CHANGELOG.md
+
+      - name: Create release PR
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "release/v${VERSION}"
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore(release): v${VERSION}"
+          git push --set-upstream origin "release/v${VERSION}"
+          gh pr create \
+            --title "chore(release): v${VERSION}" \
+            --body "$(cat <<EOF
+          Bumps version to **${VERSION}** and regenerates CHANGELOG.md.
+
+          After merging, tag and push to trigger the publish workflow:
+
+          \`\`\`
+          git tag v${VERSION} && git push origin v${VERSION}
+          \`\`\`
+          EOF
+          )"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
