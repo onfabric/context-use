@@ -8,6 +8,7 @@ from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from context_use.agent.backend import AgentBackend, AgentResult
+from context_use.agent.tools import make_agent_tools
 from context_use.batch.manager import (
     BatchContext,
     ScheduleInstruction,
@@ -249,14 +250,7 @@ class ContextUse:
     # ── Tools ────────────────────────────────────────────────────────
 
     def make_tools(self) -> list:
-        """Return the full memory tool set as plain async functions.
-
-        The returned list is suitable for both ADK (pass directly to
-        ``LlmAgent(tools=...)``) and MCP (register via
-        ``server.tool(title=...)(fn)`` for each function).
-        """
-        from context_use.agent.tools import make_agent_tools
-
+        """Return the full memory tool set as plain async functions."""
         return make_agent_tools(self)
 
     # ── Personal agent ───────────────────────────────────────────────
