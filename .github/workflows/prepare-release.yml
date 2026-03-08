@@ -2,9 +2,6 @@ name: prepare-release
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - luca/prepare-release-workflow
 
 jobs:
   prepare-release:
