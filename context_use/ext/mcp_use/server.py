@@ -7,9 +7,6 @@ if TYPE_CHECKING:
 
     from context_use import ContextUse
 
-# Tools that do not mutate state.
-_READONLY_TOOLS = {"list_memories", "search_memories", "get_memory"}
-
 
 def create_server(
     ctx: ContextUse,
@@ -27,7 +24,6 @@ def create_server(
         version: Server version exposed to MCP clients.
     """
     try:
-        from mcp.types import ToolAnnotations
         from mcp_use.server import MCPServer as _MCPServer
     except ImportError:
         raise ImportError(
@@ -47,12 +43,7 @@ def create_server(
     )
 
     for fn in ctx.make_tools():
-        readonly = fn.__name__ in _READONLY_TOOLS
-        annotations = ToolAnnotations(
-            readOnlyHint=readonly,
-            idempotentHint=readonly,
-        )
         title = fn.__name__.replace("_", " ").title()
-        server.tool(title=title, annotations=annotations)(fn)
+        server.tool(title=title)(fn)
 
     return server
