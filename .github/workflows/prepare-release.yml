@@ -6,10 +6,6 @@ on:
     branches:
       - luca/prepare-release-workflow
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   prepare-release:
     runs-on: ubuntu-latest
@@ -19,6 +15,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.FABRIC_AUTOMATION_PUBLIC_APP_ID }}
+          private-key: ${{ secrets.FABRIC_AUTOMATION_PUBLIC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ github.event.repository.name }}
+
       - uses: ./.github/actions/prepare
 
       - name: Compute next version
@@ -26,21 +31,28 @@ jobs:
         run: echo "version=$(uv run git-cliff --bumped-version 2>/dev/null)" >> "$GITHUB_OUTPUT"
 
       - name: Update pyproject.toml version
-        run: sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
         env:
           VERSION: ${{ steps.version.outputs.version }}
+        run: sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
 
       - name: Generate changelog
         run: uv run git-cliff --bump -o CHANGELOG.md
 
-      - name: Create release PR
+      - name: Configure git user
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git switch -c "release/v${VERSION}"
+          git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+          git config --global user.email '${{ vars.FABRIC_AUTOMATION_PUBLIC_USER_ID }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+
+      - name: Create release PR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_BRANCH: release/v${VERSION}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          git switch -c $RELEASE_BRANCH
           git add pyproject.toml CHANGELOG.md
           git commit -m "chore(release): v${VERSION}"
-          git push --set-upstream origin "release/v${VERSION}"
+          git push --set-upstream origin $RELEASE_BRANCH
           gh pr create \
             --title "chore(release): v${VERSION}" \
             --body "$(cat <<EOF
@@ -53,6 +65,3 @@ jobs:
           \`\`\`
           EOF
           )"
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
