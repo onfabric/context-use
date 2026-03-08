@@ -2,6 +2,9 @@ name: prepare-release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - luca/prepare-release-workflow
 
 permissions:
   contents: write
