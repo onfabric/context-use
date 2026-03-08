@@ -20,6 +20,16 @@ class MemoryStatus(enum.StrEnum):
 
 
 @dataclass
+class MemorySummary:
+    """A slim projection of a memory: id, content, and date span only."""
+
+    id: str
+    content: str
+    from_date: date
+    to_date: date
+
+
+@dataclass
 class TapestryMemory:
     """A single memory covering a date range."""
 

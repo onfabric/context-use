@@ -5,8 +5,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from context_use.llm.base import BaseLLMClient
-    from context_use.store.base import Store
+    from context_use.facade.core import ContextUse
 
 
 @dataclass
@@ -23,8 +22,7 @@ class AgentBackend(ABC):
     @abstractmethod
     async def run(
         self,
-        store: Store,
-        llm_client: BaseLLMClient,
+        ctx: ContextUse,
         message: str,
     ) -> AgentResult:
         """Execute the agent with *message* as the user task and return a summary."""

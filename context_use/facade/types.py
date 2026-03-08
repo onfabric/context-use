@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
 
 
 @dataclass
@@ -25,13 +24,3 @@ class TaskBreakdown:
     task_id: str
     interaction_type: str
     thread_count: int
-
-
-@dataclass
-class MemorySummary:
-    """Public representation of a single memory."""
-
-    id: str
-    content: str
-    from_date: date
-    to_date: date

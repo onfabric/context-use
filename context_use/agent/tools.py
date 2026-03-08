@@ -2,61 +2,51 @@ from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 from pydantic import Field
 
-from context_use.models.memory import MemoryStatus, TapestryMemory
-from context_use.models.utils import generate_uuidv4
-
-if TYPE_CHECKING:
-    from context_use.llm.base import BaseLLMClient
-    from context_use.store.base import Store
+from context_use.agent.protocol import MemoryOperations
 
 logger = logging.getLogger(__name__)
 
 
-def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
-    """Build the memory tool set for the refinement agent."""
+def make_agent_tools(ops: MemoryOperations) -> list:
+    """Build the memory tool set for the refinement agent.
+
+    Each tool is a thin adapter: it parses LLM-friendly string inputs,
+    delegates to *ops* (any :class:`MemoryOperations` implementation),
+    and serialises the result to a plain dict for the model to read.
+    """
 
     async def list_memories(
         from_date: Annotated[
-            str | None,
-            Field(
-                default=None,
-                description="ISO date (YYYY-MM-DD). Return memories from this date.",
-            ),
-        ] = None,
+            str,
+            Field(description="ISO date (YYYY-MM-DD). Start of the window to survey."),
+        ],
         to_date: Annotated[
-            str | None,
-            Field(
-                default=None,
-                description="ISO date (YYYY-MM-DD). Return memories before this date.",
-            ),
-        ] = None,
+            str,
+            Field(description="ISO date (YYYY-MM-DD). End of the window to survey."),
+        ],
         limit: Annotated[
             int,
             Field(default=50, description="Maximum number of memories to return."),
         ] = 50,
     ) -> dict:
-        """List active memories in date order, optionally filtered by a date range.
+        """List active memories in date order within a specific time window.
 
-        Returns memories ordered by date with their IDs, content, and date spans.
-        Use this to survey a specific time window.
+        Use this to survey a well-defined date range.
+        Always provide both from_date and to_date to bound the window.
 
         WARNING: results are capped at *limit* and may not include all memories
         in the requested range. If the window is large or you are unsure how many
         memories exist, use search_memories with a descriptive query instead.
         """
-        from_dt = date.fromisoformat(from_date) if from_date else None
-        rows = await store.list_memories(
-            status=MemoryStatus.active.value,
-            from_date=from_dt,
+        rows = await ops.list_memories(
+            from_date=date.fromisoformat(from_date),
+            to_date=date.fromisoformat(to_date),
             limit=limit,
         )
-        if to_date:
-            to_dt = date.fromisoformat(to_date)
-            rows = [r for r in rows if r.to_date <= to_dt]
         return {
             "count": len(rows),
             "memories": [
@@ -104,17 +94,13 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
         Results are ranked by semantic similarity. Use from_date and to_date to further
         narrow the search to a specific time window.
         """
-        from context_use.search.memories import search_memories as _search
-
         parsed_from = date.fromisoformat(from_date) if from_date else None
         parsed_to = date.fromisoformat(to_date) if to_date else None
-        results = await _search(
-            store,
+        results = await ops.search_memories(
             query=query,
             from_date=parsed_from,
             to_date=parsed_to,
             top_k=top_k,
-            llm_client=llm_client,
         )
         return {
             "count": len(results),
@@ -143,10 +129,9 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
         Use this to read a memory's complete content before deciding
         whether to update, archive, or merge it.
         """
-        memories = await store.get_memories([memory_id])
-        if not memories:
+        m = await ops.get_memory(memory_id)
+        if m is None:
             return {"error": f"Memory {memory_id!r} not found"}
-        m = memories[0]
         return {
             "id": m.id,
             "content": m.content,
@@ -186,19 +171,14 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
         For merges or splits, use create_memory + archive_memories instead.
         At least one of content, from_date, or to_date must be provided.
         """
-        memories = await store.get_memories([memory_id])
-        if not memories:
-            return {"error": f"Memory {memory_id!r} not found"}
-        m = memories[0]
-        if content is not None:
-            m.content = content
-            embedding = await llm_client.embed_query(content)
-            m.embedding = embedding
-        if from_date is not None:
-            m.from_date = date.fromisoformat(from_date)
-        if to_date is not None:
-            m.to_date = date.fromisoformat(to_date)
-        await store.update_memory(m)
+        from_dt = date.fromisoformat(from_date) if from_date else None
+        to_dt = date.fromisoformat(to_date) if to_date else None
+        try:
+            await ops.update_memory(
+                memory_id, content=content, from_date=from_dt, to_date=to_dt
+            )
+        except ValueError as exc:
+            return {"error": str(exc)}
         logger.info("Updated memory %s", memory_id)
         return {"updated": memory_id}
 
@@ -234,17 +214,12 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
         Do NOT archive the source memories when creating a pattern — they remain
         individually useful.
         """
-        embedding = await llm_client.embed_query(content)
-        memory = TapestryMemory(
+        created = await ops.create_memory(
             content=content,
             from_date=date.fromisoformat(from_date),
             to_date=date.fromisoformat(to_date),
-            group_id=generate_uuidv4(),
-            status=MemoryStatus.active.value,
             source_memory_ids=source_memory_ids,
-            embedding=embedding,
         )
-        created = await store.create_memory(memory)
         logger.info("Created memory %s (sources=%s)", created.id, source_memory_ids)
         return {"created_id": created.id}
 
@@ -271,20 +246,12 @@ def make_agent_tools(store: Store, llm_client: BaseLLMClient) -> list:
         splitting an over-broad memory, passing the new memory's ID as
         superseded_by.
         """
-        memories = await store.get_memories(memory_ids)
-        found_ids = {m.id for m in memories}
-        updated_ids: list[str] = []
-        for m in memories:
-            m.status = MemoryStatus.superseded.value
-            if superseded_by:
-                m.superseded_by = superseded_by
-            await store.update_memory(m)
-            updated_ids.append(m.id)
-        not_found = [mid for mid in memory_ids if mid not in found_ids]
+        archived = await ops.archive_memories(memory_ids, superseded_by=superseded_by)
+        not_found = [mid for mid in memory_ids if mid not in set(archived)]
         logger.info(
-            "Archived %d memories (superseded_by=%s)", len(updated_ids), superseded_by
+            "Archived %d memories (superseded_by=%s)", len(archived), superseded_by
         )
-        result: dict = {"archived": updated_ids}
+        result: dict = {"archived": archived}
         if not_found:
             result["not_found"] = not_found
         return result

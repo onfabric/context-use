@@ -13,12 +13,13 @@ from context_use.batch.manager import (
     ScheduleInstruction,
     get_manager_for_category,
 )
-from context_use.facade.types import MemorySummary, PipelineResult, TaskBreakdown
+from context_use.facade.types import PipelineResult, TaskBreakdown
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
-from context_use.models.memory import MemoryStatus
+from context_use.models.memory import MemoryStatus, MemorySummary, TapestryMemory
+from context_use.models.utils import generate_uuidv4
 from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
@@ -256,7 +257,7 @@ class ContextUse:
         """
         from context_use.agent.tools import make_agent_tools
 
-        return make_agent_tools(self._store, self._llm_client)
+        return make_agent_tools(self)
 
     # ── Personal agent ───────────────────────────────────────────────
 
@@ -274,26 +275,106 @@ class ContextUse:
             backend = AdkAgentBackend(api_key=key, model=cfg.openai_model)
             result = await ctx.run_agent(backend, get_skill("synthesise").prompt)
         """
-        return await backend.run(self._store, self._llm_client, message)
+        return await backend.run(self, message)
 
     # ── Queries ──────────────────────────────────────────────────────
 
-    async def list_memories(self, *, limit: int | None = None) -> list[MemorySummary]:
+    async def list_memories(
+        self,
+        *,
+        from_date: date | None = None,
+        to_date: date | None = None,
+        limit: int | None = None,
+    ) -> list[MemorySummary]:
         """Return active memories, ordered by date."""
         memories = await self._store.list_memories(
             status=MemoryStatus.active.value,
+            from_date=from_date,
             limit=limit,
         )
-
+        if to_date is not None:
+            memories = [m for m in memories if m.to_date <= to_date]
         return [
             MemorySummary(
-                id=m.id,
-                content=m.content,
-                from_date=m.from_date,
-                to_date=m.to_date,
+                id=m.id, content=m.content, from_date=m.from_date, to_date=m.to_date
             )
             for m in memories
         ]
+
+    async def get_memory(self, memory_id: str) -> TapestryMemory | None:
+        """Return a single memory by ID, or ``None`` if not found."""
+        memories = await self._store.get_memories([memory_id])
+        return memories[0] if memories else None
+
+    async def update_memory(
+        self,
+        memory_id: str,
+        *,
+        content: str | None = None,
+        from_date: date | None = None,
+        to_date: date | None = None,
+    ) -> TapestryMemory:
+        """Edit an existing memory.
+
+        At least one of *content*, *from_date*, or *to_date* must be supplied.
+        When *content* changes the embedding is recomputed automatically.
+
+        Raises:
+            ValueError: if the memory does not exist or nothing is updated.
+        """
+        memories = await self._store.get_memories([memory_id])
+        if not memories:
+            raise ValueError(f"Memory {memory_id!r} not found")
+        if content is None and from_date is None and to_date is None:
+            raise ValueError("Provide at least one of: content, from_date, to_date")
+        m = memories[0]
+        if content is not None:
+            m.content = content
+            m.embedding = await self._llm_client.embed_query(content)
+        if from_date is not None:
+            m.from_date = from_date
+        if to_date is not None:
+            m.to_date = to_date
+        await self._store.update_memory(m)
+        return m
+
+    async def create_memory(
+        self,
+        content: str,
+        from_date: date,
+        to_date: date,
+        *,
+        source_memory_ids: list[str] | None = None,
+    ) -> TapestryMemory:
+        """Write a new memory to the store with a freshly computed embedding."""
+        embedding = await self._llm_client.embed_query(content)
+        memory = TapestryMemory(
+            content=content,
+            from_date=from_date,
+            to_date=to_date,
+            group_id=generate_uuidv4(),
+            status=MemoryStatus.active.value,
+            source_memory_ids=source_memory_ids,
+            embedding=embedding,
+        )
+        return await self._store.create_memory(memory)
+
+    async def archive_memories(
+        self,
+        memory_ids: list[str],
+        *,
+        superseded_by: str | None = None,
+    ) -> list[str]:
+        """Mark memories as superseded and return the IDs that were archived."""
+        memories = await self._store.get_memories(memory_ids)
+        archived_ids: list[str] = []
+        for m in memories:
+            m.status = MemoryStatus.superseded.value
+            if superseded_by:
+                m.superseded_by = superseded_by
+            await self._store.update_memory(m)
+            archived_ids.append(m.id)
+        return archived_ids
 
     async def count_memories(self) -> int:
         """Return the number of active memories."""
