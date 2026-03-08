@@ -1,0 +1,47 @@
+[
+    {
+        "header": "Google Lens",
+        "title": "Searched with Google Lens",
+        "time": "2025-07-10T15:00:00.000Z",
+        "products": [
+            "Google Lens"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Google Lens",
+        "title": "Searched for types of succulent plants",
+        "titleUrl": "https://www.google.com/search?q=types+of+succulent+plants&lns_vert=1",
+        "time": "2025-07-10T14:55:00.000Z",
+        "products": [
+            "Google Lens"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Google Lens",
+        "title": "Searched with Google Lens + \"types of succulent plants\"",
+        "time": "2025-07-10T14:54:30.000Z",
+        "products": [
+            "Google Lens"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Google Lens",
+        "title": "Searched with Google Lens",
+        "time": "2025-07-10T14:50:00.000Z",
+        "products": [
+            "Google Lens"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    }
+]
