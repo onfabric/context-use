@@ -15,8 +15,6 @@ from context_use.config import (
     save_config,
 )
 
-# ── show ─────────────────────────────────────────────────────────────────────
-
 
 class ConfigShowCommand(BaseCommand):
     name = "show"
@@ -78,9 +76,6 @@ class ConfigShowCommand(BaseCommand):
         print()
 
 
-# ── set-key ──────────────────────────────────────────────────────────────────
-
-
 class ConfigSetKeyCommand(BaseCommand):
     name = "set-key"
     help = "Change OpenAI API key"
@@ -103,9 +98,6 @@ class ConfigSetKeyCommand(BaseCommand):
         cfg.openai_api_key = key
         path = save_config(cfg)
         out.success(f"API key saved to {path}")
-
-
-# ── set-store ────────────────────────────────────────────────────────────────
 
 
 def _start_docker_postgres(cfg: Config) -> None:
@@ -238,9 +230,6 @@ class ConfigSetStoreCommand(BaseCommand):
         print()
 
 
-# ── set-agent ────────────────────────────────────────────────────────────────
-
-
 class ConfigSetAgentCommand(BaseCommand):
     name = "set-agent"
     help = "Configure the agent backend"
@@ -278,18 +267,12 @@ class ConfigSetAgentCommand(BaseCommand):
         print()
 
 
-# ── path ─────────────────────────────────────────────────────────────────────
-
-
 class ConfigPathCommand(BaseCommand):
     name = "path"
     help = "Print config file location"
 
     async def execute(self, args: argparse.Namespace) -> None:
         print(config_path())
-
-
-# ── group ─────────────────────────────────────────────────────────────────────
 
 
 class ConfigGroup(CommandGroup):

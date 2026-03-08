@@ -10,7 +10,6 @@ from context_use.config import Config
 if TYPE_CHECKING:
     from context_use import ContextUse
 
-# ── Shared backend helper ────────────────────────────────────────────────────
 
 
 def _build_agent_backend(cfg: Config):  # type: ignore[return]
@@ -36,7 +35,6 @@ def _build_agent_backend(cfg: Config):  # type: ignore[return]
     return None
 
 
-# ── Base class for named-skill commands ──────────────────────────────────────
 
 
 class BaseAgentSkillCommand(AgentCommand):
@@ -75,7 +73,6 @@ class BaseAgentSkillCommand(AgentCommand):
         print()
 
 
-# ── synthesise ───────────────────────────────────────────────────────────────
 
 
 class AgentSynthesiseCommand(BaseAgentSkillCommand):
@@ -100,7 +97,6 @@ class AgentSynthesiseCommand(BaseAgentSkillCommand):
         print()
 
 
-# ── profile ──────────────────────────────────────────────────────────────────
 
 
 class AgentUserProfileCommand(BaseAgentSkillCommand):
@@ -115,7 +111,6 @@ class AgentUserProfileCommand(BaseAgentSkillCommand):
     )
 
 
-# ── ask ──────────────────────────────────────────────────────────────────────
 
 
 class AgentAskCommand(AgentCommand):
@@ -158,7 +153,6 @@ class AgentAskCommand(AgentCommand):
         print()
 
 
-# ── group ─────────────────────────────────────────────────────────────────────
 
 
 class AgentGroup(CommandGroup):

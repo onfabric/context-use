@@ -21,8 +21,6 @@ from context_use.cli.base import (
 )
 from context_use.config import Config
 
-# ── Export helpers ────────────────────────────────────────────────────────────
-
 
 def export_memories_markdown(memories: list[MemorySummary], path: Path) -> None:
     lines = [
@@ -57,9 +55,6 @@ def export_memories_json(memories: list[MemorySummary], path: Path) -> None:
         for m in memories
     ]
     path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-# ── generate ─────────────────────────────────────────────────────────────────
 
 
 class MemoriesGenerateCommand(PersistentApiCommand):
@@ -106,9 +101,6 @@ class MemoriesGenerateCommand(PersistentApiCommand):
         print()
 
 
-# ── list ─────────────────────────────────────────────────────────────────────
-
-
 class MemoriesListCommand(PersistentCommand):
     name = "list"
     display_name = "memories list"
@@ -146,9 +138,6 @@ class MemoriesListCommand(PersistentCommand):
             for m in group:
                 print(f"    [{m.from_date.isoformat()}] {m.content}")
             print()
-
-
-# ── search ───────────────────────────────────────────────────────────────────
 
 
 class MemoriesSearchCommand(PersistentApiCommand):
@@ -195,9 +184,6 @@ class MemoriesSearchCommand(PersistentApiCommand):
         print()
 
 
-# ── get ──────────────────────────────────────────────────────────────────────
-
-
 class MemoriesGetCommand(PersistentCommand):
     name = "get"
     display_name = "memories get"
@@ -227,9 +213,6 @@ class MemoriesGetCommand(PersistentCommand):
         print()
         print(m.content)
         print()
-
-
-# ── update ────────────────────────────────────────────────────────────────────
 
 
 class MemoriesUpdateCommand(PersistentApiCommand):
@@ -272,9 +255,6 @@ class MemoriesUpdateCommand(PersistentApiCommand):
         out.success(f"Updated memory {m.id}")
 
 
-# ── create ────────────────────────────────────────────────────────────────────
-
-
 class MemoriesCreateCommand(PersistentApiCommand):
     name = "create"
     display_name = "memories create"
@@ -311,9 +291,6 @@ class MemoriesCreateCommand(PersistentApiCommand):
         out.success(f"Created memory {m.id}")
 
 
-# ── archive ───────────────────────────────────────────────────────────────────
-
-
 class MemoriesArchiveCommand(PersistentCommand):
     name = "archive"
     display_name = "memories archive"
@@ -346,9 +323,6 @@ class MemoriesArchiveCommand(PersistentCommand):
             )
         if not_found:
             out.warn(f"Not found: {', '.join(not_found)}")
-
-
-# ── export ───────────────────────────────────────────────────────────────────
 
 
 class MemoriesExportCommand(PersistentCommand):
@@ -395,9 +369,6 @@ class MemoriesExportCommand(PersistentCommand):
             export_memories_json(memories, out_path)
 
         out.success(f"Exported {len(memories):,} memories to {out_path}")
-
-
-# ── group ─────────────────────────────────────────────────────────────────────
 
 
 class MemoriesGroup(CommandGroup):
