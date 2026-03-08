@@ -1,4 +1,4 @@
-## [unreleased]
+## [0.1.0] - 2026-03-08
 
 ### 🚀 Features
 
@@ -107,6 +107,7 @@
 
 ### ⚙️ Miscellaneous Tasks
 
+- Generate changelog using `git-cliff` (#118)
 - Exit at first failure (#110)
 - Update readme (#105)
 - Rm stale ETL Loader classes (#73)
