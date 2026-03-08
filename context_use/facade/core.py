@@ -383,15 +383,16 @@ class ContextUse:
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
         """Search memories by semantic similarity, time range, or both."""
-        from context_use.search.memories import search_memories
-
-        return await search_memories(
-            self._store,
-            query=query,
+        if query is None and from_date is None and to_date is None:
+            raise ValueError("Provide at least one of: query, from_date, to_date")
+        query_embedding = (
+            await self._llm_client.embed_query(query) if query is not None else None
+        )
+        return await self._store.search_memories(
+            query_embedding=query_embedding,
             from_date=from_date,
             to_date=to_date,
             top_k=top_k,
-            llm_client=self._llm_client,
         )
 
     # ── Private helpers ──────────────────────────────────────────────
