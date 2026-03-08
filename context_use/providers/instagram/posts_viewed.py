@@ -176,5 +176,4 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
         return None
 
 
-declare_interaction(InteractionConfig(pipe=InstagramPostsViewedV0Pipe, memory=None))
 declare_interaction(InteractionConfig(pipe=InstagramPostsViewedPipe, memory=None))

@@ -407,10 +407,17 @@ class ContextUse:
     async def _run_pipe(self, pipe, etl_task: EtlTask) -> int:
         """Execute an ETL task using a Pipe and persist results via the Store."""
         rows = list(pipe.run(etl_task, self._storage))
-        count = await self._store.insert_threads(rows, etl_task.id)
 
         etl_task.extracted_count = pipe.extracted_count
         etl_task.transformed_count = pipe.transformed_count
+
+        if pipe.extracted_count == 0 and pipe.error_count > 0:
+            raise RuntimeError(
+                f"All source files failed extraction "
+                f"({pipe.extract_error_count} error(s))"
+            )
+
+        count = await self._store.insert_threads(rows, etl_task.id)
         return count
 
     def _unzip(self, zip_path: str, prefix: str) -> None:

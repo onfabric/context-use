@@ -207,7 +207,7 @@ class TestPipe:
         assert rows[0].unique_key == "mock:before-boom"
         assert pipe.extracted_count == 1
         assert pipe.transformed_count == 1
-        assert pipe.error_count == 0
+        assert pipe.error_count == 1
 
     def test_run_survives_transform_error(self):
         """A record that fails transform() is skipped; others succeed."""
