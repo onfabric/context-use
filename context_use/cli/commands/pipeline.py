@@ -24,9 +24,6 @@ if TYPE_CHECKING:
     from context_use import ContextUse
 
 
-# ── quickstart ───────────────────────────────────────────────────────────────
-
-
 class QuickstartCommand(EphemeralApiCommand):
     name = "quickstart"
     help = "Try it out — ingest + memories in one session (no database needed)"
@@ -173,9 +170,6 @@ class QuickstartCommand(EphemeralApiCommand):
         out.info("Then run the full pipeline with the batch API:")
         out.next_step("context-use pipeline")
         print()
-
-
-# ── pipeline ─────────────────────────────────────────────────────────────────
 
 
 class PipelineCommand(PersistentApiCommand):
