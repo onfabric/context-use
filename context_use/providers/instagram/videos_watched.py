@@ -142,5 +142,4 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
             )
 
 
-declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedV0Pipe, memory=None))
 declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedPipe, memory=None))

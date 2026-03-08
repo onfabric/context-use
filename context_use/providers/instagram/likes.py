@@ -276,7 +276,5 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         return None
 
 
-declare_interaction(InteractionConfig(pipe=InstagramLikedPostsV0Pipe, memory=None))
 declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
 declare_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))

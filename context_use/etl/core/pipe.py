@@ -96,6 +96,7 @@ class Pipe[Record: BaseModel](ABC):
                 for record in self.extract_file(uri, storage):  # noqa: UP028
                     yield record
             except Exception:
+                self.error_count += 1
                 logger.warning(
                     "%s: error extracting from %s — skipping rest of file",
                     self.__class__.__name__,
