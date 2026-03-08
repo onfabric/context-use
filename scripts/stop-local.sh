@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euxo pipefail
+
 # Check if the environment file exists
 if [ ! -f .env.docker ]; then
     echo "Environment file .env.docker not found"
