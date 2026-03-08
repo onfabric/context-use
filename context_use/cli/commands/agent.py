@@ -10,8 +10,6 @@ from context_use.config import Config
 if TYPE_CHECKING:
     from context_use import ContextUse
 
-# ── Shared backend helper ────────────────────────────────────────────────────
-
 
 def _build_agent_backend(cfg: Config):  # type: ignore[return]
     """Instantiate the configured agent backend.
@@ -34,9 +32,6 @@ def _build_agent_backend(cfg: Config):  # type: ignore[return]
     out.error(f"Unknown agent backend: {cfg.agent_backend!r}")
     out.info("Valid backends: adk")
     return None
-
-
-# ── Base class for named-skill commands ──────────────────────────────────────
 
 
 class BaseAgentSkillCommand(AgentCommand):
@@ -75,9 +70,6 @@ class BaseAgentSkillCommand(AgentCommand):
         print()
 
 
-# ── synthesise ───────────────────────────────────────────────────────────────
-
-
 class AgentSynthesiseCommand(BaseAgentSkillCommand):
     name = "synthesise"
     display_name = "agent synthesise"
@@ -100,9 +92,6 @@ class AgentSynthesiseCommand(BaseAgentSkillCommand):
         print()
 
 
-# ── profile ──────────────────────────────────────────────────────────────────
-
-
 class AgentUserProfileCommand(BaseAgentSkillCommand):
     name = "profile"
     display_name = "agent profile"
@@ -113,9 +102,6 @@ class AgentUserProfileCommand(BaseAgentSkillCommand):
         "The agent will explore your memories topic by topic and compile "
         "a first-person profile. Might take a few minutes."
     )
-
-
-# ── ask ──────────────────────────────────────────────────────────────────────
 
 
 class AgentAskCommand(AgentCommand):
@@ -156,9 +142,6 @@ class AgentAskCommand(AgentCommand):
         if result.summary:
             print(result.summary)
         print()
-
-
-# ── group ─────────────────────────────────────────────────────────────────────
 
 
 class AgentGroup(CommandGroup):

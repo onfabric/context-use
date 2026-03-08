@@ -20,8 +20,7 @@ import context_use as _pkg
 from context_use.agent.tools import make_agent_tools
 
 if TYPE_CHECKING:
-    from context_use.llm.base import BaseLLMClient
-    from context_use.store.base import Store
+    from context_use.facade.core import ContextUse
 
 logger = logging.getLogger(__name__)
 
@@ -46,19 +45,17 @@ def _handle_tool_error(
 
 
 def create_agent(
-    store: Store,
-    llm_client: BaseLLMClient,
+    ctx: ContextUse,
     *,
     model: LiteLlm,
 ) -> LlmAgent:
-    """Create a personal memory LlmAgent bound to *store* and *llm_client*.
+    """Create a personal memory LlmAgent bound to *ctx*.
 
     Args:
-        store:      The Store instance to read from and write to.
-        llm_client: Used by the search tool to embed text queries.
-        model:      Configured ``LiteLlm`` instance.
+        ctx:   A fully configured :class:`~context_use.facade.core.ContextUse` instance.
+        model: Configured ``LiteLlm`` instance.
     """
-    tools = make_agent_tools(store, llm_client)
+    tools = make_agent_tools(ctx)
 
     return LlmAgent(
         name="personal_memory_agent",

@@ -19,19 +19,17 @@ from context_use.agent.backend import AgentBackend, AgentResult
 from context_use.ext.adk.agent.agent import create_agent
 
 if TYPE_CHECKING:
-    from context_use.llm.base import BaseLLMClient
-    from context_use.store.base import Store
+    from context_use.facade.core import ContextUse
 
 logger = logging.getLogger(__name__)
 
 
 async def _run_agent(
-    store: Store,
-    llm_client: BaseLLMClient,
+    ctx: ContextUse,
     model: LiteLlm,
     message: str,
 ) -> str:
-    agent = create_agent(store, llm_client, model=model)
+    agent = create_agent(ctx, model=model)
     runner = Runner(
         agent=agent,
         app_name=agent.name,
@@ -89,9 +87,8 @@ class AdkAgentBackend(AgentBackend):
 
     async def run(
         self,
-        store: Store,
-        llm_client: BaseLLMClient,
+        ctx: ContextUse,
         message: str,
     ) -> AgentResult:
-        summary = await _run_agent(store, llm_client, self._model, message)
+        summary = await _run_agent(ctx, self._model, message)
         return AgentResult(summary=summary)

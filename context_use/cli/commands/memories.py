@@ -11,7 +11,8 @@ from context_use.cli import output as out
 
 if TYPE_CHECKING:
     from context_use import ContextUse
-    from context_use.facade.types import MemorySummary
+    from context_use.models.memory import MemorySummary
+
 from context_use.cli.base import (
     CommandGroup,
     PersistentApiCommand,
@@ -19,8 +20,6 @@ from context_use.cli.base import (
     run_batches,
 )
 from context_use.config import Config
-
-# ── Export helpers ────────────────────────────────────────────────────────────
 
 
 def export_memories_markdown(memories: list[MemorySummary], path: Path) -> None:
@@ -56,9 +55,6 @@ def export_memories_json(memories: list[MemorySummary], path: Path) -> None:
         for m in memories
     ]
     path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
-
-
-# ── generate ─────────────────────────────────────────────────────────────────
 
 
 class MemoriesGenerateCommand(PersistentApiCommand):
@@ -105,9 +101,6 @@ class MemoriesGenerateCommand(PersistentApiCommand):
         print()
 
 
-# ── list ─────────────────────────────────────────────────────────────────────
-
-
 class MemoriesListCommand(PersistentCommand):
     name = "list"
     display_name = "memories list"
@@ -145,9 +138,6 @@ class MemoriesListCommand(PersistentCommand):
             for m in group:
                 print(f"    [{m.from_date.isoformat()}] {m.content}")
             print()
-
-
-# ── search ───────────────────────────────────────────────────────────────────
 
 
 class MemoriesSearchCommand(PersistentApiCommand):
@@ -194,7 +184,145 @@ class MemoriesSearchCommand(PersistentApiCommand):
         print()
 
 
-# ── export ───────────────────────────────────────────────────────────────────
+class MemoriesGetCommand(PersistentCommand):
+    name = "get"
+    display_name = "memories get"
+    help = "Show full details of a single memory"
+
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("id", help="Memory UUID")
+
+    async def run(
+        self,
+        cfg: Config,
+        ctx: ContextUse,
+        args: argparse.Namespace,
+    ) -> None:
+        m = await ctx.get_memory(args.id)
+        if m is None:
+            out.warn(f"Memory {args.id!r} not found.")
+            return
+
+        out.header("Memory")
+        print()
+        out.kv("ID", m.id)
+        out.kv("Status", m.status)
+        out.kv("Date range", f"{m.from_date.isoformat()} – {m.to_date.isoformat()}")
+        if m.source_memory_ids:
+            out.kv("Sources", ", ".join(m.source_memory_ids))
+        print()
+        print(m.content)
+        print()
+
+
+class MemoriesUpdateCommand(PersistentApiCommand):
+    name = "update"
+    display_name = "memories update"
+    help = "Edit the content or date range of a memory"
+
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("id", help="Memory UUID")
+        parser.add_argument("--content", help="New content text")
+        parser.add_argument(
+            "--from", dest="from_date", help="New start date (YYYY-MM-DD)"
+        )
+        parser.add_argument("--to", dest="to_date", help="New end date (YYYY-MM-DD)")
+
+    async def run(
+        self,
+        cfg: Config,
+        ctx: ContextUse,
+        args: argparse.Namespace,
+    ) -> None:
+        if not any([args.content, args.from_date, args.to_date]):
+            out.warn("Provide at least one of --content, --from, or --to.")
+            return
+
+        from_dt = date.fromisoformat(args.from_date) if args.from_date else None
+        to_dt = date.fromisoformat(args.to_date) if args.to_date else None
+
+        try:
+            m = await ctx.update_memory(
+                args.id,
+                content=args.content,
+                from_date=from_dt,
+                to_date=to_dt,
+            )
+        except ValueError as exc:
+            out.warn(str(exc))
+            return
+
+        out.success(f"Updated memory {m.id}")
+
+
+class MemoriesCreateCommand(PersistentApiCommand):
+    name = "create"
+    display_name = "memories create"
+    help = "Write a new memory to the store"
+
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--content", required=True, help="Memory text")
+        parser.add_argument(
+            "--from", dest="from_date", required=True, help="Start date (YYYY-MM-DD)"
+        )
+        parser.add_argument(
+            "--to", dest="to_date", required=True, help="End date (YYYY-MM-DD)"
+        )
+        parser.add_argument(
+            "--source",
+            dest="source_ids",
+            nargs="+",
+            metavar="ID",
+            help="Source memory IDs (for pattern/merge memories)",
+        )
+
+    async def run(
+        self,
+        cfg: Config,
+        ctx: ContextUse,
+        args: argparse.Namespace,
+    ) -> None:
+        m = await ctx.create_memory(
+            content=args.content,
+            from_date=date.fromisoformat(args.from_date),
+            to_date=date.fromisoformat(args.to_date),
+            source_memory_ids=args.source_ids,
+        )
+        out.success(f"Created memory {m.id}")
+
+
+class MemoriesArchiveCommand(PersistentCommand):
+    name = "archive"
+    display_name = "memories archive"
+    help = "Mark one or more memories as superseded"
+
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "ids", nargs="+", metavar="ID", help="Memory UUIDs to archive"
+        )
+        parser.add_argument(
+            "--superseded-by",
+            metavar="ID",
+            help="ID of the memory that replaces these",
+        )
+
+    async def run(
+        self,
+        cfg: Config,
+        ctx: ContextUse,
+        args: argparse.Namespace,
+    ) -> None:
+        archived = await ctx.archive_memories(
+            args.ids, superseded_by=args.superseded_by
+        )
+        not_found = [mid for mid in args.ids if mid not in set(archived)]
+
+        if archived:
+            out.success(
+                f"Archived {len(archived)} memor{'y' if len(archived) == 1 else 'ies'}"
+            )
+        if not_found:
+            out.warn(f"Not found: {', '.join(not_found)}")
 
 
 class MemoriesExportCommand(PersistentCommand):
@@ -243,9 +371,6 @@ class MemoriesExportCommand(PersistentCommand):
         out.success(f"Exported {len(memories):,} memories to {out_path}")
 
 
-# ── group ─────────────────────────────────────────────────────────────────────
-
-
 class MemoriesGroup(CommandGroup):
     name = "memories"
     help = "Manage memories (requires PostgreSQL)"
@@ -253,5 +378,9 @@ class MemoriesGroup(CommandGroup):
         MemoriesGenerateCommand,
         MemoriesListCommand,
         MemoriesSearchCommand,
+        MemoriesGetCommand,
+        MemoriesUpdateCommand,
+        MemoriesCreateCommand,
+        MemoriesArchiveCommand,
         MemoriesExportCommand,
     ]
