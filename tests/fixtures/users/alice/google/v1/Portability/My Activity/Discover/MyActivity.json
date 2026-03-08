@@ -1,0 +1,50 @@
+[
+    {
+        "header": "Discover",
+        "title": "8 cards in your feed",
+        "time": "2025-07-20T18:00:00.000Z",
+        "products": [
+            "Discover"
+        ],
+        "details": [
+            {
+                "name": "Technology - viewed"
+            },
+            {
+                "name": "Cooking"
+            }
+        ],
+        "locationInfos": [
+            {
+                "name": "At this general area",
+                "source": "Based on your past activity",
+                "url": "https://www.google.com/maps/@?api=1&map_action=map&center=51.5074,-0.1278&zoom=11"
+            }
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Discover",
+        "title": "Visited Content From Discover",
+        "time": "2025-07-20T12:30:00.000Z",
+        "products": [
+            "Discover"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    },
+    {
+        "header": "Discover",
+        "title": "Visited Content From Discover",
+        "time": "2025-07-20T12:28:00.000Z",
+        "products": [
+            "Discover"
+        ],
+        "activityControls": [
+            "Web & App Activity"
+        ]
+    }
+]
