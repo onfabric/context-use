@@ -1,0 +1,72 @@
+name: prepare-release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v2
+        id: app-token
+        with:
+          app-id: ${{ vars.FABRIC_AUTOMATION_PUBLIC_APP_ID }}
+          private-key: ${{ secrets.FABRIC_AUTOMATION_PUBLIC_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            ${{ github.event.repository.name }}
+
+      - name: Checkout Code
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+
+      - uses: ./.github/actions/prepare
+
+      - name: Compute next version
+        id: version
+        run: echo "version=$(uv run git-cliff --bumped-version 2>/dev/null)" >> "$GITHUB_OUTPUT"
+
+      - name: Update pyproject.toml version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+
+      - name: Generate changelog
+        run: uv run git-cliff --bump -o CHANGELOG.md
+
+      - name: Configure git user
+        run: |
+          git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
+          git config --global user.email '${{ vars.FABRIC_AUTOMATION_PUBLIC_USER_ID }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
+
+      - name: Commit and push to release branch
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RELEASE_BRANCH: release/v${{ steps.version.outputs.version }}
+        run: |
+          git switch -c $RELEASE_BRANCH
+          git add pyproject.toml CHANGELOG.md
+          git commit -m "chore(release): v${VERSION}"
+          git push --set-upstream origin $RELEASE_BRANCH
+
+      - name: Create release PR
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh pr create \
+            --title "chore(release): v${VERSION}" \
+            --body "$(cat <<EOF
+          Bumps version to **${VERSION}** and regenerates CHANGELOG.md.
+
+          After merging, tag and push to trigger the publish workflow:
+
+          \`\`\`
+          git tag v${VERSION}
+          git push origin v${VERSION}
+          \`\`\`
+          EOF
+          )"
