@@ -95,6 +95,9 @@ class MemoryBatchManager(BaseBatchManager):
         if not all_threads:
             return SkippedState(reason="No threads for memory generation")
 
+        profile = await self.ctx.store.get_user_profile()
+        profile_content = profile.content if profile else None
+
         prompts = []
         by_type: dict[str, list[GroupContext]] = {}
         for ctx in contexts:
@@ -105,7 +108,9 @@ class MemoryBatchManager(BaseBatchManager):
             from context_use.providers.registry import get_memory_config
 
             config = get_memory_config(interaction_type)
-            builder = config.create_prompt_builder(type_contexts)
+            builder = config.create_prompt_builder(
+                type_contexts, user_profile=profile_content
+            )
             if builder.has_content():
                 prompts.extend(builder.build())
 

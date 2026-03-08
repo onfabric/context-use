@@ -14,6 +14,7 @@ from context_use.models.batch import Batch, BatchCategory, BatchThread
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.models.memory import EMBEDDING_DIMENSIONS, MemoryStatus, TapestryMemory
 from context_use.models.thread import Thread
+from context_use.models.user_profile import UserProfile
 from context_use.models.utils import generate_uuidv4
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "MemoryStatus",
     "TapestryMemory",
     "Thread",
+    "UserProfile",
 ]

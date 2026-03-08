@@ -15,6 +15,7 @@ from context_use.models import (
     EtlTask,
     TapestryMemory,
     Thread,
+    UserProfile,
 )
 
 
@@ -211,5 +212,22 @@ class Store(ABC):
         When *query_embedding* is given, results are ordered by cosine
         similarity (descending).  Otherwise they are ordered by
         ``from_date`` descending.
+        """
+        ...
+
+    # ── User Profile ──────────────────────────────────────────────────
+
+    @abstractmethod
+    async def get_user_profile(self) -> UserProfile | None:
+        """Return the single user profile, or ``None`` if not yet created."""
+        ...
+
+    @abstractmethod
+    async def upsert_user_profile(self, profile: UserProfile) -> UserProfile:
+        """Create or replace the single user profile.
+
+        If a profile already exists its ``content`` and ``updated_at``
+        are overwritten; ``created_at`` is preserved.  Returns the
+        persisted profile.
         """
         ...

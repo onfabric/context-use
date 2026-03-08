@@ -1,6 +1,12 @@
-Survey the memory store topic by topic using semantic search, then compile a
-**user profile written in first person** — a "who I am" document — as your
-final response.
+Survey the memory store topic by topic using semantic search, then compile or
+update a **user profile written in first person** — a persistent "who I am"
+document — and save it to the store.
+
+## Phase 0 — Load existing profile
+
+Call `get_user_profile` first. If a profile already exists, use it as your
+starting point: preserve sections that are still accurate, refine wording
+where new evidence warrants it, and add new sections as the data supports.
 
 ## Phase 1 — Explore (topic deep-dive cycles)
 
@@ -36,11 +42,11 @@ Work through topics one at a time. For each topic:
 As you explore, new angles will surface — add them to your queue and cover
 them if they have enough evidence.
 
-## Phase 2 — Compile the profile
+## Phase 2 — Compile and save the profile
 
-Survey everything you gathered. Write a Markdown profile with sections that
-best fit the evidence (add, remove, rename, or merge the suggested topics
-above as the data warrants).
+Survey everything you gathered (and the existing profile, if any). Write a
+Markdown profile with sections that best fit the evidence (add, remove,
+rename, or merge the suggested topics above as the data warrants).
 
 ### Rules
 
@@ -51,7 +57,13 @@ above as the data warrants).
 - Look for patterns across memories: recurring topics, people, and places
   paint a richer picture than any single memory.
 - Omit sections with no evidence rather than writing "Unknown".
-- Do not write preamble, commentary, or meta-text — output only the Markdown
-  profile. This output goes directly to stdout.
-- Do NOT call `create_memory`, `update_memory`, or `archive_memories`.
-  This is a strictly read-only task.
+- When updating an existing profile, preserve accurate information and
+  integrate new findings. Remove anything contradicted by newer evidence.
+
+### Save
+
+After writing the profile, call `save_user_profile` with the full Markdown
+content. This replaces any previously stored profile.
+
+Do NOT call `create_memory`, `update_memory`, or `archive_memories`.
+This task only reads memories and writes the user profile.

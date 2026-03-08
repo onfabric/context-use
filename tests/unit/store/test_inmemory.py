@@ -346,3 +346,59 @@ async def test_async_context_manager() -> None:
         archive = Archive(provider="test")
         await store.create_archive(archive)
         assert await store.get_archive(archive.id) is not None
+
+
+# ── User Profile ──────────────────────────────────────────────────────
+
+
+async def test_user_profile_returns_none_when_empty(store: InMemoryStore) -> None:
+    assert await store.get_user_profile() is None
+
+
+async def test_user_profile_upsert_creates(store: InMemoryStore) -> None:
+    from context_use.models.user_profile import UserProfile
+
+    profile = UserProfile(content="# My Profile\nI am a developer.")
+    saved = await store.upsert_user_profile(profile)
+    assert saved.content == "# My Profile\nI am a developer."
+
+    fetched = await store.get_user_profile()
+    assert fetched is not None
+    assert fetched.content == "# My Profile\nI am a developer."
+
+
+async def test_user_profile_upsert_updates(store: InMemoryStore) -> None:
+    from context_use.models.user_profile import UserProfile
+
+    first = UserProfile(content="v1")
+    await store.upsert_user_profile(first)
+
+    second = UserProfile(content="v2")
+    updated = await store.upsert_user_profile(second)
+    assert updated.content == "v2"
+
+    fetched = await store.get_user_profile()
+    assert fetched is not None
+    assert fetched.content == "v2"
+
+
+async def test_user_profile_upsert_preserves_created_at(store: InMemoryStore) -> None:
+    from context_use.models.user_profile import UserProfile
+
+    first = UserProfile(content="v1")
+    saved = await store.upsert_user_profile(first)
+    original_created = saved.created_at
+
+    second = UserProfile(content="v2")
+    updated = await store.upsert_user_profile(second)
+    assert updated.created_at == original_created
+
+
+async def test_reset_clears_user_profile(store: InMemoryStore) -> None:
+    from context_use.models.user_profile import UserProfile
+
+    await store.upsert_user_profile(UserProfile(content="profile"))
+    assert await store.get_user_profile() is not None
+
+    await store.reset()
+    assert await store.get_user_profile() is None

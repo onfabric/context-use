@@ -256,6 +256,42 @@ def make_agent_tools(ops: MemoryOperations) -> list:
             result["not_found"] = not_found
         return result
 
+    async def get_user_profile() -> dict:
+        """Retrieve the current user profile.
+
+        Returns the full Markdown profile if one exists, or an empty
+        indicator if no profile has been created yet.  Call this at the
+        start of a profile-update task to see what already exists.
+        """
+        profile = await ops.get_user_profile()
+        if profile is None:
+            return {"exists": False, "content": None}
+        return {
+            "exists": True,
+            "content": profile.content,
+            "updated_at": profile.updated_at.isoformat(),
+        }
+
+    async def save_user_profile(
+        content: Annotated[
+            str,
+            Field(
+                description=(
+                    "The full Markdown user profile. "
+                    "This replaces the existing profile entirely."
+                ),
+            ),
+        ],
+    ) -> dict:
+        """Create or replace the user profile.
+
+        Pass the complete updated Markdown profile.  The store
+        guarantees exactly one profile exists after this call.
+        """
+        profile = await ops.save_user_profile(content)
+        logger.info("Saved user profile (updated_at=%s)", profile.updated_at)
+        return {"saved": True, "updated_at": profile.updated_at.isoformat()}
+
     return [
         list_memories,
         search_memories,
@@ -263,4 +299,6 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         update_memory,
         create_memory,
         archive_memories,
+        get_user_profile,
+        save_user_profile,
     ]

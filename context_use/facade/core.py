@@ -15,7 +15,7 @@ from context_use.batch.manager import (
     get_manager_for_category,
 )
 from context_use.facade.types import PipelineResult, TaskBreakdown
-from context_use.models import Archive, EtlTask
+from context_use.models import Archive, EtlTask, UserProfile
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
@@ -394,6 +394,20 @@ class ContextUse:
             to_date=to_date,
             top_k=top_k,
         )
+
+    # ── User Profile ─────────────────────────────────────────────────
+
+    async def get_user_profile(self) -> UserProfile | None:
+        """Return the user profile, or ``None`` if one has not been created yet."""
+        return await self._store.get_user_profile()
+
+    async def save_user_profile(self, content: str) -> UserProfile:
+        """Create or update the single user profile.
+
+        The store guarantees exactly one profile exists after this call.
+        """
+        profile = UserProfile(content=content)
+        return await self._store.upsert_user_profile(profile)
 
     # ── Private helpers ──────────────────────────────────────────────
 

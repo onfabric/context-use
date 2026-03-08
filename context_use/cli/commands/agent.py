@@ -95,12 +95,13 @@ class AgentSynthesiseCommand(BaseAgentSkillCommand):
 class AgentUserProfileCommand(BaseAgentSkillCommand):
     name = "profile"
     display_name = "agent profile"
-    help = "Compile a first-person user profile from memories (printed to stdout)"
+    help = "Compile or update the persisted user profile from memories"
     skill_name = "profile"
     header_text = "Generating user profile"
     info_text = (
-        "The agent will explore your memories topic by topic and compile "
-        "a first-person profile. Might take a few minutes."
+        "The agent will explore your memories topic by topic, compile "
+        "a first-person profile, and save it to the store. "
+        "Might take a few minutes."
     )
 
 

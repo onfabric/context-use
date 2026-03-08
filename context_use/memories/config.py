@@ -20,8 +20,15 @@ class MemoryConfig:
     prompt_builder_kwargs: dict[str, Any] = field(default_factory=dict)
     grouper_kwargs: dict[str, Any] = field(default_factory=dict)
 
-    def create_prompt_builder(self, contexts: list[GroupContext]) -> BasePromptBuilder:
-        return self.prompt_builder(contexts, **self.prompt_builder_kwargs)
+    def create_prompt_builder(
+        self,
+        contexts: list[GroupContext],
+        *,
+        user_profile: str | None = None,
+    ) -> BasePromptBuilder:
+        return self.prompt_builder(
+            contexts, **self.prompt_builder_kwargs, user_profile=user_profile
+        )
 
     def create_grouper(self) -> ThreadGrouper:
         return self.grouper(**self.grouper_kwargs)

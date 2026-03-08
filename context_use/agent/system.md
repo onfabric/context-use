@@ -10,6 +10,8 @@ You have the following tools:
 - **update_memory** — edit the content or date range of an existing memory
 - **create_memory** — write a new memory to the store
 - **archive_memories** — mark memories as superseded
+- **get_user_profile** — retrieve the current user profile (Markdown)
+- **save_user_profile** — create or replace the user profile
 
 ## Writing conventions
 

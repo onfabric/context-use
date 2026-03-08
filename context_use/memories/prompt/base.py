@@ -49,8 +49,14 @@ class BasePromptBuilder(ABC):
     has enough content to process.
     """
 
-    def __init__(self, contexts: list[GroupContext]) -> None:
+    def __init__(
+        self,
+        contexts: list[GroupContext],
+        *,
+        user_profile: str | None = None,
+    ) -> None:
         self.contexts = contexts
+        self.user_profile = user_profile
 
     @abstractmethod
     def build(self) -> list[PromptItem]:
@@ -96,3 +102,22 @@ class BasePromptBuilder(ABC):
             )
 
         return "\n\n".join(sections) + "\n\n"
+
+    def _format_user_profile(self) -> str:
+        """Build an optional user-profile preamble.
+
+        Returns an empty string when no profile is available, keeping the
+        prompt identical to the pre-profile path.
+        """
+        if not self.user_profile:
+            return ""
+        return (
+            "## User profile\n"
+            "The following profile summarises what is already known about "
+            "the user.  Use it for context when interpreting messages — it "
+            "helps you understand who the user is, what they care about, "
+            "and how to read between the lines.  Do NOT repeat profile "
+            "facts as new memories; only extract genuinely new information "
+            "from the content below.\n\n"
+            f"{self.user_profile}\n\n"
+        )

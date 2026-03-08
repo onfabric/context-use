@@ -2,6 +2,7 @@ from context_use.store.postgres.orm.base import Base, TimeStampMixin
 from context_use.store.postgres.orm.batch import Batch, BatchStateMixin, BatchThread
 from context_use.store.postgres.orm.etl import Archive, EtlTask, Thread
 from context_use.store.postgres.orm.memory import TapestryMemory
+from context_use.store.postgres.orm.user_profile import UserProfile
 
 __all__ = [
     "Archive",
@@ -13,4 +14,5 @@ __all__ = [
     "TapestryMemory",
     "Thread",
     "TimeStampMixin",
+    "UserProfile",
 ]

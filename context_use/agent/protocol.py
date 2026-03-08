@@ -6,6 +6,7 @@ from datetime import date
 from typing import Protocol
 
 from context_use.models.memory import MemorySummary, TapestryMemory
+from context_use.models.user_profile import UserProfile
 from context_use.store.base import MemorySearchResult
 
 
@@ -55,3 +56,7 @@ class MemoryOperations(Protocol):
         *,
         superseded_by: str | None = None,
     ) -> list[str]: ...
+
+    async def get_user_profile(self) -> UserProfile | None: ...
+
+    async def save_user_profile(self, content: str) -> UserProfile: ...

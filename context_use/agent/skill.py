@@ -31,9 +31,9 @@ BUILT_IN_SKILLS: dict[str, AgentSkill] = {
     "profile": AgentSkill(
         name="profile",
         description=(
-            "Survey the entire memory store and compile a structured "
-            "first-person user profile in Markdown. Printed to stdout. "
-            "Read-only."
+            "Survey the entire memory store and compile or update a "
+            "structured first-person user profile in Markdown, "
+            "persisted to the store via save_user_profile."
         ),
         prompt=_load("user_profile.md"),
     ),

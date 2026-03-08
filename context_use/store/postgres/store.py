@@ -21,6 +21,7 @@ from context_use.models import (
     MemoryStatus,
     TapestryMemory,
     Thread,
+    UserProfile,
 )
 from context_use.store.base import MemorySearchResult, Store
 from context_use.store.postgres.orm import Archive as OrmArchive
@@ -30,6 +31,7 @@ from context_use.store.postgres.orm import BatchThread as OrmBatchThread
 from context_use.store.postgres.orm import EtlTask as OrmEtlTask
 from context_use.store.postgres.orm import TapestryMemory as OrmMemory
 from context_use.store.postgres.orm import Thread as OrmThread
+from context_use.store.postgres.orm import UserProfile as OrmUserProfile
 
 logger = logging.getLogger(__name__)
 
@@ -430,6 +432,30 @@ class PostgresStore(Store):
             )
         return results
 
+    # ── User Profile ──────────────────────────────────────────────────
+
+    async def get_user_profile(self) -> UserProfile | None:
+        async with self._auto_session() as s:
+            row = await s.get(OrmUserProfile, 1)
+        if row is None:
+            return None
+        return _user_profile_from_orm(row)
+
+    async def upsert_user_profile(self, profile: UserProfile) -> UserProfile:
+        async with self._auto_session() as s:
+            row = await s.get(OrmUserProfile, 1)
+            if row is None:
+                row = OrmUserProfile(content=profile.content)
+                s.add(row)
+                await s.flush()
+                profile.created_at = row.created_at
+            else:
+                row.content = profile.content
+                await s.flush()
+                profile.created_at = row.created_at
+            profile.updated_at = row.updated_at
+        return profile
+
 
 # ── ORM → domain converters ─────────────────────────────────────────
 
@@ -501,6 +527,14 @@ def _batch_from_orm(row: OrmBatch) -> Batch:
         category=row.category,
         states=row.states,
         id=row.id,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _user_profile_from_orm(row: OrmUserProfile) -> UserProfile:
+    return UserProfile(
+        content=row.content,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )

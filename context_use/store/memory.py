@@ -14,6 +14,7 @@ from context_use.models import (
     MemoryStatus,
     TapestryMemory,
     Thread,
+    UserProfile,
 )
 from context_use.store.base import MemorySearchResult, Store
 
@@ -33,6 +34,7 @@ class InMemoryStore(Store):
         self._batches: dict[str, Batch] = {}
         self._batch_threads: list[BatchThread] = []
         self._memories: dict[str, TapestryMemory] = {}
+        self._user_profile: UserProfile | None = None
 
     # ── Lifecycle ────────────────────────────────────────────────────
 
@@ -235,6 +237,20 @@ class InMemoryStore(Store):
             )
             for m in candidates[:top_k]
         ]
+
+    # ── User Profile ──────────────────────────────────────────────────
+
+    async def get_user_profile(self) -> UserProfile | None:
+        return self._user_profile
+
+    async def upsert_user_profile(self, profile: UserProfile) -> UserProfile:
+        existing = self._user_profile
+        if existing is not None:
+            existing.content = profile.content
+            existing.updated_at = profile.updated_at
+            return existing
+        self._user_profile = profile
+        return profile
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:

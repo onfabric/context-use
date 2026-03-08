@@ -100,8 +100,10 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         self,
         contexts: list[GroupContext],
         config: ConversationConfig | None = None,
+        *,
+        user_profile: str | None = None,
     ) -> None:
-        super().__init__(contexts)
+        super().__init__(contexts, user_profile=user_profile)
         self.config = config or ConversationConfig()
 
     def has_content(self) -> bool:
@@ -124,6 +126,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
 
             transcript = self._format_transcript(threads)
             context_block = self._format_context(ctx)
+            profile_block = self._format_user_profile()
 
             prompt = (
                 CONVERSATION_MEMORIES_PROMPT.replace(
@@ -132,7 +135,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
                 .replace("{{TO_DATE}}", to_date.isoformat())
                 .replace("{{MIN_MEMORIES}}", str(min_mem))
                 .replace("{{MAX_MEMORIES}}", str(max_mem))
-                .replace("{{CONTEXT}}", context_block)
+                .replace("{{CONTEXT}}", profile_block + context_block)
                 .replace("{{TRANSCRIPT}}", transcript)
             )
 

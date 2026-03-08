@@ -93,8 +93,10 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
         self,
         contexts: list[GroupContext],
         config: WindowConfig | None = None,
+        *,
+        user_profile: str | None = None,
     ) -> None:
-        super().__init__(contexts)
+        super().__init__(contexts, user_profile=user_profile)
         self.config = config or WindowConfig()
 
     def has_content(self) -> bool:
@@ -116,11 +118,12 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
             to_date = sorted_threads[-1].asat.date()
             posts_block, asset_uris = self._format_posts(threads_with_assets)
             context_block = self._format_context(ctx)
+            profile_block = self._format_user_profile()
 
             prompt = (
                 MEDIA_MEMORIES_PROMPT.replace("{{FROM_DATE}}", from_date.isoformat())
                 .replace("{{TO_DATE}}", to_date.isoformat())
-                .replace("{{CONTEXT}}", context_block)
+                .replace("{{CONTEXT}}", profile_block + context_block)
                 .replace("{{POSTS}}", posts_block)
                 .replace(
                     "{{MIN_MEMORIES}}",
