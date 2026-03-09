@@ -14,9 +14,9 @@ if TYPE_CHECKING:
     from context_use.models.memory import MemorySummary
 
 from context_use.cli.base import (
+    ApiCommand,
     CommandGroup,
-    PersistentApiCommand,
-    PersistentCommand,
+    ContextCommand,
     run_batches,
 )
 from context_use.config import Config
@@ -57,9 +57,8 @@ def export_memories_json(memories: list[MemorySummary], path: Path) -> None:
     path.write_text(json.dumps(rows, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-class MemoriesGenerateCommand(PersistentApiCommand):
+class MemoriesGenerateCommand(ApiCommand):
     name = "generate"
-    display_name = "memories generate"
     help = "Step 2: Generate memories from ingested archives (batch API)"
 
     async def run(
@@ -101,9 +100,8 @@ class MemoriesGenerateCommand(PersistentApiCommand):
         print()
 
 
-class MemoriesListCommand(PersistentCommand):
+class MemoriesListCommand(ContextCommand):
     name = "list"
-    display_name = "memories list"
     help = "List memories"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -140,9 +138,8 @@ class MemoriesListCommand(PersistentCommand):
             print()
 
 
-class MemoriesSearchCommand(PersistentApiCommand):
+class MemoriesSearchCommand(ApiCommand):
     name = "search"
-    display_name = "memories search"
     help = "Semantic search over memories"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -184,9 +181,8 @@ class MemoriesSearchCommand(PersistentApiCommand):
         print()
 
 
-class MemoriesGetCommand(PersistentCommand):
+class MemoriesGetCommand(ContextCommand):
     name = "get"
-    display_name = "memories get"
     help = "Show full details of a single memory"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -215,9 +211,8 @@ class MemoriesGetCommand(PersistentCommand):
         print()
 
 
-class MemoriesUpdateCommand(PersistentApiCommand):
+class MemoriesUpdateCommand(ApiCommand):
     name = "update"
-    display_name = "memories update"
     help = "Edit the content or date range of a memory"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -255,9 +250,8 @@ class MemoriesUpdateCommand(PersistentApiCommand):
         out.success(f"Updated memory {m.id}")
 
 
-class MemoriesCreateCommand(PersistentApiCommand):
+class MemoriesCreateCommand(ApiCommand):
     name = "create"
-    display_name = "memories create"
     help = "Write a new memory to the store"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -291,9 +285,8 @@ class MemoriesCreateCommand(PersistentApiCommand):
         out.success(f"Created memory {m.id}")
 
 
-class MemoriesArchiveCommand(PersistentCommand):
+class MemoriesArchiveCommand(ContextCommand):
     name = "archive"
-    display_name = "memories archive"
     help = "Mark one or more memories as superseded"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -325,9 +318,8 @@ class MemoriesArchiveCommand(PersistentCommand):
             out.warn(f"Not found: {', '.join(not_found)}")
 
 
-class MemoriesExportCommand(PersistentCommand):
+class MemoriesExportCommand(ContextCommand):
     name = "export"
-    display_name = "memories export"
     help = "Export memories to a file"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -373,7 +365,7 @@ class MemoriesExportCommand(PersistentCommand):
 
 class MemoriesGroup(CommandGroup):
     name = "memories"
-    help = "Manage memories (requires PostgreSQL)"
+    help = "Manage memories"
     subcommands = [
         MemoriesGenerateCommand,
         MemoriesListCommand,

@@ -48,8 +48,10 @@ class ConfigShowCommand(BaseCommand):
 
         if cfg.store_provider == "postgres":
             store_val = f"postgres ({cfg.db_host}:{cfg.db_port}/{cfg.db_name})"
+        elif cfg.store_provider == "sqlite":
+            store_val = f"sqlite ({cfg.db_path})"
         else:
-            store_val = "memory (in-memory, no persistence)"
+            store_val = cfg.store_provider
         out.kv("Store", f"{store_val} {badge('store_provider')}")
 
         if cfg.agent_backend:
@@ -70,8 +72,7 @@ class ConfigShowCommand(BaseCommand):
         print()
         out.info("To change settings:")
         out.next_step("context-use config set-key", "change OpenAI API key")
-        out.next_step("context-use config set-store postgres", "set up PostgreSQL")
-        out.next_step("context-use config set-store memory", "switch to in-memory")
+        out.next_step("context-use config set-store sqlite", "use SQLite (default)")
         out.next_step("context-use config set-agent adk", "configure agent backend")
         print()
 
@@ -252,10 +253,10 @@ class ConfigSetAgentCommand(BaseCommand):
         if backend == "adk":
             out.info("Requires the adk extra: uv sync --extra adk")
 
-        if not cfg.uses_postgres:
-            out.warn("The agent requires PostgreSQL for persistent storage.")
+        if cfg.store_provider not in ("sqlite", "postgres"):
+            out.warn("The agent requires a persistent store (sqlite or postgres).")
             out.info("Set it up first with:")
-            out.next_step("context-use config set-store postgres")
+            out.next_step("context-use config set-store sqlite")
             print()
 
         print()

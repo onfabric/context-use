@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from context_use.cli import output as out
 from context_use.cli.base import (
-    PersistentCommand,
+    ContextCommand,
     add_archive_args,
     print_ingest_result,
     resolve_archive,
@@ -16,13 +16,12 @@ if TYPE_CHECKING:
     from context_use import ContextUse
 
 
-class IngestCommand(PersistentCommand):
+class IngestCommand(ContextCommand):
     name = "ingest"
-    help = "Step 1: Process a data export archive (requires PostgreSQL)"
+    help = "Step 1: Process a data export archive"
     description = (
         "Process a data export archive. Run without arguments to "
-        "interactively pick from archives in data/input/. "
-        "Requires PostgreSQL."
+        "interactively pick from archives in data/input/."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
