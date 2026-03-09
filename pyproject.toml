@@ -28,6 +28,8 @@ dev = [
     # All optional extras included so Pyright can resolve every import.
     "context-use[postgres,gcs,mcp-use,adk]",
     "git-cliff>=2.12.0",
+    "twine>=6.2.0",
+    "check-wheel-contents>=0.6.3",
 ]
 
 [project.scripts]
@@ -110,6 +112,9 @@ docstring-code-format = false
 # This only has an effect when the `docstring-code-format` setting is
 # enabled.
 docstring-code-line-length = "dynamic"
+
+[tool.check-wheel-contents]
+toplevel = ["context_use"]
 
 [tool.uv]
 package = true
