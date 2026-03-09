@@ -57,8 +57,8 @@ class Config:
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
 
-    # Store backend: "memory" (default, no external deps) or "postgres"
-    store_provider: str = "memory"
+    # Store backend: "sqlite" (default), "memory", or "postgres"
+    store_provider: str = "sqlite"
 
     # Postgres settings (only used when store_provider == "postgres")
     db_host: str = "localhost"
@@ -87,6 +87,10 @@ class Config:
     @property
     def storage_path(self) -> str:
         return str(self.data_dir / "storage")
+
+    @property
+    def db_path(self) -> str:
+        return str(self.data_dir / "context_use.db")
 
     @property
     def uses_postgres(self) -> bool:
@@ -203,6 +207,10 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
             user=cfg.db_user,
             password=cfg.db_password,
         )
+    elif cfg.store_provider == "sqlite":
+        from context_use.store.sqlite import SqliteStore
+
+        store = SqliteStore(path=cfg.db_path)
     else:
         from context_use.store.memory import InMemoryStore
 

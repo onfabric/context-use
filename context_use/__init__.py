@@ -12,13 +12,14 @@ from context_use.facade import (
     ScheduleInstruction,
     TaskBreakdown,
 )
-from context_use.store import InMemoryStore, Store
+from context_use.store import InMemoryStore, SqliteStore, Store
 
 __all__ = [
     "ContextUse",
     "InMemoryStore",
     "PipelineResult",
     "ScheduleInstruction",
+    "SqliteStore",
     "Store",
     "TaskBreakdown",
 ]
