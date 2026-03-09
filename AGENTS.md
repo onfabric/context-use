@@ -2,36 +2,7 @@
 
 context-use has two main pipelines: **ETL** (extract + transform data from provider archives into normalised threads) and **Memories** (group threads, generate first-person memories via LLM, and embed them for semantic search). Both are configured in the unified provider registry.
 
----
-
-## Development setup
-
-```bash
-git clone https://github.com/onfabric/context-use.git
-cd context-use
-uv sync
-uv run pre-commit install
-```
-
-`uv sync` installs the package in editable mode along with all optional extras (`postgres`, `gcs`, `mcp-use`, `adk`) and dev dependencies — no extra flags needed.
-
-Run tests:
-
-```bash
-./scripts/prepare-tests.sh   # start test infrastructure (PostgreSQL)
-./scripts/run-tests.sh
-./scripts/shutdown-tests.sh
-```
-
-Type checking and linting:
-
-```bash
-uv run pyright
-uv run ruff check --fix
-uv run ruff format
-```
-
----
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the development setup.
 
 ## Quick Reference — Checklist
 
