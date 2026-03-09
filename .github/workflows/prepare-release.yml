@@ -27,7 +27,7 @@ jobs:
 
       - name: Compute next version
         id: version
-        run: echo "version=$(uv run git-cliff --bumped-version 2>/dev/null)" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(./scripts/bumped-version.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Update pyproject.toml version
         env:
