@@ -59,8 +59,6 @@ _EPILOG = (
     "Show current settings\n"
     "  context-use config set-key                   "
     "Change OpenAI API key\n"
-    "  context-use config set-store <path>           "
-    "Set database path (relative to data directory)\n"
     "  context-use config path                      "
     "Print config file location\n"
 )

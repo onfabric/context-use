@@ -63,7 +63,6 @@ class ConfigShowCommand(BaseCommand):
         print()
         out.info("To change settings:")
         out.next_step("context-use config set-key", "change OpenAI API key")
-        out.next_step("context-use config set-store <path>", "set database path")
         out.next_step("context-use config set-agent adk", "configure agent backend")
         print()
 
@@ -90,41 +89,6 @@ class ConfigSetKeyCommand(BaseCommand):
         cfg.openai_api_key = key
         path = save_config(cfg)
         out.success(f"API key saved to {path}")
-
-
-class ConfigSetStoreCommand(BaseCommand):
-    name = "set-store"
-    help = "Set the database filename (relative to data directory)"
-
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "filename",
-            nargs="?",
-            default=None,
-            help="Database filename (resolved relative to data directory)",
-        )
-        parser.add_argument(
-            "--default",
-            action="store_true",
-            help="Reset to default (context_use.db)",
-        )
-
-    async def execute(self, args: argparse.Namespace) -> None:
-        cfg = load_config() if config_path().exists() else Config()
-
-        if args.default:
-            cfg.database_path = ""
-            save_config(cfg)
-            out.success(f"Database reset to default: {cfg.db_path}")
-            return
-
-        if args.filename is None:
-            out.kv("Database", cfg.db_path)
-            return
-
-        cfg.database_path = args.filename
-        save_config(cfg)
-        out.success(f"Database set to: {cfg.db_path}")
 
 
 class ConfigSetAgentCommand(BaseCommand):
@@ -172,7 +136,6 @@ class ConfigGroup(CommandGroup):
     subcommands = [
         ConfigShowCommand,
         ConfigSetKeyCommand,
-        ConfigSetStoreCommand,
         ConfigSetAgentCommand,
         ConfigPathCommand,
     ]
