@@ -5,8 +5,8 @@ Turn your data exports into portable AI memory.
 ## Features
 
 - **Ingest** — parse provider export ZIPs into structured threads; no cloud upload required
-- **Quickstart** — zero-database preview mode; results written to `data/output/` with no setup beyond an OpenAI key
-- **Full pipeline** — persistent storage in PostgreSQL with pgvector; full archive history, batch API for cost-efficient memory generation
+- **Quickstart** — zero-config preview mode; results written to `data/output/` with no setup beyond an OpenAI key
+- **Full pipeline** — persistent storage in SQLite; full archive history, batch API for cost-efficient memory generation
 - **Semantic search** — `memories search` queries your memory store by meaning, not just keywords
 - **MCP server** — expose memories and semantic search to Claude Desktop, Cursor, or any MCP client
 - **Personal agent** — multi-turn agent that synthesises higher-level pattern memories, generates a first-person profile, or runs ad-hoc queries against your memory store
@@ -52,7 +52,7 @@ context-use config set-key
 
 ## Quick start
 
-A zero-setup preview that requires no database.
+A zero-setup preview that requires no database setup.
 
 ```bash
 context-use quickstart
@@ -60,31 +60,17 @@ context-use quickstart
 
 The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed; use `--full` to include the complete history (the CLI warns you before proceeding).
 
-The output is a snapshot: memories are written to `data/output/` as Markdown and JSON, then discarded. Nothing is stored in a database, so the memories are not queryable, searchable, or available to the MCP server after the command exits.
-
-**The full pipeline is the intended way to use context-use beyond this initial preview.**
-
 ## Full pipeline
 
-For persistent storage, semantic search, and the MCP server.
-
-**1. Set up PostgreSQL (one-time)**
-
-```bash
-context-use config set-store postgres
-```
-
-Prompts to start a local container via Docker, then saves connection details to `~/.config/context-use/config.toml`. Skip Docker if you're bringing your own PostgreSQL instance.
-
-**2. Run the pipeline**
+For full archive history and cost-efficient batch processing.
 
 ```bash
 context-use pipeline
 ```
 
-Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in PostgreSQL and persist across sessions, enabling semantic search, the MCP server, and the personal agent.
+Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search, the MCP server, and the personal agent.
 
-**3. Explore your memories**
+**Explore your memories**
 
 ```bash
 context-use memories list
@@ -92,8 +78,6 @@ context-use memories search "hiking trips in 2024"
 ```
 
 ## MCP server
-
-Requires the full pipeline (PostgreSQL).
 
 ```bash
 python -m context_use.ext.mcp_use.run
@@ -117,7 +101,7 @@ Claude Desktop config path: `~/Library/Application Support/Claude/claude_desktop
 
 ## Personal agent
 
-A multi-turn agent that operates over your full memory store. Requires PostgreSQL.
+A multi-turn agent that operates over your full memory store.
 
 ```bash
 context-use config set-agent adk
@@ -135,12 +119,6 @@ Config file: `~/.config/context-use/config.toml`. Run `context-use config show` 
 | OpenAI API key | `config set-key` | `OPENAI_API_KEY` | — |
 | Model | edit config file | `OPENAI_MODEL` | `gpt-5.2` |
 | Embedding model | edit config file | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` |
-| Store backend | `config set-store postgres\|memory` | `CONTEXT_USE_STORE` | `memory` |
-| PostgreSQL host | `config set-store postgres` | `POSTGRES_HOST` | `localhost` |
-| PostgreSQL port | `config set-store postgres` | `POSTGRES_PORT` | `5432` |
-| PostgreSQL database | `config set-store postgres` | `POSTGRES_DB` | `context_use` |
-| PostgreSQL user | `config set-store postgres` | `POSTGRES_USER` | `postgres` |
-| PostgreSQL password | `config set-store postgres` | `POSTGRES_PASSWORD` | `postgres` |
 | Agent backend | `config set-agent adk` | `CONTEXT_USE_AGENT_BACKEND` | — |
 | Data directory | edit config file | — | `./data` |
 

@@ -13,7 +13,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-postgres = ["sqlalchemy>=2.0", "pgvector>=0.4.2", "asyncpg>=0.30.0", "greenlet>=3.3.1"]
 gcs = ["google-cloud-storage>=2.10.0,<3"]
 mcp-use = ["mcp-use>=1.6.0", "langchain-openai>=1.1.10"]
 adk = ["google-adk>=1.26"]
@@ -27,7 +26,7 @@ dev = [
     "pytest-asyncio",
     "pre-commit>=4.5.1",
     # All optional extras included so Pyright can resolve every import.
-    "context-use[postgres,gcs,mcp-use,adk]",
+    "context-use[gcs,mcp-use,adk]",
     "git-cliff>=2.12.0",
     "twine>=6.2.0",
     "check-wheel-contents>=0.6.3",
@@ -54,7 +53,7 @@ packages = ["context_use"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
-    "integration: tests requiring PostgreSQL (deselect with '-m not integration')",
+    "integration: integration tests (deselect with '-m not integration')",
 ]
 
 [tool.ruff]

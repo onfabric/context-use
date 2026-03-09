@@ -42,12 +42,12 @@ class ContextUse:
     Usage::
 
         from context_use.storage.disk import DiskStorage
-        from context_use.store.memory import InMemoryStore
+        from context_use.store.sqlite import SqliteStore
         from context_use.llm.litellm import LiteLLMBatchClient
 
         ctx = ContextUse(
             storage=DiskStorage("./data"),
-            store=InMemoryStore(),
+            store=SqliteStore(path="./data/context_use.db"),
             llm_client=LiteLLMBatchClient(...),
         )
         await ctx.init()
