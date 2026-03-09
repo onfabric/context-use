@@ -1,24 +1,8 @@
 # context-use
 
+![PyPI - Version](https://img.shields.io/pypi/v/context-use)
+
 Turn your data exports into portable AI memory.
-
-## Features
-
-- **Ingest** — parse provider export ZIPs into structured threads; no cloud upload required
-- **Quickstart** — zero-config preview mode; results written to `data/output/` with no setup beyond an OpenAI key
-- **Full pipeline** — persistent storage in SQLite; full archive history, batch API for cost-efficient memory generation
-- **Semantic search** — `memories search` queries your memory store by meaning, not just keywords
-- **MCP server** — expose memories and semantic search to Claude Desktop, Cursor, or any MCP client
-- **Personal agent** — multi-turn agent that synthesises higher-level pattern memories, generates a first-person profile, or runs ad-hoc queries against your memory store
-
-## Supported providers
-
-| Provider | Status | Data types | Export guide |
-|----------|--------|------------|-------------|
-| ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
-| Instagram | Available | Stories, Reels, Posts | [Download your data](https://help.instagram.com/181231772500920) |
-| WhatsApp | Coming soon | | |
-| Google Takeout | Coming soon | | |
 
 ## Install
 
@@ -36,6 +20,9 @@ A zero-setup preview that requires no database setup.
 context-use pipeline --quick
 ```
 
+> [!WARNING]
+> You must have an [export](#getting-your-export) from any of the [supported providers](#supported-providers) to use this command.
+
 The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed; use `--full` to include the complete history (the CLI warns you before proceeding).
 
 ## Getting your export
@@ -47,8 +34,17 @@ The CLI prompts for the export and provider. Memory generation uses the OpenAI *
 context-use/
 └── data/
     └── input/
-        └── chatgpt-export.zip   ← place it here
+        └── your-data-export.zip   ← place it here
 ```
+
+## Supported providers
+
+| Provider | Status | Data types | Export guide |
+|----------|--------|------------|-------------|
+| ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
+| Instagram | Available | Stories, Reels, Posts | [Download your data](https://help.instagram.com/181231772500920) |
+| WhatsApp | Coming soon | | |
+| Google Takeout | Coming soon | | |
 
 ## Full pipeline
 
@@ -65,29 +61,8 @@ Ingests the export and generates memories via the OpenAI **batch API** — signi
 ```bash
 context-use memories list
 context-use memories search "hiking trips in 2024"
+context-use memories export
 ```
-
-## MCP server
-
-```bash
-python -m context_use.ext.mcp_use.run
-# use --transport stdio for clients that prefer stdio
-```
-
-Add to your MCP client config (Claude Desktop, Cursor, etc.):
-
-```json
-{
-  "mcpServers": {
-    "context-use": {
-      "command": "python",
-      "args": ["-m", "context_use.ext.mcp_use.run", "--transport", "stdio"]
-    }
-  }
-}
-```
-
-Claude Desktop config path: `~/Library/Application Support/Claude/claude_desktop_config.json`. Cursor: Settings → MCP.
 
 ## Personal agent
 
@@ -102,15 +77,13 @@ context-use agent ask "What topics do I keep coming back to across all my conver
 
 ## Configuration
 
-Config file: `~/.config/context-use/config.toml`. Run `context-use config show` to see all active values and where each comes from (env var, file, or built-in default).
+There are a bunch of options you can configure:
 
-| Setting | CLI command | Env var | Default |
-|---------|-------------|---------|---------|
-| OpenAI API key | `config set-key` | `OPENAI_API_KEY` | — |
-| Model | edit config file | `OPENAI_MODEL` | `gpt-5.2` |
-| Embedding model | edit config file | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` |
-| Agent backend | `config set-agent adk` | `CONTEXT_USE_AGENT_BACKEND` | — |
-| Data directory | edit config file | — | `./data` |
+```bash
+context-use config --help
+```
+
+The configuration is saved in a config file at `<your-home-directory>/.config/context-use/config.toml`.
 
 
 ## Adding new providers and pipes
