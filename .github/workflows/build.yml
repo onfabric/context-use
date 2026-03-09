@@ -19,7 +19,17 @@ jobs:
       - name: Build
         run: uv build
 
-      - name: Check package
+      # TODO: remove — temporary step to verify checks catch real issues
+      - name: Corrupt artifacts to test checks
         run: |
-          uv run twine check --strict dist/*
+          echo "stray file" > stray.txt
+          zip dist/*.whl stray.txt
+          gzip -d dist/*.tar.gz
+          tar --append -f dist/*.tar stray.txt
+          gzip dist/*.tar
+          rm stray.txt
+
+      - name: Check package (should fail)
+        run: |
+          # uv run twine check --strict dist/*
           uv run check-wheel-contents dist/
