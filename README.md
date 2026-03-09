@@ -65,14 +65,13 @@ The configuration is saved in a config file at `<your-home-directory>/.config/co
 
 ## Getting your export
 
-1. Follow the export guide for your provider in the table above. The export is delivered as a ZIP file — **do not extract it**.
-2. Move or copy the ZIP into `data/input/` inside the cloned repo:
+1. Follow the export guide for your provider in the [supported providers](#supported-providers) table. The export is delivered as a ZIP file — **do not extract it**.
+2. Move or copy the ZIP into `data/input/`:
 
 ```
-context-use/
-└── data/
-    └── input/
-        └── your-data-export.zip   ← place it here
+data/
+└── input/
+    └── your-data-export.zip   ← place it here
 ```
 
 ## Supported providers
@@ -80,6 +79,7 @@ context-use/
 | Provider | Status | Data types | Export guide |
 |----------|--------|------------|-------------|
 | ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
-| Instagram | Available | Stories, Reels, Posts | [Download your data](https://help.instagram.com/181231772500920) |
+| Claude | Available | Conversations | [Export your data](https://privacy.claude.com/en/articles/9450526-how-can-i-export-my-claude-data) |
+| Instagram | Available | Stories, Reels, Posts, Likes, Followers, ... | [Export your data](https://help.instagram.com/181231772500920) |
+| Google | Coming soon | Searches, YouTube | [Export your data](https://support.google.com/accounts/answer/3024190) |
 | WhatsApp | Coming soon | | |
-| Google Takeout | Coming soon | | |
