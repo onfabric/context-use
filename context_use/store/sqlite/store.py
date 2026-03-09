@@ -38,7 +38,7 @@ BULK_INSERT_BATCH_SIZE = 500
 
 
 class SqliteStore(Store):
-    def __init__(self, path: str = "context_use.db") -> None:
+    def __init__(self, path: str) -> None:
         self._path = path
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False

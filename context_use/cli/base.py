@@ -274,6 +274,7 @@ class ContextCommand(BaseCommand, ABC):
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
         """Pre-flight hook. Return (possibly mutated) cfg."""
+        cfg.ensure_dirs()
         return cfg
 
     @abstractmethod

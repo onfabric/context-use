@@ -47,7 +47,7 @@ class ContextUse:
 
         ctx = ContextUse(
             storage=DiskStorage("./data"),
-            store=SqliteStore(path="./data/context_use.db"),
+            store=SqliteStore(path="./data/store/context_use.db"),
             llm_client=LiteLLMBatchClient(...),
         )
         await ctx.init()
