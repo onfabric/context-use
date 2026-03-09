@@ -33,7 +33,7 @@ _EPILOG = (
     "Explore:\n"
     "  context-use memories list                    "
     "Browse memories\n"
-    '  context-use memories search "query"          '
+    '  context-use memories search "<your-query>"   '
     "Semantic search\n"
     "  context-use memories export                  "
     "Export to file\n"
@@ -41,7 +41,7 @@ _EPILOG = (
     "Personal agent:\n"
     "  context-use agent synthesise                 "
     "Synthesise pattern memories\n"
-    '  context-use agent ask "<your-prompt>"                '
+    '  context-use agent ask "<your-prompt>"        '
     "Send a free-form task to the agent\n"
     "\n"
     "Configuration:\n"
