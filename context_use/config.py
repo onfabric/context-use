@@ -52,8 +52,12 @@ class Config:
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
 
-    # SQLite database path; empty = default (data_dir / "context_use.db")
-    database_path: str = ""
+    database_path: str = "context_use.db"
+    """
+    SQLite database path.
+    Relative to the `data_dir`/`store` directory.
+    Default: `./data/store/context_use.db`
+    """
 
     # Agent backend: "" (not configured), "adk", …
     agent_backend: str = ""
@@ -77,12 +81,12 @@ class Config:
         return str(self.data_dir / "storage")
 
     @property
+    def store_path(self) -> Path:
+        return self.data_dir / "store"
+
+    @property
     def db_path(self) -> str:
-        name = self.database_path or "context_use.db"
-        p = Path(name)
-        if p.is_absolute():
-            return str(p)
-        return str(self.data_dir / name)
+        return str(self.store_path / self.database_path)
 
     def ensure_dirs(self) -> None:
         """Create the data directory structure if it doesn't exist."""
