@@ -54,7 +54,7 @@ For full archive history and cost-efficient batch processing.
 context-use pipeline
 ```
 
-Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search, the MCP server, and the personal agent.
+Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search and the personal agent.
 
 **Explore your memories**
 
