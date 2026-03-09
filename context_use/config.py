@@ -39,7 +39,6 @@ _FIELDS: list[_FieldSpec] = [
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
     _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
-    _FieldSpec("agent_backend", "agent", "backend", "CONTEXT_USE_AGENT_BACKEND"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
 
@@ -58,9 +57,6 @@ class Config:
     Relative to the `data_dir`/`store` directory.
     Default: `./data/store/context_use.db`
     """
-
-    # Agent backend: "" (not configured), "adk", …
-    agent_backend: str = ""
 
     data_dir: Path = field(default_factory=lambda: Path("./data"))
 
@@ -150,15 +146,6 @@ def save_config(cfg: Config) -> Path:
             [
                 "[store]",
                 f'path = "{cfg.database_path}"',
-                "",
-            ]
-        )
-
-    if cfg.agent_backend:
-        lines.extend(
-            [
-                "[agent]",
-                f'backend = "{cfg.agent_backend}"',
                 "",
             ]
         )

@@ -69,7 +69,6 @@ context-use memories export
 A multi-turn agent that operates over your full memory store.
 
 ```bash
-context-use config set-agent adk
 context-use agent synthesise          # generate higher-level pattern memories
 context-use agent profile             # compile a first-person profile
 context-use agent ask "What topics do I keep coming back to across all my conversations?"
@@ -84,7 +83,6 @@ context-use config --help
 ```
 
 The configuration is saved in a config file at `<your-home-directory>/.config/context-use/config.toml`.
-
 
 ## Adding new providers and pipes
 
