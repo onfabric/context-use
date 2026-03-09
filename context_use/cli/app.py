@@ -2,16 +2,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from importlib.metadata import version
 
 from context_use.cli.commands import COMMAND_GROUPS, TOP_LEVEL_COMMANDS
 
 DESCRIPTION = """\
-context-use — turn your data exports into AI memory
+context-use — turn your data exports into portable AI memory
 
-Turn data exports from ChatGPT, Instagram, and other services into
-searchable personal memories. context-use extracts your interactions,
-generates first-person memories via LLM, and serves them through an
-a personal agent so AI assistants can know about you.
+Turn data exports from ChatGPT, Instagram, and other platforms into personal memories.
+Port your memories to your favorite AI agents so they can understand you more like a
+friend and less like a chatbot.
 
 Quick start: context-use pipeline --quick"""
 
@@ -33,7 +33,7 @@ _EPILOG = (
     "Explore:\n"
     "  context-use memories list                    "
     "Browse memories\n"
-    '  context-use memories search "query"          '
+    '  context-use memories search "<your-query>"   '
     "Semantic search\n"
     "  context-use memories export                  "
     "Export to file\n"
@@ -41,7 +41,7 @@ _EPILOG = (
     "Personal agent:\n"
     "  context-use agent synthesise                 "
     "Synthesise pattern memories\n"
-    '  context-use agent ask "query"                '
+    '  context-use agent ask "<your-prompt>"        '
     "Send a free-form task to the agent\n"
     "\n"
     "Configuration:\n"
@@ -60,6 +60,11 @@ def _build_parser() -> argparse.ArgumentParser:
         description=DESCRIPTION,
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=_EPILOG,
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"%(prog)s {version('context-use')}",
     )
     parser.add_argument(
         "-v",
