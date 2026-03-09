@@ -25,9 +25,6 @@ jobs:
       - name: Build
         run: uv build
 
-      - name: List build artifacts
-        run: ls -lh dist/
-
       - name: Publish to PyPI
         run: uv publish --trusted-publishing always
 
