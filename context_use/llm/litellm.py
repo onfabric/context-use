@@ -5,6 +5,7 @@ import json
 import logging
 import mimetypes
 import tempfile
+from collections.abc import Callable
 from typing import Any
 
 import litellm
@@ -390,14 +391,21 @@ class LiteLLMSyncClient(_LiteLLMBase):
         super().__init__(model, api_key, embedding_model)
         self._gen_cache: dict[str, BatchResults] = {}  # type: ignore[type-arg]
         self._embed_cache: dict[str, EmbedBatchResults] = {}
+        self.on_progress: Callable[[str, int, int], None] | None = None
+
+    def _notify(self, label: str, completed: int, total: int) -> None:
+        if self.on_progress is not None:
+            self.on_progress(label, completed, total)
 
     async def batch_submit(
         self,
         batch_id: str,
         prompts: list[PromptItem],
     ) -> str:
+        total = len(prompts)
+        self._notify("Generating", 0, total)
         results: BatchResults = {}  # type: ignore[type-arg]
-        for item in prompts:
+        for i, item in enumerate(prompts, 1):
             try:
                 results[item.item_id] = await self._raw_structured_completion(item)
             except Exception:
@@ -407,6 +415,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
                     item.prompt,
                     exc_info=True,
                 )
+            self._notify("Generating", i, total)
         logger.info(
             "[%s] Completed %d/%d sync completions",
             batch_id,
@@ -432,8 +441,10 @@ class LiteLLMSyncClient(_LiteLLMBase):
         batch_id: str,
         items: list[EmbedItem],
     ) -> str:
+        total = len(items)
+        self._notify("Embedding", 0, total)
         results: EmbedBatchResults = {}
-        for item in items:
+        for i, item in enumerate(items, 1):
             try:
                 response = await litellm.aembedding(
                     model=self._embedding_model,
@@ -447,6 +458,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
                     item.item_id,
                     exc_info=True,
                 )
+            self._notify("Embedding", i, total)
         logger.info(
             "[%s] Completed %d/%d sync embeddings",
             batch_id,

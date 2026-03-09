@@ -19,7 +19,12 @@ if TYPE_CHECKING:
 # ── Infrastructure helpers ────────────────────────────────────────────────────
 
 
-async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
+async def run_batches(
+    ctx: ContextUse,
+    batches: list[Batch],
+    *,
+    skip_countdown: bool = False,
+) -> None:
     """Drive all batches to completion, polling until each stops."""
     from context_use.batch.manager import ScheduleInstruction
 
@@ -29,7 +34,7 @@ async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
         for batch_id in pending:
             instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
             if not instruction.stop:
-                if instruction.countdown:
+                if instruction.countdown and not skip_countdown:
                     await asyncio.sleep(instruction.countdown)
                 still_pending.append(batch_id)
         pending = still_pending

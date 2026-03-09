@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import zipfile
+from collections.abc import Callable
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
@@ -72,6 +73,12 @@ class ContextUse:
     async def reset(self) -> None:
         """Drop all data and recreate from scratch."""
         await self._store.reset()
+
+    def set_llm_progress(
+        self, callback: Callable[[str, int, int], None] | None
+    ) -> None:
+        if hasattr(self._llm_client, "on_progress"):
+            self._llm_client.on_progress = callback  # type: ignore[attr-defined]
 
     # ── ETL ──────────────────────────────────────────────────────────
 

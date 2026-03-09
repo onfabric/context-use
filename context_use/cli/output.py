@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from types import TracebackType
 
 
 def _supports_color() -> bool:
@@ -13,6 +14,7 @@ def _supports_color() -> bool:
 
 
 _COLOR = _supports_color()
+_IS_TTY = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
 def _ansi(code: str, text: str) -> str:
@@ -90,3 +92,53 @@ def next_step(command: str, description: str = "") -> None:
 def banner() -> None:
     """Print the opening banner."""
     print(bold("context-use") + dim(" — turn your data exports into AI memory"))
+
+
+class ProgressBar:
+    """Multi-phase in-place terminal progress bar.
+
+    Each call to ``update(label, completed, total)`` redraws the current line.
+    When the label changes the previous line is finalised and a new phase
+    starts on the next line::
+
+        Generating  ██████████████████████████████  100%  5/5
+        Embedding   ████████████████░░░░░░░░░░░░░░   57%  4/7
+    """
+
+    _BAR_WIDTH = 30
+    _LABEL_WIDTH = 12
+
+    def __init__(self) -> None:
+        self._current_label = ""
+
+    def __enter__(self) -> ProgressBar:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        if _IS_TTY and self._current_label:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+    def update(self, label: str, completed: int, total: int) -> None:
+        if label != self._current_label:
+            if _IS_TTY and self._current_label:
+                sys.stdout.write("\n")
+            self._current_label = label
+        total = max(total, 1)
+        frac = completed / total
+        filled = int(self._BAR_WIDTH * frac)
+        bar = bold("█" * filled) + dim("░" * (self._BAR_WIDTH - filled))
+        pct = f"{frac * 100:3.0f}%"
+        counter = f"{completed}/{total}"
+        padded = label.ljust(self._LABEL_WIDTH)
+        line = f"  {padded}{bar}  {pct}  {dim(counter)}"
+        if _IS_TTY:
+            sys.stdout.write(f"\r{line}")
+            sys.stdout.flush()
+        elif completed == total:
+            print(line)
