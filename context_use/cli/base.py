@@ -56,17 +56,6 @@ def require_api_key(cfg: Config) -> None:
     sys.exit(1)
 
 
-def require_agent_backend(cfg: Config) -> None:
-    """Exit with guidance if no agent backend is configured."""
-    if cfg.agent_backend:
-        return
-    out.error("No agent backend configured.")
-    print()
-    out.info("Configure one with:")
-    out.next_step("context-use config set-agent adk", "use the ADK agent backend")
-    sys.exit(1)
-
-
 # ── Archive-picker helpers ────────────────────────────────────────────────────
 
 
@@ -296,20 +285,6 @@ class ApiCommand(ContextCommand, ABC):
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
         require_api_key(cfg)
         return super()._prepare(cfg, args)
-
-
-class AgentCommand(ApiCommand, ABC):
-    """Command that requires an OpenAI API key **and** a configured
-    agent backend.
-
-    ``_prepare`` adds ``require_agent_backend`` on top of
-    :class:`ApiCommand`'s checks.
-    """
-
-    def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        cfg = super()._prepare(cfg, args)
-        require_agent_backend(cfg)
-        return cfg
 
 
 # ── Command group ─────────────────────────────────────────────────────────────

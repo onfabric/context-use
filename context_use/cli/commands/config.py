@@ -44,14 +44,6 @@ class ConfigShowCommand(BaseCommand):
         )
 
         out.kv("Store", f"sqlite ({cfg.db_path}) {badge('database_path')}")
-
-        if cfg.agent_backend:
-            out.kv("Agent backend", f"{cfg.agent_backend} {badge('agent_backend')}")
-        else:
-            out.kv(
-                "Agent backend", f"{out.dim('not configured')} {badge('agent_backend')}"
-            )
-
         out.kv("Data directory", f"{cfg.data_dir} {badge('data_dir')}")
 
         print()
@@ -63,7 +55,6 @@ class ConfigShowCommand(BaseCommand):
         print()
         out.info("To change settings:")
         out.next_step("context-use config set-key", "change OpenAI API key")
-        out.next_step("context-use config set-agent adk", "configure agent backend")
         print()
 
 
@@ -91,37 +82,6 @@ class ConfigSetKeyCommand(BaseCommand):
         out.success(f"API key saved to {path}")
 
 
-class ConfigSetAgentCommand(BaseCommand):
-    name = "set-agent"
-    help = "Configure the agent backend"
-
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument(
-            "backend",
-            choices=["adk"],
-            help="Agent backend to use (adk = single-turn LlmAgent)",
-        )
-
-    async def execute(self, args: argparse.Namespace) -> None:
-        cfg = load_config() if config_path().exists() else Config()
-        backend = args.backend
-
-        cfg.agent_backend = backend
-        path = save_config(cfg)
-        out.success(f"Agent backend set to '{backend}'. Config written to {path}")
-
-        if backend == "adk":
-            out.info("Requires the adk extra: uv sync --extra adk")
-
-        print()
-        out.header("Next steps:")
-        out.next_step(
-            "context-use pipeline", "ingest archives and generate memories first"
-        )
-        out.next_step("context-use agent --help", "see available agent skills")
-        print()
-
-
 class ConfigPathCommand(BaseCommand):
     name = "path"
     help = "Print config file location"
@@ -136,6 +96,5 @@ class ConfigGroup(CommandGroup):
     subcommands = [
         ConfigShowCommand,
         ConfigSetKeyCommand,
-        ConfigSetAgentCommand,
         ConfigPathCommand,
     ]

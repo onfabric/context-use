@@ -79,7 +79,6 @@ context-use memories search "hiking trips in 2024"
 A multi-turn agent that operates over your full memory store.
 
 ```bash
-context-use config set-agent adk
 context-use agent synthesise          # generate higher-level pattern memories
 context-use agent profile             # compile a first-person profile
 context-use agent ask "What topics do I keep coming back to across all my conversations?"
@@ -94,7 +93,6 @@ Config file: `~/.config/context-use/config.toml`. Run `context-use config show` 
 | OpenAI API key | `config set-key` | `OPENAI_API_KEY` | — |
 | Model | edit config file | `OPENAI_MODEL` | `gpt-5.2` |
 | Embedding model | edit config file | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` |
-| Agent backend | `config set-agent adk` | `CONTEXT_USE_AGENT_BACKEND` | — |
 | Data directory | edit config file | — | `./data` |
 
 
