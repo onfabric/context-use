@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING
 
 from context_use.cli import output as out
 from context_use.cli.base import (
+    ApiCommand,
     EphemeralApiCommand,
-    PersistentApiCommand,
     add_archive_args,
     print_ingest_result,
     resolve_archive,
@@ -68,10 +68,8 @@ class QuickstartCommand(EphemeralApiCommand):
                 "Large archives may hit OpenAI rate limits and take "
                 "significantly longer."
             )
-            out.info(
-                "For large archives, consider using PostgreSQL with the batch API:"
-            )
-            out.next_step("context-use config set-store postgres")
+            out.info("For large archives, consider using the batch API:")
+            out.next_step("context-use pipeline")
             print()
             confirm = input("  Continue? [y/N] ").strip().lower()
             if confirm not in ("y", "yes"):
@@ -161,19 +159,17 @@ class QuickstartCommand(EphemeralApiCommand):
         print()
         out.header("What's next:")
         print()
-        out.info(
-            "This was a preview. To search, query, and connect your "
-            "memories to AI assistants, set up PostgreSQL:"
-        )
-        out.next_step("context-use config set-store postgres")
-        print()
-        out.info("Then run the full pipeline with the batch API:")
+        out.info("Run the full pipeline with the batch API:")
         out.next_step("context-use pipeline")
         print()
+        out.info("Or explore your memories:")
+        out.next_step("context-use memories list", "browse your memories")
+        out.next_step('context-use memories search "query"', "semantic search")
+        print()
 
 
-class PipelineCommand(PersistentApiCommand):
-    """Ingest + memories using PostgreSQL and the batch API.
+class PipelineCommand(ApiCommand):
+    """Ingest + memories using the batch API.
 
     This is the production path for large archives. Uses the OpenAI Batch
     API for memory generation — cheaper and rate-limit-friendly compared to
@@ -181,11 +177,11 @@ class PipelineCommand(PersistentApiCommand):
     """
 
     name = "pipeline"
-    help = "Full pipeline — ingest + memories (requires PostgreSQL)"
+    help = "Full pipeline — ingest + memories (batch API)"
     description = (
-        "Run the full pipeline (ingest, memories) using PostgreSQL "
-        "and the batch API. Run without arguments to interactively pick an "
-        "archive from data/input/."
+        "Run the full pipeline (ingest, memories) using the batch API. "
+        "Run without arguments to interactively pick an archive from "
+        "data/input/."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:

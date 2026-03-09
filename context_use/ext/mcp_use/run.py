@@ -33,10 +33,10 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config()
-    if cfg.store_provider != "postgres":
+    if cfg.store_provider not in ("sqlite"):
         sys.exit(
-            "error: MCP server requires PostgreSQL.\n"
-            "  Run: context-use config set-store postgres"
+            "error: MCP server requires a persistent store (sqlite).\n"
+            "  Run: context-use config set-store sqlite"
         )
 
     from context_use.ext.mcp_use.server import create_server

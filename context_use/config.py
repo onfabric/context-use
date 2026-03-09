@@ -212,9 +212,10 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
 
         store = SqliteStore(path=cfg.db_path)
     else:
-        from context_use.store.memory import InMemoryStore
-
-        store = InMemoryStore()
+        raise ValueError(
+            f"Unknown store provider {cfg.store_provider!r}. "
+            "Supported: 'sqlite', 'postgres'."
+        )
 
     api_key = cfg.openai_api_key or ""
     model = OpenAIModel(cfg.openai_model)
