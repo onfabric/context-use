@@ -19,27 +19,7 @@ jobs:
       - name: Build
         run: uv build
 
-      # TODO: remove — temporary debug steps
-      - name: List wheel contents before corruption
-        run: unzip -l dist/*.whl
-
-      - name: List sdist contents before corruption
-        run: tar tzf dist/*.tar.gz
-
-      - name: Corrupt wheel
-        run: |
-          python3 -c "
-          import glob, zipfile
-          whl = glob.glob('dist/*.whl')[0]
-          print(f'Corrupting {whl}')
-          with zipfile.ZipFile(whl, 'a') as z:
-              z.writestr('tests/__init__.py', '')
-          "
-
-      - name: List wheel contents after corruption
-        run: unzip -l dist/*.whl
-
-      - name: Check package (should fail)
+      - name: Check package
         run: |
           uv run twine check --strict dist/*
           uv run check-wheel-contents dist/
