@@ -1,4 +1,4 @@
-## [unreleased]
+## [0.1.0] - 2026-03-09
 
 ### 🚀 Features
 
@@ -107,6 +107,11 @@
 
 ### ⚙️ Miscellaneous Tasks
 
+- Only include necessary files in build (#126)
+- Remove code-specific guides from contributing (#125)
+- Publish release workflow (#124)
+- Prepare release workflow (#119)
+- Generate changelog using `git-cliff` (#118)
 - Exit at first failure (#110)
 - Update readme (#105)
 - Rm stale ETL Loader classes (#73)
