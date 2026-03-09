@@ -3,6 +3,8 @@ name = "context-use"
 version = "0.1.0"
 description = "Turn your data exports into portable AI memory."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0",
@@ -42,6 +44,7 @@ build-backend = "hatchling.build"
 include = [
     "context_use/",
     "CHANGELOG.md",
+    "LICENSE",
     "README.md",
 ]
 
