@@ -35,7 +35,7 @@ jobs:
         run: sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
 
       - name: Generate changelog
-        run: uv run git-cliff --bump -o CHANGELOG.md
+        run: ./scripts/generate-changelog.sh
 
       - name: Configure git user
         run: |
