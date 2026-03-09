@@ -38,6 +38,7 @@ _FIELDS: list[_FieldSpec] = [
     _FieldSpec(
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
+    _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
     _FieldSpec("agent_backend", "agent", "backend", "CONTEXT_USE_AGENT_BACKEND"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
@@ -50,6 +51,13 @@ class Config:
     # LLM models — shared by the memories pipeline and the personal agent
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
+
+    database_path: str = "context_use.db"
+    """
+    SQLite database path.
+    Relative to the `data_dir`/`store` directory.
+    Default: `./data/store/context_use.db`
+    """
 
     # Agent backend: "" (not configured), "adk", …
     agent_backend: str = ""
@@ -69,18 +77,23 @@ class Config:
         return self.data_dir / "output"
 
     @property
-    def storage_path(self) -> str:
-        return str(self.data_dir / "storage")
+    def storage_path(self) -> Path:
+        return self.data_dir / "storage"
+
+    @property
+    def store_path(self) -> Path:
+        return self.data_dir / "store"
 
     @property
     def db_path(self) -> str:
-        return str(self.data_dir / "context_use.db")
+        return str(self.store_path / self.database_path)
 
     def ensure_dirs(self) -> None:
         """Create the data directory structure if it doesn't exist."""
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        (self.data_dir / "storage").mkdir(parents=True, exist_ok=True)
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.store_path.mkdir(parents=True, exist_ok=True)
 
 
 def load_config_with_sources() -> tuple[Config, dict[str, ConfigSource]]:
@@ -132,6 +145,15 @@ def save_config(cfg: Config) -> Path:
         lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
     lines.append("")
 
+    if cfg.database_path:
+        lines.extend(
+            [
+                "[store]",
+                f'path = "{cfg.database_path}"',
+                "",
+            ]
+        )
+
     if cfg.agent_backend:
         lines.extend(
             [
@@ -158,7 +180,7 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
 
     from context_use.store.sqlite import SqliteStore
 
-    storage = DiskStorage(cfg.storage_path)
+    storage = DiskStorage(str(cfg.storage_path))
     store = SqliteStore(path=cfg.db_path)
 
     api_key = cfg.openai_api_key or ""

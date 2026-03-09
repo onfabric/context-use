@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -351,6 +352,7 @@ class EphemeralApiCommand(ContextCommand, ABC):
     llm_mode: ClassVar[str] = "sync"
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
+        cfg.database_path = f"quickstart_{os.getpid()}.db"
         cfg.ensure_dirs()
         ensure_api_key(cfg)
         return cfg

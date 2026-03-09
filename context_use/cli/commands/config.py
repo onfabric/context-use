@@ -43,7 +43,7 @@ class ConfigShowCommand(BaseCommand):
             f"{cfg.openai_embedding_model} {badge('openai_embedding_model')}",
         )
 
-        out.kv("Store", f"sqlite ({cfg.db_path})")
+        out.kv("Store", f"sqlite ({cfg.db_path}) {badge('database_path')}")
 
         if cfg.agent_backend:
             out.kv("Agent backend", f"{cfg.agent_backend} {badge('agent_backend')}")
