@@ -16,5 +16,10 @@ jobs:
 
       - uses: ./.github/actions/prepare
 
-      - name: Build Project
+      - name: Build
         run: uv build
+
+      - name: Check package
+        run: |
+          uv run twine check --strict dist/*
+          uv run check-wheel-contents dist/
