@@ -144,6 +144,11 @@ Config file: `~/.config/context-use/config.toml`. Run `context-use config show` 
 | Agent backend | `config set-agent adk` | `CONTEXT_USE_AGENT_BACKEND` | — |
 | Data directory | edit config file | — | `./data` |
 
+
+## Adding new providers and pipes
+
+See [AGENTS.md](AGENTS.md) for `context-use`'s architecture and how to add new providers and pipes.
+
 ## Contributing
 
-See `CONTRIBUTING.md` for architecture, how to add new providers and pipes, and the development setup.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for how to contribute to the `context-use` project.
