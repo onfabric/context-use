@@ -85,6 +85,7 @@ class ContextUse:
         Each ETL task is committed independently so that a failure
         in one task does not lose previously committed work.
         """
+        import context_use.providers  # noqa: F401
         from context_use.etl.core.exceptions import (
             ArchiveProcessingError,
             UnsupportedProviderError,
@@ -199,6 +200,7 @@ class ContextUse:
         """
         from collections import defaultdict
 
+        import context_use.providers  # noqa: F401
         from context_use.batch.grouper import ThreadGroup
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.models.thread import Thread

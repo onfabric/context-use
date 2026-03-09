@@ -8,10 +8,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.config import Config, build_ctx, load_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
+    from context_use.config import Config
     from context_use.facade.types import PipelineResult
     from context_use.models.batch import Batch
 
@@ -37,6 +37,7 @@ async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
 
 def providers() -> list[str]:
     """Return the list of registered provider names."""
+    import context_use.providers  # noqa: F401
     from context_use.providers.registry import list_providers
 
     return list_providers()
@@ -175,7 +176,6 @@ def add_archive_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "provider",
         nargs="?",
-        choices=providers(),
         default=None,
         help="Data provider (omit for interactive mode)",
     )
@@ -251,6 +251,8 @@ class ContextCommand(BaseCommand, ABC):
     llm_mode: ClassVar[str] = "batch"
 
     async def execute(self, args: argparse.Namespace) -> None:
+        from context_use.config import build_ctx, load_config
+
         cfg = load_config()
         cfg = self._prepare(cfg, args)
         try:
