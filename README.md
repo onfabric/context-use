@@ -20,31 +20,10 @@ A zero-setup preview that requires no database setup.
 context-use pipeline --quick
 ```
 
-> [!WARNING]
+> [!IMPORTANT]
 > You must have an [export](#getting-your-export) from any of the [supported providers](#supported-providers) to use this command.
 
 The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed; use `--full` to include the complete history (the CLI warns you before proceeding).
-
-## Getting your export
-
-1. Follow the export guide for your provider in the table above. The export is delivered as a ZIP file — **do not extract it**.
-2. Move or copy the ZIP into `data/input/` inside the cloned repo:
-
-```
-context-use/
-└── data/
-    └── input/
-        └── your-data-export.zip   ← place it here
-```
-
-## Supported providers
-
-| Provider | Status | Data types | Export guide |
-|----------|--------|------------|-------------|
-| ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
-| Instagram | Available | Stories, Reels, Posts | [Download your data](https://help.instagram.com/181231772500920) |
-| WhatsApp | Coming soon | | |
-| Google Takeout | Coming soon | | |
 
 ## Full pipeline
 
@@ -84,10 +63,23 @@ context-use config --help
 
 The configuration is saved in a config file at `<your-home-directory>/.config/context-use/config.toml`.
 
-## Adding new providers and pipes
+## Getting your export
 
-See [AGENTS.md](AGENTS.md) for `context-use`'s architecture and how to add new providers and pipes.
+1. Follow the export guide for your provider in the [supported providers](#supported-providers) table. The export is delivered as a ZIP file — **do not extract it**.
+2. Move or copy the ZIP into `data/input/`:
 
-## Contributing
+```
+data/
+└── input/
+    └── your-data-export.zip   ← place it here
+```
 
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for how to contribute to the `context-use` project.
+## Supported providers
+
+| Provider | Status | Data types | Export guide |
+|----------|--------|------------|-------------|
+| ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
+| Claude | Available | Conversations | [Export your data](https://privacy.claude.com/en/articles/9450526-how-can-i-export-my-claude-data) |
+| Instagram | Available | Stories, Reels, Posts, Likes, Followers, ... | [Export your data](https://help.instagram.com/181231772500920) |
+| Google | Coming soon | Searches, YouTube | [Export your data](https://support.google.com/accounts/answer/3024190) |
+| WhatsApp | Coming soon | | |
