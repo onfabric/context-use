@@ -77,8 +77,8 @@ class Config:
         return self.data_dir / "output"
 
     @property
-    def storage_path(self) -> str:
-        return str(self.data_dir / "storage")
+    def storage_path(self) -> Path:
+        return self.data_dir / "storage"
 
     @property
     def store_path(self) -> Path:
@@ -92,7 +92,8 @@ class Config:
         """Create the data directory structure if it doesn't exist."""
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        (self.data_dir / "storage").mkdir(parents=True, exist_ok=True)
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.store_path.mkdir(parents=True, exist_ok=True)
 
 
 def load_config_with_sources() -> tuple[Config, dict[str, ConfigSource]]:
@@ -179,7 +180,7 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
 
     from context_use.store.sqlite import SqliteStore
 
-    storage = DiskStorage(cfg.storage_path)
+    storage = DiskStorage(str(cfg.storage_path))
     store = SqliteStore(path=cfg.db_path)
 
     api_key = cfg.openai_api_key or ""
