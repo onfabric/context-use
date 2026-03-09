@@ -83,7 +83,3 @@ context-use/
 | Instagram | Available | Stories, Reels, Posts | [Download your data](https://help.instagram.com/181231772500920) |
 | WhatsApp | Coming soon | | |
 | Google Takeout | Coming soon | | |
-
-## Contributing
-
-See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for how to contribute to the `context-use` project.
