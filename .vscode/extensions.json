@@ -3,6 +3,7 @@
         "anysphere.cursorpyright",
         "charliermarsh.ruff",
         "ms-python.python",
-        "editorconfig.editorconfig"
+        "editorconfig.editorconfig",
+        "qwtel.sqlite-viewer"
     ]
 }

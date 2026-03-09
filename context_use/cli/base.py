@@ -373,12 +373,12 @@ class AgentCommand(PersistentApiCommand, ABC):
 
 
 class EphemeralApiCommand(ContextCommand, ABC):
-    """Command that always runs with an in-memory store and an OpenAI API key.
+    """Command that always runs with an SQLite store and an OpenAI API key.
 
     Intended for zero-config preview flows (e.g. ``quickstart``) where no
     database is needed or desired.
 
-    ``_prepare`` unconditionally sets ``store_provider = "memory"`` and then
+    ``_prepare`` unconditionally sets ``store_provider = "sqlite"`` and then
     calls ``ensure_api_key``, which prompts interactively when no key is
     configured (unlike :class:`PersistentApiCommand` which exits with an
     error).
@@ -387,7 +387,7 @@ class EphemeralApiCommand(ContextCommand, ABC):
     llm_mode: ClassVar[str] = "sync"
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        cfg.store_provider = "memory"
+        cfg.store_provider = "sqlite"
         cfg.ensure_dirs()
         ensure_api_key(cfg)
         return cfg
