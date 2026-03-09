@@ -351,7 +351,6 @@ class EphemeralApiCommand(ContextCommand, ABC):
     llm_mode: ClassVar[str] = "sync"
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        cfg.store_provider = "sqlite"
         cfg.ensure_dirs()
         ensure_api_key(cfg)
         return cfg
