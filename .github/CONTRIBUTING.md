@@ -9,14 +9,12 @@ uv sync
 uv run pre-commit install
 ```
 
-`uv sync` installs all dependencies including dev and all optional extras (`postgres`, `gcs`, `mcp-use`, `adk`).
+`uv sync` installs all dependencies including dev and all optional extras (`gcs`, `mcp-use`, `adk`).
 
 Run tests:
 
 ```bash
-./scripts/prepare-tests.sh   # start test infrastructure (PostgreSQL)
-./scripts/run-tests.sh
-./scripts/shutdown-tests.sh
+uv run pytest
 ```
 
 Type checking and linting:

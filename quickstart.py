@@ -18,9 +18,10 @@ import asyncio
 
 from context_use import ContextUse
 from context_use.llm.litellm import LiteLLMBatchClient
+from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 from context_use.providers import chatgpt, instagram
 from context_use.storage.disk import DiskStorage
-from context_use.store.postgres import PostgresStore
+from context_use.store.sqlite import SqliteStore
 
 parser = argparse.ArgumentParser(description="contextuse quickstart")
 parser.add_argument("--chatgpt", metavar="PATH", help="Path to a ChatGPT export zip")
@@ -36,14 +37,12 @@ if not args.chatgpt and not args.instagram:
 async def main() -> None:
     ctx = ContextUse(
         storage=DiskStorage("./data"),
-        store=PostgresStore(
-            host="localhost",
-            port=5432,
-            database="context_use",
-            user="postgres",
-            password="postgres",
+        store=SqliteStore(path="./data/context_use.db"),
+        llm_client=LiteLLMBatchClient(
+            api_key="",
+            model=OpenAIModel.GPT_5_2,
+            embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
         ),
-        llm_client=LiteLLMBatchClient(api_key=""),
     )
     await ctx.init()
 
@@ -67,7 +66,7 @@ async def main() -> None:
         if result.errors:
             print(f"  Errors: {result.errors}")
 
-    print("\nDone! Data stored in ./context_use.db and ./data/")
+    print("\nDone! Data stored in ./data/context_use.db and ./data/")
 
 
 asyncio.run(main())

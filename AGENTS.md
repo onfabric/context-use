@@ -87,7 +87,7 @@ Key design rules:
 - **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the facade collects and persists via `Store.insert_threads()`.
 - **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
 - **Memory generation is async and batched.** The `MemoryBatchManager` state machine submits OpenAI batch jobs for both generation and embedding, polling until complete.
-- **Store is pluggable.** `InMemoryStore` runs with zero external dependencies; `PostgresStore` adds persistence with pgvector for semantic search.
+- **Store is SQLite-backed.** `SqliteStore` uses `aiosqlite` + `sqlite-vec` for persistence and vector search with zero external service dependencies.
 
 ---
 
@@ -97,8 +97,8 @@ All data access goes through the `Store` ABC — see `context_use/store/base.py`
 
 | Store | Module | Use case |
 |-------|--------|----------|
-| `InMemoryStore` | `store/memory.py` | Default. No external deps. Data lives in Python dicts for the process lifetime. |
-| `PostgresStore` | `store/postgres.py` | Persistent. Requires PostgreSQL + pgvector. |
+| `SqliteStore` | `store/sqlite/` | Default. Persistent. Uses SQLite + sqlite-vec for semantic search. |
+| `InMemoryStore` | `store/memory.py` | No external deps. Data lives in Python dicts for the process lifetime. |
 
 All Store methods accept and return **domain models** from `context_use/models/` — pure Python dataclasses with no ORM dependencies.
 
