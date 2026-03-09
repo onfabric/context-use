@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+import tempfile
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -351,6 +352,7 @@ class EphemeralApiCommand(ContextCommand, ABC):
     llm_mode: ClassVar[str] = "sync"
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
+        cfg.database_path = tempfile.mktemp(suffix=".db")
         cfg.ensure_dirs()
         ensure_api_key(cfg)
         return cfg

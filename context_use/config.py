@@ -38,6 +38,7 @@ _FIELDS: list[_FieldSpec] = [
     _FieldSpec(
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
+    _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
     _FieldSpec("agent_backend", "agent", "backend", "CONTEXT_USE_AGENT_BACKEND"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
@@ -50,6 +51,9 @@ class Config:
     # LLM models — shared by the memories pipeline and the personal agent
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
+
+    # SQLite database path; empty = default (data_dir / "context_use.db")
+    database_path: str = ""
 
     # Agent backend: "" (not configured), "adk", …
     agent_backend: str = ""
@@ -74,7 +78,11 @@ class Config:
 
     @property
     def db_path(self) -> str:
-        return str(self.data_dir / "context_use.db")
+        name = self.database_path or "context_use.db"
+        p = Path(name)
+        if p.is_absolute():
+            return str(p)
+        return str(self.data_dir / name)
 
     def ensure_dirs(self) -> None:
         """Create the data directory structure if it doesn't exist."""
@@ -131,6 +139,15 @@ def save_config(cfg: Config) -> Path:
     if cfg.openai_embedding_model != _DEFAULT_EMBEDDING_MODEL:
         lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
     lines.append("")
+
+    if cfg.database_path:
+        lines.extend(
+            [
+                "[store]",
+                f'path = "{cfg.database_path}"',
+                "",
+            ]
+        )
 
     if cfg.agent_backend:
         lines.extend(
