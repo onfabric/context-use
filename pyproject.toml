@@ -141,6 +141,10 @@ trim = true
 render_always = true
 postprocessors = []
 
+[tool.git-cliff.bump]
+features_always_bump_minor = true
+breaking_always_bump_major = false
+
 [tool.git-cliff.git]
 conventional_commits = true
 filter_unconventional = true
