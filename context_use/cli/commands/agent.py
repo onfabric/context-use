@@ -4,37 +4,22 @@ import argparse
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.cli.base import AgentCommand, CommandGroup
+from context_use.cli.base import ApiCommand, CommandGroup
 from context_use.config import Config
+from context_use.ext.adk.agent.runner import AdkAgentBackend
 
 if TYPE_CHECKING:
     from context_use import ContextUse
 
 
-def _build_agent_backend(cfg: Config):  # type: ignore[return]
-    """Instantiate the configured agent backend.
-
-    ``require_agent_backend`` in ``_prepare`` guarantees ``cfg.agent_backend``
-    is set before this is called; this handles unknown names and import errors.
-    """
-    if cfg.agent_backend == "adk":
-        try:
-            from context_use.ext.adk.agent.runner import AdkAgentBackend
-        except ImportError:
-            out.error("The adk extra is required for the adk backend.")
-            out.info("Install it with: uv sync --extra adk")
-            return None
-        return AdkAgentBackend(
-            api_key=cfg.openai_api_key or "",
-            model=cfg.openai_model,
-        )
-
-    out.error(f"Unknown agent backend: {cfg.agent_backend!r}")
-    out.info("Valid backends: adk")
-    return None
+def _build_agent_backend(cfg: Config) -> AdkAgentBackend:
+    return AdkAgentBackend(
+        api_key=cfg.openai_api_key or "",
+        model=cfg.openai_model,
+    )
 
 
-class BaseAgentSkillCommand(AgentCommand):
+class BaseAgentSkillCommand(ApiCommand):
     """Base for commands that run a named skill from the skill registry.
 
     Subclasses set ``skill_name``, a short ``header_text`` and
@@ -54,8 +39,6 @@ class BaseAgentSkillCommand(AgentCommand):
         from context_use.agent.skill import get_skill
 
         backend = _build_agent_backend(cfg)
-        if backend is None:
-            return
 
         out.header(self.header_text)
         out.info(self.info_text + "\n")
@@ -102,7 +85,7 @@ class AgentUserProfileCommand(BaseAgentSkillCommand):
     )
 
 
-class AgentAskCommand(AgentCommand):
+class AgentAskCommand(ApiCommand):
     name = "ask"
     help = "Send a free-form query to the personal agent"
 
@@ -126,8 +109,6 @@ class AgentAskCommand(AgentCommand):
             return
 
         backend = _build_agent_backend(cfg)
-        if backend is None:
-            return
 
         out.header("Running agent")
         out.info(f"Query: {query}\n")
@@ -143,10 +124,9 @@ class AgentAskCommand(AgentCommand):
 
 class AgentGroup(CommandGroup):
     name = "agent"
-    help = "Run the personal memory agent (requires adk extra)"
+    help = "Run the personal memory agent"
     description = (
-        "Run the personal memory agent with a built-in skill or a free-form query. "
-        "Configure a backend first with: context-use config set-agent adk"
+        "Run the personal memory agent with a built-in skill or a free-form query."
     )
     subcommands = [
         AgentSynthesiseCommand,

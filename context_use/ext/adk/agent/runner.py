@@ -4,16 +4,10 @@ import logging
 import uuid
 from typing import TYPE_CHECKING
 
-try:
-    from google.adk.models.lite_llm import LiteLlm
-    from google.adk.runners import Runner
-    from google.adk.sessions import InMemorySessionService
-    from google.genai import types
-except ImportError as _exc:
-    raise ImportError(
-        "The adk extra is required for AdkAgentBackend.\n"
-        "Install it with: uv sync --extra adk"
-    ) from _exc
+from google.adk.models.lite_llm import LiteLlm
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.genai import types
 
 from context_use.agent.backend import AgentBackend, AgentResult
 from context_use.ext.adk.agent.agent import create_agent
@@ -65,13 +59,6 @@ async def _run_agent(
 
 
 class AdkAgentBackend(AgentBackend):
-    """ADK-based personal agent backend.
-
-    Requires the ``adk`` extra::
-
-        uv sync --extra adk
-    """
-
     def __init__(
         self,
         *,

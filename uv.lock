@@ -381,6 +381,7 @@ name = "context-use"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "google-adk" },
     { name = "ijson" },
     { name = "litellm" },
     { name = "pydantic" },
@@ -389,9 +390,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-adk = [
-    { name = "google-adk" },
-]
 gcs = [
     { name = "google-cloud-storage" },
 ]
@@ -403,7 +401,7 @@ mcp-use = [
 [package.dev-dependencies]
 dev = [
     { name = "check-wheel-contents" },
-    { name = "context-use", extra = ["adk", "gcs", "mcp-use"] },
+    { name = "context-use", extra = ["gcs", "mcp-use"] },
     { name = "git-cliff" },
     { name = "pre-commit" },
     { name = "pyright" },
@@ -416,7 +414,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "google-adk", marker = "extra == 'adk'", specifier = ">=1.26" },
+    { name = "google-adk", specifier = ">=1.26" },
     { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=2.10.0,<3" },
     { name = "ijson", specifier = ">=3.0" },
     { name = "langchain-openai", marker = "extra == 'mcp-use'", specifier = ">=1.1.10" },
@@ -426,12 +424,12 @@ requires-dist = [
     { name = "sqlite-vec", specifier = ">=0.1.6" },
     { name = "tenacity", specifier = ">=9.1.4" },
 ]
-provides-extras = ["gcs", "mcp-use", "adk"]
+provides-extras = ["gcs", "mcp-use"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "check-wheel-contents", specifier = ">=0.6.3" },
-    { name = "context-use", extras = ["gcs", "mcp-use", "adk"] },
+    { name = "context-use", extras = ["gcs", "mcp-use"] },
     { name = "git-cliff", specifier = ">=2.12.0" },
     { name = "pre-commit", specifier = ">=4.5.1" },
     { name = "pyright", specifier = ">=1.1.408" },
