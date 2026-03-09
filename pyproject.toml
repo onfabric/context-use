@@ -1,6 +1,6 @@
 [project]
 name = "context-use"
-version = "0.1.0"
+version = "v0.2.0"
 description = "Turn your data exports into portable AI memory."
 readme = "README.md"
 requires-python = ">=3.12"
