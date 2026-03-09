@@ -32,8 +32,6 @@ context-use/
         └── chatgpt-export.zip   ← place it here
 ```
 
-Both `quickstart` and `pipeline` scan `data/input/` for exports on startup and prompt you to pick one if multiple are present.
-
 ## Install
 
 ```bash
@@ -55,7 +53,7 @@ context-use config set-key
 A zero-setup preview that requires no database setup.
 
 ```bash
-context-use quickstart
+context-use pipeline --quick
 ```
 
 The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed; use `--full` to include the complete history (the CLI warns you before proceeding).

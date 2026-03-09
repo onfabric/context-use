@@ -13,14 +13,12 @@ searchable personal memories. context-use extracts your interactions,
 generates first-person memories via LLM, and serves them through an
 MCP server so AI assistants can know about you.
 
-Quick start: context-use quickstart
-
-No database or config file needed. Results are exported to ./data/output/."""
+Quick start: context-use pipeline --quick"""
 
 _EPILOG = (
-    "Get started (no setup needed):\n"
-    "  context-use quickstart                       "
-    "Preview with last 30 days, real-time API\n"
+    "Quick start (real-time API, last 30 days):\n"
+    "  context-use pipeline --quick                 "
+    "Ingest + memories preview\n"
     "\n"
     "Full pipeline (batch API):\n"
     "  context-use pipeline                         "
