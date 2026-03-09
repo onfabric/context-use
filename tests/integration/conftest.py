@@ -17,6 +17,7 @@ from context_use.llm.base import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.store.postgres import Base, PostgresBackend, PostgresStore
+from context_use.store.sqlite import SqliteStore
 
 
 def pytest_collection_modifyitems(items: list, config) -> None:  # noqa: ANN001
@@ -114,6 +115,21 @@ class _StubLLMClient(BaseLLMClient):
 
 
 @pytest.fixture()
+async def sqlite_store(tmp_path: Path) -> AsyncGenerator[SqliteStore]:
+    """Create a SqliteStore with a clean slate for each test."""
+    s = SqliteStore(path=str(tmp_path / "integration_test.db"))
+    await s.init()
+    yield s
+    await s.close()
+
+
+@pytest.fixture()
 def ctx(tmp_path: Path, store: PostgresStore) -> ContextUse:
     storage = DiskStorage(base_path=str(tmp_path / "storage"))
     return ContextUse(storage=storage, store=store, llm_client=_StubLLMClient())
+
+
+@pytest.fixture()
+def sqlite_ctx(tmp_path: Path, sqlite_store: SqliteStore) -> ContextUse:
+    storage = DiskStorage(base_path=str(tmp_path / "storage"))
+    return ContextUse(storage=storage, store=sqlite_store, llm_client=_StubLLMClient())
