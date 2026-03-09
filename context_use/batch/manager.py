@@ -37,6 +37,7 @@ class ScheduleInstruction:
 
     stop: bool = False
     countdown: int | None = None
+    status: str | None = None
 
 
 @dataclass
@@ -93,7 +94,7 @@ class BaseBatchManager(ABC):
             refreshed = await self.ctx.store.get_batch(batch_id)
             if refreshed is None:
                 logger.error("[%s] Batch not found in store", batch_id)
-                return ScheduleInstruction(stop=True)
+                return ScheduleInstruction(stop=True, status=current_status)
             self.batch = refreshed
 
             try:
@@ -101,7 +102,7 @@ class BaseBatchManager(ABC):
                 new_state = await self._transition(current_state)
 
                 if new_state is None:
-                    return ScheduleInstruction(stop=True)
+                    return ScheduleInstruction(stop=True, status=current_status)
 
                 if isinstance(new_state, CurrentState) and type(new_state) is type(
                     current_state
@@ -150,25 +151,25 @@ class BaseBatchManager(ABC):
                     )
                 )
                 await self.ctx.store.update_batch(self.batch)
-                return ScheduleInstruction(stop=True)
+                return ScheduleInstruction(stop=True, status="FAILED")
 
         final_state = self.batch.parse_current_state()
         if isinstance(final_state, StopState):
             logger.info("[%s] Terminal state: %s", batch_id, final_state.status)
-            return ScheduleInstruction(stop=True)
+            return ScheduleInstruction(stop=True, status=final_state.status)
 
         if isinstance(final_state, CurrentState):
             countdown = final_state.poll_next_countdown
             logger.info("[%s] Poll in %ds", batch_id, countdown)
-            return ScheduleInstruction(countdown=countdown)
+            return ScheduleInstruction(countdown=countdown, status=final_state.status)
 
         if isinstance(final_state, RetryState):
             countdown = final_state.retry_countdown
             logger.info("[%s] Retry in %ds", batch_id, countdown)
-            return ScheduleInstruction(countdown=countdown)
+            return ScheduleInstruction(countdown=countdown, status=final_state.status)
 
         if isinstance(final_state, NextState):
             logger.info("[%s] Advancing immediately", batch_id)
-            return ScheduleInstruction(countdown=None)
+            return ScheduleInstruction(countdown=None, status=final_state.status)
 
         raise ValueError(f"Unknown state base class for {final_state}")

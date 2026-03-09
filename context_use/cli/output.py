@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import sys
+from dataclasses import dataclass
+from types import TracebackType
 
 
 def _supports_color() -> bool:
@@ -13,6 +15,7 @@ def _supports_color() -> bool:
 
 
 _COLOR = _supports_color()
+_IS_TTY = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
 def _ansi(code: str, text: str) -> str:
@@ -90,3 +93,123 @@ def next_step(command: str, description: str = "") -> None:
 def banner() -> None:
     """Print the opening banner."""
     print(bold("context-use") + dim(" — turn your data exports into AI memory"))
+
+
+@dataclass
+class _BatchLine:
+    status: str = "CREATED"
+    countdown_seconds: int | None = None
+    done: bool = False
+
+
+class BatchStatusSpinner:
+    """Docker-like per-batch spinner with live in-place updates."""
+
+    _FRAMES = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
+    _LABEL_WIDTH = 12
+    _STATUS_WIDTH = 20
+    _STATUS_LABELS = {
+        "CREATED": "Waiting",
+        "MEMORY_GENERATE_PENDING": "Generating",
+        "MEMORY_GENERATE_COMPLETE": "Generated",
+        "MEMORY_EMBED_PENDING": "Embedding",
+        "MEMORY_EMBED_COMPLETE": "Embedded",
+        "COMPLETE": "Complete",
+        "SKIPPED": "Skipped",
+        "FAILED": "Failed",
+    }
+
+    def __init__(self, batches: list[tuple[str, str]]) -> None:
+        self._order = [batch_id for batch_id, _ in batches]
+        self._labels = {batch_id: label for batch_id, label in batches}
+        self._lines = {batch_id: _BatchLine() for batch_id in self._order}
+        self._frame_index = 0
+        self._rendered_lines = 0
+        self._printed_terminal: set[str] = set()
+
+    def __enter__(self) -> BatchStatusSpinner:
+        self._render(force=True)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        if _IS_TTY and self._rendered_lines:
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+
+    def update(
+        self,
+        batch_id: str,
+        status: str,
+        *,
+        countdown_seconds: int | None = None,
+        done: bool = False,
+    ) -> None:
+        self._lines[batch_id] = _BatchLine(
+            status=status,
+            countdown_seconds=countdown_seconds if not done else None,
+            done=done,
+        )
+        self._render(force=done)
+
+    def tick(self) -> None:
+        self._frame_index = (self._frame_index + 1) % len(self._FRAMES)
+        self._render(force=False)
+
+    def _render(self, *, force: bool) -> None:
+        if not _IS_TTY:
+            if not force:
+                return
+            for batch_id in self._order:
+                line = self._lines[batch_id]
+                if not line.done or batch_id in self._printed_terminal:
+                    continue
+                self._printed_terminal.add(batch_id)
+                icon = self._terminal_icon_for(line.status)
+                label = self._labels[batch_id]
+                status_text = self._status_text(line.status)
+                print(f"  {icon} {label} {status_text}")
+            return
+
+        if self._rendered_lines:
+            sys.stdout.write(f"\x1b[{self._rendered_lines}F")
+
+        frame = self._FRAMES[self._frame_index]
+        for batch_id in self._order:
+            line = self._lines[batch_id]
+            symbol = self._symbol_for(line, frame)
+            label = self._labels[batch_id].ljust(self._LABEL_WIDTH)
+            status_text = self._status_text(line.status).ljust(self._STATUS_WIDTH)
+            detail = self._detail_text(line)
+            sys.stdout.write(f"\x1b[2K  {symbol} {label} {status_text}{detail}\n")
+
+        self._rendered_lines = len(self._order)
+        sys.stdout.flush()
+
+    def _symbol_for(self, line: _BatchLine, frame: str) -> str:
+        if not line.done:
+            return cyan(frame)
+        return self._terminal_icon_for(line.status)
+
+    def _terminal_icon_for(self, status: str) -> str:
+        if status == "FAILED":
+            return red("✗")
+        if status == "SKIPPED":
+            return yellow("!")
+        return green("✓")
+
+    def _status_text(self, status: str) -> str:
+        return self._STATUS_LABELS.get(status, status.replace("_", " ").title())
+
+    def _detail_text(self, line: _BatchLine) -> str:
+        if line.done:
+            return ""
+        if line.countdown_seconds is None:
+            return dim("  (working)")
+        if line.countdown_seconds <= 0:
+            return dim("  (up next)")
+        return dim(f"  (next in {line.countdown_seconds}s)")
