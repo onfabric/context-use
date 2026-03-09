@@ -41,7 +41,7 @@ _EPILOG = (
     "Personal agent:\n"
     "  context-use agent synthesise                 "
     "Synthesise pattern memories\n"
-    '  context-use agent ask "prompt"                '
+    '  context-use agent ask "<your-prompt>"                '
     "Send a free-form task to the agent\n"
     "\n"
     "Configuration:\n"
