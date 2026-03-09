@@ -9,7 +9,7 @@ uv sync
 uv run pre-commit install
 ```
 
-`uv sync` installs the package in editable mode along with all optional extras (`postgres`, `gcs`, `mcp-use`, `adk`) and dev dependencies — no extra flags needed.
+`uv sync` installs all dependencies including dev and all optional extras (`postgres`, `gcs`, `mcp-use`, `adk`).
 
 Run tests:
 
