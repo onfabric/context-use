@@ -5,16 +5,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-try:
-    from google.adk.agents import LlmAgent
-    from google.adk.models.lite_llm import LiteLlm
-    from google.adk.tools.base_tool import BaseTool
-    from google.adk.tools.tool_context import ToolContext
-except ImportError as _exc:
-    raise ImportError(
-        "The adk extra is required for the personal agent.\n"
-        "Install it with: uv sync --extra adk"
-    ) from _exc
+from google.adk.agents import LlmAgent
+from google.adk.models.lite_llm import LiteLlm
+from google.adk.tools.base_tool import BaseTool
+from google.adk.tools.tool_context import ToolContext
 
 import context_use as _pkg
 from context_use.agent.tools import make_agent_tools
