@@ -95,16 +95,6 @@ def banner() -> None:
 
 
 class ProgressBar:
-    """Multi-phase in-place terminal progress bar.
-
-    Each call to ``update(label, completed, total)`` redraws the current line.
-    When the label changes the previous line is finalised and a new phase
-    starts on the next line::
-
-        Generating  ██████████████████████████████  100%  5/5
-        Embedding   ████████████████░░░░░░░░░░░░░░   57%  4/7
-    """
-
     _BAR_WIDTH = 30
     _LABEL_WIDTH = 12
 
