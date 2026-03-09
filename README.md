@@ -20,32 +20,12 @@ Turn your data exports into portable AI memory.
 | WhatsApp | Coming soon | | |
 | Google Takeout | Coming soon | | |
 
-## Getting your export
-
-1. Follow the export guide for your provider in the table above. The export is delivered as a ZIP file — **do not extract it**.
-2. Move or copy the ZIP into `data/input/` inside the cloned repo:
-
-```
-context-use/
-└── data/
-    └── input/
-        └── chatgpt-export.zip   ← place it here
-```
-
 ## Install
 
 ```bash
-git clone https://github.com/onfabric/context-use.git
-cd context-use
-uv sync
-source .venv/bin/activate
-```
-
-Set your OpenAI API key:
-
-```bash
-context-use config set-key
-# or: export OPENAI_API_KEY=sk-...
+pip install context-use
+# or
+uv tool install context-use
 ```
 
 ## Quick start
@@ -57,6 +37,18 @@ context-use pipeline --quick
 ```
 
 The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed; use `--full` to include the complete history (the CLI warns you before proceeding).
+
+## Getting your export
+
+1. Follow the export guide for your provider in the table above. The export is delivered as a ZIP file — **do not extract it**.
+2. Move or copy the ZIP into `data/input/` inside the cloned repo:
+
+```
+context-use/
+└── data/
+    └── input/
+        └── chatgpt-export.zip   ← place it here
+```
 
 ## Full pipeline
 
