@@ -34,6 +34,9 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
 
+      - name: Refresh lockfile for bumped version
+        run: uv lock
+
       - name: Generate changelog
         run: ./scripts/generate-changelog.sh
 
@@ -48,7 +51,7 @@ jobs:
           RELEASE_BRANCH: release/v${{ steps.version.outputs.version }}
         run: |
           git switch -c $RELEASE_BRANCH
-          git add pyproject.toml CHANGELOG.md
+          git add pyproject.toml uv.lock CHANGELOG.md
           git commit -m "chore(release): v${VERSION}"
           git push --set-upstream origin $RELEASE_BRANCH
 
