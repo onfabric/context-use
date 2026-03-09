@@ -1,6 +1,6 @@
 """Public API for the context_use library.
 
-External consumers (CLI, MCP server, etc.) should import exclusively
+External consumers (CLI, agent, etc.) should import exclusively
 from this module.  Only unit / integration tests may reach into
 sub-packages directly.
 """

@@ -132,7 +132,6 @@ class PipelineCommand(ApiCommand):
         out.header("What's next:")
         out.next_step("context-use memories list", "browse your memories")
         out.next_step('context-use memories search "query"', "semantic search")
-        out.next_step("python -m context_use.ext.mcp_use.run", "start the MCP server")
         print()
 
     async def _run_quick(
