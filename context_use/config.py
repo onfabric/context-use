@@ -38,12 +38,6 @@ _FIELDS: list[_FieldSpec] = [
     _FieldSpec(
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
-    _FieldSpec("store_provider", "store", "provider", "CONTEXT_USE_STORE"),
-    _FieldSpec("db_host", "database", "host", "POSTGRES_HOST"),
-    _FieldSpec("db_port", "database", "port", "POSTGRES_PORT", int),
-    _FieldSpec("db_name", "database", "name", "POSTGRES_DB"),
-    _FieldSpec("db_user", "database", "user", "POSTGRES_USER"),
-    _FieldSpec("db_password", "database", "password", "POSTGRES_PASSWORD"),
     _FieldSpec("agent_backend", "agent", "backend", "CONTEXT_USE_AGENT_BACKEND"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
@@ -56,16 +50,6 @@ class Config:
     # LLM models — shared by the memories pipeline and the personal agent
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
-
-    # Store backend: "sqlite" (default), "memory", or "postgres"
-    store_provider: str = "sqlite"
-
-    # Postgres settings (only used when store_provider == "postgres")
-    db_host: str = "localhost"
-    db_port: int = 5432
-    db_name: str = "context_use"
-    db_user: str = "postgres"
-    db_password: str = "postgres"
 
     # Agent backend: "" (not configured), "adk", …
     agent_backend: str = ""
@@ -91,10 +75,6 @@ class Config:
     @property
     def db_path(self) -> str:
         return str(self.data_dir / "context_use.db")
-
-    @property
-    def uses_postgres(self) -> bool:
-        return self.store_provider == "postgres"
 
     def ensure_dirs(self) -> None:
         """Create the data directory structure if it doesn't exist."""
@@ -152,25 +132,6 @@ def save_config(cfg: Config) -> Path:
         lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
     lines.append("")
 
-    lines += [
-        "[store]",
-        f'provider = "{cfg.store_provider}"',
-        "",
-    ]
-
-    if cfg.uses_postgres:
-        lines.extend(
-            [
-                "[database]",
-                f'host = "{cfg.db_host}"',
-                f"port = {cfg.db_port}",
-                f'name = "{cfg.db_name}"',
-                f'user = "{cfg.db_user}"',
-                f'password = "{cfg.db_password}"',
-                "",
-            ]
-        )
-
     if cfg.agent_backend:
         lines.extend(
             [
@@ -195,27 +156,10 @@ def save_config(cfg: Config) -> Path:
 def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
+    from context_use.store.sqlite import SqliteStore
+
     storage = DiskStorage(cfg.storage_path)
-
-    if cfg.store_provider == "postgres":
-        from context_use.store.postgres import PostgresStore
-
-        store = PostgresStore(
-            host=cfg.db_host,
-            port=cfg.db_port,
-            database=cfg.db_name,
-            user=cfg.db_user,
-            password=cfg.db_password,
-        )
-    elif cfg.store_provider == "sqlite":
-        from context_use.store.sqlite import SqliteStore
-
-        store = SqliteStore(path=cfg.db_path)
-    else:
-        raise ValueError(
-            f"Unknown store provider {cfg.store_provider!r}. "
-            "Supported: 'sqlite', 'postgres'."
-        )
+    store = SqliteStore(path=cfg.db_path)
 
     api_key = cfg.openai_api_key or ""
     model = OpenAIModel(cfg.openai_model)
