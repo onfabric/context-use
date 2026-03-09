@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.config import Config, build_ctx, load_config, save_config
+from context_use.config import Config, build_ctx, load_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
@@ -46,53 +46,9 @@ def providers() -> list[str]:
 
 
 def require_api_key(cfg: Config) -> None:
-    """Exit with guidance if no API key is configured (no interactive prompt).
-
-    Used by all PostgreSQL commands where the key must be pre-configured.
-    """
+    """Exit with guidance if no API key is configured (no interactive prompt)."""
     if cfg.openai_api_key:
         return
-    out.error(
-        "OpenAI API key not configured. "
-        "Run 'context-use config set-key' or set OPENAI_API_KEY."
-    )
-    sys.exit(1)
-
-
-def require_persistent(cfg: Config, command: str) -> None:
-    """Exit with guidance if the store backend is not PostgreSQL."""
-    if cfg.store_provider == "postgres":
-        return
-    out.error(f"'{command}' requires PostgreSQL for persistent storage.")
-    print()
-    out.info("To try context-use without a database:")
-    out.next_step("context-use quickstart")
-    print()
-    out.info("To set up PostgreSQL:")
-    out.next_step("context-use config set-store postgres")
-    sys.exit(1)
-
-
-def ensure_api_key(cfg: Config) -> None:
-    """Ensure an API key is present, prompting interactively if needed.
-
-    Used by ``quickstart`` only — the zero-config entry point where an
-    interactive prompt is acceptable.
-    """
-    if cfg.openai_api_key:
-        return
-    if sys.stdin.isatty():
-        print()
-        out.info("Memory generation requires an OpenAI API key.")
-        out.info("Get one at https://platform.openai.com/api-keys")
-        print()
-        key = input("  OpenAI API key: ").strip()
-        if key:
-            cfg.openai_api_key = key
-            save_config(cfg)
-            out.success("API key saved")
-            print()
-            return
     out.error(
         "OpenAI API key not configured. "
         "Run 'context-use config set-key' or set OPENAI_API_KEY."
@@ -224,8 +180,8 @@ def resolve_archive(
 def add_archive_args(parser: argparse.ArgumentParser) -> None:
     """Add the standard positional ``provider`` and ``path`` args.
 
-    Used by every command that accepts a provider archive (ingest, pipeline,
-    quickstart). Both args are optional to allow interactive mode when omitted.
+    Used by every command that accepts a provider archive (ingest, pipeline).
+    Both args are optional to allow interactive mode when omitted.
     """
     parser.add_argument(
         "provider",
@@ -318,6 +274,7 @@ class ContextCommand(BaseCommand, ABC):
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
         """Pre-flight hook. Return (possibly mutated) cfg."""
+        cfg.ensure_dirs()
         return cfg
 
     @abstractmethod
@@ -330,66 +287,28 @@ class ContextCommand(BaseCommand, ABC):
         """Override with the command's actual logic."""
 
 
-class PersistentCommand(ContextCommand, ABC):
-    """Command that requires PostgreSQL.
+class ApiCommand(ContextCommand, ABC):
+    """Command that requires a configured OpenAI API key.
 
-    ``_prepare`` enforces ``require_persistent`` before a context is built.
-    Subclasses should set ``display_name`` to the full CLI path shown in the
-    error message (e.g. ``"memories list"``).
+    ``_prepare`` enforces ``require_api_key`` before a context is built.
     """
 
-    display_name: ClassVar[str] = ""
-
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        require_persistent(cfg, self.display_name or self.name)
+        require_api_key(cfg)
         return super()._prepare(cfg, args)
 
 
-class PersistentApiCommand(PersistentCommand, ABC):
-    """Command that requires PostgreSQL **and** a configured OpenAI API key.
-
-    ``_prepare`` adds ``require_api_key`` on top of
-    :class:`PersistentCommand`'s checks.
-    """
-
-    def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        cfg = super()._prepare(cfg, args)
-        require_api_key(cfg)
-        return cfg
-
-
-class AgentCommand(PersistentApiCommand, ABC):
-    """Command that requires PostgreSQL, an OpenAI API key, **and** a configured
+class AgentCommand(ApiCommand, ABC):
+    """Command that requires an OpenAI API key **and** a configured
     agent backend.
 
     ``_prepare`` adds ``require_agent_backend`` on top of
-    :class:`PersistentApiCommand`'s checks.
+    :class:`ApiCommand`'s checks.
     """
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
         cfg = super()._prepare(cfg, args)
         require_agent_backend(cfg)
-        return cfg
-
-
-class EphemeralApiCommand(ContextCommand, ABC):
-    """Command that always runs with an SQLite store and an OpenAI API key.
-
-    Intended for zero-config preview flows (e.g. ``quickstart``) where no
-    database is needed or desired.
-
-    ``_prepare`` unconditionally sets ``store_provider = "sqlite"`` and then
-    calls ``ensure_api_key``, which prompts interactively when no key is
-    configured (unlike :class:`PersistentApiCommand` which exits with an
-    error).
-    """
-
-    llm_mode: ClassVar[str] = "sync"
-
-    def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        cfg.store_provider = "sqlite"
-        cfg.ensure_dirs()
-        ensure_api_key(cfg)
         return cfg
 
 
@@ -404,7 +323,7 @@ class CommandGroup:
 
         class MemoriesGroup(CommandGroup):
             name = "memories"
-            help = "Manage memories (requires PostgreSQL)"
+            help = "Manage memories"
             subcommands = [
                 MemoriesGenerateCommand,
                 MemoriesListCommand,

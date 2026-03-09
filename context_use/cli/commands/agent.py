@@ -72,7 +72,6 @@ class BaseAgentSkillCommand(AgentCommand):
 
 class AgentSynthesiseCommand(BaseAgentSkillCommand):
     name = "synthesise"
-    display_name = "agent synthesise"
     help = "Synthesise pattern memories from event memories"
     skill_name = "synthesise"
     header_text = "Synthesising memories"
@@ -94,7 +93,6 @@ class AgentSynthesiseCommand(BaseAgentSkillCommand):
 
 class AgentUserProfileCommand(BaseAgentSkillCommand):
     name = "profile"
-    display_name = "agent profile"
     help = "Compile a first-person user profile from memories (printed to stdout)"
     skill_name = "profile"
     header_text = "Generating user profile"
@@ -106,7 +104,6 @@ class AgentUserProfileCommand(BaseAgentSkillCommand):
 
 class AgentAskCommand(AgentCommand):
     name = "ask"
-    display_name = "agent ask"
     help = "Send a free-form query to the personal agent"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -146,7 +143,7 @@ class AgentAskCommand(AgentCommand):
 
 class AgentGroup(CommandGroup):
     name = "agent"
-    help = "Run the personal memory agent (requires PostgreSQL + adk extra)"
+    help = "Run the personal memory agent (requires adk extra)"
     description = (
         "Run the personal memory agent with a built-in skill or a free-form query. "
         "Configure a backend first with: context-use config set-agent adk"

@@ -13,7 +13,6 @@ Reads the same TOML config as the ``context-use`` CLI.
 from __future__ import annotations
 
 import argparse
-import sys
 
 from context_use.config import build_ctx, load_config
 
@@ -33,11 +32,6 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = load_config()
-    if cfg.store_provider != "postgres":
-        sys.exit(
-            "error: MCP server requires PostgreSQL.\n"
-            "  Run: context-use config set-store postgres"
-        )
 
     from context_use.ext.mcp_use.server import create_server
 

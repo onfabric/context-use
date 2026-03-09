@@ -38,12 +38,7 @@ _FIELDS: list[_FieldSpec] = [
     _FieldSpec(
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
-    _FieldSpec("store_provider", "store", "provider", "CONTEXT_USE_STORE"),
-    _FieldSpec("db_host", "database", "host", "POSTGRES_HOST"),
-    _FieldSpec("db_port", "database", "port", "POSTGRES_PORT", int),
-    _FieldSpec("db_name", "database", "name", "POSTGRES_DB"),
-    _FieldSpec("db_user", "database", "user", "POSTGRES_USER"),
-    _FieldSpec("db_password", "database", "password", "POSTGRES_PASSWORD"),
+    _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
     _FieldSpec("agent_backend", "agent", "backend", "CONTEXT_USE_AGENT_BACKEND"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
@@ -57,15 +52,12 @@ class Config:
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
 
-    # Store backend: "sqlite" (default), "memory", or "postgres"
-    store_provider: str = "sqlite"
-
-    # Postgres settings (only used when store_provider == "postgres")
-    db_host: str = "localhost"
-    db_port: int = 5432
-    db_name: str = "context_use"
-    db_user: str = "postgres"
-    db_password: str = "postgres"
+    database_path: str = "context_use.db"
+    """
+    SQLite database path.
+    Relative to the `data_dir`/`store` directory.
+    Default: `./data/store/context_use.db`
+    """
 
     # Agent backend: "" (not configured), "adk", …
     agent_backend: str = ""
@@ -85,22 +77,23 @@ class Config:
         return self.data_dir / "output"
 
     @property
-    def storage_path(self) -> str:
-        return str(self.data_dir / "storage")
+    def storage_path(self) -> Path:
+        return self.data_dir / "storage"
+
+    @property
+    def store_path(self) -> Path:
+        return self.data_dir / "store"
 
     @property
     def db_path(self) -> str:
-        return str(self.data_dir / "context_use.db")
-
-    @property
-    def uses_postgres(self) -> bool:
-        return self.store_provider == "postgres"
+        return str(self.store_path / self.database_path)
 
     def ensure_dirs(self) -> None:
         """Create the data directory structure if it doesn't exist."""
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        (self.data_dir / "storage").mkdir(parents=True, exist_ok=True)
+        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.store_path.mkdir(parents=True, exist_ok=True)
 
 
 def load_config_with_sources() -> tuple[Config, dict[str, ConfigSource]]:
@@ -152,21 +145,11 @@ def save_config(cfg: Config) -> Path:
         lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
     lines.append("")
 
-    lines += [
-        "[store]",
-        f'provider = "{cfg.store_provider}"',
-        "",
-    ]
-
-    if cfg.uses_postgres:
+    if cfg.database_path:
         lines.extend(
             [
-                "[database]",
-                f'host = "{cfg.db_host}"',
-                f"port = {cfg.db_port}",
-                f'name = "{cfg.db_name}"',
-                f'user = "{cfg.db_user}"',
-                f'password = "{cfg.db_password}"',
+                "[store]",
+                f'path = "{cfg.database_path}"',
                 "",
             ]
         )
@@ -195,26 +178,10 @@ def save_config(cfg: Config) -> Path:
 def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
-    storage = DiskStorage(cfg.storage_path)
+    from context_use.store.sqlite import SqliteStore
 
-    if cfg.store_provider == "postgres":
-        from context_use.store.postgres import PostgresStore
-
-        store = PostgresStore(
-            host=cfg.db_host,
-            port=cfg.db_port,
-            database=cfg.db_name,
-            user=cfg.db_user,
-            password=cfg.db_password,
-        )
-    elif cfg.store_provider == "sqlite":
-        from context_use.store.sqlite import SqliteStore
-
-        store = SqliteStore(path=cfg.db_path)
-    else:
-        from context_use.store.memory import InMemoryStore
-
-        store = InMemoryStore()
+    storage = DiskStorage(str(cfg.storage_path))
+    store = SqliteStore(path=cfg.db_path)
 
     api_key = cfg.openai_api_key or ""
     model = OpenAIModel(cfg.openai_model)

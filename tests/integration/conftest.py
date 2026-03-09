@@ -1,4 +1,3 @@
-import os
 from collections.abc import AsyncGenerator
 from pathlib import Path
 
@@ -14,7 +13,6 @@ from context_use.llm.base import (
     PromptItem,
 )
 from context_use.storage.disk import DiskStorage
-from context_use.store.postgres import Base, PostgresBackend, PostgresStore
 from context_use.store.sqlite import SqliteStore
 
 
@@ -23,64 +21,6 @@ def pytest_collection_modifyitems(items: list, config) -> None:  # noqa: ANN001
     marker = pytest.mark.integration
     for item in items:
         item.add_marker(marker)
-
-
-class Settings:
-    def __init__(self) -> None:
-        self.host = os.getenv("POSTGRES_HOST", "localhost")
-        self.port = int(os.getenv("POSTGRES_PORT", "5432"))
-        self.database = os.getenv("POSTGRES_DB", "context_use_test")
-        self.user = os.getenv("POSTGRES_USER", "postgres")
-        self.password = os.getenv("POSTGRES_PASSWORD", "postgres")
-
-
-@pytest.fixture(scope="session")
-def settings() -> Settings:
-    return Settings()
-
-
-@pytest.fixture()
-async def db(settings: Settings) -> AsyncGenerator[PostgresBackend]:
-    """Create a DB backend with table cleanup before and after each test."""
-    backend = PostgresBackend(
-        host=settings.host,
-        port=settings.port,
-        database=settings.database,
-        user=settings.user,
-        password=settings.password,
-    )
-    await backend.init_db()
-
-    async with backend.session_scope() as session:
-        for table in reversed(Base.metadata.sorted_tables):
-            await session.execute(table.delete())
-
-    yield backend
-
-    async with backend.session_scope() as session:
-        for table in reversed(Base.metadata.sorted_tables):
-            await session.execute(table.delete())
-
-    await backend.get_engine().dispose()
-
-
-@pytest.fixture()
-async def store(settings: Settings) -> AsyncGenerator[PostgresStore]:
-    """Create a PostgresStore with a clean slate for each test."""
-    pg_store = PostgresStore(
-        host=settings.host,
-        port=settings.port,
-        database=settings.database,
-        user=settings.user,
-        password=settings.password,
-    )
-    await pg_store.init()
-    await pg_store.reset()
-
-    yield pg_store
-
-    await pg_store.reset()
-    await pg_store.close()
 
 
 class _StubLLMClient(BaseLLMClient):
@@ -113,7 +53,7 @@ class _StubLLMClient(BaseLLMClient):
 
 
 @pytest.fixture()
-async def sqlite_store(tmp_path: Path) -> AsyncGenerator[SqliteStore]:
+async def store(tmp_path: Path) -> AsyncGenerator[SqliteStore]:
     """Create a SqliteStore with a clean slate for each test."""
     s = SqliteStore(path=str(tmp_path / "integration_test.db"))
     await s.init()
@@ -122,12 +62,6 @@ async def sqlite_store(tmp_path: Path) -> AsyncGenerator[SqliteStore]:
 
 
 @pytest.fixture()
-def ctx(tmp_path: Path, store: PostgresStore) -> ContextUse:
+def ctx(tmp_path: Path, store: SqliteStore) -> ContextUse:
     storage = DiskStorage(base_path=str(tmp_path / "storage"))
     return ContextUse(storage=storage, store=store, llm_client=_StubLLMClient())
-
-
-@pytest.fixture()
-def sqlite_ctx(tmp_path: Path, sqlite_store: SqliteStore) -> ContextUse:
-    storage = DiskStorage(base_path=str(tmp_path / "storage"))
-    return ContextUse(storage=storage, store=sqlite_store, llm_client=_StubLLMClient())

@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import argparse
-import sys
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 from context_use.cli import output as out
 from context_use.cli.base import (
-    EphemeralApiCommand,
-    PersistentApiCommand,
+    ApiCommand,
     add_archive_args,
     print_ingest_result,
     resolve_archive,
@@ -24,28 +22,51 @@ if TYPE_CHECKING:
     from context_use import ContextUse
 
 
-class QuickstartCommand(EphemeralApiCommand):
-    name = "quickstart"
-    help = "Try it out — ingest + memories in one session (no database needed)"
+_QUICK_DEFAULT_DAYS = 30
+
+
+class PipelineCommand(ApiCommand):
+    name = "pipeline"
+    help = "Full pipeline — ingest + memories"
     description = (
-        "Run the full pipeline (ingest, memories) in one session "
-        "using the real-time API. No database needed. "
-        "By default processes the last 30 days; use --full for all history."
+        "Run the full pipeline (ingest, memories). "
+        "Uses the batch API by default. "
+        "Pass --quick to use the real-time API (last 30 days by default). "
+        "Use --last-days to limit history in either mode. "
+        "Run without arguments to interactively pick an archive from "
+        "data/input/."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         add_archive_args(parser)
         parser.add_argument(
-            "--full",
+            "--quick",
             action="store_true",
-            help="Process full archive history (default: last 30 days)",
+            help="Use the real-time API (default: last 30 days only)",
         )
         parser.add_argument(
             "--last-days",
             type=int,
-            default=30,
-            help="Only process threads from the last N days (default: 30)",
+            default=None,
+            help=(
+                "Only process threads from the last N days "
+                "(default: 30 with --quick, unlimited otherwise)"
+            ),
         )
+
+    def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
+        cfg = super()._prepare(cfg, args)
+        if getattr(args, "quick", False):
+            self.llm_mode = "sync"  # type: ignore[misc]
+        return cfg
+
+    def _resolve_since(self, args: argparse.Namespace) -> datetime | None:
+        last_days = args.last_days
+        if last_days is None:
+            last_days = _QUICK_DEFAULT_DAYS if args.quick else None
+        if last_days is None:
+            return None
+        return datetime.now(UTC) - timedelta(days=last_days)
 
     async def run(
         self,
@@ -53,30 +74,79 @@ class QuickstartCommand(EphemeralApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        picked = resolve_archive(args, cfg, command="quickstart")
+        picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:
             return
         provider_str, zip_path = picked
 
-        full = args.full
-        since = None if full else datetime.now(UTC) - timedelta(days=args.last_days)
+        if args.quick:
+            await self._run_quick(cfg, ctx, args, provider_str, zip_path)
+        else:
+            await self._run_batch(ctx, args, provider_str, zip_path)
 
-        if full and sys.stdin.isatty():
-            print()
-            out.warn(
-                "Processing the full archive with the real-time API. "
-                "Large archives may hit OpenAI rate limits and take "
-                "significantly longer."
-            )
-            out.info(
-                "For large archives, consider using PostgreSQL with the batch API:"
-            )
-            out.next_step("context-use config set-store postgres")
-            print()
-            confirm = input("  Continue? [y/N] ").strip().lower()
-            if confirm not in ("y", "yes"):
-                out.info("Aborted.")
-                return
+    async def _run_batch(
+        self,
+        ctx: ContextUse,
+        args: argparse.Namespace,
+        provider_str: str,
+        zip_path: str,
+    ) -> None:
+        since = self._resolve_since(args)
+
+        print()
+        out.header(f"Step 1/2 · Ingesting {provider_str} archive")
+        out.kv("File", zip_path)
+        print()
+
+        result = await ctx.process_archive(provider_str, zip_path)
+
+        out.success("Archive processed")
+        print_ingest_result(result)
+        print()
+
+        if result.tasks_failed:
+            out.error(f"{result.tasks_failed} tasks failed — stopping")
+            return
+
+        out.header("Step 2/2 · Generating memories")
+        out.info("Using batch API. This typically takes 2-10 minutes.")
+        if since:
+            out.kv("Since", since.strftime("%Y-%m-%d"))
+        print()
+
+        batches = await ctx.create_memory_batches(since=since)
+        await run_batches(ctx, batches)
+
+        out.success("Memories generated")
+        out.kv("Batches created", len(batches))
+
+        count = await ctx.count_memories()
+        out.kv("Active memories", f"{count:,}")
+        print()
+
+        if count == 0:
+            return
+
+        out.success("Pipeline complete!")
+        print()
+        out.header("What's next:")
+        out.next_step("context-use memories list", "browse your memories")
+        out.next_step('context-use memories search "query"', "semantic search")
+        out.next_step("python -m context_use.ext.mcp_use.run", "start the MCP server")
+        print()
+
+    async def _run_quick(
+        self,
+        cfg: Config,
+        ctx: ContextUse,
+        args: argparse.Namespace,
+        provider_str: str,
+        zip_path: str,
+    ) -> None:
+        since = self._resolve_since(args)
+        last_days = (
+            args.last_days if args.last_days is not None else _QUICK_DEFAULT_DAYS
+        )
 
         # Phase 1: Ingest
         print()
@@ -99,7 +169,7 @@ class QuickstartCommand(EphemeralApiCommand):
         out.info("Using real-time API.")
         if since:
             out.kv("Since", since.strftime("%Y-%m-%d"))
-            out.info(f"Only processing the last {args.last_days} days as a preview.")
+            out.info(f"Only processing the last {last_days} days.")
         else:
             out.info("Processing full archive history.")
         print()
@@ -115,19 +185,15 @@ class QuickstartCommand(EphemeralApiCommand):
         print()
 
         if count == 0:
-            if not full:
+            if since:
                 print()
                 out.info("Try including more history:")
                 out.next_step(
-                    f"context-use quickstart --last-days 90 {provider_str} {zip_path}"
-                )
-                out.info("Or process the full archive:")
-                out.next_step(
-                    f"context-use quickstart --full {provider_str} {zip_path}"
+                    f"context-use pipeline --quick --last-days 90 "
+                    f"{provider_str} {zip_path}"
                 )
             return
 
-        # Show a preview of the memories
         memories = await ctx.list_memories()
         if memories:
             out.header(f"Your memories ({len(memories):,})")
@@ -138,7 +204,6 @@ class QuickstartCommand(EphemeralApiCommand):
                 out.info(f"  ... and {len(memories) - 10:,} more")
             print()
 
-        # Export to files
         ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         exported: list[str] = []
 
@@ -161,84 +226,10 @@ class QuickstartCommand(EphemeralApiCommand):
         print()
         out.header("What's next:")
         print()
-        out.info(
-            "This was a preview. To search, query, and connect your "
-            "memories to AI assistants, set up PostgreSQL:"
-        )
-        out.next_step("context-use config set-store postgres")
-        print()
-        out.info("Then run the full pipeline with the batch API:")
+        out.info("Run the full pipeline with the batch API:")
         out.next_step("context-use pipeline")
         print()
-
-
-class PipelineCommand(PersistentApiCommand):
-    """Ingest + memories using PostgreSQL and the batch API.
-
-    This is the production path for large archives. Uses the OpenAI Batch
-    API for memory generation — cheaper and rate-limit-friendly compared to
-    the real-time API used by ``quickstart``.
-    """
-
-    name = "pipeline"
-    help = "Full pipeline — ingest + memories (requires PostgreSQL)"
-    description = (
-        "Run the full pipeline (ingest, memories) using PostgreSQL "
-        "and the batch API. Run without arguments to interactively pick an "
-        "archive from data/input/."
-    )
-
-    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        add_archive_args(parser)
-
-    async def run(
-        self,
-        cfg: Config,
-        ctx: ContextUse,
-        args: argparse.Namespace,
-    ) -> None:
-        picked = resolve_archive(args, cfg, command="pipeline")
-        if picked is None:
-            return
-        provider_str, zip_path = picked
-
-        # Step 1: Ingest
-        print()
-        out.header(f"Step 1/2 · Ingesting {provider_str} archive")
-        out.kv("File", zip_path)
-        print()
-
-        result = await ctx.process_archive(provider_str, zip_path)
-
-        out.success("Archive processed")
-        print_ingest_result(result)
-        print()
-
-        if result.tasks_failed:
-            out.error(f"{result.tasks_failed} tasks failed — stopping")
-            return
-
-        # Step 2: Memories (batch API)
-        out.header("Step 2/2 · Generating memories")
-        out.info("Using batch API. This typically takes 2-10 minutes.\n")
-
-        batches = await ctx.create_memory_batches()
-        await run_batches(ctx, batches)
-
-        out.success("Memories generated")
-        out.kv("Batches created", len(batches))
-
-        count = await ctx.count_memories()
-        out.kv("Active memories", f"{count:,}")
-        print()
-
-        if count == 0:
-            return
-
-        out.success("Pipeline complete!")
-        print()
-        out.header("What's next:")
+        out.info("Or explore your memories:")
         out.next_step("context-use memories list", "browse your memories")
         out.next_step('context-use memories search "query"', "semantic search")
-        out.next_step("python -m context_use.ext.mcp_use.run", "start the MCP server")
         print()

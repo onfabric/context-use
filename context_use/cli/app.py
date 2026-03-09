@@ -13,20 +13,16 @@ searchable personal memories. context-use extracts your interactions,
 generates first-person memories via LLM, and serves them through an
 MCP server so AI assistants can know about you.
 
-Quick start: context-use quickstart
-
-No database or config file needed. Results are exported to ./data/output/."""
+Quick start: context-use pipeline --quick"""
 
 _EPILOG = (
-    "Get started (no setup needed):\n"
-    "  context-use quickstart                       "
-    "Preview with last 30 days, real-time API\n"
+    "Quick start (real-time API, last 30 days):\n"
+    "  context-use pipeline --quick                 "
+    "Ingest + memories preview\n"
     "\n"
-    "Full pipeline (requires PostgreSQL):\n"
-    "  1. context-use config set-store postgres     "
-    "Set up PostgreSQL (one-time)\n"
-    "  2. context-use pipeline                      "
-    "Ingest → memories (batch API)\n"
+    "Full pipeline (batch API):\n"
+    "  context-use pipeline                         "
+    "Ingest + memories in one go\n"
     "\n"
     "Or step by step:\n"
     "  1. context-use ingest                        "
@@ -42,7 +38,7 @@ _EPILOG = (
     "  context-use memories export                  "
     "Export to file\n"
     "\n"
-    "Personal agent (requires PostgreSQL + adk extra):\n"
+    "Personal agent (requires adk extra):\n"
     "  1. uv sync --extra adk                       "
     "Install the ADK extra\n"
     "  2. context-use config set-agent adk          "
@@ -61,8 +57,6 @@ _EPILOG = (
     "Show current settings\n"
     "  context-use config set-key                   "
     "Change OpenAI API key\n"
-    "  context-use config set-store postgres        "
-    "Set up PostgreSQL\n"
     "  context-use config path                      "
     "Print config file location\n"
 )

@@ -3,10 +3,6 @@
 These models represent the core business entities of context_use.
 They are the canonical types used by the Store protocol and all
 non-persistence code (groupers, prompt builders, pipes, etc.).
-
-The SQLAlchemy ORM models (used by PostgresStore) live separately
-in ``etl/models/``, ``memories/models.py``, and ``batch/models.py``.
-They map to/from these domain models.
 """
 
 from context_use.models.archive import Archive, ArchiveStatus

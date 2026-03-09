@@ -3,20 +3,20 @@ from __future__ import annotations
 import argparse
 
 from context_use.cli import output as out
-from context_use.cli.base import BaseCommand, require_persistent
+from context_use.cli.base import BaseCommand
 from context_use.config import build_ctx, load_config
 
 
 class ResetCommand(BaseCommand):
     """Wipe all stored data and recreate the store schema.
 
-    Intentionally does NOT use PersistentCommand — ``ctx.reset()`` is called
+    Intentionally does NOT use ContextCommand — ``ctx.reset()`` is called
     directly, bypassing ``ctx.init()``, to avoid creating the schema before
     immediately dropping it.
     """
 
     name = "reset"
-    help = "Wipe all stored data (requires PostgreSQL)"
+    help = "Wipe all stored data"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(
@@ -28,7 +28,6 @@ class ResetCommand(BaseCommand):
 
     async def execute(self, args: argparse.Namespace) -> None:
         cfg = load_config()
-        require_persistent(cfg, "reset")
 
         print()
         out.header("Reset store")

@@ -38,7 +38,7 @@ BULK_INSERT_BATCH_SIZE = 500
 
 
 class SqliteStore(Store):
-    def __init__(self, path: str = "context_use.db") -> None:
+    def __init__(self, path: str) -> None:
         self._path = path
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
@@ -53,7 +53,11 @@ class SqliteStore(Store):
             await (await self._conn()).commit()
 
     async def init(self) -> None:
-        self._db = await aiosqlite.connect(self._path)
+        conn = aiosqlite.connect(self._path)
+        # Make sure that when the main thread exits,
+        # the daemon thread is automatically killed
+        conn._thread.daemon = True
+        self._db = await conn
         self._db.row_factory = aiosqlite.Row
         await self._db.execute("PRAGMA journal_mode=WAL")
         await self._db.execute("PRAGMA foreign_keys=ON")
