@@ -19,17 +19,17 @@ jobs:
       - name: Build
         run: uv build
 
-      # TODO: remove — temporary step to verify checks catch real issues
-      - name: Corrupt artifacts to test checks
+      # TODO: remove — temporary step to verify check-wheel-contents catches stray toplevel entries
+      - name: Corrupt wheel to test checks
         run: |
-          echo "stray file" > stray.txt
-          zip dist/*.whl stray.txt
-          gzip -d dist/*.tar.gz
-          tar --append -f dist/*.tar stray.txt
-          gzip dist/*.tar
-          rm stray.txt
+          python3 -c "
+          import glob, zipfile
+          whl = glob.glob('dist/*.whl')[0]
+          with zipfile.ZipFile(whl, 'a') as z:
+              z.writestr('tests/__init__.py', '')
+          "
 
-      - name: Check package (should fail)
+      - name: Check package (should fail on W202)
         run: |
           # uv run twine check --strict dist/*
           uv run check-wheel-contents dist/
