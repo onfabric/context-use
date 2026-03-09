@@ -8,7 +8,6 @@ Turn your data exports into portable AI memory.
 - **Quickstart** — zero-config preview mode; results written to `data/output/` with no setup beyond an OpenAI key
 - **Full pipeline** — persistent storage in SQLite; full archive history, batch API for cost-efficient memory generation
 - **Semantic search** — `memories search` queries your memory store by meaning, not just keywords
-- **MCP server** — expose memories and semantic search to Claude Desktop, Cursor, or any MCP client
 - **Personal agent** — multi-turn agent that synthesises higher-level pattern memories, generates a first-person profile, or runs ad-hoc queries against your memory store
 
 ## Supported providers
@@ -66,7 +65,7 @@ For full archive history and cost-efficient batch processing.
 context-use pipeline
 ```
 
-Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search, the MCP server, and the personal agent.
+Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search and the personal agent.
 
 **Explore your memories**
 
@@ -74,28 +73,6 @@ Ingests the export and generates memories via the OpenAI **batch API** — signi
 context-use memories list
 context-use memories search "hiking trips in 2024"
 ```
-
-## MCP server
-
-```bash
-python -m context_use.ext.mcp_use.run
-# use --transport stdio for clients that prefer stdio
-```
-
-Add to your MCP client config (Claude Desktop, Cursor, etc.):
-
-```json
-{
-  "mcpServers": {
-    "context-use": {
-      "command": "python",
-      "args": ["-m", "context_use.ext.mcp_use.run", "--transport", "stdio"]
-    }
-  }
-}
-```
-
-Claude Desktop config path: `~/Library/Application Support/Claude/claude_desktop_config.json`. Cursor: Settings → MCP.
 
 ## Personal agent
 

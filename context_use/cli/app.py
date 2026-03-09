@@ -11,7 +11,7 @@ context-use — turn your data exports into AI memory
 Turn data exports from ChatGPT, Instagram, and other services into
 searchable personal memories. context-use extracts your interactions,
 generates first-person memories via LLM, and serves them through an
-MCP server so AI assistants can know about you.
+a personal agent so AI assistants can know about you.
 
 Quick start: context-use pipeline --quick"""
 
@@ -47,10 +47,6 @@ _EPILOG = (
     "Synthesise pattern memories\n"
     '  context-use agent ask "query"                '
     "Send a free-form task to the agent\n"
-    "\n"
-    "MCP server:\n"
-    "  python -m context_use.ext.mcp_use.run       "
-    "Start MCP server for Claude/Cursor\n"
     "\n"
     "Configuration:\n"
     "  context-use config show                      "

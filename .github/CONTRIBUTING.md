@@ -9,7 +9,7 @@ uv sync
 uv run pre-commit install
 ```
 
-`uv sync` installs all dependencies including dev and all optional extras (`gcs`, `mcp-use`, `adk`).
+`uv sync` installs all dependencies including dev and all optional extras (`gcs`, `adk`).
 
 Run tests:
 
