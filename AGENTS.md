@@ -98,7 +98,6 @@ All data access goes through the `Store` ABC — see `context_use/store/base.py`
 | Store | Module | Use case |
 |-------|--------|----------|
 | `SqliteStore` | `store/sqlite/` | Default. Persistent. Uses SQLite + sqlite-vec for semantic search. |
-| `InMemoryStore` | `store/memory.py` | No external deps. Data lives in Python dicts for the process lifetime. |
 
 All Store methods accept and return **domain models** from `context_use/models/` — pure Python dataclasses with no ORM dependencies.
 
