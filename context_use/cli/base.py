@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.config import Config, build_ctx, load_config, save_config
+from context_use.config import Config, build_ctx, load_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
@@ -50,33 +49,6 @@ def require_api_key(cfg: Config) -> None:
     """Exit with guidance if no API key is configured (no interactive prompt)."""
     if cfg.openai_api_key:
         return
-    out.error(
-        "OpenAI API key not configured. "
-        "Run 'context-use config set-key' or set OPENAI_API_KEY."
-    )
-    sys.exit(1)
-
-
-def ensure_api_key(cfg: Config) -> None:
-    """Ensure an API key is present, prompting interactively if needed.
-
-    Used by ``quickstart`` only — the zero-config entry point where an
-    interactive prompt is acceptable.
-    """
-    if cfg.openai_api_key:
-        return
-    if sys.stdin.isatty():
-        print()
-        out.info("Memory generation requires an OpenAI API key.")
-        out.info("Get one at https://platform.openai.com/api-keys")
-        print()
-        key = input("  OpenAI API key: ").strip()
-        if key:
-            cfg.openai_api_key = key
-            save_config(cfg)
-            out.success("API key saved")
-            print()
-            return
     out.error(
         "OpenAI API key not configured. "
         "Run 'context-use config set-key' or set OPENAI_API_KEY."
@@ -208,8 +180,8 @@ def resolve_archive(
 def add_archive_args(parser: argparse.ArgumentParser) -> None:
     """Add the standard positional ``provider`` and ``path`` args.
 
-    Used by every command that accepts a provider archive (ingest, pipeline,
-    quickstart). Both args are optional to allow interactive mode when omitted.
+    Used by every command that accepts a provider archive (ingest, pipeline).
+    Both args are optional to allow interactive mode when omitted.
     """
     parser.add_argument(
         "provider",
@@ -336,25 +308,6 @@ class AgentCommand(ApiCommand, ABC):
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
         cfg = super()._prepare(cfg, args)
         require_agent_backend(cfg)
-        return cfg
-
-
-class EphemeralApiCommand(ContextCommand, ABC):
-    """Command that runs with a temporary SQLite store and an OpenAI API key.
-
-    Intended for zero-config preview flows (e.g. ``quickstart``) where the
-    data does not need to persist beyond the session.
-
-    ``_prepare`` points the database to a temporary file and then calls
-    ``ensure_api_key``, which prompts interactively when no key is configured.
-    """
-
-    llm_mode: ClassVar[str] = "sync"
-
-    def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        cfg.database_path = f"quickstart_{os.getpid()}.db"
-        cfg.ensure_dirs()
-        ensure_api_key(cfg)
         return cfg
 
 
