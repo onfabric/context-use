@@ -158,6 +158,12 @@ INSTAGRAM_REELS_JSON: dict = json.loads(
     ).read_text()
 )
 
+INSTAGRAM_POSTS_JSON: list[dict] = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR / "your_instagram_activity" / "media" / "posts_1.json"
+    ).read_text()
+)
+
 INSTAGRAM_VIDEOS_WATCHED_V0_JSON: dict = json.loads(
     (
         ALICE_INSTAGRAM_V0_DIR
