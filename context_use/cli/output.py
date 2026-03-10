@@ -3,8 +3,11 @@ import sys
 from dataclasses import dataclass
 from types import TracebackType
 
-from rich.console import Console
-from rich.status import Status
+from rich.console import Console, RenderableType
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.table import Table
+from rich.text import Text
 
 
 def _supports_color() -> bool:
@@ -103,21 +106,26 @@ class _BatchLine:
 
 
 class BatchStatusSpinner:
-    """Per-batch status UI backed by Rich's status spinner."""
+    """Per-batch status UI backed by Rich live rendering."""
+
+    _LABEL_WIDTH = 12
+    _STATUS_WIDTH = 28
 
     def __init__(self, batches: list[tuple[str, str]]) -> None:
         self._order = [batch_id for batch_id, _ in batches]
         self._labels = {batch_id: label for batch_id, label in batches}
         self._lines = {batch_id: _BatchLine() for batch_id in self._order}
         self._console = Console()
-        self._status: Status | None = None
+        self._live: Live | None = None
 
     def __enter__(self) -> "BatchStatusSpinner":
-        self._status = self._console.status(
-            self._render_status_text(),
-            spinner="dots",
+        self._live = Live(
+            self._render_table(),
+            console=self._console,
+            refresh_per_second=12,
+            transient=False,
         )
-        self._status.__enter__()
+        self._live.__enter__()
         return self
 
     def __exit__(
@@ -126,9 +134,9 @@ class BatchStatusSpinner:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._status is not None:
-            self._status.__exit__(exc_type, exc_val, exc_tb)
-            self._status = None
+        if self._live is not None:
+            self._live.__exit__(exc_type, exc_val, exc_tb)
+            self._live = None
 
     def update(
         self,
@@ -143,32 +151,50 @@ class BatchStatusSpinner:
             countdown_seconds=countdown_seconds if not done else None,
             done=done,
         )
-        if self._status is not None:
-            self._status.update(self._render_status_text())
+        self._refresh()
 
     def tick(self) -> None:
-        if self._status is not None:
-            self._status.update(self._render_status_text())
+        self._refresh()
 
-    def _render_status_text(self) -> str:
-        parts = []
+    def _refresh(self) -> None:
+        if self._live is not None:
+            self._live.update(self._render_table(), refresh=True)
+
+    def _render_table(self) -> Table:
+        table = Table.grid(padding=(0, 1), expand=True)
+        table.add_column(width=2, no_wrap=True)
+        table.add_column(width=self._LABEL_WIDTH, no_wrap=True)
+        table.add_column(width=self._STATUS_WIDTH)
+        table.add_column(ratio=1)
+
         for batch_id in self._order:
             line = self._lines[batch_id]
-            label = self._labels[batch_id]
-            status = self._status_text(line.status)
-            detail = self._detail_text(line)
-            if detail:
-                parts.append(f"{label}: {status} ({detail})")
-            else:
-                parts.append(f"{label}: {status}")
-        return " | ".join(parts)
+            table.add_row(
+                self._indicator(line),
+                self._labels[batch_id],
+                self._status_text(line.status),
+                self._detail_text(line),
+            )
+        return table
+
+    def _indicator(self, line: _BatchLine) -> RenderableType:
+        if line.done:
+            return self._terminal_icon_for(line.status)
+        return Spinner("dots")
+
+    def _terminal_icon_for(self, status: str) -> Text:
+        if status == "FAILED":
+            return Text("✗", style="red")
+        if status == "SKIPPED":
+            return Text("!", style="yellow")
+        return Text("✓", style="green")
 
     def _status_text(self, status: str) -> str:
         return status.replace("_", " ").title()
 
-    def _detail_text(self, line: _BatchLine) -> str | None:
+    def _detail_text(self, line: _BatchLine) -> str:
         if line.done:
-            return None
+            return ""
         if line.countdown_seconds is None:
             return "working"
         if line.countdown_seconds <= 0:
