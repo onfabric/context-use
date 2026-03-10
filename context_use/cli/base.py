@@ -46,11 +46,10 @@ async def run_batches(
 
                 seconds_until_due = max(0.0, next_due_at[batch_id] - now)
                 if seconds_until_due > 0:
-                    remaining = int(seconds_until_due + 0.999)
                     spinner.update(
                         batch_id,
                         latest_status[batch_id],
-                        countdown_seconds=remaining,
+                        countdown_seconds=seconds_until_due,
                     )
                     continue
 
@@ -64,7 +63,7 @@ async def run_batches(
                     pending_batch_ids.remove(batch_id)
                     continue
 
-                countdown = instruction.countdown or 0
+                countdown = float(instruction.countdown or 0)
                 if not should_sleep_after_each_batch:
                     countdown = 0
                 next_due_at[batch_id] = time.monotonic() + countdown

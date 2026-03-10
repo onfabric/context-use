@@ -101,7 +101,7 @@ def banner() -> None:
 @dataclass
 class _BatchLine:
     status: str = "CREATED"
-    countdown_seconds: int | None = None
+    countdown_seconds: float | None = None
     done: bool = False
 
 
@@ -143,7 +143,7 @@ class BatchStatusSpinner:
         batch_id: str,
         status: str,
         *,
-        countdown_seconds: int | None = None,
+        countdown_seconds: float | None = None,
         done: bool = False,
     ) -> None:
         self._lines[batch_id] = _BatchLine(
@@ -197,6 +197,8 @@ class BatchStatusSpinner:
             return ""
         if line.countdown_seconds is None:
             return "working"
-        if line.countdown_seconds <= 0:
+        if line.countdown_seconds <= 0.05:
             return "up next"
-        return f"next in {line.countdown_seconds}s"
+        if line.countdown_seconds >= 10:
+            return f"next in {line.countdown_seconds:.0f}s"
+        return f"next in {line.countdown_seconds:.1f}s"
