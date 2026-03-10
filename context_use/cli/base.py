@@ -11,32 +11,37 @@ from context_use.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
+    from context_use.batch.states import State
     from context_use.facade.types import PipelineResult
     from context_use.models.batch import Batch
 
 
-def _batch_detail_from_state(state: dict | None) -> str:
+def _batch_detail_from_state(state: "State | None") -> str:
     if state is None:
         return ""
-    memories_count = state.get("memories_count")
+    memories_count = getattr(state, "memories_count", None)
     if isinstance(memories_count, int):
         return f"{memories_count} memories generated"
-    embedded_count = state.get("embedded_count")
+    embedded_count = getattr(state, "embedded_count", None)
     if isinstance(embedded_count, int):
         return f"{embedded_count} memories embedded"
-    created_ids = state.get("created_memory_ids")
+    created_ids = getattr(state, "created_memory_ids", None)
     if isinstance(created_ids, list):
         return f"{len(created_ids)} memories stored"
     return ""
 
 
-def _is_terminal_batch(batch: "Batch") -> bool:
+def _is_terminal_state(state: "State | None") -> bool:
     from context_use.batch.states import StopState
 
+    return state is not None and isinstance(state, StopState)
+
+
+def _safe_current_state(batch: "Batch") -> "State | None":
     try:
-        return isinstance(batch.parse_current_state(), StopState)
+        return batch.parse_current_state()
     except Exception:
-        return False
+        return None
 
 
 async def run_batches(
@@ -53,25 +58,28 @@ async def run_batches(
 
     ordered_batch_ids = [batch.id for batch in batches]
     next_due_at: dict[str, float] = {batch_id: 0.0 for batch_id in ordered_batch_ids}
-    latest_status: dict[str, str] = {
-        batch.id: batch.current_status for batch in batches
-    }
-    latest_detail: dict[str, str] = {
-        batch.id: _batch_detail_from_state(batch.states[0] if batch.states else None)
-        for batch in batches
-    }
+    initial_state = {batch.id: _safe_current_state(batch) for batch in batches}
+    latest_status: dict[str, str] = {}
+    latest_detail: dict[str, str] = {}
+    for batch in batches:
+        state = initial_state[batch.id]
+        latest_status[batch.id] = (
+            state.status if state is not None else batch.current_status
+        )
+        latest_detail[batch.id] = _batch_detail_from_state(state)
+
     batch_rows = [
         (
             batch.id,
             f"Batch {batch.batch_number:03d}",
             latest_status[batch.id],
             latest_detail[batch.id],
-            _is_terminal_batch(batch),
+            _is_terminal_state(initial_state[batch.id]),
         )
         for batch in batches
     ]
     pending_batch_ids: set[str] = {
-        batch.id for batch in batches if not _is_terminal_batch(batch)
+        batch.id for batch in batches if not _is_terminal_state(initial_state[batch.id])
     }
 
     with out.BatchStatusSpinner(batch_rows) as spinner:
@@ -89,10 +97,9 @@ async def run_batches(
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
                 head_state = await ctx.get_batch_head_state(batch_id)
-                status_value = None if head_state is None else head_state.get("status")
                 status = (
-                    status_value
-                    if isinstance(status_value, str)
+                    head_state.status
+                    if head_state is not None
                     else latest_status[batch_id]
                 )
                 detail = _batch_detail_from_state(head_state)
