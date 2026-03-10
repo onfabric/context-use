@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -160,7 +162,7 @@ def save_config(cfg: Config) -> Path:
     return path
 
 
-def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> "ContextUse":
+def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
     from context_use.facade.core import ContextUse
