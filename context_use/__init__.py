@@ -5,8 +5,6 @@ from this module.  Only unit / integration tests may reach into
 sub-packages directly.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
