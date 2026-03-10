@@ -13,39 +13,115 @@ description: >
 
 # context-use — Personal Memory
 
-The user has personal memories extracted from their real data (ChatGPT
-conversations, Claude conversations, Instagram activity, Google searches).
-These memories live in a local SQLite store and are searchable via the
-`context-use` CLI.
+The user has (or can have) personal memories extracted from their real data
+exports — ChatGPT conversations, Claude conversations, Instagram activity,
+Google searches. These memories live in a local SQLite store and are
+searchable via the `context-use` CLI.
 
-Your job is to use these memories to give more personalised, grounded
-responses. When a topic comes up that the user's history might cover,
-search their memories before answering. Reference specific details — names,
-places, dates, projects — rather than being generic.
+Your job is to make this work seamlessly. Install the tool if needed, help
+the user get their data, run the pipeline, and then use the resulting
+memories to give personalised, grounded responses.
 
 ## Preflight
 
-Run this once per session to figure out the user's setup state:
+Run this silently at the start of a session:
 
 ```bash
-context-use --version 2>/dev/null && context-use memories list --limit 1
+context-use --version 2>/dev/null
 ```
 
-**If `context-use` is not found** — the user hasn't installed it yet.
-Read `references/setup.md` and walk them through first-time setup.
+Then branch based on the result:
 
-**If the command works but returns no memories** — the tool is installed
-but the pipeline hasn't been run yet. Ask the user if they have a data
-export ZIP ready, and if so, guide them through running the pipeline
-(see `references/setup.md`, "Running the Pipeline" section).
+- **Not found** → go to [Bootstrap](#bootstrap)
+- **Found** → check for memories:
 
-**If memories are returned** — you're good. Use them.
+```bash
+context-use memories list --limit 1 2>/dev/null
+```
 
-## Searching Memories
+  - **No memories** → go to [Ingest](#ingest)
+  - **Memories exist** → go to [Use Memories](#use-memories)
 
-This is the core of the skill. When the user's question touches on
-something personal — a project they mentioned, a place they visited,
-a person they talked about, a habit or pattern — search before responding:
+## Bootstrap
+
+Install context-use yourself:
+
+```bash
+pip install context-use
+```
+
+If `pip` isn't available, try:
+
+```bash
+uv tool install context-use
+```
+
+Verify it worked:
+
+```bash
+context-use --version
+```
+
+Then check if the user has an OpenAI API key configured:
+
+```bash
+context-use config show
+```
+
+If the API key shows "not set", ask the user for their key. If they don't
+have one, point them to https://platform.openai.com/api-keys. Once they
+provide it:
+
+```bash
+context-use config set-key <their-key>
+```
+
+Then proceed to [Ingest](#ingest).
+
+## Ingest
+
+The user needs a ZIP export from a supported provider. Ask which providers
+they use and whether they've already downloaded their exports.
+
+If they haven't exported yet, tell them how — these steps require their
+personal login, so you can't do it for them:
+
+- **ChatGPT**: Go to chatgpt.com → Settings → Data Controls → Export Data. A download link arrives by email within minutes.
+- **Claude**: Go to claude.ai → Settings → Account → Export Data. Download link arrives by email.
+- **Instagram**: Open the app → Settings → Accounts Center → Your information and permissions → Download your information. Choose **JSON** format (not HTML), "All time". Can take hours.
+- **Google**: Go to takeout.google.com → select products → export as ZIP.
+
+Tell them not to unzip it — context-use reads the ZIP directly.
+
+Once they have a ZIP file and tell you the path, run the pipeline:
+
+```bash
+context-use pipeline --quick <provider> <path-to-zip>
+```
+
+Where `<provider>` is `chatgpt`, `claude`, `instagram`, or `google`.
+
+Use `--quick` for the first run so they see results fast (processes last
+30 days via real-time API). For a full run later, they can use:
+
+```bash
+context-use pipeline <provider> <path-to-zip>
+```
+
+Verify memories were created:
+
+```bash
+context-use memories list --limit 5
+```
+
+Show the user a few of their memories so they can see it worked. Then
+proceed to [Use Memories](#use-memories).
+
+## Use Memories
+
+This is the steady state. When the user's question touches on something
+personal — a project, a place, a person, a habit, a past conversation —
+search their memories before responding:
 
 ```bash
 context-use memories search "relevant query" --top-k 5
@@ -57,14 +133,26 @@ Narrow by date when it helps:
 context-use memories search "query" --from 2024-01-01 --to 2024-12-31
 ```
 
-Weave what you find into your response naturally. Don't say "according to
-your memories" every time — just use the context the way a friend who knows
-them would. If a search returns nothing relevant, move on without mentioning
-it.
+Weave what you find into your response naturally. Don't announce "I found
+this in your memories" — just use the context like a friend who knows them
+would. If a search returns nothing relevant, move on without mentioning it.
 
-## Other Memory Commands
+### When to search
 
-Browse everything:
+- The user mentions a person, project, place, or event from their life.
+- They say "remember when..." or "we talked about..." or "last time...".
+- A topic comes up where their personal history would add useful context.
+- They ask you to remind them of something.
+
+### When not to search
+
+- Purely technical questions with no personal angle.
+- General knowledge queries.
+- You already searched for the same topic earlier in the session.
+
+### Other commands
+
+Browse all memories:
 
 ```bash
 context-use memories list
@@ -77,41 +165,30 @@ Full details on one memory:
 context-use memories get <uuid>
 ```
 
-Create, edit, or archive memories when the user asks:
-
-```bash
-context-use memories create --content "..." --from 2024-03-01 --to 2024-03-31
-context-use memories update <id> --content "..." --from ... --to ...
-context-use memories archive <id1> <id2> --superseded-by <new-id>
-```
-
 Export for use elsewhere:
 
 ```bash
 context-use memories export                        # Markdown
 context-use memories export --format json          # JSON
-context-use memories export --out path/to/file.md  # custom path
 ```
 
-## Personal Agent
-
-For complex memory tasks the user can't do with a single command,
-context-use has a built-in agent:
+Create, edit, or archive when the user asks:
 
 ```bash
-context-use agent synthesise    # distill pattern memories from event memories
+context-use memories create --content "..." --from 2024-03-01 --to 2024-03-31
+context-use memories update <id> --content "..."
+context-use memories archive <id1> <id2> --superseded-by <new-id>
+```
+
+### Agent commands
+
+For complex memory tasks, use the built-in agent:
+
+```bash
+context-use agent synthesise    # distill pattern memories from events
 context-use agent profile       # compile a first-person user profile
 context-use agent ask "..."     # free-form memory task
 ```
 
-Suggest `synthesise` if the user has a lot of raw memories but hasn't
-extracted patterns yet. Suggest `profile` if they want a summary of who
-they are based on their data.
-
-## When Not to Search
-
-Don't search memories for every message. Skip it when:
-
-- The conversation is purely technical with no personal angle.
-- The user is asking about general knowledge, not their own history.
-- You've already searched for the same topic earlier in the conversation.
+Suggest `synthesise` after the first ingest — it creates higher-level
+pattern memories that make future searches more useful.
