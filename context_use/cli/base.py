@@ -187,6 +187,7 @@ def resolve_archive(
     cfg: Config,
     *,
     command: str = "ingest",
+    quick: bool = False,
 ) -> tuple[str, str] | None:
     """Resolve ``(provider_str, zip_path)`` from CLI args or interactive picker.
 
@@ -194,31 +195,46 @@ def resolve_archive(
     Calls ``sys.exit(1)`` on invalid args.
     """
     provider_list = providers()
+    zip_path = getattr(args, "zip_path", None) or getattr(args, "zip_path_option", None)
 
-    if args.provider is None:
-        return pick_archive_interactive(cfg)
+    if quick:
+        if zip_path is None:
+            out.error("Quick mode requires a zip-path.")
+            out.info(
+                f"  Quick:        context-use {command} --quick --zip-path <zip-path>"
+            )
+            sys.exit(1)
 
-    if args.zip_path is None and args.provider not in provider_list:
-        zip_path = args.provider
         if not Path(zip_path).exists():
             out.error(f"File not found: {zip_path}")
             sys.exit(1)
 
-        guessed = _guess_provider(Path(zip_path).name)
-        provider_str = pick_provider_interactive(provider_list, default=guessed)
-        if provider_str is None:
-            return None
+        if args.provider is None:
+            guessed = _guess_provider(Path(zip_path).name)
+            provider_str = pick_provider_interactive(provider_list, default=guessed)
+            if provider_str is None:
+                return None
+            return provider_str, zip_path
+
+        provider_str = args.provider.lower()
+        if provider_str not in provider_list:
+            out.error(
+                f"Unknown provider '{provider_str}'. "
+                f"Choose from: {', '.join(provider_list)}"
+            )
+            sys.exit(1)
         return provider_str, zip_path
 
-    if args.zip_path is None:
+    if args.provider is None:
+        return pick_archive_interactive(cfg)
+
+    if zip_path is None:
         out.error("Please provide both provider and zip-path, or omit both.")
         out.info(f"  Direct:       context-use {command} <provider> <zip-path>")
-        out.info(f"  Zip only:     context-use {command} <zip-path>")
         out.info(f"  Interactive:  context-use {command}")
         sys.exit(1)
 
     provider_str = args.provider.lower()
-    zip_path = args.zip_path
 
     if provider_str not in provider_list:
         out.error(
@@ -247,9 +263,10 @@ def add_archive_args(parser: argparse.ArgumentParser) -> None:
         help="Data provider (omit for interactive mode)",
     )
     parser.add_argument(
-        "zip-path",
+        "zip_path",
         nargs="?",
         default=None,
+        metavar="zip-path",
         help="Path to .zip archive (omit for interactive mode)",
     )
 
