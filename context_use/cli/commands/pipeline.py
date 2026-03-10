@@ -77,8 +77,8 @@ class PipelineCommand(ApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        if args.quick and not prepare_quick_archive_args(args, command="pipeline"):
-            return
+        if args.quick:
+            prepare_quick_archive_args(args, command="pipeline")
 
         picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:

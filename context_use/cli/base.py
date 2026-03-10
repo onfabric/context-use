@@ -184,7 +184,7 @@ def pick_provider_interactive(
 
 def prepare_quick_archive_args(
     args: argparse.Namespace, *, command: str = "pipeline"
-) -> bool:
+) -> None:
     """Validate and complete quick-mode archive args in-place."""
     zip_path = args.zip_path
     if zip_path is None:
@@ -197,15 +197,15 @@ def prepare_quick_archive_args(
         sys.exit(1)
 
     if args.provider is not None:
-        return True
+        return
 
     guessed = _guess_provider(Path(zip_path).name)
     provider = pick_provider_interactive(providers(), default=guessed)
     if provider is None:
-        return False
+        out.error("Provider selection required in quick mode.")
+        sys.exit(1)
 
     args.provider = provider
-    return True
 
 
 def resolve_archive(
