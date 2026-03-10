@@ -20,13 +20,13 @@ def _batch_detail_from_state(state: dict | None) -> str:
         return ""
     memories_count = state.get("memories_count")
     if isinstance(memories_count, int):
-        return f"{memories_count} memories"
+        return f"{memories_count} memories generated"
     embedded_count = state.get("embedded_count")
     if isinstance(embedded_count, int):
         return f"{embedded_count} memories embedded"
     created_ids = state.get("created_memory_ids")
     if isinstance(created_ids, list):
-        return f"{len(created_ids)} memories"
+        return f"{len(created_ids)} memories stored"
     return ""
 
 
