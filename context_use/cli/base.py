@@ -90,15 +90,13 @@ async def run_batches(
 
     with out.BatchStatusSpinner(batch_rows) as spinner:
         while pending_batch_ids:
-            now = time.monotonic()
             advanced_any = False
 
             for batch_id in ordered_batch_ids:
                 if batch_id not in pending_batch_ids:
                     continue
 
-                seconds_until_due = max(0.0, next_due_at[batch_id] - now)
-                if seconds_until_due > 0:
+                if next_due_at[batch_id] > time.monotonic():
                     continue
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
