@@ -1,0 +1,72 @@
+"""Template: simple pipe for a single-file JSON source.
+
+Replace all <PLACEHOLDERS> with actual values. Delete this docstring.
+"""
+
+import json
+from collections.abc import Iterator
+from datetime import UTC, datetime
+
+from context_use.etl.core.pipe import Pipe
+from context_use.etl.core.types import ThreadRow
+from context_use.etl.payload.models import (
+    CURRENT_THREAD_PAYLOAD_VERSION,
+    FibreLike,  # swap for the appropriate Fibre type
+    FibrePost,
+    Profile,
+)
+from context_use.models.etl_task import EtlTask
+from context_use.providers.<PROVIDER>.schemas import PROVIDER, <RecordModel>
+from context_use.providers.registry import declare_interaction
+from context_use.providers.types import InteractionConfig
+from context_use.storage.base import StorageBackend
+
+
+class <Provider><Type>Pipe(Pipe[<RecordModel>]):
+    provider = PROVIDER
+    interaction_type = "<provider>_<type>"
+    archive_version = 1
+    archive_path_pattern = "<relative/path/to/file.json>"
+    record_schema = <RecordModel>
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[<RecordModel>]:
+        raw = storage.read(source_uri)
+        items: list[dict] = json.loads(raw)
+        for raw_item in items:
+            # validate and filter
+            yield <RecordModel>(
+                # ... fields ...
+                source=json.dumps(raw_item),
+            )
+
+    def transform(
+        self,
+        record: <RecordModel>,
+        task: EtlTask,
+    ) -> ThreadRow:
+        published = datetime.fromtimestamp(float(record.timestamp), tz=UTC)
+
+        payload = FibreLike(  # type: ignore[reportCallIssue]
+            object=FibrePost(  # type: ignore[reportCallIssue]
+                attributedTo=Profile(name=record.title),  # type: ignore[reportCallIssue]
+            ),
+            published=published,
+        )
+
+        return ThreadRow(
+            unique_key=payload.unique_key(),
+            provider=self.provider,
+            interaction_type=self.interaction_type,
+            preview=payload.get_preview(task.provider) or "",
+            payload=payload.to_dict(),
+            source=record.source,
+            version=CURRENT_THREAD_PAYLOAD_VERSION,
+            asat=published,
+        )
+
+
+declare_interaction(InteractionConfig(pipe=<Provider><Type>Pipe, memory=None))
