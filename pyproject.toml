@@ -15,6 +15,12 @@ dependencies = [
     "google-adk>=1.26",
 ]
 
+[project.urls]
+Homepage = "https://github.com/onfabric/context-use"
+Repository = "https://github.com/onfabric/context-use"
+Changelog = "https://github.com/onfabric/context-use/blob/main/CHANGELOG.md"
+Issues = "https://github.com/onfabric/context-use/issues"
+
 [project.optional-dependencies]
 gcs = ["google-cloud-storage>=2.10.0,<3"]
 
