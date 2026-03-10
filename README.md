@@ -74,10 +74,6 @@ context-use-data/
     └── your-data-export.zip   ← place it here
 ```
 
-## Contributing
-
-Want to add support for a new data provider? See [Adding a data provider](docs/add-provider.md).
-
 ## Supported providers
 
 | Provider | Status | Data types | Export guide |
@@ -87,3 +83,5 @@ Want to add support for a new data provider? See [Adding a data provider](docs/a
 | Instagram | Available | Stories, Reels, Posts, Likes, Followers, ... | [Export your data](https://help.instagram.com/181231772500920) |
 | Google | Coming soon | Searches, YouTube | [Export your data](https://support.google.com/accounts/answer/3024190) |
 | WhatsApp | Coming soon | Conversations | [Export your data](https://faq.whatsapp.com/1180414079177245) |
+
+Want another provider? Contribute it by pointing your coding agent to the [add-provider guide](docs/add-provider.md).
