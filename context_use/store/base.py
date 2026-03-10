@@ -1,10 +1,10 @@
-
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date
 from types import TracebackType
+from typing import Self
 
 from context_use.batch.grouper import ThreadGroup
 from context_use.etl.core.types import ThreadRow
@@ -54,7 +54,7 @@ class Store(ABC):
         """Release any held resources (connections, file handles)."""
         ...
 
-    async def __aenter__(self) -> Store:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(

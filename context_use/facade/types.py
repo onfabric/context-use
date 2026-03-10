@@ -1,6 +1,5 @@
 """Public return types for the context_use API."""
 
-
 from dataclasses import dataclass, field
 
 
@@ -13,7 +12,7 @@ class PipelineResult:
     tasks_failed: int = 0
     threads_created: int = 0
     errors: list[str] = field(default_factory=list)
-    breakdown: list[TaskBreakdown] = field(default_factory=list)
+    breakdown: list["TaskBreakdown"] = field(default_factory=list)
 
 
 @dataclass
