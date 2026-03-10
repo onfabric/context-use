@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import zipfile
+from importlib import import_module
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
@@ -85,7 +86,7 @@ class ContextUse:
         Each ETL task is committed independently so that a failure
         in one task does not lose previously committed work.
         """
-        import context_use.providers  # noqa: F401
+        import_module("context_use.providers")
         from context_use.etl.core.exceptions import (
             ArchiveProcessingError,
             UnsupportedProviderError,
@@ -200,7 +201,7 @@ class ContextUse:
         """
         from collections import defaultdict
 
-        import context_use.providers  # noqa: F401
+        import_module("context_use.providers")
         from context_use.batch.grouper import ThreadGroup
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.models.thread import Thread
@@ -436,4 +437,4 @@ class ContextUse:
 
 def _ensure_managers_registered() -> None:
     """Import manager modules to trigger their @register_batch_manager decorators."""
-    import context_use.memories.manager  # noqa: F401
+    import_module("context_use.memories.manager")

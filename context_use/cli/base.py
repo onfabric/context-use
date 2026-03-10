@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import sys
 from abc import ABC, abstractmethod
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -54,7 +55,7 @@ async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
 
 def providers() -> list[str]:
     """Return the list of registered provider names."""
-    import context_use.providers  # noqa: F401
+    import_module("context_use.providers")
     from context_use.providers.registry import list_providers
 
     return list_providers()

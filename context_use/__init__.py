@@ -5,6 +5,7 @@ from this module.  Only unit / integration tests may reach into
 sub-packages directly.
 """
 
+from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -30,7 +31,7 @@ def __getattr__(name: str) -> Any:
     if name not in __all__:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-    import context_use.providers  # noqa: F401
+    import_module("context_use.providers")
     from context_use.facade import (
         ContextUse,
         PipelineResult,
