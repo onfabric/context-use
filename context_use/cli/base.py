@@ -20,10 +20,7 @@ if TYPE_CHECKING:
 # ── Infrastructure helpers ────────────────────────────────────────────────────
 
 
-async def run_batches(
-    ctx: ContextUse,
-    batches: list[Batch],
-) -> None:
+async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
     """Drive all batches to completion, polling until each stops."""
     from context_use.batch.manager import ScheduleInstruction
 
