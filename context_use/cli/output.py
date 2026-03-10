@@ -18,7 +18,6 @@ def _supports_color() -> bool:
 
 
 _COLOR = _supports_color()
-_IS_TTY = hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
 
 
 def _ansi(code: str, text: str) -> str:
@@ -114,15 +113,13 @@ class BatchStatusSpinner:
         self._lines = {batch_id: _BatchLine() for batch_id in self._order}
         self._console = Console()
         self._status: Status | None = None
-        self._printed_terminal: set[str] = set()
 
     def __enter__(self) -> BatchStatusSpinner:
-        if _IS_TTY:
-            self._status = self._console.status(
-                self._render_status_text(),
-                spinner="dots",
-            )
-            self._status.__enter__()
+        self._status = self._console.status(
+            self._render_status_text(),
+            spinner="dots",
+        )
+        self._status.__enter__()
         return self
 
     def __exit__(
@@ -148,16 +145,11 @@ class BatchStatusSpinner:
             countdown_seconds=countdown_seconds if not done else None,
             done=done,
         )
-        if _IS_TTY and self._status is not None:
+        if self._status is not None:
             self._status.update(self._render_status_text())
-        elif done and batch_id not in self._printed_terminal:
-            self._printed_terminal.add(batch_id)
-            icon = self._terminal_icon_for(status)
-            label = self._labels[batch_id]
-            print(f"  {icon} {label} {self._status_text(status)}")
 
     def tick(self) -> None:
-        if _IS_TTY and self._status is not None:
+        if self._status is not None:
             self._status.update(self._render_status_text())
 
     def _render_status_text(self) -> str:
@@ -172,13 +164,6 @@ class BatchStatusSpinner:
             else:
                 parts.append(f"{label}: {status}")
         return " | ".join(parts)
-
-    def _terminal_icon_for(self, status: str) -> str:
-        if status == "FAILED":
-            return red("✗")
-        if status == "SKIPPED":
-            return yellow("!")
-        return green("✓")
 
     def _status_text(self, status: str) -> str:
         return status.replace("_", " ").title()
