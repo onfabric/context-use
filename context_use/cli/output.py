@@ -110,6 +110,16 @@ class BatchStatusSpinner:
 
     _LABEL_WIDTH = 12
     _STATUS_WIDTH = 28
+    _STATUS_STYLES = {
+        "CREATED": "cyan",
+        "MEMORY_GENERATE_PENDING": "bright_cyan",
+        "MEMORY_GENERATE_COMPLETE": "spring_green3",
+        "MEMORY_EMBED_PENDING": "green3",
+        "MEMORY_EMBED_COMPLETE": "green",
+        "COMPLETE": "bold green",
+        "SKIPPED": "yellow",
+        "FAILED": "red",
+    }
 
     def __init__(self, batches: list[tuple[str, str, str, str, bool]]) -> None:
         self._order = [batch_id for batch_id, _, _, _, _ in batches]
@@ -200,10 +210,4 @@ class BatchStatusSpinner:
         return Text(status.replace("_", " ").title(), style=self._status_style(status))
 
     def _status_style(self, status: str) -> str:
-        if status == "FAILED":
-            return "red"
-        if status == "SKIPPED":
-            return "yellow"
-        if status == "COMPLETE":
-            return "green"
-        return "bright_blue"
+        return self._STATUS_STYLES.get(status, "bright_blue")
