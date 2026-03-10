@@ -9,9 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
-data/**
-!data/*/
-!data/*/.gitkeep
+context-use-data/**
+!context-use-data/.gitkeep
 
 *.db
 *.zip
