@@ -1,182 +1,259 @@
 ---
 name: context-use
 description: >
-  Triggered when the user wants to turn data exports into AI memory —
-  ingesting archives, generating memories, searching, exporting,
-  or running the personal memory agent via the context-use CLI.
+  Triggered when the user wants to turn data exports from ChatGPT,
+  Claude, Instagram, or Google into searchable AI memory. Guides them
+  through installing the CLI, downloading their export, generating
+  memories, and putting those memories to use.
 user-invocable: true
 ---
 
 # context-use
 
-Turn data exports from ChatGPT, Claude, Instagram, and other platforms
-into portable, searchable AI memory using the `context-use` CLI.
+Guide the user through turning their data exports into portable,
+searchable AI memory with the `context-use` CLI.
 
 ## When to Use
 
-Use this skill when the user wants to:
-
-- Ingest a data export archive (ZIP) from a supported provider.
-- Generate memories from ingested data.
-- Search, list, export, or manage their memories.
-- Run the personal memory agent (synthesise patterns, compile a profile, ask questions).
-- Configure the tool (API key, model, paths).
+- The user mentions wanting to extract memories from ChatGPT, Claude, Instagram, or Google data.
+- The user asks how to make an AI agent remember things about them.
+- The user has a data export ZIP and wants to do something with it.
+- The user already has context-use installed and wants help with a specific command.
 
 ## Required Inputs
 
-1. **Data export** — a ZIP file from a supported provider, placed in `context-use-data/input/` or referenced by path.
-2. **OpenAI API key** — required for memory generation, semantic search, and the agent. Not needed for ingest, listing, or export.
+Gather these from the user before or during the workflow:
 
-## Supported Providers
-
-| Provider | Status | Data types |
-|----------|--------|------------|
-| ChatGPT | Available | Conversations |
-| Claude | Available | Conversations |
-| Instagram | Available | Stories, Reels, Posts, Likes, Followers, Comments, Saved, Connections, Views, Searches |
-| Google | Available | Searches, YouTube, Shopping, Discover, Lens |
+1. **Which provider** — ChatGPT, Claude, Instagram, or Google.
+2. **Whether they already have the ZIP export** — if not, guide them to download it (Step 2).
+3. **Whether they have an OpenAI API key** — needed for memory generation and search, not for ingest.
 
 ## Step-by-Step Workflow
 
-### 1. Install
+### Step 1 — Install the CLI
+
+Tell the user to install context-use:
 
 ```bash
 pip install context-use
-# or
+```
+
+Or if they use `uv`:
+
+```bash
 uv tool install context-use
 ```
 
-### 2. Configure the API key
+Verify it works:
 
 ```bash
-context-use config set-key <OPENAI_API_KEY>
+context-use --version
 ```
 
-Or set via environment variable:
+### Step 2 — Help the user download their data export
+
+The user needs a ZIP export from their provider. **Do not skip this step** —
+most users won't have done this before. Walk them through it based on their
+provider:
+
+**ChatGPT:**
+1. Go to https://chatgpt.com → Settings → Data Controls → Export Data.
+2. Click "Export" — OpenAI will email a download link within a few minutes to a few hours.
+3. Download the ZIP from the email. Do not extract it.
+
+**Claude:**
+1. Go to https://claude.ai → Settings → Account → Export Data.
+2. Anthropic will email a download link.
+3. Download the ZIP from the email. Do not extract it.
+
+**Instagram:**
+1. Open the Instagram app → Settings → Accounts Center → Your information and permissions → Download your information.
+2. Select "Download or transfer information", pick the Instagram account, and choose "All available information".
+3. Set the format to **JSON** (not HTML) and date range to "All time".
+4. Request the download — Instagram will notify when it's ready (can take hours).
+5. Download the ZIP. Do not extract it.
+
+**Google:**
+1. Go to https://takeout.google.com.
+2. Deselect all, then select the products they want (Search, YouTube, etc.).
+3. Choose export format: ZIP.
+4. Request the export and download it when ready.
+
+Once the user has the ZIP, tell them to either:
+- Drop it into `context-use-data/input/`, or
+- Note the file path to pass directly to the CLI.
+
+### Step 3 — Set up the OpenAI API key
+
+The user needs an OpenAI API key for memory generation and semantic search.
+If they don't have one, direct them to https://platform.openai.com/api-keys.
 
 ```bash
+context-use config set-key
+```
+
+This prompts them interactively. Alternatively:
+
+```bash
+context-use config set-key sk-...
+# or
 export OPENAI_API_KEY=sk-...
 ```
 
-Or run any API-requiring command and follow the interactive prompt.
+**If the user only wants to ingest** (parse the archive without generating
+memories), the API key is not needed yet. They can set it up later.
 
-### 3. Prepare the data export
+### Step 4 — Run the pipeline
 
-Download the ZIP export from the provider (see provider-specific export guides). Either:
+Recommend the approach based on the user's situation:
 
-- Place it in `context-use-data/input/` and use interactive mode, or
-- Pass the path directly to the CLI.
-
-### 4. Run the pipeline
-
-#### Quick mode (real-time API, last 30 days, fast preview)
+**First time / just want to try it out — use quick mode:**
 
 ```bash
 context-use pipeline --quick path/to/export.zip
 ```
 
-Provider is auto-detected from the filename or selected interactively.
-Override the time window with `--last-days`:
+This uses the real-time API and only processes the last 30 days. Fast
+feedback, results in seconds. Memories are exported to
+`context-use-data/output/` as Markdown and JSON.
+
+To include more history:
 
 ```bash
 context-use pipeline --quick --last-days 90 path/to/export.zip
 ```
 
-Quick mode exports results to `context-use-data/output/` as Markdown and JSON.
-
-#### Full pipeline (batch API, all history, cheaper)
+**Full export / production use — use the batch pipeline:**
 
 ```bash
-context-use pipeline                              # interactive archive picker
-context-use pipeline chatgpt path/to/export.zip   # direct
-context-use pipeline --last-days 60               # limit history
+context-use pipeline chatgpt path/to/export.zip
 ```
 
-Uses OpenAI's batch API. Typical runtime: 2–10 minutes.
-
-#### Step-by-step alternative
+Or run without arguments for interactive archive picking:
 
 ```bash
-context-use ingest chatgpt path/to/export.zip     # step 1: parse archive (no API key needed)
-context-use memories generate                      # step 2: generate memories (batch API)
+context-use pipeline
 ```
 
-### 5. Explore memories
+This uses OpenAI's batch API — cheaper and rate-limit-friendly. Takes
+2–10 minutes. All memories are persisted in a local SQLite database for
+ongoing search and agent use.
+
+**Step-by-step alternative** (useful for debugging or large archives):
 
 ```bash
-context-use memories list                          # browse all memories
-context-use memories list --limit 20               # show only 20
-context-use memories search "hiking trips"         # semantic search
-context-use memories search --from 2024-01-01 --to 2024-06-30 --top-k 5
-context-use memories get <memory-uuid>             # full detail of one memory
-context-use memories export                        # export to Markdown (default)
-context-use memories export --format json          # export to JSON
-context-use memories export --out my-memories.md   # custom output path
+context-use ingest chatgpt path/to/export.zip   # parse only, no API key needed
+context-use memories generate                     # generate memories separately
 ```
 
-### 6. Manage memories
+### Step 5 — Explore the memories
+
+Once memories are generated, help the user explore them:
+
+**Browse everything:**
 
 ```bash
-context-use memories create --content "I started learning piano in March" \
+context-use memories list
+context-use memories list --limit 20
+```
+
+**Semantic search** (find memories by meaning, not keywords):
+
+```bash
+context-use memories search "hiking trips"
+context-use memories search "work stress" --from 2024-01-01 --to 2024-12-31
+context-use memories search --top-k 5 "cooking recipes"
+```
+
+**Export to a file** for use elsewhere:
+
+```bash
+context-use memories export                        # Markdown (default)
+context-use memories export --format json          # JSON
+context-use memories export --out my-memories.md   # custom path
+```
+
+Exported files go to `context-use-data/output/` by default.
+
+### Step 6 — Use the personal memory agent
+
+The built-in agent can reason across the user's entire memory store.
+
+**Synthesise pattern memories** — the agent deep-dives topic by topic and
+creates higher-level memories that capture what is consistently true:
+
+```bash
+context-use agent synthesise
+```
+
+**Generate a user profile** — the agent compiles a first-person "who I am"
+document from all memories:
+
+```bash
+context-use agent profile
+```
+
+**Ask anything** — send a free-form question or task to the agent:
+
+```bash
+context-use agent ask "What topics keep coming back across all my conversations?"
+context-use agent ask "Fix any dates that look wrong in my memories"
+```
+
+The agent has full read/write access to memories — it can search, create,
+update, and archive them.
+
+### Step 7 — Ongoing management
+
+Help the user with memory management as needed:
+
+```bash
+# View a specific memory
+context-use memories get <memory-uuid>
+
+# Manually create a memory
+context-use memories create --content "I started learning piano" \
   --from 2024-03-01 --to 2024-03-31
 
-context-use memories update <id> --content "Updated text" --from 2024-03-01 --to 2024-04-30
+# Edit a memory
+context-use memories update <id> --content "Updated text"
 
+# Archive superseded memories
 context-use memories archive <id1> <id2> --superseded-by <new-id>
+
+# Check settings
+context-use config show
+
+# Wipe everything and start fresh
+context-use reset --yes
 ```
 
-### 7. Personal memory agent
+## Supported Providers
 
-```bash
-context-use agent synthesise                       # synthesise pattern memories from event memories
-context-use agent profile                          # compile a first-person user profile
-context-use agent ask "What topics keep coming back across all my conversations?"
-```
+| Provider | Data types | Export guide |
+|----------|------------|-------------|
+| ChatGPT | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
+| Claude | Conversations | [Export your data](https://privacy.claude.com/en/articles/9450526-how-can-i-export-my-claude-data) |
+| Instagram | Stories, Reels, Posts, Likes, Followers, Comments, Saved, Views, Searches | [Export your data](https://help.instagram.com/181231772500920) |
+| Google | Searches, YouTube, Shopping, Discover, Lens | [Export your data](https://support.google.com/accounts/answer/3024190) |
 
-The agent has read/write access to the memory store. It can search, create,
-update, and archive memories. The `synthesise` command runs topic-by-topic
-deep dives and creates higher-level pattern memories. The `profile` command
-is read-only and outputs a Markdown profile to stdout.
+## Configuration Reference
 
-### 8. Configuration
+Config file location: `~/.config/context-use/config.toml`
 
-```bash
-context-use config show                            # show all settings and sources
-context-use config set-key                         # change API key interactively
-context-use config set-key sk-...                  # set key directly
-context-use config path                            # print config file location
-```
+| Setting | Env var | Default |
+|---------|---------|---------|
+| OpenAI API key | `OPENAI_API_KEY` | — |
+| LLM model | `OPENAI_MODEL` | `gpt-5.2` |
+| Embedding model | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` |
+| Database path | `CONTEXT_USE_DB_PATH` | `context_use.db` |
+| Data directory | — | `./context-use-data` |
 
-Config file: `~/.config/context-use/config.toml`
+## Error Handling
 
-| Setting | TOML key | Env var | Default |
-|---------|----------|---------|---------|
-| OpenAI API key | `[openai] api_key` | `OPENAI_API_KEY` | — |
-| LLM model | `[openai] model` | `OPENAI_MODEL` | `gpt-5.2` |
-| Embedding model | `[openai] embedding_model` | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` |
-| Database path | `[store] path` | `CONTEXT_USE_DB_PATH` | `context_use.db` |
-| Data directory | `[data] dir` | — | `./context-use-data` |
-
-### 9. Reset
-
-```bash
-context-use reset          # wipes all data, asks for confirmation
-context-use reset --yes    # skip confirmation
-```
-
-## Output Format
-
-- **Memories list**: grouped by month, each line shows `[date] content`.
-- **Search results**: ranked by similarity score.
-- **Export (Markdown)**: `# My Memories` with monthly sections. Saved to `context-use-data/output/`.
-- **Export (JSON)**: array of `{content, from_date, to_date}` objects.
-- **Agent profile**: first-person Markdown printed to stdout.
-
-## Error Handling & Stop Conditions
-
-- **No API key**: commands that need OpenAI will prompt interactively or exit with guidance to run `context-use config set-key`.
-- **No ZIP files found**: interactive mode shows guidance to place exports in `context-use-data/input/`.
-- **Unknown provider**: CLI lists valid providers and exits.
-- **No memories found**: list/search/export commands show a hint to run `context-use memories generate` first.
-- **Batch API timeout**: memory generation polls automatically. If the batch takes long, the CLI keeps polling. Use `--quick` for faster feedback on small slices.
-- **Rate limits in quick mode**: switch to the full pipeline (`context-use pipeline` without `--quick`) which uses the cheaper, rate-limit-friendly batch API.
+- **User doesn't have the export yet:** Walk them through Step 2. Do not proceed until they have the ZIP.
+- **No API key:** Guide them to https://platform.openai.com/api-keys and then `context-use config set-key`. If they only want to explore the raw archive, `ingest` works without a key.
+- **Unknown provider:** Tell the user the supported list: chatgpt, claude, instagram, google.
+- **No memories after generate:** The archive may have little content, or `--last-days` was too narrow. Suggest re-running with a wider window or the full pipeline.
+- **Rate limits in quick mode:** Recommend switching to `context-use pipeline` (batch API) which is cheaper and rate-limit-friendly.
+- **Export takes too long:** This is normal — Instagram and Google exports can take hours. The user just needs to wait for the provider's email/notification.
