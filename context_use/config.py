@@ -6,11 +6,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
+from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+
 if TYPE_CHECKING:
     from context_use.facade.core import ContextUse
 
-_DEFAULT_MODEL = "openai/gpt-5.2"
-_DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-large"
+_DEFAULT_MODEL = OpenAIModel.GPT_5_2
+_DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
 
 ConfigSource = Literal["env", "file", "default"]
 
