@@ -5,6 +5,9 @@ import sys
 from dataclasses import dataclass
 from types import TracebackType
 
+from rich.console import Console
+from rich.status import Status
+
 
 def _supports_color() -> bool:
     if os.environ.get("NO_COLOR"):
@@ -103,22 +106,23 @@ class _BatchLine:
 
 
 class BatchStatusSpinner:
-    """Docker-like per-batch spinner with live in-place updates."""
-
-    _FRAMES = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
-    _LABEL_WIDTH = 12
-    _STATUS_WIDTH = 20
+    """Per-batch status UI backed by Rich's status spinner."""
 
     def __init__(self, batches: list[tuple[str, str]]) -> None:
         self._order = [batch_id for batch_id, _ in batches]
         self._labels = {batch_id: label for batch_id, label in batches}
         self._lines = {batch_id: _BatchLine() for batch_id in self._order}
-        self._frame_index = 0
-        self._rendered_lines = 0
+        self._console = Console()
+        self._status: Status | None = None
         self._printed_terminal: set[str] = set()
 
     def __enter__(self) -> BatchStatusSpinner:
-        self._render(force=True)
+        if _IS_TTY:
+            self._status = self._console.status(
+                self._render_status_text(),
+                spinner="dots",
+            )
+            self._status.__enter__()
         return self
 
     def __exit__(
@@ -127,9 +131,9 @@ class BatchStatusSpinner:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if _IS_TTY and self._rendered_lines:
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+        if self._status is not None:
+            self._status.__exit__(exc_type, exc_val, exc_tb)
+            self._status = None
 
     def update(
         self,
@@ -144,46 +148,30 @@ class BatchStatusSpinner:
             countdown_seconds=countdown_seconds if not done else None,
             done=done,
         )
-        self._render(force=done)
+        if _IS_TTY and self._status is not None:
+            self._status.update(self._render_status_text())
+        elif done and batch_id not in self._printed_terminal:
+            self._printed_terminal.add(batch_id)
+            icon = self._terminal_icon_for(status)
+            label = self._labels[batch_id]
+            print(f"  {icon} {label} {self._status_text(status)}")
 
     def tick(self) -> None:
-        self._frame_index = (self._frame_index + 1) % len(self._FRAMES)
-        self._render(force=False)
+        if _IS_TTY and self._status is not None:
+            self._status.update(self._render_status_text())
 
-    def _render(self, *, force: bool) -> None:
-        if not _IS_TTY:
-            if not force:
-                return
-            for batch_id in self._order:
-                line = self._lines[batch_id]
-                if not line.done or batch_id in self._printed_terminal:
-                    continue
-                self._printed_terminal.add(batch_id)
-                icon = self._terminal_icon_for(line.status)
-                label = self._labels[batch_id]
-                status_text = self._status_text(line.status)
-                print(f"  {icon} {label} {status_text}")
-            return
-
-        if self._rendered_lines:
-            sys.stdout.write(f"\x1b[{self._rendered_lines}F")
-
-        frame = self._FRAMES[self._frame_index]
+    def _render_status_text(self) -> str:
+        parts = []
         for batch_id in self._order:
             line = self._lines[batch_id]
-            symbol = self._symbol_for(line, frame)
-            label = self._labels[batch_id].ljust(self._LABEL_WIDTH)
-            status_text = self._status_text(line.status).ljust(self._STATUS_WIDTH)
+            label = self._labels[batch_id]
+            status = self._status_text(line.status)
             detail = self._detail_text(line)
-            sys.stdout.write(f"\x1b[2K  {symbol} {label} {status_text}{detail}\n")
-
-        self._rendered_lines = len(self._order)
-        sys.stdout.flush()
-
-    def _symbol_for(self, line: _BatchLine, frame: str) -> str:
-        if not line.done:
-            return cyan(frame)
-        return self._terminal_icon_for(line.status)
+            if detail:
+                parts.append(f"{label}: {status} ({detail})")
+            else:
+                parts.append(f"{label}: {status}")
+        return " | ".join(parts)
 
     def _terminal_icon_for(self, status: str) -> str:
         if status == "FAILED":
@@ -195,11 +183,11 @@ class BatchStatusSpinner:
     def _status_text(self, status: str) -> str:
         return status.replace("_", " ").title()
 
-    def _detail_text(self, line: _BatchLine) -> str:
+    def _detail_text(self, line: _BatchLine) -> str | None:
         if line.done:
-            return ""
+            return None
         if line.countdown_seconds is None:
-            return dim("  (working)")
+            return "working"
         if line.countdown_seconds <= 0:
-            return dim("  (up next)")
-        return dim(f"  (next in {line.countdown_seconds}s)")
+            return "up next"
+        return f"next in {line.countdown_seconds}s"
