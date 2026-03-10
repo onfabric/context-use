@@ -2,11 +2,6 @@ name: check-pr-title
 
 on:
   pull_request:
-    types:
-      - opened
-      - reopened
-      - edited
-      - ready_for_review
 
 jobs:
   check-pr-title:
