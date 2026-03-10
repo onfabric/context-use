@@ -140,6 +140,7 @@ class BatchStatusSpinner:
         if self._live is not None:
             self._live.__exit__(exc_type, exc_val, exc_tb)
             self._live = None
+            self._console.print("")
 
     def update(
         self,
