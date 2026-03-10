@@ -6,6 +6,7 @@ from context_use.cli import output as out
 from context_use.cli.base import (
     ApiCommand,
     add_archive_args,
+    prepare_quick_archive_args,
     print_ingest_result,
     resolve_archive,
     run_batches,
@@ -29,7 +30,9 @@ class PipelineCommand(ApiCommand):
     description = (
         "Run the full pipeline (ingest, memories). "
         "Uses the batch API by default. "
-        "Pass --quick to use the real-time API (last 30 days by default). "
+        "Pass --quick <zip-path> to use the real-time API "
+        "(last 30 days by default). "
+        "In quick mode, provider is selected interactively when omitted. "
         "Use --last-days to limit history in either mode. "
         "Run without arguments to interactively pick an archive from "
         "context-use-data/input/."
@@ -72,6 +75,9 @@ class PipelineCommand(ApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
+        if args.quick:
+            prepare_quick_archive_args(args, command="pipeline")
+
         picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:
             return
@@ -185,10 +191,7 @@ class PipelineCommand(ApiCommand):
             if since:
                 print()
                 out.info("Try including more history:")
-                out.next_step(
-                    f"context-use pipeline --quick --last-days 90 "
-                    f"{provider_str} {zip_path}"
-                )
+                out.next_step(f"context-use pipeline --quick --last-days 90 {zip_path}")
             return
 
         memories = await ctx.list_memories()
