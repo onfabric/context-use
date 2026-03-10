@@ -149,11 +149,14 @@ class BatchStatusSpinner:
         detail: str = "",
         done: bool = False,
     ) -> None:
-        self._lines[batch_id] = _BatchLine(
+        new_line = _BatchLine(
             status=status,
             detail=detail,
             done=done,
         )
+        if self._lines.get(batch_id) == new_line:
+            return
+        self._lines[batch_id] = new_line
         self._refresh()
 
     def tick(self) -> None:

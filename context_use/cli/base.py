@@ -82,11 +82,6 @@ async def run_batches(
 
                 seconds_until_due = max(0.0, next_due_at[batch_id] - now)
                 if seconds_until_due > 0:
-                    spinner.update(
-                        batch_id,
-                        latest_status[batch_id],
-                        detail=latest_detail[batch_id],
-                    )
                     continue
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
@@ -122,7 +117,6 @@ async def run_batches(
             if not pending_batch_ids:
                 break
 
-            spinner.tick()
             await asyncio.sleep(0 if advanced_any else 0.1)
 
 

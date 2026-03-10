@@ -137,12 +137,13 @@ class BaseBatchManager(ABC):
                 await self.ctx.store.update_batch(self.batch)
 
             except Exception as exc:
-                logger.error(
-                    "[%s] Error advancing state: %s",
-                    batch_id,
-                    exc,
-                    exc_info=logger.isEnabledFor(logging.INFO),
-                )
+                if logger.isEnabledFor(logging.INFO):
+                    logger.error(
+                        "[%s] Error advancing state: %s",
+                        batch_id,
+                        exc,
+                        exc_info=True,
+                    )
                 self.batch.push_state(
                     FailedState(
                         error_message=str(exc),
