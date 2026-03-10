@@ -19,7 +19,7 @@ class IngestCommand(ContextCommand):
     help = "Step 1: Process a data export archive"
     description = (
         "Process a data export archive. Run without arguments to "
-        "interactively pick from archives in data/input/."
+        "interactively pick from archives in context-use-data/input/."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
