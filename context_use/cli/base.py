@@ -30,6 +30,10 @@ def _batch_detail_from_state(state: dict | None) -> str:
     return ""
 
 
+def _is_terminal_status(status: str) -> bool:
+    return status in {"COMPLETE", "SKIPPED", "FAILED"}
+
+
 async def run_batches(
     ctx: ContextUse,
     batches: list[Batch],
@@ -43,7 +47,6 @@ async def run_batches(
         return
 
     ordered_batch_ids = [batch.id for batch in batches]
-    pending_batch_ids: set[str] = set(ordered_batch_ids)
     next_due_at: dict[str, float] = {batch_id: 0.0 for batch_id in ordered_batch_ids}
     latest_status: dict[str, str] = {
         batch.id: batch.current_status for batch in batches
@@ -52,9 +55,23 @@ async def run_batches(
         batch.id: _batch_detail_from_state(batch.states[0] if batch.states else None)
         for batch in batches
     }
-    batch_labels = [(batch.id, f"Batch {batch.batch_number:03d}") for batch in batches]
+    batch_rows = [
+        (
+            batch.id,
+            f"Batch {batch.batch_number:03d}",
+            latest_status[batch.id],
+            latest_detail[batch.id],
+            _is_terminal_status(latest_status[batch.id]),
+        )
+        for batch in batches
+    ]
+    pending_batch_ids: set[str] = {
+        batch.id
+        for batch in batches
+        if not _is_terminal_status(latest_status[batch.id])
+    }
 
-    with out.BatchStatusSpinner(batch_labels) as spinner:
+    with out.BatchStatusSpinner(batch_rows) as spinner:
         while pending_batch_ids:
             now = time.monotonic()
             advanced_any = False

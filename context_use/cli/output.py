@@ -100,7 +100,7 @@ def banner() -> None:
 
 @dataclass
 class _BatchLine:
-    status: str = "CREATED"
+    status: str
     detail: str = ""
     done: bool = False
 
@@ -111,10 +111,13 @@ class BatchStatusSpinner:
     _LABEL_WIDTH = 12
     _STATUS_WIDTH = 28
 
-    def __init__(self, batches: list[tuple[str, str]]) -> None:
-        self._order = [batch_id for batch_id, _ in batches]
-        self._labels = {batch_id: label for batch_id, label in batches}
-        self._lines = {batch_id: _BatchLine() for batch_id in self._order}
+    def __init__(self, batches: list[tuple[str, str, str, str, bool]]) -> None:
+        self._order = [batch_id for batch_id, _, _, _, _ in batches]
+        self._labels = {batch_id: label for batch_id, label, _, _, _ in batches}
+        self._lines = {
+            batch_id: _BatchLine(status=status, detail=detail, done=done)
+            for batch_id, _, status, detail, done in batches
+        }
         self._console = Console()
         self._live: Live | None = None
 
