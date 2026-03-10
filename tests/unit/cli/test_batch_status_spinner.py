@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, cast
 
@@ -60,7 +58,7 @@ class _RecorderSpinner:
         self.batches = batches
         self.sink = sink
 
-    def __enter__(self) -> _RecorderSpinner:
+    def __enter__(self) -> "_RecorderSpinner":
         self.sink.created_with = self.batches
         return self
 
