@@ -15,7 +15,7 @@
 
 # Git
 
-- Always use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages and PR titles.
+- Always use [Conventional Commits](https://www.conventionalcommits.org/) for PR titles (PRs are squash-merged, so the title becomes the commit message).
 
 # Guides
 
