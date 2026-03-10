@@ -19,10 +19,6 @@ def _utc_now() -> datetime:
 
 class BatchStatus(enum.StrEnum):
     created = "CREATED"
-    memory_generate_pending = "MEMORY_GENERATE_PENDING"
-    memory_generate_complete = "MEMORY_GENERATE_COMPLETE"
-    memory_embed_pending = "MEMORY_EMBED_PENDING"
-    memory_embed_complete = "MEMORY_EMBED_COMPLETE"
     complete = "COMPLETE"
     skipped = "SKIPPED"
     failed = "FAILED"

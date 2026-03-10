@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from types import TracebackType
 
-from context_use.batch.states import BatchStatus
+from context_use.memories.states import MemoryBatchStatus
 
 
 def _supports_color() -> bool:
@@ -99,7 +99,7 @@ def banner() -> None:
 
 @dataclass
 class _BatchLine:
-    status: str = BatchStatus.created.value
+    status: str = MemoryBatchStatus.created.value
     countdown_seconds: int | None = None
     done: bool = False
 
@@ -111,14 +111,14 @@ class BatchStatusSpinner:
     _LABEL_WIDTH = 12
     _STATUS_WIDTH = 20
     _STATUS_LABELS = {
-        BatchStatus.created: "Waiting",
-        BatchStatus.memory_generate_pending: "Generating",
-        BatchStatus.memory_generate_complete: "Generated",
-        BatchStatus.memory_embed_pending: "Embedding",
-        BatchStatus.memory_embed_complete: "Embedded",
-        BatchStatus.complete: "Complete",
-        BatchStatus.skipped: "Skipped",
-        BatchStatus.failed: "Failed",
+        MemoryBatchStatus.created: "Waiting",
+        MemoryBatchStatus.memory_generate_pending: "Generating",
+        MemoryBatchStatus.memory_generate_complete: "Generated",
+        MemoryBatchStatus.memory_embed_pending: "Embedding",
+        MemoryBatchStatus.memory_embed_complete: "Embedded",
+        MemoryBatchStatus.complete: "Complete",
+        MemoryBatchStatus.skipped: "Skipped",
+        MemoryBatchStatus.failed: "Failed",
     }
 
     def __init__(self, batches: list[tuple[str, str]]) -> None:
@@ -198,15 +198,15 @@ class BatchStatusSpinner:
         return self._terminal_icon_for(line.status)
 
     def _terminal_icon_for(self, status: str) -> str:
-        parsed = BatchStatus.parse(status)
-        if parsed == BatchStatus.failed:
+        parsed = MemoryBatchStatus.parse(status)
+        if parsed == MemoryBatchStatus.failed:
             return red("✗")
-        if parsed == BatchStatus.skipped:
+        if parsed == MemoryBatchStatus.skipped:
             return yellow("!")
         return green("✓")
 
     def _status_text(self, status: str) -> str:
-        parsed = BatchStatus.parse(status)
+        parsed = MemoryBatchStatus.parse(status)
         if parsed is None:
             return status.replace("_", " ").title()
         return self._STATUS_LABELS[parsed]

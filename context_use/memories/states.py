@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import enum
 import random
 from datetime import datetime
 from typing import Literal
@@ -26,6 +27,24 @@ from context_use.batch.states import (
 from context_use.models.batch import BatchCategory
 
 MEMORY_POLL_INTERVAL_SECS = 10
+
+
+class MemoryBatchStatus(enum.StrEnum):
+    created = BatchStatus.created.value
+    memory_generate_pending = "MEMORY_GENERATE_PENDING"
+    memory_generate_complete = "MEMORY_GENERATE_COMPLETE"
+    memory_embed_pending = "MEMORY_EMBED_PENDING"
+    memory_embed_complete = "MEMORY_EMBED_COMPLETE"
+    complete = BatchStatus.complete.value
+    skipped = BatchStatus.skipped.value
+    failed = BatchStatus.failed.value
+
+    @classmethod
+    def parse(cls, status: str) -> MemoryBatchStatus | None:
+        try:
+            return cls(status)
+        except ValueError:
+            return None
 
 
 class MemoryGeneratePendingState(CurrentState):
@@ -83,14 +102,14 @@ MemoryBatchState = (
 )
 
 _state_map: dict[str, type[State]] = {
-    BatchStatus.created.value: CreatedState,
-    BatchStatus.memory_generate_pending.value: MemoryGeneratePendingState,
-    BatchStatus.memory_generate_complete.value: MemoryGenerateCompleteState,
-    BatchStatus.memory_embed_pending.value: MemoryEmbedPendingState,
-    BatchStatus.memory_embed_complete.value: MemoryEmbedCompleteState,
-    BatchStatus.complete.value: CompleteState,
-    BatchStatus.skipped.value: SkippedState,
-    BatchStatus.failed.value: FailedState,
+    MemoryBatchStatus.created.value: CreatedState,
+    MemoryBatchStatus.memory_generate_pending.value: MemoryGeneratePendingState,
+    MemoryBatchStatus.memory_generate_complete.value: MemoryGenerateCompleteState,
+    MemoryBatchStatus.memory_embed_pending.value: MemoryEmbedPendingState,
+    MemoryBatchStatus.memory_embed_complete.value: MemoryEmbedCompleteState,
+    MemoryBatchStatus.complete.value: CompleteState,
+    MemoryBatchStatus.skipped.value: SkippedState,
+    MemoryBatchStatus.failed.value: FailedState,
 }
 
 
