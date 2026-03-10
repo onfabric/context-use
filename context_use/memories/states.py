@@ -13,6 +13,7 @@ from pydantic import Field
 
 from context_use.batch.registry import register_batch_state_parser
 from context_use.batch.states import (
+    BatchStatus,
     CompleteState,
     CreatedState,
     CurrentState,
@@ -82,14 +83,14 @@ MemoryBatchState = (
 )
 
 _state_map: dict[str, type[State]] = {
-    "CREATED": CreatedState,
-    "MEMORY_GENERATE_PENDING": MemoryGeneratePendingState,
-    "MEMORY_GENERATE_COMPLETE": MemoryGenerateCompleteState,
-    "MEMORY_EMBED_PENDING": MemoryEmbedPendingState,
-    "MEMORY_EMBED_COMPLETE": MemoryEmbedCompleteState,
-    "COMPLETE": CompleteState,
-    "SKIPPED": SkippedState,
-    "FAILED": FailedState,
+    BatchStatus.created.value: CreatedState,
+    BatchStatus.memory_generate_pending.value: MemoryGeneratePendingState,
+    BatchStatus.memory_generate_complete.value: MemoryGenerateCompleteState,
+    BatchStatus.memory_embed_pending.value: MemoryEmbedPendingState,
+    BatchStatus.memory_embed_complete.value: MemoryEmbedCompleteState,
+    BatchStatus.complete.value: CompleteState,
+    BatchStatus.skipped.value: SkippedState,
+    BatchStatus.failed.value: FailedState,
 }
 
 

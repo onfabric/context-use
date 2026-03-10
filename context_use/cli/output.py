@@ -5,6 +5,8 @@ import sys
 from dataclasses import dataclass
 from types import TracebackType
 
+from context_use.batch.states import BatchStatus
+
 
 def _supports_color() -> bool:
     if os.environ.get("NO_COLOR"):
@@ -97,7 +99,7 @@ def banner() -> None:
 
 @dataclass
 class _BatchLine:
-    status: str = "CREATED"
+    status: str = BatchStatus.created.value
     countdown_seconds: int | None = None
     done: bool = False
 
@@ -109,14 +111,14 @@ class BatchStatusSpinner:
     _LABEL_WIDTH = 12
     _STATUS_WIDTH = 20
     _STATUS_LABELS = {
-        "CREATED": "Waiting",
-        "MEMORY_GENERATE_PENDING": "Generating",
-        "MEMORY_GENERATE_COMPLETE": "Generated",
-        "MEMORY_EMBED_PENDING": "Embedding",
-        "MEMORY_EMBED_COMPLETE": "Embedded",
-        "COMPLETE": "Complete",
-        "SKIPPED": "Skipped",
-        "FAILED": "Failed",
+        BatchStatus.created: "Waiting",
+        BatchStatus.memory_generate_pending: "Generating",
+        BatchStatus.memory_generate_complete: "Generated",
+        BatchStatus.memory_embed_pending: "Embedding",
+        BatchStatus.memory_embed_complete: "Embedded",
+        BatchStatus.complete: "Complete",
+        BatchStatus.skipped: "Skipped",
+        BatchStatus.failed: "Failed",
     }
 
     def __init__(self, batches: list[tuple[str, str]]) -> None:
@@ -196,14 +198,18 @@ class BatchStatusSpinner:
         return self._terminal_icon_for(line.status)
 
     def _terminal_icon_for(self, status: str) -> str:
-        if status == "FAILED":
+        parsed = BatchStatus.parse(status)
+        if parsed == BatchStatus.failed:
             return red("✗")
-        if status == "SKIPPED":
+        if parsed == BatchStatus.skipped:
             return yellow("!")
         return green("✓")
 
     def _status_text(self, status: str) -> str:
-        return self._STATUS_LABELS.get(status, status.replace("_", " ").title())
+        parsed = BatchStatus.parse(status)
+        if parsed is None:
+            return status.replace("_", " ").title()
+        return self._STATUS_LABELS[parsed]
 
     def _detail_text(self, line: _BatchLine) -> str:
         if line.done:
