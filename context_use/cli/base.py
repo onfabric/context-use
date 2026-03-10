@@ -15,6 +15,21 @@ if TYPE_CHECKING:
     from context_use.models.batch import Batch
 
 
+def _batch_detail_from_state(state: dict | None) -> str:
+    if state is None:
+        return ""
+    memories_count = state.get("memories_count")
+    if isinstance(memories_count, int):
+        return f"{memories_count} memories"
+    embedded_count = state.get("embedded_count")
+    if isinstance(embedded_count, int):
+        return f"{embedded_count} memories embedded"
+    created_ids = state.get("created_memory_ids")
+    if isinstance(created_ids, list):
+        return f"{len(created_ids)} memories"
+    return ""
+
+
 async def run_batches(
     ctx: ContextUse,
     batches: list[Batch],
@@ -33,6 +48,10 @@ async def run_batches(
     latest_status: dict[str, str] = {
         batch.id: batch.current_status for batch in batches
     }
+    latest_detail: dict[str, str] = {
+        batch.id: _batch_detail_from_state(batch.states[0] if batch.states else None)
+        for batch in batches
+    }
     batch_labels = [(batch.id, f"Batch {batch.batch_number:03d}") for batch in batches]
 
     with out.BatchStatusSpinner(batch_labels) as spinner:
@@ -49,17 +68,31 @@ async def run_batches(
                     spinner.update(
                         batch_id,
                         latest_status[batch_id],
-                        countdown_seconds=seconds_until_due,
+                        detail=latest_detail[batch_id],
                     )
                     continue
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
-                status = await ctx.get_batch_status(batch_id) or latest_status[batch_id]
+                head_state = await ctx.get_batch_head_state(batch_id)
+                status_value = None if head_state is None else head_state.get("status")
+                status = (
+                    status_value
+                    if isinstance(status_value, str)
+                    else latest_status[batch_id]
+                )
+                detail = _batch_detail_from_state(head_state)
                 latest_status[batch_id] = status
+                if detail:
+                    latest_detail[batch_id] = detail
                 advanced_any = True
 
                 if instruction.stop:
-                    spinner.update(batch_id, status, done=True)
+                    spinner.update(
+                        batch_id,
+                        status,
+                        detail=latest_detail[batch_id],
+                        done=True,
+                    )
                     pending_batch_ids.remove(batch_id)
                     continue
 
@@ -67,7 +100,7 @@ async def run_batches(
                 if not should_sleep_after_each_batch:
                     countdown = 0
                 next_due_at[batch_id] = time.monotonic() + countdown
-                spinner.update(batch_id, status, countdown_seconds=countdown)
+                spinner.update(batch_id, status, detail=latest_detail[batch_id])
 
             if not pending_batch_ids:
                 break

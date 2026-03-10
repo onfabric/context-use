@@ -246,10 +246,17 @@ class ContextUse:
         return await manager.try_advance_state()
 
     async def get_batch_status(self, batch_id: str) -> str | None:
-        batch = await self._store.get_batch(batch_id)
-        if batch is None:
+        state = await self.get_batch_head_state(batch_id)
+        if state is None:
             return None
-        return batch.current_status
+        status = state.get("status")
+        return status if isinstance(status, str) else None
+
+    async def get_batch_head_state(self, batch_id: str) -> dict | None:
+        batch = await self._store.get_batch(batch_id)
+        if batch is None or not batch.states:
+            return None
+        return batch.states[0]
 
     # ── Tools ────────────────────────────────────────────────────────
 
