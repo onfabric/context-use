@@ -3,6 +3,7 @@
 - Never add decorative or separator comments (e.g. `# ----`, `# ====`, `# ***`). The code structure should speak for itself.
 - Never add doc comments unless the entity genuinely needs an explanation that good naming and scoping cannot convey.
 - Don't make sweeping refactors alongside feature work. Keep diffs focused.
+- Always clean up after yourself: remove unused imports, variables, functions, fields, classes, and modules. Eliminate code duplication.
 
 # Workflow for Non-Trivial Tasks
 
