@@ -187,7 +187,6 @@ def resolve_archive(
     cfg: Config,
     *,
     command: str = "ingest",
-    quick: bool = False,
 ) -> tuple[str, str] | None:
     """Resolve ``(provider_str, zip_path)`` from CLI args or interactive picker.
 
@@ -196,8 +195,9 @@ def resolve_archive(
     """
     provider_list = providers()
     zip_path = getattr(args, "zip_path", None) or getattr(args, "zip_path_option", None)
+    is_quick = bool(getattr(args, "quick", False))
 
-    if quick:
+    if is_quick:
         if zip_path is None:
             out.error("Quick mode requires a zip-path.")
             out.info(

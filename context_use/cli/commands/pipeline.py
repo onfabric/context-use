@@ -82,7 +82,7 @@ class PipelineCommand(ApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        picked = resolve_archive(args, cfg, command="pipeline", quick=args.quick)
+        picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:
             return
         provider_str, zip_path = picked

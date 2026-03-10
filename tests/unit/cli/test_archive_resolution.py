@@ -9,19 +9,25 @@ from context_use.config import Config
 
 
 def _namespace(
-    provider: str | None, zip_path: str | None, zip_path_option: str | None = None
+    provider: str | None,
+    zip_path: str | None,
+    zip_path_option: str | None = None,
+    quick: bool = False,
 ) -> argparse.Namespace:
     return argparse.Namespace(
-        provider=provider, zip_path=zip_path, zip_path_option=zip_path_option
+        provider=provider,
+        zip_path=zip_path,
+        zip_path_option=zip_path_option,
+        quick=quick,
     )
 
 
 def test_resolve_archive_quick_requires_zip_path(tmp_path) -> None:
     cfg = Config(data_dir=tmp_path / "data")
-    args = _namespace(provider=None, zip_path=None)
+    args = _namespace(provider=None, zip_path=None, quick=True)
 
     with pytest.raises(SystemExit) as exc:
-        resolve_archive(args, cfg, command="pipeline", quick=True)
+        resolve_archive(args, cfg, command="pipeline")
     assert exc.value.code == 1
 
 
@@ -35,8 +41,13 @@ def test_resolve_archive_quick_prompts_provider_with_zip_path(
     monkeypatch.setattr("context_use.cli.base.providers", lambda: ["chatgpt", "google"])
     monkeypatch.setattr("builtins.input", lambda _prompt: "2")
 
-    args = _namespace(provider=None, zip_path=None, zip_path_option=str(zip_file))
-    result = resolve_archive(args, cfg, command="pipeline", quick=True)
+    args = _namespace(
+        provider=None,
+        zip_path=None,
+        zip_path_option=str(zip_file),
+        quick=True,
+    )
+    result = resolve_archive(args, cfg, command="pipeline")
 
     assert result is not None
     provider, path = result
