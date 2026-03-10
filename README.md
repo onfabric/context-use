@@ -23,7 +23,7 @@ context-use pipeline --quick
 > [!IMPORTANT]
 > You must have an [export](#getting-your-export) from any of the [supported providers](#supported-providers) to use this command.
 
-The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed, counted back from the latest thread timestamp in your data. Use `--last-days` to change that window, or run `context-use pipeline` for full history processing with the batch API.
+The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed from the latest data point in your exported archive. Use `--last-days` to change that window, or run `context-use pipeline` for full history processing with the batch API.
 
 ## Full pipeline
 
