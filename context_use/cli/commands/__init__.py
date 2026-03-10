@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 from context_use.cli.base import BaseCommand, CommandGroup
 from context_use.cli.commands.agent import AgentGroup

@@ -3,7 +3,6 @@
 # pyright flags them as incompatible variable overrides, but this is a false
 # positive for frozen/immutable models.
 
-from __future__ import annotations
 
 import random
 from datetime import datetime

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import types
 from collections import defaultdict

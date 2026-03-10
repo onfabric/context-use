@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 from context_use.providers.google.search import _BaseGoogleSearchPipe
 from context_use.providers.registry import declare_interaction
