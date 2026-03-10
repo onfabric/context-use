@@ -35,7 +35,7 @@ class PipelineCommand(ApiCommand):
         "In quick mode, provider is selected interactively when omitted. "
         "Use --last-days to limit history in either mode. "
         "Run without arguments to interactively pick an archive from "
-        "data/input/."
+        "context-use-data/input/."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:

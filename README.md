@@ -66,10 +66,10 @@ The configuration is saved in a config file at `<your-home-directory>/.config/co
 ## Getting your export
 
 1. Follow the export guide for your provider in the [supported providers](#supported-providers) table. The export is delivered as a ZIP file — **do not extract it**.
-2. Move or copy the ZIP into `data/input/`:
+2. Move or copy the ZIP into `context-use-data/input/`:
 
 ```
-data/
+context-use-data/
 └── input/
     └── your-data-export.zip   ← place it here
 ```
