@@ -14,26 +14,26 @@ uv tool install context-use
 
 ## Quick start
 
-A zero-setup preview that requires no database setup.
+Quickly extract memories (last 30 days) from your data export:
 
 ```bash
-context-use pipeline --quick
+context-use pipeline --quick <your-zipped-data-export>
 ```
 
 > [!IMPORTANT]
 > You must have an [export](#getting-your-export) from any of the [supported providers](#supported-providers) to use this command.
 
-The CLI prompts for the export and provider. Memory generation uses the OpenAI **real-time API** — fast for small slices but susceptible to rate limits on large exports. By default only the last 30 days are processed; use `--full` to include the complete history (the CLI warns you before proceeding).
+The quickstart mode uses the **real-time API** of the LLM provider — fast for small slices but susceptible to rate limits on large exports. Use the [Full pipeline](#full-pipeline) to process the complete data export without incurring in rate limits.
 
 ## Full pipeline
 
-For full archive history and cost-efficient batch processing.
+For full data export and cost-efficient batch processing.
 
 ```bash
 context-use pipeline
 ```
 
-Ingests the export and generates memories via the OpenAI **batch API** — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search and the personal agent.
+Ingests the export and generates memories via the **batch API** of the LLM provider — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search and the [Personal agent](#personal-agent).
 
 **Explore your memories**
 
