@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import enum
 from abc import abstractmethod
 from datetime import UTC, datetime
 from typing import Literal
@@ -15,20 +14,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 def _utc_now() -> datetime:
     return datetime.now(UTC)
-
-
-class BatchStatus(enum.StrEnum):
-    created = "CREATED"
-    complete = "COMPLETE"
-    skipped = "SKIPPED"
-    failed = "FAILED"
-
-    @classmethod
-    def parse(cls, status: str) -> BatchStatus | None:
-        try:
-            return cls(status)
-        except ValueError:
-            return None
 
 
 class State(BaseModel):

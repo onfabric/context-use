@@ -5,8 +5,6 @@ import sys
 from dataclasses import dataclass
 from types import TracebackType
 
-from context_use.memories.states import MemoryBatchStatus
-
 
 def _supports_color() -> bool:
     if os.environ.get("NO_COLOR"):
@@ -99,7 +97,7 @@ def banner() -> None:
 
 @dataclass
 class _BatchLine:
-    status: str = MemoryBatchStatus.created.value
+    status: str = "CREATED"
     countdown_seconds: int | None = None
     done: bool = False
 
@@ -110,16 +108,6 @@ class BatchStatusSpinner:
     _FRAMES = ("⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏")
     _LABEL_WIDTH = 12
     _STATUS_WIDTH = 20
-    _STATUS_LABELS = {
-        MemoryBatchStatus.created: "Waiting",
-        MemoryBatchStatus.memory_generate_pending: "Generating",
-        MemoryBatchStatus.memory_generate_complete: "Generated",
-        MemoryBatchStatus.memory_embed_pending: "Embedding",
-        MemoryBatchStatus.memory_embed_complete: "Embedded",
-        MemoryBatchStatus.complete: "Complete",
-        MemoryBatchStatus.skipped: "Skipped",
-        MemoryBatchStatus.failed: "Failed",
-    }
 
     def __init__(self, batches: list[tuple[str, str]]) -> None:
         self._order = [batch_id for batch_id, _ in batches]
@@ -198,18 +186,14 @@ class BatchStatusSpinner:
         return self._terminal_icon_for(line.status)
 
     def _terminal_icon_for(self, status: str) -> str:
-        parsed = MemoryBatchStatus.parse(status)
-        if parsed == MemoryBatchStatus.failed:
+        if status == "FAILED":
             return red("✗")
-        if parsed == MemoryBatchStatus.skipped:
+        if status == "SKIPPED":
             return yellow("!")
         return green("✓")
 
     def _status_text(self, status: str) -> str:
-        parsed = MemoryBatchStatus.parse(status)
-        if parsed is None:
-            return status.replace("_", " ").title()
-        return self._STATUS_LABELS[parsed]
+        return status.replace("_", " ").title()
 
     def _detail_text(self, line: _BatchLine) -> str:
         if line.done:
