@@ -27,50 +27,54 @@ async def run_batches(
     if not batches:
         return
 
-    ordered_ids = [batch.id for batch in batches]
-    pending: set[str] = set(ordered_ids)
-    next_due: dict[str, float] = {batch_id: 0.0 for batch_id in ordered_ids}
-    last_status: dict[str, str] = {batch.id: batch.current_status for batch in batches}
+    ordered_batch_ids = [batch.id for batch in batches]
+    pending_batch_ids: set[str] = set(ordered_batch_ids)
+    next_due_at: dict[str, float] = {batch_id: 0.0 for batch_id in ordered_batch_ids}
+    latest_status: dict[str, str] = {
+        batch.id: batch.current_status for batch in batches
+    }
     batch_labels = [(batch.id, f"Batch {batch.batch_number:03d}") for batch in batches]
 
     with out.BatchStatusSpinner(batch_labels) as spinner:
-        while pending:
+        while pending_batch_ids:
             now = time.monotonic()
-            advanced = False
+            advanced_any = False
 
-            for batch_id in ordered_ids:
-                if batch_id not in pending:
+            for batch_id in ordered_batch_ids:
+                if batch_id not in pending_batch_ids:
                     continue
 
-                due_at = next_due[batch_id]
-                if now < due_at:
-                    remaining = max(0, int(due_at - now + 0.999))
+                seconds_until_due = max(0.0, next_due_at[batch_id] - now)
+                if seconds_until_due > 0:
+                    remaining = int(seconds_until_due + 0.999)
                     spinner.update(
                         batch_id,
-                        last_status[batch_id],
+                        latest_status[batch_id],
                         countdown_seconds=remaining,
                     )
                     continue
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
-                status = await ctx.get_batch_status(batch_id) or last_status[batch_id]
-                last_status[batch_id] = status
-                advanced = True
+                status = await ctx.get_batch_status(batch_id) or latest_status[batch_id]
+                latest_status[batch_id] = status
+                advanced_any = True
 
                 if instruction.stop:
                     spinner.update(batch_id, status, done=True)
-                    pending.remove(batch_id)
+                    pending_batch_ids.remove(batch_id)
                     continue
 
                 countdown = instruction.countdown or 0
                 if not should_sleep_after_each_batch:
                     countdown = 0
-                next_due[batch_id] = time.monotonic() + countdown
+                next_due_at[batch_id] = time.monotonic() + countdown
                 spinner.update(batch_id, status, countdown_seconds=countdown)
 
-            if pending:
-                spinner.tick()
-                await asyncio.sleep(0 if advanced else 0.1)
+            if not pending_batch_ids:
+                break
+
+            spinner.tick()
+            await asyncio.sleep(0 if advanced_any else 0.1)
 
 
 def providers() -> list[str]:
