@@ -12,7 +12,7 @@ def _namespace(provider: str | None, zip_path: str | None) -> argparse.Namespace
     return argparse.Namespace(provider=provider, zip_path=zip_path)
 
 
-def test_resolve_archive_quick_uses_single_zip_path_arg(
+def test_resolve_archive_uses_single_zip_path_arg(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     zip_file = tmp_path / "quick.zip"
@@ -23,7 +23,7 @@ def test_resolve_archive_quick_uses_single_zip_path_arg(
     monkeypatch.setattr("builtins.input", lambda _prompt: "2")
 
     args = _namespace(provider=str(zip_file), zip_path=None)
-    result = resolve_archive(args, cfg, command="pipeline", quick=True)
+    result = resolve_archive(args, cfg, command="pipeline")
 
     assert result is not None
     provider, path = result
@@ -31,35 +31,32 @@ def test_resolve_archive_quick_uses_single_zip_path_arg(
     assert path == str(zip_file)
 
 
-def test_resolve_archive_quick_requires_zip_path(tmp_path) -> None:
+def test_resolve_archive_no_args_uses_interactive_archive_picker(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     cfg = Config(data_dir=tmp_path / "data")
     args = _namespace(provider=None, zip_path=None)
 
-    with pytest.raises(SystemExit) as exc:
-        resolve_archive(args, cfg, command="pipeline", quick=True)
+    monkeypatch.setattr(
+        "context_use.cli.base.pick_archive_interactive",
+        lambda _cfg: ("instagram", "/tmp/mock.zip"),
+    )
 
-    assert exc.value.code == 1
+    result = resolve_archive(args, cfg, command="pipeline")
+    assert result == ("instagram", "/tmp/mock.zip")
 
 
-def test_resolve_archive_quick_prompts_provider_even_with_explicit_provider(
+def test_resolve_archive_known_provider_without_zip_path_exits(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    zip_file = tmp_path / "archive.zip"
-    zip_file.write_bytes(b"dummy")
     cfg = Config(data_dir=tmp_path / "data")
 
-    monkeypatch.setattr(
-        "context_use.cli.base.providers", lambda: ["chatgpt", "claude", "instagram"]
-    )
-    monkeypatch.setattr("builtins.input", lambda _prompt: "3")
+    monkeypatch.setattr("context_use.cli.base.providers", lambda: ["chatgpt", "google"])
+    args = _namespace(provider="chatgpt", zip_path=None)
 
-    args = _namespace(provider="chatgpt", zip_path=str(zip_file))
-    result = resolve_archive(args, cfg, command="pipeline", quick=True)
-
-    assert result is not None
-    provider, path = result
-    assert provider == "instagram"
-    assert path == str(zip_file)
+    with pytest.raises(SystemExit) as exc:
+        resolve_archive(args, cfg, command="pipeline")
+    assert exc.value.code == 1
 
 
 def test_resolve_archive_standard_mode_uses_provider_and_zip_path(
@@ -72,6 +69,6 @@ def test_resolve_archive_standard_mode_uses_provider_and_zip_path(
     monkeypatch.setattr("context_use.cli.base.providers", lambda: ["chatgpt", "google"])
 
     args = _namespace(provider="chatgpt", zip_path=str(zip_file))
-    result = resolve_archive(args, cfg, command="pipeline", quick=False)
+    result = resolve_archive(args, cfg, command="pipeline")
 
     assert result == ("chatgpt", str(zip_file))

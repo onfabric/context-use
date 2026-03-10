@@ -33,7 +33,7 @@ class PipelineCommand(ApiCommand):
         "Uses the batch API by default. "
         "Pass --quick <zip-path> to use the real-time API "
         "(last 30 days by default). "
-        "Quick mode prompts you to choose a provider interactively. "
+        "You can pass only <zip-path> and choose a provider interactively. "
         "Use --last-days to limit history in either mode. "
         "Run without arguments to interactively pick an archive from "
         "data/input/."
@@ -76,7 +76,7 @@ class PipelineCommand(ApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
-        picked = resolve_archive(args, cfg, command="pipeline", quick=args.quick)
+        picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:
             return
         provider_str, zip_path = picked

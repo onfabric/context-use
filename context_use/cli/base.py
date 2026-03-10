@@ -187,7 +187,6 @@ def resolve_archive(
     cfg: Config,
     *,
     command: str = "ingest",
-    quick: bool = False,
 ) -> tuple[str, str] | None:
     """Resolve ``(provider_str, zip_path)`` from CLI args or interactive picker.
 
@@ -196,33 +195,25 @@ def resolve_archive(
     """
     provider_list = providers()
 
-    if quick:
-        zip_path = args.zip_path
-        if zip_path is None and args.provider and args.provider not in provider_list:
-            zip_path = args.provider
+    if args.provider is None:
+        return pick_archive_interactive(cfg)
 
-        if zip_path is None:
-            out.error("Quick mode requires a zip-path.")
-            out.info(f"  Quick:        context-use {command} --quick <zip-path>")
-            out.info(f"  Standard:     context-use {command} <provider> <zip-path>")
-            sys.exit(1)
-
+    if args.zip_path is None and args.provider not in provider_list:
+        zip_path = args.provider
         if not Path(zip_path).exists():
             out.error(f"File not found: {zip_path}")
             sys.exit(1)
 
-        provider_str = pick_provider_interactive(provider_list, default=args.provider)
+        guessed = _guess_provider(Path(zip_path).name)
+        provider_str = pick_provider_interactive(provider_list, default=guessed)
         if provider_str is None:
             return None
-
         return provider_str, zip_path
-
-    if args.provider is None:
-        return pick_archive_interactive(cfg)
 
     if args.zip_path is None:
         out.error("Please provide both provider and zip-path, or omit both.")
         out.info(f"  Direct:       context-use {command} <provider> <zip-path>")
+        out.info(f"  Zip only:     context-use {command} <zip-path>")
         out.info(f"  Interactive:  context-use {command}")
         sys.exit(1)
 
