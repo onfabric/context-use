@@ -10,7 +10,7 @@ wheels/
 .venv
 
 context-use-data/**
-!context-use-data/.gitkeep
+data/**
 
 *.db
 *.zip
