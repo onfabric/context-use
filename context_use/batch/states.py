@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 # pyright: reportIncompatibleVariableOverride=false
 # Literal field overrides are the standard Pydantic discriminated-union pattern;
 # pyright flags them as incompatible variable overrides, but this is a false
 # positive for frozen/immutable models.
 from abc import abstractmethod
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -41,7 +39,7 @@ class CurrentState(State):
     def poll_next_countdown(self) -> int:
         """Seconds to wait before the next poll."""
 
-    def increment_poll_count(self) -> CurrentState:
+    def increment_poll_count(self) -> Self:
         return self.__class__(
             **{**self.model_dump(), "poll_count": self.poll_count + 1}
         )
@@ -65,7 +63,7 @@ class RetryState(State):
     def retry_countdown(self) -> int:
         """Seconds to wait before retrying."""
 
-    def increment_retry_count(self) -> RetryState:
+    def increment_retry_count(self) -> Self:
         return self.__class__(
             **{**self.model_dump(), "retry_count": self.retry_count + 1}
         )
