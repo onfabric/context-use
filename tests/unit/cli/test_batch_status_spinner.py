@@ -90,7 +90,7 @@ def _make_batch(batch_id: str, batch_number: int) -> Batch:
     )
 
 
-async def test_run_batches_skips_countdown_when_requested(monkeypatch) -> None:
+async def test_run_batches_updates_multiple_batches(monkeypatch) -> None:
     clock = _FakeClock()
     spinner_sink = _SpinnerSink()
 
@@ -108,7 +108,7 @@ async def test_run_batches_skips_countdown_when_requested(monkeypatch) -> None:
             "batch-1": [
                 ScheduleInstruction(
                     stop=False,
-                    countdown=7,
+                    countdown=0,
                 ),
                 ScheduleInstruction(stop=True),
             ],
@@ -120,7 +120,7 @@ async def test_run_batches_skips_countdown_when_requested(monkeypatch) -> None:
         },
     )
 
-    await run_batches(cast(Any, ctx), [b1, b2], skip_countdown=True)
+    await run_batches(cast(Any, ctx), [b1, b2])
 
     assert ctx.calls == ["batch-1", "batch-2", "batch-1"]
     assert clock.now == 0.0

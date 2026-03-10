@@ -174,7 +174,7 @@ class PipelineCommand(ApiCommand):
         print()
 
         batches = await ctx.create_memory_batches(since=since)
-        await run_batches(ctx, batches, skip_countdown=True)
+        await run_batches(ctx, batches)
 
         out.success("Memories generated")
         out.kv("Batches", len(batches))

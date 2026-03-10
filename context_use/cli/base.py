@@ -23,8 +23,6 @@ if TYPE_CHECKING:
 async def run_batches(
     ctx: ContextUse,
     batches: list[Batch],
-    *,
-    skip_countdown: bool = False,
 ) -> None:
     """Drive all batches to completion, polling until each stops."""
     from context_use.batch.manager import ScheduleInstruction
@@ -67,7 +65,7 @@ async def run_batches(
                     pending.remove(batch_id)
                     continue
 
-                countdown = 0 if skip_countdown else (instruction.countdown or 0)
+                countdown = instruction.countdown or 0
                 next_due[batch_id] = time.monotonic() + countdown
                 spinner.update(batch_id, status, countdown_seconds=countdown)
 
