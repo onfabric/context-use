@@ -114,7 +114,7 @@ class InstagramCommentPostsPipe(_InstagramCommentPipe):
     """
 
     interaction_type = "instagram_comments_posts"
-    archive_path_pattern = "your_instagram_activity/comments/post_comments_1.json"
+    archive_path_pattern = "your_instagram_activity/comments/post_comments*.json"
     _json_key = None
 
 
