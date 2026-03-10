@@ -11,11 +11,11 @@ Turn data exports from ChatGPT, Instagram, and other platforms into personal mem
 Port your memories to your favorite AI agents so they can understand you more like a
 friend and less like a chatbot.
 
-Quick start: context-use pipeline --quick"""
+Quick start: context-use pipeline --quick <zip-path>"""
 
 _EPILOG = (
     "Quick start (real-time API, last 30 days):\n"
-    "  context-use pipeline --quick                 "
+    "  context-use pipeline --quick <zip-path>      "
     "Ingest + memories preview\n"
     "\n"
     "Full pipeline (batch API):\n"
