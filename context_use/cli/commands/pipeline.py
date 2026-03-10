@@ -31,7 +31,7 @@ class PipelineCommand(ApiCommand):
     description = (
         "Run the full pipeline (ingest, memories). "
         "Uses the batch API by default. "
-        "Pass --quick --zip-path <zip-path> to use the real-time API "
+        "Pass --quick <zip-path> to use the real-time API "
         "(last 30 days by default). "
         "In quick mode, provider is selected interactively when omitted. "
         "Use --last-days to limit history in either mode. "
@@ -41,12 +41,6 @@ class PipelineCommand(ApiCommand):
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         add_archive_args(parser)
-        parser.add_argument(
-            "--zip-path",
-            dest="zip_path_option",
-            default=None,
-            help="Path to .zip archive (quick mode input)",
-        )
         parser.add_argument(
             "--quick",
             action="store_true",
@@ -195,9 +189,7 @@ class PipelineCommand(ApiCommand):
             if since:
                 print()
                 out.info("Try including more history:")
-                out.next_step(
-                    f"context-use pipeline --quick --last-days 90 --zip-path {zip_path}"
-                )
+                out.next_step(f"context-use pipeline --quick --last-days 90 {zip_path}")
             return
 
         memories = await ctx.list_memories()

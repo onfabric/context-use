@@ -194,7 +194,7 @@ def resolve_archive(
     Calls ``sys.exit(1)`` on invalid args.
     """
     provider_list = providers()
-    zip_path = getattr(args, "zip_path", None) or getattr(args, "zip_path_option", None)
+    zip_path = getattr(args, "zip_path", None)
     is_quick = bool(getattr(args, "quick", False))
 
     if is_quick:
