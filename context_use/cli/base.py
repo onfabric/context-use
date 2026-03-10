@@ -148,11 +148,46 @@ def pick_archive_interactive(cfg: Config) -> tuple[str, str] | None:
     return provider_str, str(selected)
 
 
+def pick_provider_interactive(
+    provider_list: list[str], *, default: str | None = None
+) -> str | None:
+    """Interactive picker: list providers and let user choose one."""
+    if not provider_list:
+        out.error("No providers are registered.")
+        return None
+
+    out.header("Supported providers")
+    print()
+    for i, provider in enumerate(provider_list, 1):
+        print(f"  {out.bold(str(i))}. {provider}")
+    print()
+
+    if default and default in provider_list:
+        default_idx = provider_list.index(default) + 1
+        choice = input(f"  Choose provider [1-{len(provider_list)}] [{default_idx}]: ")
+        choice = choice.strip()
+        if not choice:
+            return default
+    else:
+        choice = input(f"  Choose provider [1-{len(provider_list)}]: ").strip()
+
+    try:
+        idx = int(choice) - 1
+        if not (0 <= idx < len(provider_list)):
+            raise ValueError
+    except ValueError:
+        out.error("Invalid choice.")
+        return None
+
+    return provider_list[idx]
+
+
 def resolve_archive(
     args: argparse.Namespace,
     cfg: Config,
     *,
     command: str = "ingest",
+    quick: bool = False,
 ) -> tuple[str, str] | None:
     """Resolve ``(provider_str, zip_path)`` from CLI args or interactive picker.
 
@@ -161,17 +196,38 @@ def resolve_archive(
     """
     provider_list = providers()
 
+    if quick:
+        zip_path = args.zip_path
+        if zip_path is None and args.provider and args.provider not in provider_list:
+            zip_path = args.provider
+
+        if zip_path is None:
+            out.error("Quick mode requires a zip-path.")
+            out.info(f"  Quick:        context-use {command} --quick <zip-path>")
+            out.info(f"  Standard:     context-use {command} <provider> <zip-path>")
+            sys.exit(1)
+
+        if not Path(zip_path).exists():
+            out.error(f"File not found: {zip_path}")
+            sys.exit(1)
+
+        provider_str = pick_provider_interactive(provider_list, default=args.provider)
+        if provider_str is None:
+            return None
+
+        return provider_str, zip_path
+
     if args.provider is None:
         return pick_archive_interactive(cfg)
 
-    if args.path is None:
-        out.error("Please provide both provider and path, or omit both.")
-        out.info(f"  Direct:       context-use {command} instagram export.zip")
+    if args.zip_path is None:
+        out.error("Please provide both provider and zip-path, or omit both.")
+        out.info(f"  Direct:       context-use {command} <provider> <zip-path>")
         out.info(f"  Interactive:  context-use {command}")
         sys.exit(1)
 
     provider_str = args.provider.lower()
-    zip_path = args.path
+    zip_path = args.zip_path
 
     if provider_str not in provider_list:
         out.error(
@@ -188,7 +244,7 @@ def resolve_archive(
 
 
 def add_archive_args(parser: argparse.ArgumentParser) -> None:
-    """Add the standard positional ``provider`` and ``path`` args.
+    """Add the standard positional ``provider`` and ``zip-path`` args.
 
     Used by every command that accepts a provider archive (ingest, pipeline).
     Both args are optional to allow interactive mode when omitted.
@@ -196,12 +252,11 @@ def add_archive_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "provider",
         nargs="?",
-        choices=providers(),
         default=None,
         help="Data provider (omit for interactive mode)",
     )
     parser.add_argument(
-        "path",
+        "zip-path",
         nargs="?",
         default=None,
         help="Path to .zip archive (omit for interactive mode)",
