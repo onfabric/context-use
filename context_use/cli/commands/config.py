@@ -62,20 +62,31 @@ class ConfigSetKeyCommand(BaseCommand):
     name = "set-key"
     help = "Change OpenAI API key"
 
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "key",
+            nargs="?",
+            default=None,
+            help="OpenAI API key (omit to enter interactively)",
+        )
+
     async def execute(self, args: argparse.Namespace) -> None:
         cfg = load_config() if config_path().exists() else Config()
 
-        out.info("Get an API key at https://platform.openai.com/api-keys")
-        print()
+        if args.key:
+            key = args.key.strip()
+        else:
+            out.info("Get an API key at https://platform.openai.com/api-keys")
+            print()
 
-        if cfg.openai_api_key:
-            masked = cfg.openai_api_key[:7] + "..." + cfg.openai_api_key[-4:]
-            out.kv("Current key", masked)
+            if cfg.openai_api_key:
+                masked = cfg.openai_api_key[:7] + "..." + cfg.openai_api_key[-4:]
+                out.kv("Current key", masked)
 
-        key = input("  New OpenAI API key: ").strip()
-        if not key:
-            out.warn("No key entered — keeping current value.")
-            return
+            key = input("  New OpenAI API key: ").strip()
+            if not key:
+                out.warn("No key entered — keeping current value.")
+                return
 
         cfg.openai_api_key = key
         path = save_config(cfg)
