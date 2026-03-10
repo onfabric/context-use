@@ -13,6 +13,10 @@
 
 - This package is published to PyPI. Before modifying any public API, flag whether the change is breaking and get explicit approval.
 
+# Documentation
+
+- When your changes affect documented behavior, update `README.md` and any relevant files in `docs/` in the same PR.
+
 # Git
 
 - Always use [Conventional Commits](https://www.conventionalcommits.org/) for PR titles (PRs are squash-merged, so the title becomes the commit message).

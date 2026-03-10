@@ -25,23 +25,6 @@ If the provider needs a new fibre (payload) type, see [Extending Payload Models]
 
 ---
 
-## Package Layout
-
-```
-context_use/
-  models/                 ← domain models (pure dataclasses, no ORM)
-  store/                  ← storage abstraction (pluggable backends)
-  providers/              ← unified provider configs (ETL + memory)
-  etl/                    ← reusable ETL building blocks
-  memories/               ← reusable memory building blocks
-  batch/                  ← reusable batch/grouping building blocks
-  facade/                 ← public API
-```
-
-**Dependency rule:** All non-persistence code imports domain models from `context_use.models`, never from ORM models in `etl/models/`. The `store/` package bridges domain models to persistence. `providers` imports from `etl`, `memories`, and `batch`. Those three never import from `providers`.
-
----
-
 ## Architecture Overview
 
 ```
