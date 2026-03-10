@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 import sys
 from dataclasses import dataclass
@@ -114,7 +112,7 @@ class BatchStatusSpinner:
         self._console = Console()
         self._status: Status | None = None
 
-    def __enter__(self) -> BatchStatusSpinner:
+    def __enter__(self) -> "BatchStatusSpinner":
         self._status = self._console.status(
             self._render_status_text(),
             spinner="dots",

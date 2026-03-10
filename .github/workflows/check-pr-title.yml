@@ -1,0 +1,25 @@
+name: check-pr-title
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - edited
+      - ready_for_review
+
+jobs:
+  check-pr-title:
+    name: check-pr-title:required
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/prepare
+
+      - name: Check PR Title
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "$PR_TITLE" > commit-message.txt
+          uv run commitlint --file commit-message.txt

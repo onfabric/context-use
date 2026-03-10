@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import os
 import tomllib
 from dataclasses import dataclass, field
@@ -13,6 +11,7 @@ from context_use.storage.disk import DiskStorage
 
 _DEFAULT_MODEL = OpenAIModel.GPT_5_2
 _DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
+_DEFAULT_DATA_DIR = Path("./context-use-data")
 
 ConfigSource = Literal["env", "file", "default"]
 
@@ -55,10 +54,10 @@ class Config:
     """
     SQLite database path.
     Relative to the `data_dir`/`store` directory.
-    Default: `./data/store/context_use.db`
+    Default: `./context-use-data/store/context_use.db`
     """
 
-    data_dir: Path = field(default_factory=lambda: Path("./data"))
+    data_dir: Path = field(default_factory=lambda: _DEFAULT_DATA_DIR)
 
     @property
     def is_configured(self) -> bool:

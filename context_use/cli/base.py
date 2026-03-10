@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import asyncio
 import sys
@@ -9,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.config import Config, build_ctx, load_config
+from context_use.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
@@ -17,10 +15,12 @@ if TYPE_CHECKING:
     from context_use.models.batch import Batch
 
 
-# ── Infrastructure helpers ────────────────────────────────────────────────────
-
-
-async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
+async def run_batches(
+    ctx: ContextUse,
+    batches: list[Batch],
+    *,
+    should_sleep_after_each_batch: bool = True,
+) -> None:
     """Drive all batches to completion, polling until each stops."""
     from context_use.batch.manager import ScheduleInstruction
 
@@ -63,6 +63,8 @@ async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
                     continue
 
                 countdown = instruction.countdown or 0
+                if not should_sleep_after_each_batch:
+                    countdown = 0
                 next_due[batch_id] = time.monotonic() + countdown
                 spinner.update(batch_id, status, countdown_seconds=countdown)
 
@@ -87,9 +89,30 @@ def require_api_key(cfg: Config) -> None:
         return
     out.error(
         "OpenAI API key not configured. "
-        "Run 'context-use config set-key' or set OPENAI_API_KEY."
+        "Run 'context-use config set-key <key>' or set OPENAI_API_KEY."
     )
     sys.exit(1)
+
+
+def prompt_api_key(cfg: Config) -> Config:
+    """Interactively prompt for an API key, save it, and return updated cfg.
+
+    Calls ``sys.exit(1)`` if the user does not enter a key.
+    """
+    out.warn("OpenAI API key not configured.")
+    out.info("Get an API key at https://platform.openai.com/api-keys")
+    print()
+
+    key = input("  Enter your OpenAI API key: ").strip()
+    if not key:
+        out.error("No key entered — cannot continue.")
+        sys.exit(1)
+
+    cfg.openai_api_key = key
+    path = save_config(cfg)
+    out.success(f"API key saved to {path}")
+    print()
+    return cfg
 
 
 # ── Archive-picker helpers ────────────────────────────────────────────────────
@@ -315,11 +338,13 @@ class ContextCommand(BaseCommand, ABC):
 class ApiCommand(ContextCommand, ABC):
     """Command that requires a configured OpenAI API key.
 
-    ``_prepare`` enforces ``require_api_key`` before a context is built.
+    If no key is configured, ``_prepare`` interactively prompts the user
+    to enter one and saves it before proceeding.
     """
 
     def _prepare(self, cfg: Config, args: argparse.Namespace) -> Config:
-        require_api_key(cfg)
+        if not cfg.openai_api_key:
+            cfg = prompt_api_key(cfg)
         return super()._prepare(cfg, args)
 
 

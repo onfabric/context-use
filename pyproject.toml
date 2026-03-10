@@ -16,6 +16,12 @@ dependencies = [
     "rich>=14.3.2",
 ]
 
+[project.urls]
+Homepage = "https://context-use.com"
+Repository = "https://github.com/onfabric/context-use"
+Changelog = "https://github.com/onfabric/context-use/blob/main/CHANGELOG.md"
+Issues = "https://github.com/onfabric/context-use/issues"
+
 [project.optional-dependencies]
 gcs = ["google-cloud-storage>=2.10.0,<3"]
 
@@ -32,6 +38,7 @@ dev = [
     "git-cliff>=2.12.0",
     "twine>=6.2.0",
     "check-wheel-contents>=0.6.3",
+    "commitlint>=1.13.3",
 ]
 
 [project.scripts]

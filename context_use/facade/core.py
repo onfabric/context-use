@@ -1,7 +1,5 @@
 """Main facade for the context_use library."""
 
-from __future__ import annotations
-
 import logging
 import zipfile
 from pathlib import PurePosixPath
@@ -46,8 +44,8 @@ class ContextUse:
         from context_use.llm.litellm import LiteLLMBatchClient
 
         ctx = ContextUse(
-            storage=DiskStorage("./data"),
-            store=SqliteStore(path="./data/store/context_use.db"),
+            storage=DiskStorage("./context-use-data"),
+            store=SqliteStore(path="./context-use-data/store/context_use.db"),
             llm_client=LiteLLMBatchClient(...),
         )
         await ctx.init()
