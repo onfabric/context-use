@@ -58,7 +58,7 @@ async def run_batches(
                     continue
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
-                status = instruction.status or last_status[batch_id]
+                status = await ctx.get_batch_status(batch_id) or last_status[batch_id]
                 last_status[batch_id] = status
                 advanced = True
 

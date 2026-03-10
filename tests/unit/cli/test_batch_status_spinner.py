@@ -30,8 +30,14 @@ class _FakeClock:
 
 
 class _FakeContext:
-    def __init__(self, scripts: dict[str, list[ScheduleInstruction]]) -> None:
+    def __init__(
+        self,
+        scripts: dict[str, list[ScheduleInstruction]],
+        statuses: dict[str, list[str]],
+    ) -> None:
         self.scripts = scripts
+        self.statuses = statuses
+        self.current_status = {batch_id: "CREATED" for batch_id in scripts}
         self.calls: list[str] = []
 
     async def advance_batch(self, batch_id: str) -> ScheduleInstruction:
@@ -39,7 +45,14 @@ class _FakeContext:
         queue = self.scripts[batch_id]
         if not queue:
             raise AssertionError(f"No scheduled instruction left for {batch_id}")
+        status_queue = self.statuses[batch_id]
+        if not status_queue:
+            raise AssertionError(f"No status left for {batch_id}")
+        self.current_status[batch_id] = status_queue.pop(0)
         return queue.pop(0)
+
+    async def get_batch_status(self, batch_id: str) -> str | None:
+        return self.current_status.get(batch_id)
 
 
 class _RecorderSpinner:
@@ -91,17 +104,20 @@ async def test_run_batches_skips_countdown_when_requested(monkeypatch) -> None:
     b1 = _make_batch("batch-1", 1)
     b2 = _make_batch("batch-2", 2)
     ctx = _FakeContext(
-        {
+        scripts={
             "batch-1": [
                 ScheduleInstruction(
                     stop=False,
                     countdown=7,
-                    status="MEMORY_GENERATE_PENDING",
                 ),
-                ScheduleInstruction(stop=True, status="COMPLETE"),
+                ScheduleInstruction(stop=True),
             ],
-            "batch-2": [ScheduleInstruction(stop=True, status="FAILED")],
-        }
+            "batch-2": [ScheduleInstruction(stop=True)],
+        },
+        statuses={
+            "batch-1": ["MEMORY_GENERATE_PENDING", "COMPLETE"],
+            "batch-2": ["FAILED"],
+        },
     )
 
     await run_batches(cast(Any, ctx), [b1, b2], skip_countdown=True)
@@ -127,16 +143,16 @@ async def test_run_batches_waits_for_countdown_by_default(monkeypatch) -> None:
 
     batch = _make_batch("batch-1", 1)
     ctx = _FakeContext(
-        {
+        scripts={
             "batch-1": [
                 ScheduleInstruction(
                     stop=False,
                     countdown=3,
-                    status="MEMORY_EMBED_PENDING",
                 ),
-                ScheduleInstruction(stop=True, status="COMPLETE"),
+                ScheduleInstruction(stop=True),
             ]
-        }
+        },
+        statuses={"batch-1": ["MEMORY_EMBED_PENDING", "COMPLETE"]},
     )
 
     await run_batches(cast(Any, ctx), [batch])

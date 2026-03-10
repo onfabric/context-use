@@ -247,6 +247,12 @@ class ContextUse:
         manager = manager_cls(batch=batch, ctx=self._batch_context())
         return await manager.try_advance_state()
 
+    async def get_batch_status(self, batch_id: str) -> str | None:
+        batch = await self._store.get_batch(batch_id)
+        if batch is None:
+            return None
+        return batch.current_status
+
     # ── Tools ────────────────────────────────────────────────────────
 
     def make_tools(self) -> list:
