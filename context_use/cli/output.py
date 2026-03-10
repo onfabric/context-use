@@ -180,7 +180,7 @@ class BatchStatusSpinner:
     def _indicator(self, line: _BatchLine) -> RenderableType:
         if line.done:
             return self._terminal_icon_for(line.status)
-        return Spinner("dots")
+        return Spinner("dots", style="cyan")
 
     def _terminal_icon_for(self, status: str) -> Text:
         if status == "FAILED":
@@ -189,16 +189,25 @@ class BatchStatusSpinner:
             return Text("!", style="yellow")
         return Text("✓", style="green")
 
-    def _status_text(self, status: str) -> str:
-        return status.replace("_", " ").title()
+    def _status_text(self, status: str) -> Text:
+        return Text(status.replace("_", " ").title(), style=self._status_style(status))
 
-    def _detail_text(self, line: _BatchLine) -> str:
+    def _status_style(self, status: str) -> str:
+        if status == "FAILED":
+            return "red"
+        if status == "SKIPPED":
+            return "yellow"
+        if status == "COMPLETE":
+            return "green"
+        return "bright_blue"
+
+    def _detail_text(self, line: _BatchLine) -> Text:
         if line.done:
-            return ""
+            return Text("")
         if line.countdown_seconds is None:
-            return "working"
+            return Text("working", style="dim")
         if line.countdown_seconds <= 0.05:
-            return "up next"
+            return Text("up next", style="dim")
         if line.countdown_seconds >= 10:
-            return f"next in {line.countdown_seconds:.0f}s"
-        return f"next in {line.countdown_seconds:.1f}s"
+            return Text(f"next in {line.countdown_seconds:.0f}s", style="dim")
+        return Text(f"next in {line.countdown_seconds:.1f}s", style="dim")
