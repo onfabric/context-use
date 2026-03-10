@@ -74,6 +74,10 @@ context-use-data/
     └── your-data-export.zip   ← place it here
 ```
 
+## Contributing
+
+Want to add support for a new data provider? See [Adding a data provider](docs/add-provider.md).
+
 ## Supported providers
 
 | Provider | Status | Data types | Export guide |
