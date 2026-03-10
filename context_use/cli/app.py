@@ -16,7 +16,7 @@ friend and less like a chatbot.
 Quick start: context-use pipeline --quick"""
 
 _EPILOG = (
-    "Quick start (real-time API, last 30 days):\n"
+    "Quick start (real-time API, last 30 days from latest data point):\n"
     "  context-use pipeline --quick                 "
     "Ingest + memories preview\n"
     "\n"

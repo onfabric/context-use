@@ -31,7 +31,8 @@ class PipelineCommand(ApiCommand):
     description = (
         "Run the full pipeline (ingest, memories). "
         "Uses the batch API by default. "
-        "Pass --quick to use the real-time API (last 30 days by default). "
+        "Pass --quick to use the real-time API "
+        "(last 30 days from latest data point by default). "
         "Use --last-days to limit history in either mode. "
         "Run without arguments to interactively pick an archive from "
         "data/input/."
@@ -42,7 +43,7 @@ class PipelineCommand(ApiCommand):
         parser.add_argument(
             "--quick",
             action="store_true",
-            help="Use the real-time API (default: last 30 days only)",
+            help="Use the real-time API (default: last 30 days from latest data point)",
         )
         parser.add_argument(
             "--last-days",
@@ -50,7 +51,8 @@ class PipelineCommand(ApiCommand):
             default=None,
             help=(
                 "Only process threads from the last N days "
-                "(default: 30 with --quick, unlimited otherwise)"
+                "(counted back from latest thread date; "
+                "default: 30 with --quick, unlimited otherwise)"
             ),
         )
 
@@ -60,13 +62,19 @@ class PipelineCommand(ApiCommand):
             self.llm_mode = "sync"  # type: ignore[misc]
         return cfg
 
-    def _resolve_since(self, args: argparse.Namespace) -> datetime | None:
+    def _resolve_since(
+        self,
+        args: argparse.Namespace,
+        latest_thread_asat: datetime | None,
+    ) -> datetime | None:
         last_days = args.last_days
         if last_days is None:
             last_days = _QUICK_DEFAULT_DAYS if args.quick else None
         if last_days is None:
             return None
-        return datetime.now(UTC) - timedelta(days=last_days)
+        if latest_thread_asat is None:
+            return None
+        return latest_thread_asat - timedelta(days=last_days)
 
     async def run(
         self,
@@ -91,8 +99,6 @@ class PipelineCommand(ApiCommand):
         provider_str: str,
         zip_path: str,
     ) -> None:
-        since = self._resolve_since(args)
-
         print()
         out.header(f"Step 1/2 · Ingesting {provider_str} archive")
         out.kv("File", zip_path)
@@ -108,10 +114,18 @@ class PipelineCommand(ApiCommand):
             out.error(f"{result.tasks_failed} tasks failed — stopping")
             return
 
+        latest_thread_asat = await ctx.get_latest_memory_thread_asat()
+        since = self._resolve_since(args, latest_thread_asat)
+
         out.header("Step 2/2 · Generating memories")
         out.info("Using batch API. This typically takes 2-10 minutes.")
         if since:
             out.kv("Since", since.strftime("%Y-%m-%d"))
+            if latest_thread_asat is not None:
+                out.info(
+                    "Window is counted back from latest thread date "
+                    f"({latest_thread_asat.strftime('%Y-%m-%d')})."
+                )
         print()
 
         batches = await ctx.create_memory_batches(since=since)
@@ -142,7 +156,6 @@ class PipelineCommand(ApiCommand):
         provider_str: str,
         zip_path: str,
     ) -> None:
-        since = self._resolve_since(args)
         last_days = (
             args.last_days if args.last_days is not None else _QUICK_DEFAULT_DAYS
         )
@@ -163,12 +176,20 @@ class PipelineCommand(ApiCommand):
             out.error(f"{result.tasks_failed} tasks failed — stopping")
             return
 
+        latest_thread_asat = await ctx.get_latest_memory_thread_asat()
+        since = self._resolve_since(args, latest_thread_asat)
+
         # Phase 2: Memories (real-time API)
         out.header("Phase 2/2 · Generating memories")
         out.info("Using real-time API.")
         if since:
             out.kv("Since", since.strftime("%Y-%m-%d"))
-            out.info(f"Only processing the last {last_days} days.")
+            if latest_thread_asat is not None:
+                out.info(
+                    f"Only processing the last {last_days} days "
+                    "from latest thread date "
+                    f"({latest_thread_asat.strftime('%Y-%m-%d')})."
+                )
         else:
             out.info("Processing full archive history.")
         print()

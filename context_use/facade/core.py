@@ -231,6 +231,20 @@ class ContextUse:
 
         return await MemoryBatchFactory.create_batches(all_groups, self._store)
 
+    async def get_latest_memory_thread_asat(self) -> datetime | None:
+        """Return latest timestamp among unprocessed memory-eligible threads."""
+        from context_use.providers.registry import get_memory_interaction_types
+
+        supported = get_memory_interaction_types()
+        if not supported:
+            return None
+        threads = await self._store.get_unprocessed_threads(
+            interaction_types=supported,
+        )
+        if not threads:
+            return None
+        return max(thread.asat for thread in threads)
+
     async def advance_batch(self, batch_id: str) -> ScheduleInstruction:
         """Advance a batch one step through its state machine.
 
