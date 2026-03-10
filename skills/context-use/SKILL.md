@@ -1,75 +1,91 @@
 ---
 name: context-use
 description: >
-  Personal memory from real data exports. Uses the context-use CLI
-  to search and manage the user's memories extracted from ChatGPT,
-  Claude, Instagram, and Google exports.
-user-invocable: true
+  Personal memory powered by real data exports. Searches and manages
+  memories extracted from the user's ChatGPT, Claude, Instagram, and
+  Google data via the context-use CLI. Use this skill whenever the user
+  mentions their past conversations, personal history, things they've
+  discussed before, memories, data exports, or wants you to know them
+  better. Also use it when they reference specific people, places, or
+  events that their memory store might contain context about — even if
+  they don't mention "context-use" or "memories" explicitly.
 ---
 
 # context-use — Personal Memory
 
-You have access to the user's personal memories via the `context-use` CLI.
-These are real memories extracted from their data exports (ChatGPT, Claude,
-Instagram, Google) — not LLM-generated summaries.
+The user has personal memories extracted from their real data (ChatGPT
+conversations, Claude conversations, Instagram activity, Google searches).
+These memories live in a local SQLite store and are searchable via the
+`context-use` CLI.
 
-Use these memories to personalise your responses. When a topic comes up
-that the user's memories might cover, search for relevant context before
-answering.
+Your job is to use these memories to give more personalised, grounded
+responses. When a topic comes up that the user's history might cover,
+search their memories before answering. Reference specific details — names,
+places, dates, projects — rather than being generic.
 
-## Preflight — run once per session
+## Preflight
 
-Before first use in a session, check readiness:
-
-```bash
-context-use --version
-```
-
-- **Command not found** → go to [First-Time Setup](#first-time-setup).
-- **Command works** → check if memories exist:
+Run this once per session to figure out the user's setup state:
 
 ```bash
-context-use memories list --limit 1
+context-use --version 2>/dev/null && context-use memories list --limit 1
 ```
 
-- **No memories found** → the user has installed but hasn't run the pipeline yet. Ask if they have a data export ready and guide them through [Running the Pipeline](#running-the-pipeline).
-- **Memories returned** → ready. Proceed to [Using Memories](#using-memories).
+**If `context-use` is not found** — the user hasn't installed it yet.
+Read `references/setup.md` and walk them through first-time setup.
 
-## Using Memories
+**If the command works but returns no memories** — the tool is installed
+but the pipeline hasn't been run yet. Ask the user if they have a data
+export ZIP ready, and if so, guide them through running the pipeline
+(see `references/setup.md`, "Running the Pipeline" section).
 
-### Search for relevant context
+**If memories are returned** — you're good. Use them.
 
-When the user asks about a topic, search their memories for relevant context:
+## Searching Memories
+
+This is the core of the skill. When the user's question touches on
+something personal — a project they mentioned, a place they visited,
+a person they talked about, a habit or pattern — search before responding:
 
 ```bash
-context-use memories search "the topic or question" --top-k 5
+context-use memories search "relevant query" --top-k 5
 ```
 
-Narrow by date range when appropriate:
+Narrow by date when it helps:
 
 ```bash
 context-use memories search "query" --from 2024-01-01 --to 2024-12-31
 ```
 
-Use what you find to inform your response — reference specifics (names,
-places, dates) from the memories rather than making generic statements.
-If the search returns nothing relevant, don't mention it — just respond
-normally.
+Weave what you find into your response naturally. Don't say "according to
+your memories" every time — just use the context the way a friend who knows
+them would. If a search returns nothing relevant, move on without mentioning
+it.
 
-### Browse memories
+## Other Memory Commands
 
-```bash
-context-use memories list                    # all, grouped by month
-context-use memories list --limit 20         # recent subset
-```
-
-### Get full details on a specific memory
+Browse everything:
 
 ```bash
-context-use memories get <memory-uuid>
+context-use memories list
+context-use memories list --limit 20
 ```
 
-### Export
+Full details on one memory:
+
+```bash
+context-use memories get <uuid>
+```
+
+Create, edit, or archive memories when the user asks:
+
+```bash
+context-use memories create --content "..." --from 2024-03-01 --to 2024-03-31
+context-use memories update <id> --content "..." --from ... --to ...
+context-use memories archive <id1> <id2> --superseded-by <new-id>
+```
+
+Export for use elsewhere:
 
 ```bash
 context-use memories export                        # Markdown
@@ -77,121 +93,25 @@ context-use memories export --format json          # JSON
 context-use memories export --out path/to/file.md  # custom path
 ```
 
-### Manage memories
+## Personal Agent
+
+For complex memory tasks the user can't do with a single command,
+context-use has a built-in agent:
 
 ```bash
-# Create a new memory
-context-use memories create --content "..." --from 2024-03-01 --to 2024-03-31
-
-# Edit an existing memory
-context-use memories update <id> --content "..." --from ... --to ...
-
-# Archive superseded memories
-context-use memories archive <id1> <id2> --superseded-by <new-id>
-```
-
-### Personal agent
-
-For complex memory tasks, use the built-in agent:
-
-```bash
-context-use agent synthesise    # create higher-level pattern memories
+context-use agent synthesise    # distill pattern memories from event memories
 context-use agent profile       # compile a first-person user profile
 context-use agent ask "..."     # free-form memory task
 ```
 
-## First-Time Setup
+Suggest `synthesise` if the user has a lot of raw memories but hasn't
+extracted patterns yet. Suggest `profile` if they want a summary of who
+they are based on their data.
 
-Walk the user through these steps. Only proceed when each step succeeds.
+## When Not to Search
 
-### 1. Install
+Don't search memories for every message. Skip it when:
 
-```bash
-pip install context-use
-```
-
-Or with uv:
-
-```bash
-uv tool install context-use
-```
-
-Verify: `context-use --version`
-
-### 2. Set up OpenAI API key
-
-Needed for memory generation and semantic search.
-
-```bash
-context-use config set-key
-```
-
-Or via environment variable: `export OPENAI_API_KEY=sk-...`
-
-If the user doesn't have an API key, direct them to
-https://platform.openai.com/api-keys.
-
-### 3. Download a data export
-
-The user needs a ZIP export from one of the supported providers. Guide them
-based on which provider they use:
-
-| Provider | Steps |
-|----------|-------|
-| ChatGPT | https://chatgpt.com → Settings → Data Controls → Export Data. Download link arrives by email. |
-| Claude | https://claude.ai → Settings → Account → Export Data. Download link arrives by email. |
-| Instagram | Instagram app → Settings → Accounts Center → Your information and permissions → Download your information. Select **JSON** format (not HTML), "All time". Notification when ready. |
-| Google | https://takeout.google.com → select products → export as ZIP. |
-
-Tell the user: **do not extract the ZIP**. The CLI reads it directly.
-
-### 4. Run the pipeline
-
-See [Running the Pipeline](#running-the-pipeline).
-
-## Running the Pipeline
-
-For a quick preview (real-time API, last 30 days):
-
-```bash
-context-use pipeline --quick path/to/export.zip
-```
-
-For the full export (batch API, cheaper, all history):
-
-```bash
-context-use pipeline chatgpt path/to/export.zip
-```
-
-Replace `chatgpt` with the provider name: `chatgpt`, `claude`,
-`instagram`, or `google`.
-
-After the pipeline completes, verify:
-
-```bash
-context-use memories list --limit 5
-```
-
-## Configuration
-
-```bash
-context-use config show    # show all settings and their sources
-context-use config path    # print config file location
-```
-
-Config file: `~/.config/context-use/config.toml`
-
-| Setting | Env var | Default |
-|---------|---------|---------|
-| API key | `OPENAI_API_KEY` | — |
-| Model | `OPENAI_MODEL` | `gpt-5.2` |
-| Embedding model | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-large` |
-| Database | `CONTEXT_USE_DB_PATH` | `context_use.db` |
-
-## Error Handling
-
-- **context-use not found** → guide [First-Time Setup](#first-time-setup).
-- **No API key** → `context-use config set-key` or `export OPENAI_API_KEY=...`.
-- **No memories** → user needs to run the pipeline first.
-- **Rate limits in quick mode** → switch to batch: `context-use pipeline` (without `--quick`).
-- **Export not ready** → normal, exports from Instagram/Google can take hours. User just needs to wait.
+- The conversation is purely technical with no personal angle.
+- The user is asking about general knowledge, not their own history.
+- You've already searched for the same topic earlier in the conversation.
