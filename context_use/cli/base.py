@@ -184,7 +184,17 @@ def prepare_quick_archive_args(
     args: argparse.Namespace, *, command: str = "pipeline"
 ) -> None:
     """Validate and complete quick-mode archive args in-place."""
+    provider_list = providers()
+
     zip_path = args.zip_path
+    if (
+        zip_path is None
+        and args.provider is not None
+        and args.provider not in provider_list
+    ):
+        zip_path = args.provider
+        args.provider = None
+
     if zip_path is None:
         out.error("Quick mode requires a zip-path.")
         out.info(f"  Quick:        context-use {command} --quick <zip-path>")
@@ -193,12 +203,13 @@ def prepare_quick_archive_args(
     if not Path(zip_path).exists():
         out.error(f"File not found: {zip_path}")
         sys.exit(1)
+    args.zip_path = zip_path
 
     if args.provider is not None:
         return
 
     guessed = _guess_provider(Path(zip_path).name)
-    provider = pick_provider_interactive(providers(), default=guessed)
+    provider = pick_provider_interactive(provider_list, default=guessed)
     if provider is None:
         out.error("Provider selection required in quick mode.")
         sys.exit(1)
