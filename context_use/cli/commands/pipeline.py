@@ -32,7 +32,7 @@ class PipelineCommand(ApiCommand):
         "Pass --quick to use the real-time API (last 30 days by default). "
         "Use --last-days to limit history in either mode. "
         "Run without arguments to interactively pick an archive from "
-        "data/input/."
+        "context-use-data/input/."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:

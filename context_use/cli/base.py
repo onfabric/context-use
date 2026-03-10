@@ -183,7 +183,7 @@ def _guess_provider(filename: str) -> str | None:
 
 
 def pick_archive_interactive(cfg: Config) -> tuple[str, str] | None:
-    """Interactive picker: list archives in data/input and let user choose.
+    """Interactive picker: list archives in context-use-data/input and let user choose.
 
     Returns ``(provider_str, zip_path)`` or ``None`` if the user aborts.
     """
