@@ -8,6 +8,7 @@ from context_use.cli import output as out
 from context_use.cli.base import (
     ApiCommand,
     add_archive_args,
+    prepare_quick_archive_args,
     print_ingest_result,
     resolve_archive,
     run_batches,
@@ -76,6 +77,9 @@ class PipelineCommand(ApiCommand):
         ctx: ContextUse,
         args: argparse.Namespace,
     ) -> None:
+        if args.quick and not prepare_quick_archive_args(args, command="pipeline"):
+            return
+
         picked = resolve_archive(args, cfg, command="pipeline")
         if picked is None:
             return

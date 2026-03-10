@@ -182,6 +182,32 @@ def pick_provider_interactive(
     return provider_list[idx]
 
 
+def prepare_quick_archive_args(
+    args: argparse.Namespace, *, command: str = "pipeline"
+) -> bool:
+    """Validate and complete quick-mode archive args in-place."""
+    zip_path = args.zip_path
+    if zip_path is None:
+        out.error("Quick mode requires a zip-path.")
+        out.info(f"  Quick:        context-use {command} --quick <zip-path>")
+        sys.exit(1)
+
+    if not Path(zip_path).exists():
+        out.error(f"File not found: {zip_path}")
+        sys.exit(1)
+
+    if args.provider is not None:
+        return True
+
+    guessed = _guess_provider(Path(zip_path).name)
+    provider = pick_provider_interactive(providers(), default=guessed)
+    if provider is None:
+        return False
+
+    args.provider = provider
+    return True
+
+
 def resolve_archive(
     args: argparse.Namespace,
     cfg: Config,
@@ -194,36 +220,7 @@ def resolve_archive(
     Calls ``sys.exit(1)`` on invalid args.
     """
     provider_list = providers()
-    zip_path = getattr(args, "zip_path", None)
-    is_quick = bool(getattr(args, "quick", False))
-
-    if is_quick:
-        if zip_path is None:
-            out.error("Quick mode requires a zip-path.")
-            out.info(
-                f"  Quick:        context-use {command} --quick --zip-path <zip-path>"
-            )
-            sys.exit(1)
-
-        if not Path(zip_path).exists():
-            out.error(f"File not found: {zip_path}")
-            sys.exit(1)
-
-        if args.provider is None:
-            guessed = _guess_provider(Path(zip_path).name)
-            provider_str = pick_provider_interactive(provider_list, default=guessed)
-            if provider_str is None:
-                return None
-            return provider_str, zip_path
-
-        provider_str = args.provider.lower()
-        if provider_str not in provider_list:
-            out.error(
-                f"Unknown provider '{provider_str}'. "
-                f"Choose from: {', '.join(provider_list)}"
-            )
-            sys.exit(1)
-        return provider_str, zip_path
+    zip_path = args.zip_path
 
     if args.provider is None:
         return pick_archive_interactive(cfg)

@@ -4,48 +4,40 @@ import argparse
 
 import pytest
 
-from context_use.cli.base import resolve_archive
+from context_use.cli.base import prepare_quick_archive_args, resolve_archive
 from context_use.config import Config
 
 
 def _namespace(
     provider: str | None,
     zip_path: str | None,
-    quick: bool = False,
 ) -> argparse.Namespace:
-    return argparse.Namespace(
-        provider=provider,
-        zip_path=zip_path,
-        quick=quick,
-    )
+    return argparse.Namespace(provider=provider, zip_path=zip_path)
 
 
-def test_resolve_archive_quick_requires_zip_path(tmp_path) -> None:
-    cfg = Config(data_dir=tmp_path / "data")
-    args = _namespace(provider=None, zip_path=None, quick=True)
+def test_prepare_quick_archive_args_requires_zip_path() -> None:
+    args = _namespace(provider=None, zip_path=None)
 
     with pytest.raises(SystemExit) as exc:
-        resolve_archive(args, cfg, command="pipeline")
+        prepare_quick_archive_args(args, command="pipeline")
     assert exc.value.code == 1
 
 
-def test_resolve_archive_quick_prompts_provider_with_zip_path(
+def test_prepare_quick_archive_args_prompts_provider_with_zip_path(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     zip_file = tmp_path / "quick.zip"
     zip_file.write_bytes(b"dummy")
-    cfg = Config(data_dir=tmp_path / "data")
 
     monkeypatch.setattr("context_use.cli.base.providers", lambda: ["chatgpt", "google"])
     monkeypatch.setattr("builtins.input", lambda _prompt: "2")
 
-    args = _namespace(provider=None, zip_path=str(zip_file), quick=True)
-    result = resolve_archive(args, cfg, command="pipeline")
+    args = _namespace(provider=None, zip_path=str(zip_file))
+    ok = prepare_quick_archive_args(args, command="pipeline")
 
-    assert result is not None
-    provider, path = result
-    assert provider == "google"
-    assert path == str(zip_file)
+    assert ok is True
+    assert args.provider == "google"
+    assert args.zip_path == str(zip_file)
 
 
 def test_resolve_archive_no_args_uses_interactive_archive_picker(
