@@ -368,6 +368,15 @@ wheels = [
 ]
 
 [[package]]
+name = "commitlint"
+version = "1.13.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/7a/00/e2dcd72cd76969b74e811ed06506183b00f9dd0e0f308a4f3672300a32a2/commitlint-1.13.3.tar.gz", hash = "sha256:e92522e064010ae85b825b73923760c0e4ff34954859fec4976f3e86a342ea30", size = 23968, upload-time = "2026-01-11T13:09:47.622Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e0/8a/a524c54aa6a8c712ddea2da6ffbbdde93c2c4eeb8121cae2a43e266c1cea/commitlint-1.13.3-py3-none-any.whl", hash = "sha256:330a9aa892b0bca9d671c5cd059755d9d48468f35095efe1be09ba667085b3f7", size = 26742, upload-time = "2026-01-11T13:09:45.572Z" },
+]
+
+[[package]]
 name = "context-use"
 version = "0.2.0"
 source = { editable = "." }
@@ -388,6 +397,7 @@ gcs = [
 [package.dev-dependencies]
 dev = [
     { name = "check-wheel-contents" },
+    { name = "commitlint" },
     { name = "context-use", extra = ["gcs"] },
     { name = "git-cliff" },
     { name = "pre-commit" },
@@ -414,6 +424,7 @@ provides-extras = ["gcs"]
 [package.metadata.requires-dev]
 dev = [
     { name = "check-wheel-contents", specifier = ">=0.6.3" },
+    { name = "commitlint", specifier = ">=1.13.3" },
     { name = "context-use", extras = ["gcs"] },
     { name = "git-cliff", specifier = ">=2.12.0" },
     { name = "pre-commit", specifier = ">=4.5.1" },

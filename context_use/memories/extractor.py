@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 
 from context_use.llm.base import BaseLLMClient, BatchResults, PromptItem

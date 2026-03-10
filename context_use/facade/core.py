@@ -1,7 +1,5 @@
 """Main facade for the context_use library."""
 
-from __future__ import annotations
-
 import logging
 import zipfile
 from pathlib import PurePosixPath
