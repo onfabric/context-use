@@ -4,12 +4,17 @@ from pathlib import Path
 import pytest
 
 from context_use.providers.instagram.media import (
+    InstagramPostsPipe,
     InstagramReelsPipe,
     InstagramStoriesPipe,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import INSTAGRAM_REELS_JSON, INSTAGRAM_STORIES_JSON
+from tests.conftest import (
+    INSTAGRAM_POSTS_JSON,
+    INSTAGRAM_REELS_JSON,
+    INSTAGRAM_STORIES_JSON,
+)
 
 
 class TestInstagramStoriesPipe(PipeTestKit):
@@ -107,3 +112,52 @@ class TestInstagramReelsPipe(PipeTestKit):
         assert rows[0].asset_uri is not None
         assert rows[0].asset_uri.startswith(f"{task.archive_id}/")
         assert "media/reels/" in rows[0].asset_uri
+
+
+class TestInstagramPostsPipe(PipeTestKit):
+    pipe_class = InstagramPostsPipe
+    expected_extract_count = 1
+    expected_transform_count = 1
+
+    @pytest.fixture()
+    def pipe_fixture(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = "archive/your_instagram_activity/media/posts_1.json"
+        storage.write(key, json.dumps(INSTAGRAM_POSTS_JSON).encode())
+        return storage, key
+
+    def test_post_is_image(self, pipe_fixture):
+        storage, key = pipe_fixture
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        records = list(pipe.extract(task, storage))
+        assert records[0].media_type == "Image"
+
+    def test_post_title(self, pipe_fixture):
+        storage, key = pipe_fixture
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        records = list(pipe.extract(task, storage))
+        assert records[0].title == "Homemade pasta for dinner"
+
+    def test_post_transform(self, pipe_fixture):
+        storage, key = pipe_fixture
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 1
+        assert rows[0].payload["fibreKind"] == "Create"
+        assert rows[0].payload["object"]["type"] == "Image"
+
+    def test_post_asset_uri(self, pipe_fixture):
+        storage, key = pipe_fixture
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert rows[0].asset_uri is not None
+        assert rows[0].asset_uri.startswith(f"{task.archive_id}/")
+        assert "media/posts/" in rows[0].asset_uri
