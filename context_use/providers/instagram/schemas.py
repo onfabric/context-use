@@ -313,6 +313,12 @@ class InstagramReelsManifest(BaseModel):
     ig_reels_media: list[InstagramReelsEntry]
 
 
+class InstagramPostsEntry(BaseModel):
+    """One post entry in ``posts_*.json`` (wraps a list of media items)."""
+
+    media: list[InstagramMediaItem]
+
+
 class InstagramMediaRecord(BaseModel):
     """Enriched extraction output for Instagram media (stories, reels, posts).
 

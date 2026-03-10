@@ -19,6 +19,7 @@ from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramMediaItem,
     InstagramMediaRecord,
+    InstagramPostsEntry,
     InstagramReelsManifest,
     InstagramStoriesManifest,
 )
@@ -151,6 +152,33 @@ class InstagramReelsPipe(_InstagramMediaPipe):
         yield from _items_to_records(all_items, source_uri)
 
 
+class InstagramPostsPipe(_InstagramMediaPipe):
+    """ETL pipe for Instagram posts.
+
+    Reads ``posts_*.json``, flattens nested media lists, yields individual
+    :class:`InstagramMediaRecord` instances, and transforms each
+    into a :class:`ThreadRow` with an ActivityStreams payload.
+    """
+
+    interaction_type = "instagram_posts"
+    archive_path_pattern = "your_instagram_activity/media/posts_*.json"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramMediaRecord]:
+        raw = storage.read(source_uri)
+        entries = json.loads(raw)
+
+        all_items: list[InstagramMediaItem] = []
+        for entry in entries:
+            validated = InstagramPostsEntry.model_validate(entry)
+            all_items.extend(validated.media)
+
+        yield from _items_to_records(all_items, source_uri)
+
+
 _MEDIA_MEMORY_CONFIG = MemoryConfig(
     prompt_builder=MediaMemoryPromptBuilder,
     grouper=WindowGrouper,
@@ -161,4 +189,7 @@ declare_interaction(
 )
 declare_interaction(
     InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG)
+)
+declare_interaction(
+    InteractionConfig(pipe=InstagramPostsPipe, memory=_MEDIA_MEMORY_CONFIG)
 )
