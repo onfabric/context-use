@@ -1,4 +1,3 @@
-
 from context_use.batch.factory import BaseBatchFactory
 from context_use.models.batch import BatchCategory
 

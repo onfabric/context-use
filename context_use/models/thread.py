@@ -1,4 +1,3 @@
-
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import cached_property

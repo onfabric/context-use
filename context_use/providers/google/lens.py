@@ -1,4 +1,3 @@
-
 from collections.abc import Iterator
 
 from context_use.etl.payload.models import (

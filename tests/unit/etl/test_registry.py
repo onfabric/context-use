@@ -1,4 +1,3 @@
-
 import datetime
 from collections.abc import Iterator
 

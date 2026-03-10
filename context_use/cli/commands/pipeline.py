@@ -1,4 +1,3 @@
-
 import argparse
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING

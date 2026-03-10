@@ -1,4 +1,3 @@
-
 import argparse
 
 from context_use.cli import output as out

@@ -1,6 +1,5 @@
 """Shared embedding helpers for batch managers that embed TapestryMemory rows."""
 
-
 import logging
 from typing import TYPE_CHECKING
 

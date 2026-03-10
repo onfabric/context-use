@@ -1,4 +1,3 @@
-
 from context_use.providers.google.search import _BaseGoogleSearchPipe
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig

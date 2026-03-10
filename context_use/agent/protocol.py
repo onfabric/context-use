@@ -1,6 +1,5 @@
 """Protocol describing the memory operations the agent tools require."""
 
-
 from datetime import date
 from typing import Protocol
 
