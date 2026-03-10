@@ -141,7 +141,7 @@ class BaseBatchManager(ABC):
                     "[%s] Error advancing state: %s",
                     batch_id,
                     exc,
-                    exc_info=True,
+                    exc_info=logger.isEnabledFor(logging.INFO),
                 )
                 self.batch.push_state(
                     FailedState(
