@@ -30,8 +30,13 @@ def _batch_detail_from_state(state: dict | None) -> str:
     return ""
 
 
-def _is_terminal_status(status: str) -> bool:
-    return status in {"COMPLETE", "SKIPPED", "FAILED"}
+def _is_terminal_batch(batch: "Batch") -> bool:
+    from context_use.batch.states import StopState
+
+    try:
+        return isinstance(batch.parse_current_state(), StopState)
+    except Exception:
+        return False
 
 
 async def run_batches(
@@ -61,14 +66,12 @@ async def run_batches(
             f"Batch {batch.batch_number:03d}",
             latest_status[batch.id],
             latest_detail[batch.id],
-            _is_terminal_status(latest_status[batch.id]),
+            _is_terminal_batch(batch),
         )
         for batch in batches
     ]
     pending_batch_ids: set[str] = {
-        batch.id
-        for batch in batches
-        if not _is_terminal_status(latest_status[batch.id])
+        batch.id for batch in batches if not _is_terminal_batch(batch)
     }
 
     with out.BatchStatusSpinner(batch_rows) as spinner:
