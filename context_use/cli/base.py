@@ -18,6 +18,23 @@ if TYPE_CHECKING:
 
 # ── Infrastructure helpers ────────────────────────────────────────────────────
 
+_KNOWN_PROVIDER_CHOICES: list[str] | None = None
+
+
+def _known_provider_choices() -> list[str]:
+    """Return provider directory names without importing provider modules."""
+    global _KNOWN_PROVIDER_CHOICES
+    if _KNOWN_PROVIDER_CHOICES is None:
+        providers_dir = Path(__file__).resolve().parents[1] / "providers"
+        _KNOWN_PROVIDER_CHOICES = sorted(
+            entry.name
+            for entry in providers_dir.iterdir()
+            if entry.is_dir()
+            and (entry / "__init__.py").exists()
+            and not entry.name.startswith("_")
+        )
+    return _KNOWN_PROVIDER_CHOICES
+
 
 async def run_batches(ctx: ContextUse, batches: list[Batch]) -> None:
     """Drive all batches to completion, polling until each stops."""
@@ -199,6 +216,7 @@ def add_archive_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "provider",
         nargs="?",
+        choices=_known_provider_choices(),
         default=None,
         help="Data provider (omit for interactive mode)",
     )
