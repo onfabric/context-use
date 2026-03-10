@@ -2,12 +2,18 @@ import os
 import sys
 from dataclasses import dataclass
 from types import TracebackType
+from typing import TYPE_CHECKING
 
 from rich.console import Console, RenderableType
 from rich.live import Live
 from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
+
+from context_use.batch.states import StopState
+
+if TYPE_CHECKING:
+    from context_use.batch.states import State
 
 
 def _supports_color() -> bool:
@@ -100,9 +106,8 @@ def banner() -> None:
 
 @dataclass
 class _BatchLine:
-    status: str
+    state: State
     detail: str = ""
-    done: bool = False
 
 
 class BatchStatusSpinner:
@@ -121,12 +126,12 @@ class BatchStatusSpinner:
         "FAILED": "red",
     }
 
-    def __init__(self, batches: list[tuple[str, str, str, str, bool]]) -> None:
-        self._order = [batch_id for batch_id, _, _, _, _ in batches]
-        self._labels = {batch_id: label for batch_id, label, _, _, _ in batches}
+    def __init__(self, batches: list[tuple[str, str, State, str]]) -> None:
+        self._order = [batch_id for batch_id, _, _, _ in batches]
+        self._labels = {batch_id: label for batch_id, label, _, _ in batches}
         self._lines = {
-            batch_id: _BatchLine(status=status, detail=detail, done=done)
-            for batch_id, _, status, detail, done in batches
+            batch_id: _BatchLine(state=state, detail=detail)
+            for batch_id, _, state, detail in batches
         }
         self._console = Console()
         self._live: Live | None = None
@@ -155,15 +160,13 @@ class BatchStatusSpinner:
     def update(
         self,
         batch_id: str,
-        status: str,
+        state: State,
         *,
         detail: str = "",
-        done: bool = False,
     ) -> None:
         new_line = _BatchLine(
-            status=status,
+            state=state,
             detail=detail,
-            done=done,
         )
         if self._lines.get(batch_id) == new_line:
             return
@@ -189,25 +192,28 @@ class BatchStatusSpinner:
             table.add_row(
                 self._indicator(line),
                 self._labels[batch_id],
-                self._status_text(line.status),
+                self._status_text(line.state),
                 Text(line.detail, style="dim") if line.detail else Text(""),
             )
         return table
 
     def _indicator(self, line: _BatchLine) -> RenderableType:
-        if line.done:
-            return self._terminal_icon_for(line.status)
+        if isinstance(line.state, StopState):
+            return self._terminal_icon_for(line.state)
         return Spinner("dots", style="cyan")
 
-    def _terminal_icon_for(self, status: str) -> Text:
-        if status == "FAILED":
+    def _terminal_icon_for(self, state: State) -> Text:
+        if state.status == "FAILED":
             return Text("✗", style="red")
-        if status == "SKIPPED":
+        if state.status == "SKIPPED":
             return Text("!", style="yellow")
         return Text("✓", style="green")
 
-    def _status_text(self, status: str) -> Text:
-        return Text(status.replace("_", " ").title(), style=self._status_style(status))
+    def _status_text(self, state: State) -> Text:
+        return Text(
+            state.status.replace("_", " ").title(),
+            style=self._status_style(state.status),
+        )
 
     def _status_style(self, status: str) -> str:
         return self._STATUS_STYLES.get(status, "bright_blue")

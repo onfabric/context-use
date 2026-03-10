@@ -44,11 +44,14 @@ def _is_terminal_state(state: "State | None") -> bool:
     return state is not None and isinstance(state, StopState)
 
 
-def _safe_current_state(batch: "Batch") -> "State | None":
+def _safe_current_state(batch: "Batch") -> "State":
+    from context_use.batch.states import CreatedState
+
     try:
-        return batch.parse_current_state()
+        parsed = batch.parse_current_state()
+        return parsed
     except Exception:
-        return None
+        return CreatedState()
 
 
 async def run_batches(
@@ -66,22 +69,18 @@ async def run_batches(
     ordered_batch_ids = [batch.id for batch in batches]
     next_due_at: dict[str, float] = {batch_id: 0.0 for batch_id in ordered_batch_ids}
     initial_state = {batch.id: _safe_current_state(batch) for batch in batches}
-    latest_status: dict[str, str] = {}
+    latest_state: dict[str, State] = dict(initial_state)
     latest_detail: dict[str, str] = {}
     for batch in batches:
         state = initial_state[batch.id]
-        latest_status[batch.id] = (
-            state.status if state is not None else batch.current_status
-        )
         latest_detail[batch.id] = _batch_detail_from_state(state)
 
     batch_rows = [
         (
             batch.id,
             f"Batch {batch.batch_number:03d}",
-            latest_status[batch.id],
+            latest_state[batch.id],
             latest_detail[batch.id],
-            _is_terminal_state(initial_state[batch.id]),
         )
         for batch in batches
     ]
@@ -104,13 +103,9 @@ async def run_batches(
 
                 instruction: ScheduleInstruction = await ctx.advance_batch(batch_id)
                 head_state = await ctx.get_batch_head_state(batch_id)
-                status = (
-                    head_state.status
-                    if head_state is not None
-                    else latest_status[batch_id]
-                )
-                detail = _batch_detail_from_state(head_state)
-                latest_status[batch_id] = status
+                state = head_state if head_state is not None else latest_state[batch_id]
+                detail = _batch_detail_from_state(state)
+                latest_state[batch_id] = state
                 if detail:
                     latest_detail[batch_id] = detail
                 advanced_any = True
@@ -118,9 +113,8 @@ async def run_batches(
                 if instruction.stop:
                     spinner.update(
                         batch_id,
-                        status,
+                        state,
                         detail=latest_detail[batch_id],
-                        done=True,
                     )
                     pending_batch_ids.remove(batch_id)
                     continue
@@ -129,7 +123,7 @@ async def run_batches(
                 if not should_sleep_after_each_batch:
                     countdown = 0
                 next_due_at[batch_id] = time.monotonic() + countdown
-                spinner.update(batch_id, status, detail=latest_detail[batch_id])
+                spinner.update(batch_id, state, detail=latest_detail[batch_id])
 
             if not pending_batch_ids:
                 break
