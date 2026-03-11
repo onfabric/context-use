@@ -4,12 +4,12 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from context_use import ContextUse
-from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
 from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
-from context_use.storage.disk import DiskStorage
+
+if TYPE_CHECKING:
+    from context_use.facade.core import ContextUse
 
 _DEFAULT_MODEL = OpenAIModel.GPT_5_2
 _DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
@@ -166,6 +166,10 @@ def save_config(cfg: Config) -> Path:
 def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
+    from context_use.facade.core import ContextUse
+    from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
+    from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+    from context_use.storage.disk import DiskStorage
     from context_use.store.sqlite import SqliteStore
 
     storage = DiskStorage(str(cfg.storage_path))
