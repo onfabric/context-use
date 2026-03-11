@@ -1,6 +1,6 @@
 [project]
 name = "context-use"
-version = "0.3.0"
+version = "0.3.1"
 description = "Turn your data exports into portable AI memory."
 readme = "README.md"
 license = "MIT"
