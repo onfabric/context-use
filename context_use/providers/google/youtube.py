@@ -17,7 +17,10 @@ from context_use.etl.payload.models import (
     Video,
 )
 from context_use.providers.google.base import _BaseGooglePipe
-from context_use.providers.google.schemas import GoogleYoutubeRecord
+from context_use.providers.google.schemas import (
+    GoogleYoutubeFileItem,
+    GoogleYoutubeRecord,
+)
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -58,6 +61,7 @@ class GoogleYoutubePipe(_BaseGooglePipe):
     interaction_type = "google_youtube"
     archive_path_pattern = "Portability/My Activity/YouTube/MyActivity.json"
     record_schema = GoogleYoutubeRecord  # type: ignore[assignment]
+    file_schema = GoogleYoutubeFileItem  # type: ignore[assignment]
 
     def extract_file(
         self,
