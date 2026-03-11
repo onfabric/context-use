@@ -8,6 +8,20 @@ description: Search the user's personal memories before responding to anything p
 Install: `pip install context-use`
 Requires OpenAI API key. Check: `context-use config show`. Set: `context-use config set-key <key>`.
 
+## When to Use
+
+Use this skill when the user:
+
+- References past conversations, projects, or events ("remember when…", "we talked about…", "last time…")
+- Mentions people, places, or habits from their life
+- Asks something where their personal history would improve the answer
+- Wants to record something about themselves ("remember that I…")
+- Asks about their preferences, routines, or interests
+- Wants to import or process a data export (ChatGPT, Claude, Instagram, Google)
+- Asks "what do you know about me?" or similar
+
+Do **not** use when the question is purely technical, general knowledge, or already answered in this session.
+
 ## Bootstrap (first time)
 
 If `context-use memories list --limit 1` returns nothing, the user hasn't ingested data yet.
