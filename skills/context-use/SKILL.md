@@ -1,6 +1,6 @@
 ---
 name: context-use
-description: Search the user's personal memories before responding to anything personal — past conversations, people, places, projects, habits, or events.
+description: Personal memory from real data exports (ChatGPT, Claude, Instagram, Google, etc.). Search and manage memories extracted from the user's data before responding to anything personal — past conversations, people, places, projects, habits, or events.
 ---
 
 # context-use — Personal Memory CLI
