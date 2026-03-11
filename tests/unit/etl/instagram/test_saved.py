@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from context_use.providers.instagram.saved import (
     InstagramSavedCollectionsPipe,
     InstagramSavedPostsPipe,
@@ -24,106 +22,44 @@ class TestInstagramSavedPostsPipe(PipeTestKit):
     pipe_class = InstagramSavedPostsPipe
     expected_extract_count = 1
     expected_transform_count = 1
+    fixture_data = INSTAGRAM_SAVED_POSTS_JSON
+    fixture_key = f"archive/{SAVED_POSTS_ARCHIVE_PATH}"
+    expected_fibre_kind = "AddToCollection"
 
-    @pytest.fixture()
-    def pipe_fixture(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
-        key = f"archive/{SAVED_POSTS_ARCHIVE_PATH}"
-        storage.write(key, json.dumps(INSTAGRAM_SAVED_POSTS_JSON).encode())
-        return storage, key
-
-    def test_record_fields(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        record = records[0]
+    def test_record_fields(self, extracted_records):
+        record = extracted_records[0]
         assert record.title == "synthetic_chef"
         assert record.href == "https://www.instagram.com/p/AAAAAAAAAAA/"
         assert record.timestamp == 1760598407
         assert record.source is not None
 
-    def test_payload_is_add_to_collection(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.payload["fibreKind"] == "AddToCollection"
-            assert row.payload["type"] == "Add"
-
-    def test_payload_target_is_favourites(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        target = rows[0].payload["target"]
+    def test_payload_target_is_favourites(self, transformed_rows):
+        target = transformed_rows[0].payload["target"]
         assert target["fibreKind"] == "CollectionFavourites"
         assert target["name"] == "Favourites"
 
-    def test_payload_object_is_post(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        obj = rows[0].payload["object"]
+    def test_payload_object_is_post(self, transformed_rows):
+        obj = transformed_rows[0].payload["object"]
         assert obj["type"] == "Note"  # FibrePost extends Note
         assert obj["fibreKind"] == "Post"
 
-    def test_payload_has_attributed_to(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        attr = rows[0].payload["object"]["attributedTo"]
+    def test_payload_has_attributed_to(self, transformed_rows):
+        attr = transformed_rows[0].payload["object"]["attributedTo"]
         assert attr["type"] == "Profile"
         assert attr["name"] == "synthetic_chef"
 
-    def test_payload_has_post_url(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        obj = rows[0].payload["object"]
+    def test_payload_has_post_url(self, transformed_rows):
+        obj = transformed_rows[0].payload["object"]
         assert "url" in obj
         assert "AAAAAAAAAAA" in obj["url"]
 
-    def test_preview_includes_saved(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        preview = rows[0].preview
+    def test_preview_includes_saved(self, transformed_rows):
+        preview = transformed_rows[0].preview
         assert "Saved" in preview
         assert "synthetic_chef" in preview
         assert "instagram" in preview.lower()
 
-    def test_asat_from_timestamp(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        assert rows[0].asat.year >= 2025
-
-    def test_interaction_type(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.interaction_type == "instagram_saved_posts"
-
     def test_skips_item_without_timestamp(self, tmp_path: Path):
-        """Items with no timestamp in 'Saved on' are skipped."""
         data = {
             "saved_saved_media": [
                 {
@@ -146,24 +82,14 @@ class TestInstagramSavedPostsPipe(PipeTestKit):
 
 class TestInstagramSavedCollectionsPipe(PipeTestKit):
     pipe_class = InstagramSavedCollectionsPipe
-    # Fixture has 2 collections: "Recipes" (2 items) + "Empty Collection" (0 items)
     expected_extract_count = 2
     expected_transform_count = 2
+    fixture_data = INSTAGRAM_SAVED_COLLECTIONS_JSON
+    fixture_key = f"archive/{SAVED_COLLECTIONS_ARCHIVE_PATH}"
+    expected_fibre_kind = "AddToCollection"
 
-    @pytest.fixture()
-    def pipe_fixture(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
-        key = f"archive/{SAVED_COLLECTIONS_ARCHIVE_PATH}"
-        storage.write(key, json.dumps(INSTAGRAM_SAVED_COLLECTIONS_JSON).encode())
-        return storage, key
-
-    def test_record_fields_first_item(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        record = records[0]
+    def test_record_fields_first_item(self, extracted_records):
+        record = extracted_records[0]
         assert record.collection_name == "Recipes"
         assert record.item_author == "synthetic_chef"
         assert record.item_href == "https://www.instagram.com/p/BBBBBBBBBBB/"
@@ -171,101 +97,41 @@ class TestInstagramSavedCollectionsPipe(PipeTestKit):
         assert record.collection_created_at == 1719946907
         assert record.source is not None
 
-    def test_record_fields_second_item(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        record = records[1]
+    def test_record_fields_second_item(self, extracted_records):
+        record = extracted_records[1]
         assert record.collection_name == "Recipes"
         assert record.item_author == "pasta_queen"
         assert record.item_href == "https://www.instagram.com/p/CCCCCCCCCCC/"
         assert record.item_added_at == 1719947200
 
-    def test_empty_collection_yields_no_records(self, pipe_fixture):
-        """'Empty Collection' header has no child items → no records."""
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        collection_names = {r.collection_name for r in records}
+    def test_empty_collection_yields_no_records(self, extracted_records):
+        collection_names = {r.collection_name for r in extracted_records}
         assert "Empty Collection" not in collection_names
 
-    def test_payload_is_add_to_collection(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.payload["fibreKind"] == "AddToCollection"
-            assert row.payload["type"] == "Add"
-
-    def test_payload_target_is_named_collection(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        target = rows[0].payload["target"]
+    def test_payload_target_is_named_collection(self, transformed_rows):
+        target = transformed_rows[0].payload["target"]
         assert target["fibreKind"] == "Collection"
         assert target["name"] == "Recipes"
-        assert "published" in target  # collection creation time
+        assert "published" in target
 
-    def test_payload_object_is_post_with_url(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        obj = rows[0].payload["object"]
+    def test_payload_object_is_post_with_url(self, transformed_rows):
+        obj = transformed_rows[0].payload["object"]
         assert obj["type"] == "Note"
         assert obj["fibreKind"] == "Post"
         assert "BBBBBBBBBBB" in obj["url"]
 
-    def test_payload_has_attributed_to(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        attr = rows[0].payload["object"]["attributedTo"]
+    def test_payload_has_attributed_to(self, transformed_rows):
+        attr = transformed_rows[0].payload["object"]["attributedTo"]
         assert attr["type"] == "Profile"
         assert attr["name"] == "synthetic_chef"
 
-    def test_preview_includes_saved_to(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        preview = rows[0].preview
+    def test_preview_includes_saved_to(self, transformed_rows):
+        preview = transformed_rows[0].preview
         assert "Saved to" in preview
         assert "Recipes" in preview
         assert "instagram" in preview.lower()
 
-    def test_asat_is_item_added_time(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        # First item added_at = 1719947100
-        assert rows[0].asat.year >= 2024
-
-    def test_interaction_type(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.interaction_type == "instagram_saved_collections"
-
     def test_orphan_items_skipped(self, tmp_path: Path):
-        """Items before any collection header are skipped."""
         data = {
             "saved_saved_collections": [
                 {
@@ -308,7 +174,6 @@ class TestInstagramSavedCollectionsPipe(PipeTestKit):
         assert records[0].item_author == "valid_user"
 
     def test_multiple_collections(self, tmp_path: Path):
-        """Items are paired with the correct collection header."""
         data = {
             "saved_saved_collections": [
                 {

@@ -3,38 +3,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from context_use.providers.instagram.direct_messages import InstagramDirectMessagesPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.instagram.conftest import INSTAGRAM_DM_INBOX_JSON
 
-INBOX_ARCHIVE_PATH = (
-    "your_instagram_activity/messages/inbox/bobsmith_1234567890/message_1.json"
-)
-
 
 class TestInstagramDirectMessagesPipe(PipeTestKit):
     pipe_class = InstagramDirectMessagesPipe
-    # 5 messages in the fixture; all have at least content or a share link
     expected_extract_count = 5
     expected_transform_count = 5
+    fixture_data = INSTAGRAM_DM_INBOX_JSON
+    fixture_key = (
+        "archive/your_instagram_activity/messages/inbox/"
+        "bobsmith_1234567890/message_1.json"
+    )
 
-    @pytest.fixture()
-    def pipe_fixture(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
-        key = f"archive/{INBOX_ARCHIVE_PATH}"
-        storage.write(key, json.dumps(INSTAGRAM_DM_INBOX_JSON).encode())
-        return storage, key
-
-    def test_record_fields(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        record = records[0]
+    def test_record_fields(self, extracted_records):
+        record = extracted_records[0]
         assert record.sender_name
         assert record.content is not None
         assert record.timestamp_ms > 0
@@ -42,14 +28,9 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
         assert record.title == "bobsmith"
         assert record.source is not None
 
-    def test_sender_identification(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        sent_messages = [r for r in records if not r.is_inbound]
-        received_messages = [r for r in records if r.is_inbound]
+    def test_sender_identification(self, extracted_records):
+        sent_messages = [r for r in extracted_records if not r.is_inbound]
+        received_messages = [r for r in extracted_records if r.is_inbound]
 
         assert len(sent_messages) == 2
         assert len(received_messages) == 3
@@ -58,45 +39,27 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
         for r in received_messages:
             assert r.sender_name == "bobsmith"
 
-    def test_send_and_receive_payloads(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        kinds = [r.payload["fibreKind"] for r in rows]
+    def test_send_and_receive_payloads(self, transformed_rows):
+        kinds = [r.payload["fibreKind"] for r in transformed_rows]
         assert "SendMessage" in kinds
         assert "ReceiveMessage" in kinds
 
-    def test_send_message_target_is_other_person(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        sent = [r for r in rows if r.payload["fibreKind"] == "SendMessage"]
+    def test_send_message_target_is_other_person(self, transformed_rows):
+        sent = [r for r in transformed_rows if r.payload["fibreKind"] == "SendMessage"]
         assert len(sent) == 2
         for row in sent:
             assert row.payload["target"]["name"] == "bobsmith"
 
-    def test_receive_message_actor_is_sender(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        received = [r for r in rows if r.payload["fibreKind"] == "ReceiveMessage"]
+    def test_receive_message_actor_is_sender(self, transformed_rows):
+        received = [
+            r for r in transformed_rows if r.payload["fibreKind"] == "ReceiveMessage"
+        ]
         assert len(received) == 3
         for row in received:
             assert row.payload["actor"]["name"] == "bobsmith"
 
-    def test_conversation_context_collection(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
+    def test_conversation_context_collection(self, transformed_rows):
+        for row in transformed_rows:
             obj = row.payload["object"]
             assert obj["type"] == "Note"
             ctx = obj["context"]
@@ -107,80 +70,46 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
             )
             assert ctx["name"] == "bobsmith"
 
-    def test_story_reply_content_and_url(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
+    def test_story_reply_content_and_url(self, transformed_rows):
         story_rows = [
-            r for r in rows if "Replied to story" in r.payload["object"]["content"]
+            r
+            for r in transformed_rows
+            if "Replied to story" in r.payload["object"]["content"]
         ]
         assert len(story_rows) == 1
         row = story_rows[0]
         assert "Sounds great" in row.payload["object"]["content"]
         assert "stories" in row.payload["object"]["url"]
 
-    def test_story_reply_share_fields_in_record(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        records = list(pipe.extract(task, storage))
-        story_records = [r for r in records if r.link and "/stories/" in r.link]
+    def test_story_reply_share_fields_in_record(self, extracted_records):
+        story_records = [
+            r for r in extracted_records if r.link and "/stories/" in r.link
+        ]
         assert len(story_records) == 2
         reply_with_text = next(r for r in story_records if r.content is not None)
         assert reply_with_text.content == "Sounds great, see you there!"
         assert reply_with_text.share_text is None
         assert reply_with_text.original_content_owner is None
 
-    def test_story_share_without_content(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
+    def test_story_share_without_content(self, transformed_rows):
         no_text_story_rows = [
             r
-            for r in rows
+            for r in transformed_rows
             if r.payload["object"].get("content") == "Replied to a story"
         ]
         assert len(no_text_story_rows) == 1
         assert "stories" in no_text_story_rows[0].payload["object"]["url"]
 
-    def test_shared_reel_with_caption_in_fixture(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
+    def test_shared_reel_with_caption_in_fixture(self, transformed_rows):
         shared_rows = [
             r
-            for r in rows
+            for r in transformed_rows
             if "Shared from @coffeecreator" in r.payload["object"].get("content", "")
         ]
         assert len(shared_rows) == 1
         obj = shared_rows[0].payload["object"]
         assert "great reel about coffee" in obj["content"]
         assert obj["url"] == "https://www.instagram.com/reel/ABC123/"
-
-    def test_asat_from_timestamp_ms(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.asat.year == 2024
-
-    def test_interaction_type(self, pipe_fixture):
-        storage, key = pipe_fixture
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        for row in rows:
-            assert row.interaction_type == "instagram_direct_messages"
 
     def test_skips_messages_without_content_or_share(self, tmp_path: Path):
         data = {
