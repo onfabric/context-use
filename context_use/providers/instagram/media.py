@@ -21,6 +21,9 @@ from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramMediaItem,
     InstagramMediaRecord,
+    InstagramPostsEntry,
+    InstagramReelsManifest,
+    InstagramStoriesManifest,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -31,16 +34,15 @@ logger = logging.getLogger(__name__)
 _VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".webm", ".srt")
 
 
-def _raw_items_to_records(
-    raw_items: list[dict],
+def _items_to_records(
+    items: list[InstagramMediaItem],
 ) -> Iterator[InstagramMediaRecord]:
-    for raw_item in raw_items:
-        item = InstagramMediaItem.model_validate(raw_item)
+    for item in items:
         yield InstagramMediaRecord(
             uri=item.uri,
             creation_timestamp=item.creation_timestamp,
             title=item.title,
-            source=json.dumps(raw_item, default=str),
+            source=item.model_dump_json(),
         )
 
 
@@ -97,8 +99,8 @@ class InstagramStoriesPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        yield from _raw_items_to_records(data.get("ig_stories", []))
+        manifest = InstagramStoriesManifest.model_validate_json(raw)
+        yield from _items_to_records(manifest.ig_stories)
 
 
 class InstagramReelsPipe(_InstagramMediaPipe):
@@ -111,13 +113,13 @@ class InstagramReelsPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
+        manifest = InstagramReelsManifest.model_validate_json(raw)
 
-        raw_items: list[dict] = []
-        for entry in data.get("ig_reels_media", []):
-            raw_items.extend(entry.get("media", []))
+        all_items: list[InstagramMediaItem] = []
+        for entry in manifest.ig_reels_media:
+            all_items.extend(entry.media)
 
-        yield from _raw_items_to_records(raw_items)
+        yield from _items_to_records(all_items)
 
 
 class InstagramPostsPipe(_InstagramMediaPipe):
@@ -130,13 +132,14 @@ class InstagramPostsPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        entries: list[dict] = json.loads(raw)
+        entries = json.loads(raw)
 
-        raw_items: list[dict] = []
+        all_items: list[InstagramMediaItem] = []
         for entry in entries:
-            raw_items.extend(entry.get("media", []))
+            validated = InstagramPostsEntry.model_validate(entry)
+            all_items.extend(validated.media)
 
-        yield from _raw_items_to_records(raw_items)
+        yield from _items_to_records(all_items)
 
 
 _MEDIA_MEMORY_CONFIG = MemoryConfig(
