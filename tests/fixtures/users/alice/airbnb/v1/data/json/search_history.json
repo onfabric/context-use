@@ -1,0 +1,55 @@
+[
+  {
+    "servicedata": [
+      {
+        "searchlocationlatitude": 41.3851,
+        "country": "Spain",
+        "checkoutdate": "2024-10-05",
+        "checkindate": "2024-10-01",
+        "timeofsearch": "2024-09-15 14:30:00",
+        "city": "Barcelona",
+        "numberofnights": 4,
+        "rawlocation": "Barcelona",
+        "numberofguests": 2,
+        "searchlocationlongitude": 2.1734,
+        "state": "Catalonia"
+      },
+      {
+        "searchlocationlatitude": 35.6762,
+        "country": "Japan",
+        "checkoutdate": "2025-03-27",
+        "checkindate": "2025-03-20",
+        "timeofsearch": "2025-01-10 09:00:00",
+        "city": "Tokyo",
+        "numberofnights": 7,
+        "rawlocation": "Shibuya, Tokyo, Japan",
+        "numberofguests": 4,
+        "searchlocationlongitude": 139.6503,
+        "state": "Tokyo"
+      },
+      {
+        "searchlocationlatitude": 48.8566,
+        "country": "France",
+        "checkoutdate": "2024-06-04",
+        "checkindate": "2024-06-01",
+        "timeofsearch": "2024-05-20 20:15:00",
+        "city": "Paris",
+        "numberofnights": 3,
+        "rawlocation": "Le Marais, Paris, France",
+        "numberofguests": 2,
+        "searchlocationlongitude": 2.3522,
+        "state": "Ile-de-France"
+      },
+      {
+        "searchlocationlatitude": 51.5074,
+        "country": "United Kingdom",
+        "timeofsearch": "2024-04-01 18:00:00",
+        "city": "London",
+        "rawlocation": "London",
+        "numberofguests": 1,
+        "searchlocationlongitude": -0.1278,
+        "state": "England"
+      }
+    ]
+  }
+]

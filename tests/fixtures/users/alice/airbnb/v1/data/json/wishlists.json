@@ -1,0 +1,95 @@
+[
+  {
+    "wishlistData": [
+      {
+        "numberOfInfants": 0,
+        "wishlistUserData": [
+          {"userId": "100000001", "wishlistId": 7000001}
+        ],
+        "numberOfChildren": 0,
+        "numberOfAdults": 2,
+        "numberOfPets": 0,
+        "inviteCode": "TESTCODE1",
+        "name": "Barcelona",
+        "wishlistItemData": [
+          {
+            "pets": 0,
+            "checkIn": "2024-10-01",
+            "infants": 0,
+            "wishlistItemId": 11000001,
+            "children": 0,
+            "pdpType": "HOME",
+            "adults": 2,
+            "checkOut": "2024-10-05",
+            "wishlistId": 7000001,
+            "pdpId": "444444444"
+          },
+          {
+            "pets": 0,
+            "checkIn": "2024-10-01",
+            "infants": 0,
+            "wishlistItemId": 11000002,
+            "children": 0,
+            "pdpType": "HOME",
+            "adults": 2,
+            "checkOut": "2024-10-05",
+            "wishlistId": 7000001,
+            "pdpId": "555555555"
+          }
+        ],
+        "isPrivate": true,
+        "wishlistId": 7000001,
+        "wishlistType": "WISHLIST"
+      },
+      {
+        "wishlistUserData": [
+          {"userId": "100000001", "wishlistId": 7000002}
+        ],
+        "numberOfAdults": 1,
+        "inviteCode": "TESTCODE2",
+        "name": "Similar stays for you",
+        "wishlistItemData": [
+          {
+            "checkIn": "2024-11-01",
+            "wishlistItemId": 11000010,
+            "pdpType": "HOME_AIRCOVER_ORIGINAL_CANCELED",
+            "checkOut": "2024-11-03",
+            "wishlistId": 7000002,
+            "pdpId": "666666666"
+          }
+        ],
+        "isPrivate": true,
+        "wishlistId": 7000002,
+        "wishlistType": "AIRCOVER_REBOOK_NON_LAST_MIN_BOT_CREATED"
+      },
+      {
+        "numberOfInfants": 0,
+        "wishlistUserData": [
+          {"userId": "100000001", "wishlistId": 7000003}
+        ],
+        "numberOfChildren": 0,
+        "numberOfAdults": 4,
+        "numberOfPets": 0,
+        "inviteCode": "TESTCODE3",
+        "name": "Tokyo",
+        "wishlistItemData": [
+          {
+            "pets": 0,
+            "checkIn": "2025-03-20",
+            "infants": 0,
+            "wishlistItemId": 11000020,
+            "children": 0,
+            "pdpType": "HOME",
+            "adults": 4,
+            "checkOut": "2025-03-27",
+            "wishlistId": 7000003,
+            "pdpId": "777777777"
+          }
+        ],
+        "isPrivate": false,
+        "wishlistId": 7000003,
+        "wishlistType": "WISHLIST"
+      }
+    ]
+  }
+]

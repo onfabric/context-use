@@ -14,6 +14,28 @@ ALICE_CLAUDE_DIR = FIXTURES_DIR / "users" / "alice" / "claude" / "v1"
 ALICE_GOOGLE_DIR = FIXTURES_DIR / "users" / "alice" / "google" / "v1"
 ALICE_INSTAGRAM_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v1"
 ALICE_INSTAGRAM_V0_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v0"
+ALICE_AIRBNB_DIR = FIXTURES_DIR / "users" / "alice" / "airbnb" / "v1"
+
+
+AIRBNB_MESSAGES: list[dict] = json.loads(
+    (ALICE_AIRBNB_DIR / "data" / "json" / "messages.json").read_text()
+)
+
+AIRBNB_RESERVATIONS: list[dict] = json.loads(
+    (ALICE_AIRBNB_DIR / "data" / "json" / "reservations.json").read_text()
+)
+
+AIRBNB_REVIEWS: list[dict] = json.loads(
+    (ALICE_AIRBNB_DIR / "data" / "json" / "reviews.json").read_text()
+)
+
+AIRBNB_WISHLISTS: list[dict] = json.loads(
+    (ALICE_AIRBNB_DIR / "data" / "json" / "wishlists.json").read_text()
+)
+
+AIRBNB_SEARCH_HISTORY: list[dict] = json.loads(
+    (ALICE_AIRBNB_DIR / "data" / "json" / "search_history.json").read_text()
+)
 
 
 CHATGPT_CONVERSATIONS: list[dict] = json.loads(

@@ -1,0 +1,76 @@
+[
+  {
+    "bookingSessions": [
+      {
+        "listingOwnerProfileUrl": "https://www.airbnb.com/users/show/200000001",
+        "createdAt": "2024-05-20T08:00:00.000Z",
+        "primaryGuestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "updatedAt": "2024-05-20T08:00:00.000Z"
+      }
+    ],
+    "reservations": [
+      {
+        "guestCurrency": "EUR",
+        "confirmationCode": "HMTEST0001",
+        "isBringingPets": false,
+        "guestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "numberOfGuests": 2,
+        "hostRespondeAt": "2024-05-20T08:01:00.000Z",
+        "numberOfInfants": 0,
+        "createdAt": "2024-05-20T08:00:00.000Z",
+        "hostingUrl": "https://www.airbnb.com/rooms/111111111",
+        "guestVatCountry": "GB",
+        "numberOfChildren": 0,
+        "numberOfAdults": 2,
+        "numberOfPets": 0,
+        "nights": 3,
+        "hostProfileUrl": "https://www.airbnb.com/users/show/200000001",
+        "startDate": "2024-06-01",
+        "status": "accepted",
+        "updatedAt": "2024-06-04T10:00:00.000Z"
+      },
+      {
+        "guestCurrency": "GBP",
+        "confirmationCode": "HMTEST0002",
+        "isBringingPets": false,
+        "guestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "numberOfGuests": 4,
+        "message": "Hi, we are a family of four visiting for the weekend.",
+        "hostRespondeAt": "2024-07-10T09:00:00.000Z",
+        "numberOfInfants": 0,
+        "createdAt": "2024-07-10T08:00:00.000Z",
+        "hostingUrl": "https://www.airbnb.com/rooms/222222222",
+        "guestVatCountry": "GB",
+        "numberOfChildren": 1,
+        "numberOfAdults": 3,
+        "numberOfPets": 0,
+        "nights": 2,
+        "hostProfileUrl": "https://www.airbnb.com/users/show/300000001",
+        "startDate": "2024-08-15",
+        "status": "accepted",
+        "updatedAt": "2024-08-17T12:00:00.000Z"
+      },
+      {
+        "guestCurrency": "EUR",
+        "confirmationCode": "HMTEST0003",
+        "isBringingPets": false,
+        "guestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "numberOfGuests": 1,
+        "message": "Business trip, arriving late evening.",
+        "numberOfInfants": 0,
+        "createdAt": "2024-09-01T12:00:00.000Z",
+        "hostingUrl": "https://www.airbnb.com/rooms/333333333",
+        "guestVatCountry": "GB",
+        "numberOfChildren": 0,
+        "numberOfAdults": 1,
+        "numberOfPets": 0,
+        "nights": 5,
+        "hostProfileUrl": "https://www.airbnb.com/users/show/400000001",
+        "startDate": "2024-09-15",
+        "status": "cancelled",
+        "canceledAt": "2024-09-05T10:00:00.000Z",
+        "updatedAt": "2024-09-05T10:00:00.000Z"
+      }
+    ]
+  }
+]

@@ -1,0 +1,174 @@
+[
+  {
+    "messageThreads": [
+      {
+        "messagesAndContents": [
+          {
+            "message": {
+              "senderPlatform": "Web",
+              "accountId": 100000001,
+              "createdAt": "2024-06-01T10:00:00.000Z",
+              "accountType": "user",
+              "id": 90000001,
+              "isPrivate": false,
+              "contentType": "TextAndReferenceContent"
+            },
+            "messageContent": {
+              "textAndReferenceContent": {
+                "referenceType": "home_booking",
+                "text": "Hi there, we are looking forward to our stay!",
+                "referenceId": "9000001"
+              }
+            }
+          },
+          {
+            "message": {
+              "createdAt": "2024-06-01T10:00:01.000Z",
+              "accountType": "service",
+              "id": 90000002,
+              "isPrivate": false,
+              "contentType": "TextAndReferenceContent"
+            },
+            "messageContent": {
+              "textAndReferenceContent": {
+                "referenceType": "home_booking",
+                "referenceId": "9000002"
+              }
+            }
+          },
+          {
+            "message": {
+              "accountId": 200000001,
+              "createdAt": "2024-06-01T10:05:00.000Z",
+              "accountType": "user",
+              "id": 90000003,
+              "isPrivate": false,
+              "contentType": "TextContent"
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Welcome! Check-in is at 3pm. Let me know if you need anything."
+              }
+            }
+          },
+          {
+            "message": {
+              "senderPlatform": "Web",
+              "accountId": 100000001,
+              "createdAt": "2024-06-01T11:00:00.000Z",
+              "accountType": "user",
+              "id": 90000004,
+              "isPrivate": false,
+              "contentType": "TextContent"
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Thanks! Is there parking available nearby?"
+              }
+            }
+          },
+          {
+            "message": {
+              "accountId": 200000001,
+              "createdAt": "2024-06-01T11:15:00.000Z",
+              "accountType": "user",
+              "id": 90000005,
+              "isPrivate": false,
+              "contentType": "TextContent"
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Yes, free street parking right outside."
+              }
+            }
+          }
+        ],
+        "readReceipts": [],
+        "id": 5000001,
+        "messageThreadParticipants": [
+          {
+            "accountId": 100000001,
+            "createdAt": "2024-06-01T10:00:00.000Z",
+            "groupParticipant": false,
+            "statusActive": true,
+            "accountType": "user",
+            "updatedAt": "2024-06-01T10:00:00.000Z"
+          },
+          {
+            "accountId": 200000001,
+            "statusActive": true,
+            "accountType": "user"
+          }
+        ],
+        "messageThreadUserTags": []
+      },
+      {
+        "messagesAndContents": [
+          {
+            "message": {
+              "senderPlatform": "Web",
+              "accountId": 100000001,
+              "createdAt": "2024-08-10T09:00:00.000Z",
+              "accountType": "user",
+              "id": 90000010,
+              "isPrivate": false,
+              "contentType": "TextContent"
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Hello, is the pool heated?"
+              }
+            }
+          },
+          {
+            "message": {
+              "accountId": 300000001,
+              "createdAt": "2024-08-10T09:30:00.000Z",
+              "accountType": "user",
+              "id": 90000011,
+              "isPrivate": false,
+              "contentType": "TextContent"
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Yes, the pool is heated year round."
+              }
+            }
+          },
+          {
+            "message": {
+              "accountId": 300000001,
+              "createdAt": "2024-08-10T09:30:05.000Z",
+              "accountType": "user",
+              "id": 90000012,
+              "isPrivate": true,
+              "contentType": "MessageContent"
+            },
+            "messageContent": {
+              "messageContentV2": {
+                "content": "MessageContent{value=StaticBulletinContent{body=System message}}"
+              }
+            }
+          }
+        ],
+        "id": 5000002,
+        "messageThreadParticipants": [
+          {
+            "accountId": 100000001,
+            "createdAt": "2024-08-10T09:00:00.000Z",
+            "groupParticipant": false,
+            "statusActive": true,
+            "accountType": "user",
+            "updatedAt": "2024-08-10T09:00:00.000Z"
+          },
+          {
+            "accountId": 300000001,
+            "statusActive": true,
+            "accountType": "user"
+          }
+        ],
+        "messageThreadUserTags": []
+      }
+    ]
+  }
+]
