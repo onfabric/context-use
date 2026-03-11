@@ -5,6 +5,7 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
+from context_use.batch.grouper import CollectionGrouper
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import (
@@ -14,6 +15,10 @@ from context_use.etl.payload.models import (
     FibreSendMessage,
     FibreTextMessage,
     Profile,
+)
+from context_use.memories.config import MemoryConfig
+from context_use.memories.prompt.conversation import (
+    HumanConversationMemoryPromptBuilder,
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
@@ -186,6 +191,9 @@ class InstagramDirectMessagesPipe(_InstagramDMPipe):
 declare_interaction(
     InteractionConfig(
         pipe=InstagramDirectMessagesPipe,
-        memory=None,
+        memory=MemoryConfig(
+            prompt_builder=HumanConversationMemoryPromptBuilder,
+            grouper=CollectionGrouper,
+        ),
     )
 )
