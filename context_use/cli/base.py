@@ -3,17 +3,121 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
+    from context_use.batch.manager import ScheduleInstruction
+    from context_use.batch.states import State
+    from context_use.config import Config
     from context_use.facade.types import PipelineResult
     from context_use.models.batch import Batch
+
+
+def _batch_detail_from_state(state: State | None) -> str:
+    if state is None:
+        return ""
+    from context_use.batch.states import FailedState
+    from context_use.memories.states import (
+        MemoryEmbedCompleteState,
+        MemoryGenerateCompleteState,
+    )
+
+    if isinstance(state, FailedState):
+        message = state.error_message.strip()
+        if not message:
+            return ""
+        return message.splitlines()[0]
+
+    if isinstance(state, MemoryGenerateCompleteState):
+        if state.memories_count > 0:
+            return f"{state.memories_count} memories generated"
+        if state.created_memory_ids:
+            return f"{len(state.created_memory_ids)} memories stored"
+        return ""
+
+    if isinstance(state, MemoryEmbedCompleteState):
+        return f"{state.embedded_count} memories embedded"
+
+    return ""
+
+
+def _safe_current_state(batch: Batch) -> State:
+    from context_use.batch.states import CreatedState
+
+    try:
+        return batch.parse_current_state()
+    except Exception:
+        return CreatedState()
+
+
+class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
+    _STYLES: dict[type[State], str] | None = None
+
+    @classmethod
+    def _ensure_memory_styles(cls) -> None:
+        if cls._STYLES is not None:
+            return
+        from context_use.memories.states import (
+            MemoryEmbedCompleteState,
+            MemoryEmbedPendingState,
+            MemoryGenerateCompleteState,
+            MemoryGeneratePendingState,
+        )
+
+        cls._STYLES = {
+            **out._base_styles(),
+            MemoryGeneratePendingState: "bright_cyan",
+            MemoryGenerateCompleteState: "chartreuse1",
+            MemoryEmbedPendingState: "bright_blue",
+            MemoryEmbedCompleteState: "chartreuse1",
+        }
+
+
+def _build_batch_rows(
+    batches: list[Batch],
+) -> list[tuple[str, str, State, str]]:
+    rows: list[tuple[str, str, State, str]] = []
+    for b in batches:
+        state = _safe_current_state(b)
+        rows.append(
+            (
+                b.id,
+                f"Batch {b.batch_number:03d}",
+                state,
+                _batch_detail_from_state(state),
+            )
+        )
+    return rows
+
+
+def create_memory_reporter(batches: list[Batch]) -> out.BatchReporter:
+    rows = _build_batch_rows(batches)
+    if sys.stdout.isatty():
+        MemoryBatchStatusSpinner._ensure_memory_styles()
+        return MemoryBatchStatusSpinner(rows)
+    return out.LogBatchReporter(rows)
+
+
+async def _advance_and_update(
+    ctx: ContextUse,
+    batch_id: str,
+    reporter: out.BatchReporter,
+) -> ScheduleInstruction:
+    instruction = await ctx.advance_batch(batch_id)
+    batch = await ctx.get_batch(batch_id)
+    if batch is not None:
+        try:
+            state = batch.parse_current_state()
+            reporter.update(batch_id, state, detail=_batch_detail_from_state(state))
+        except Exception:
+            out.warn(f"Error parsing state for batch {batch_id}")
+    return instruction
 
 
 async def run_batches(
@@ -22,17 +126,39 @@ async def run_batches(
     *,
     should_sleep_after_each_batch: bool = True,
 ) -> None:
-    """Drive all batches to completion, polling until each stops."""
-    pending = [b.id for b in batches]
-    while pending:
-        still_pending = []
-        for batch_id in pending:
-            instruction = await ctx.advance_batch(batch_id)
-            if not instruction.stop:
-                if should_sleep_after_each_batch and instruction.countdown:
-                    await asyncio.sleep(instruction.countdown)
-                still_pending.append(batch_id)
-        pending = still_pending
+    if not batches:
+        return
+
+    next_due: dict[str, float] = {b.id: 0.0 for b in batches}
+
+    with create_memory_reporter(batches) as reporter:
+        pending = reporter.pending_ids
+        while pending:
+            advanced_any = False
+
+            for batch in batches:
+                batch_id = batch.id
+                if batch_id not in pending:
+                    continue
+                if next_due[batch_id] > time.monotonic():
+                    continue
+
+                instruction = await _advance_and_update(ctx, batch_id, reporter)
+                advanced_any = True
+
+                if instruction.stop:
+                    pending.discard(batch_id)
+                    continue
+
+                countdown = float(instruction.countdown or 0)
+                if not should_sleep_after_each_batch:
+                    countdown = 0
+                next_due[batch_id] = time.monotonic() + countdown
+
+            if not pending:
+                break
+
+            await asyncio.sleep(0 if advanced_any else 0.1)
 
 
 def providers() -> list[str]:
@@ -66,6 +192,8 @@ def prompt_api_key(cfg: Config) -> Config:
     Skipped when a custom ``api_base`` is already set.
     Calls ``sys.exit(1)`` if the user does not enter a key.
     """
+    from context_use.config import save_config
+
     if cfg.uses_local_api:
         return cfg
 
@@ -354,6 +482,8 @@ class ContextCommand(BaseCommand, ABC):
     llm_mode: ClassVar[str] = "batch"
 
     async def execute(self, args: argparse.Namespace) -> None:
+        from context_use.config import build_ctx, load_config
+
         cfg = load_config()
         cfg = self._prepare(cfg, args)
         llm_mode = "sync" if cfg.uses_local_api else self.llm_mode

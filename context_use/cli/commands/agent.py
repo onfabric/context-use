@@ -6,13 +6,15 @@ from typing import TYPE_CHECKING, ClassVar
 from context_use.cli import output as out
 from context_use.cli.base import ApiCommand, CommandGroup
 from context_use.config import Config
-from context_use.ext.adk.agent.runner import AdkAgentBackend
 
 if TYPE_CHECKING:
     from context_use import ContextUse
+    from context_use.ext.adk.agent.runner import AdkAgentBackend
 
 
 def _build_agent_backend(cfg: Config) -> AdkAgentBackend:
+    from context_use.ext.adk.agent.runner import AdkAgentBackend
+
     return AdkAgentBackend(
         api_key=cfg.openai_api_key or "",
         model=cfg.openai_model,
