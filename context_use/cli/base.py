@@ -57,8 +57,12 @@ def _safe_current_state(batch: Batch) -> State:
 
 
 class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
+    _STYLES: dict[type[State], str] = {**out.BatchStatusSpinner._STYLES}
+
     @classmethod
-    def from_batches(cls, batches: list[Batch]) -> MemoryBatchStatusSpinner:
+    def _ensure_memory_styles(cls) -> None:
+        if len(cls._STYLES) > len(out.BatchStatusSpinner._STYLES):
+            return
         from context_use.memories.states import (
             MemoryEmbedCompleteState,
             MemoryEmbedPendingState,
@@ -66,32 +70,49 @@ class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
             MemoryGeneratePendingState,
         )
 
-        rows: list[tuple[str, str, State, str]] = []
-        for b in batches:
-            state = _safe_current_state(b)
-            detail = _batch_detail_from_state(state)
-            rows.append((b.id, f"Batch {b.batch_number:03d}", state, detail))
-
-        spinner = cls(rows)
-        spinner._STYLES = {
-            **spinner._STYLES,
+        cls._STYLES = {
+            **cls._STYLES,
             MemoryGeneratePendingState: "bright_cyan",
             MemoryGenerateCompleteState: "spring_green3",
             MemoryEmbedPendingState: "bright_blue",
             MemoryEmbedCompleteState: "green",
         }
-        return spinner
+
+
+def _build_batch_rows(
+    batches: list[Batch],
+) -> list[tuple[str, str, State, str]]:
+    rows: list[tuple[str, str, State, str]] = []
+    for b in batches:
+        state = _safe_current_state(b)
+        rows.append(
+            (
+                b.id,
+                f"Batch {b.batch_number:03d}",
+                state,
+                _batch_detail_from_state(state),
+            )
+        )
+    return rows
+
+
+def create_memory_reporter(batches: list[Batch]) -> out.BatchReporter:
+    rows = _build_batch_rows(batches)
+    if sys.stdout.isatty():
+        MemoryBatchStatusSpinner._ensure_memory_styles()
+        return MemoryBatchStatusSpinner(rows)
+    return out.LogBatchReporter(rows)
 
 
 async def _advance_and_update(
     ctx: ContextUse,
     batch_id: str,
-    spinner: out.BatchStatusSpinner,
+    reporter: out.BatchReporter,
 ) -> ScheduleInstruction:
     instruction = await ctx.advance_batch(batch_id)
     head = await ctx.get_batch_head_state(batch_id)
     if head is not None:
-        spinner.update(batch_id, head, detail=_batch_detail_from_state(head))
+        reporter.update(batch_id, head, detail=_batch_detail_from_state(head))
     return instruction
 
 
@@ -106,8 +127,8 @@ async def run_batches(
 
     next_due: dict[str, float] = {b.id: 0.0 for b in batches}
 
-    with MemoryBatchStatusSpinner.from_batches(batches) as spinner:
-        pending = spinner.pending_ids
+    with create_memory_reporter(batches) as reporter:
+        pending = reporter.pending_ids
         while pending:
             advanced_any = False
 
@@ -118,7 +139,7 @@ async def run_batches(
                 if next_due[batch_id] > time.monotonic():
                     continue
 
-                instruction = await _advance_and_update(ctx, batch_id, spinner)
+                instruction = await _advance_and_update(ctx, batch_id, reporter)
                 advanced_any = True
 
                 if instruction.stop:

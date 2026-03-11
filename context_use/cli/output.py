@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
 from dataclasses import dataclass
 from types import TracebackType
+from typing import Protocol, Self
 
 from rich.console import Console, RenderableType
 from rich.live import Live
@@ -19,6 +21,8 @@ from context_use.batch.states import (
     State,
     StopState,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _supports_color() -> bool:
@@ -113,6 +117,61 @@ class _Row:
     detail: str = ""
 
 
+class BatchReporter(Protocol):
+    @property
+    def pending_ids(self) -> set[str]: ...
+    def update(self, batch_id: str, state: State, *, detail: str = "") -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None: ...
+
+
+class LogBatchReporter:
+    def __init__(self, batches: list[tuple[str, str, State, str]]) -> None:
+        self._rows: dict[str, _Row] = {}
+        for batch_id, label, state, detail in batches:
+            self._rows[batch_id] = _Row(label=label, state=state, detail=detail)
+
+    def __enter__(self) -> LogBatchReporter:
+        for batch_id, row in self._rows.items():
+            logger.info("[%s] %s — %s", batch_id, row.label, row.state.status)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        pass
+
+    @property
+    def pending_ids(self) -> set[str]:
+        return {
+            batch_id
+            for batch_id, row in self._rows.items()
+            if not isinstance(row.state, StopState)
+        }
+
+    def update(self, batch_id: str, state: State, *, detail: str = "") -> None:
+        row = self._rows.get(batch_id)
+        if row is None:
+            return
+        effective_detail = detail or row.detail
+        if row.state == state and row.detail == effective_detail:
+            return
+        row.state = state
+        row.detail = effective_detail
+        msg = f"[{batch_id}] {row.label} — {state.status}"
+        if effective_detail:
+            msg += f" ({effective_detail})"
+        logger.info(msg)
+
+
 class BatchStatusSpinner:
     _STYLES: dict[type[State], str] = {
         CreatedState: "cyan",
@@ -131,7 +190,7 @@ class BatchStatusSpinner:
         self._console = Console()
         self._live: Live | None = None
 
-    def __enter__(self) -> BatchStatusSpinner:
+    def __enter__(self) -> Self:
         self._live = Live(
             self._render(),
             console=self._console,
