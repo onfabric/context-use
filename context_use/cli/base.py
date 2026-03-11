@@ -13,6 +13,7 @@ from context_use.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
+    from context_use.batch.manager import ScheduleInstruction
     from context_use.batch.states import State
     from context_use.facade.types import PipelineResult
     from context_use.models.batch import Batch
@@ -74,6 +75,18 @@ class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
         return cls(rows)
 
 
+async def _advance_and_update(
+    ctx: ContextUse,
+    batch_id: str,
+    spinner: out.BatchStatusSpinner,
+) -> ScheduleInstruction:
+    instruction = await ctx.advance_batch(batch_id)
+    head = await ctx.get_batch_head_state(batch_id)
+    if head is not None:
+        spinner.update(batch_id, head, detail=_batch_detail_from_state(head))
+    return instruction
+
+
 async def run_batches(
     ctx: ContextUse,
     batches: list[Batch],
@@ -97,12 +110,7 @@ async def run_batches(
                 if next_due[batch_id] > time.monotonic():
                     continue
 
-                instruction = await ctx.advance_batch(batch_id)
-                head = await ctx.get_batch_head_state(batch_id)
-                if head is not None:
-                    spinner.update(
-                        batch_id, head, detail=_batch_detail_from_state(head)
-                    )
+                instruction = await _advance_and_update(ctx, batch_id, spinner)
                 advanced_any = True
 
                 if instruction.stop:
