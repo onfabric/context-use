@@ -333,3 +333,21 @@ class InstagramMediaRecord(BaseModel):
     title: str = ""
     media_type: str  # "Image" or "Video", inferred from URI extension
     source: str | None = None
+
+
+class InstagramDirectMessageRecord(BaseModel):
+    """Normalised record for one Instagram direct message.
+
+    ``is_inbound`` is inferred.
+    """
+
+    sender_name: str
+    content: str | None
+    link: str | None = None
+    share_text: str | None = None
+    original_content_owner: str | None = None
+    timestamp_ms: int
+    thread_path: str
+    title: str
+    is_inbound: bool
+    source: str | None = None

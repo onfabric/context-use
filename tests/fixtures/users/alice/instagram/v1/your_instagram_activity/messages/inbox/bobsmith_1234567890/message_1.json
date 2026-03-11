@@ -31,6 +31,27 @@
       },
       "is_geoblocked_for_viewer": false,
       "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "bobsmith",
+      "timestamp_ms": 1724800000000,
+      "content": "bobsmith sent an attachment.",
+      "share": {
+        "link": "https://www.instagram.com/reel/ABC123/",
+        "share_text": "This is a great reel about coffee",
+        "original_content_owner": "coffeecreator"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
+    },
+    {
+      "sender_name": "bobsmith",
+      "timestamp_ms": 1724700000000,
+      "share": {
+        "link": "https://www.instagram.com/stories/coffeeshop/9876543210987654321"
+      },
+      "is_geoblocked_for_viewer": false,
+      "is_unsent_image_by_messenger_kid_parent": false
     }
   ],
   "title": "bobsmith",
@@ -38,4 +59,3 @@
   "thread_path": "inbox/bobsmith_1234567890",
   "magic_words": []
 }
-

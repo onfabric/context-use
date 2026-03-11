@@ -292,6 +292,17 @@ INSTAGRAM_SAVED_COLLECTIONS_JSON: dict = json.loads(
     ).read_text()
 )
 
+INSTAGRAM_DM_INBOX_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR
+        / "your_instagram_activity"
+        / "messages"
+        / "inbox"
+        / "bobsmith_1234567890"
+        / "message_1.json"
+    ).read_text()
+)
+
 
 def build_zip(files: dict[str, bytes | str]) -> bytes:
     """Create an in-memory zip archive from a dict of {path: content}."""
