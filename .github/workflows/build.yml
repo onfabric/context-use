@@ -55,4 +55,6 @@ jobs:
           uv pip install dist/*.whl
 
       - name: Verify CLI
-        run: uv run context-use --version
+        run: |
+          source .venv/bin/activate
+          context-use --version
