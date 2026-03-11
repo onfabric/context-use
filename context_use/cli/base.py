@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import sys
+import time
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
@@ -12,8 +13,46 @@ from context_use.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
+    from context_use.batch.states import State
     from context_use.facade.types import PipelineResult
     from context_use.models.batch import Batch
+
+
+def _batch_detail_from_state(state: State | None) -> str:
+    if state is None:
+        return ""
+    from context_use.batch.states import FailedState
+    from context_use.memories.states import (
+        MemoryEmbedCompleteState,
+        MemoryGenerateCompleteState,
+    )
+
+    if isinstance(state, FailedState):
+        message = state.error_message.strip()
+        if not message:
+            return ""
+        return message.splitlines()[0]
+
+    if isinstance(state, MemoryGenerateCompleteState):
+        if state.memories_count > 0:
+            return f"{state.memories_count} memories generated"
+        if state.created_memory_ids:
+            return f"{len(state.created_memory_ids)} memories stored"
+        return ""
+
+    if isinstance(state, MemoryEmbedCompleteState):
+        return f"{state.embedded_count} memories embedded"
+
+    return ""
+
+
+def _safe_current_state(batch: Batch) -> State:
+    from context_use.batch.states import CreatedState
+
+    try:
+        return batch.parse_current_state()
+    except Exception:
+        return CreatedState()
 
 
 async def run_batches(
@@ -22,17 +61,62 @@ async def run_batches(
     *,
     should_sleep_after_each_batch: bool = True,
 ) -> None:
-    """Drive all batches to completion, polling until each stops."""
-    pending = [b.id for b in batches]
-    while pending:
-        still_pending = []
-        for batch_id in pending:
-            instruction = await ctx.advance_batch(batch_id)
-            if not instruction.stop:
-                if should_sleep_after_each_batch and instruction.countdown:
-                    await asyncio.sleep(instruction.countdown)
-                still_pending.append(batch_id)
-        pending = still_pending
+    """Drive all batches to completion with a live status spinner."""
+    from context_use.batch.manager import ScheduleInstruction
+    from context_use.batch.states import StopState
+
+    if not batches:
+        return
+
+    ordered_ids = [b.id for b in batches]
+    next_due: dict[str, float] = {bid: 0.0 for bid in ordered_ids}
+    states: dict[str, State] = {b.id: _safe_current_state(b) for b in batches}
+    details: dict[str, str] = {
+        bid: _batch_detail_from_state(states[bid]) for bid in ordered_ids
+    }
+
+    rows = [
+        (b.id, f"Batch {b.batch_number:03d}", states[b.id], details[b.id])
+        for b in batches
+    ]
+    pending: set[str] = {
+        bid for bid in ordered_ids if not isinstance(states[bid], StopState)
+    }
+
+    with out.BatchStatusSpinner(rows) as spinner:
+        while pending:
+            advanced_any = False
+
+            for bid in ordered_ids:
+                if bid not in pending:
+                    continue
+                if next_due[bid] > time.monotonic():
+                    continue
+
+                instruction: ScheduleInstruction = await ctx.advance_batch(bid)
+                head = await ctx.get_batch_head_state(bid)
+                state = head if head is not None else states[bid]
+                detail = _batch_detail_from_state(state)
+                states[bid] = state
+                if detail:
+                    details[bid] = detail
+                advanced_any = True
+
+                if instruction.stop:
+                    spinner.update(bid, state, detail=details[bid])
+                    pending.discard(bid)
+                    continue
+
+                countdown = float(instruction.countdown or 0)
+                if not should_sleep_after_each_batch:
+                    countdown = 0
+                next_due[bid] = time.monotonic() + countdown
+                spinner.update(bid, state, detail=details[bid])
+
+            if not pending:
+                break
+
+            await asyncio.sleep(0 if advanced_any else 0.1)
 
 
 def providers() -> list[str]:

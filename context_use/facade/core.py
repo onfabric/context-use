@@ -26,6 +26,7 @@ from context_use.store.base import MemorySearchResult
 if TYPE_CHECKING:
     from datetime import date, datetime
 
+    from context_use.batch.states import State
     from context_use.llm.base import BaseLLMClient
     from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
@@ -246,6 +247,16 @@ class ContextUse:
         manager_cls = get_manager_for_category(category)
         manager = manager_cls(batch=batch, ctx=self._batch_context())
         return await manager.try_advance_state()
+
+    async def get_batch_head_state(self, batch_id: str) -> State | None:
+        """Return the parsed head state of a batch, or ``None`` if not found."""
+        batch = await self._store.get_batch(batch_id)
+        if batch is None:
+            return None
+        try:
+            return batch.parse_current_state()
+        except Exception:
+            return None
 
     # ── Tools ────────────────────────────────────────────────────────
 
