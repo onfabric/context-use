@@ -26,6 +26,7 @@ from context_use.memories.prompt.conversation import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.chatgpt.schemas import (
     PROVIDER,
+    ChatGPTConversation,
     ChatGPTConversationRecord,
     ChatGPTMessage,
 )
@@ -107,13 +108,13 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
         stream = storage.open_stream(source_uri)
 
         try:
-            for conversation in ijson.items(stream, "item"):
-                conversation_title = conversation.get("title")
-                conversation_id = conversation.get("conversation_id")
-                mapping = conversation.get("mapping", {})
+            for raw_conversation in ijson.items(stream, "item"):
+                conversation = ChatGPTConversation.model_validate(
+                    raw_conversation,
+                )
 
-                for _msg_id, mapping_item in mapping.items():
-                    message_data = mapping_item.get("message")
+                for _msg_id, node in conversation.mapping.items():
+                    message_data = node.message
                     if not message_data:
                         continue
                     if "author" not in message_data or "content" not in message_data:
@@ -128,7 +129,6 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
                     except Exception:
                         continue
 
-                    # Skip roles we can't map to a payload
                     if parsed.author.role not in ("user", "assistant"):
                         continue
                     if not parsed.content.parts or not parsed.content.parts[0]:
@@ -137,7 +137,6 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
                     if not text.strip():
                         continue
 
-                    # ijson may return Decimal – coerce for JSON serialization
                     create_time = parsed.create_time
                     if isinstance(create_time, Decimal):
                         create_time = float(create_time)
@@ -146,8 +145,8 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
                         role=parsed.author.role,
                         content=text,
                         create_time=create_time,
-                        conversation_id=conversation_id,
-                        conversation_title=conversation_title,
+                        conversation_id=conversation.conversation_id,
+                        conversation_title=conversation.title,
                         source=json.dumps(message_data, default=str),
                     )
         finally:
