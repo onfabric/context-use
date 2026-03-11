@@ -16,7 +16,7 @@ def _build_agent_backend(cfg: Config) -> AdkAgentBackend:
     return AdkAgentBackend(
         api_key=cfg.openai_api_key or "",
         model=cfg.openai_model,
-        api_base=cfg.api_base,
+        base_url=cfg.api_base,
     )
 
 

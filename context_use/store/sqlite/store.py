@@ -37,9 +37,15 @@ logger = logging.getLogger(__name__)
 BULK_INSERT_BATCH_SIZE = 500
 
 
+_DEFAULT_EMBEDDING_DIMENSIONS = 3072
+
+
 class SqliteStore(Store):
-    def __init__(self, path: str) -> None:
+    def __init__(
+        self, path: str, embedding_dimensions: int = _DEFAULT_EMBEDDING_DIMENSIONS
+    ) -> None:
         self._path = path
+        self._embedding_dimensions = embedding_dimensions
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
 
@@ -66,7 +72,7 @@ class SqliteStore(Store):
         await self._db.load_extension(sqlite_vec.loadable_path())
         await self._db.enable_load_extension(False)
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(self._embedding_dimensions):
             await self._db.execute(stmt)
         await self._db.commit()
 
@@ -84,7 +90,7 @@ class SqliteStore(Store):
         await db.execute("PRAGMA foreign_keys=ON")
         await db.commit()
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(self._embedding_dimensions):
             await db.execute(stmt)
         await db.commit()
 

@@ -64,11 +64,11 @@ class AdkAgentBackend(AgentBackend):
         *,
         api_key: str,
         model: str,
-        api_base: str = "",
+        base_url: str = "",
     ) -> None:
         kwargs: dict = {"model": model, "api_key": api_key}
-        if api_base:
-            kwargs["api_base"] = api_base
+        if base_url:
+            kwargs["base_url"] = base_url
         self._model = LiteLlm(**kwargs)
 
     async def run(

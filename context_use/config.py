@@ -12,6 +12,7 @@ from context_use.storage.disk import DiskStorage
 
 _DEFAULT_MODEL = "openai/gpt-5.2"
 _DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-large"
+_DEFAULT_EMBEDDING_DIMENSIONS = 3072
 _DEFAULT_DATA_DIR = Path("./context-use-data")
 
 ConfigSource = Literal["env", "file", "default"]
@@ -39,6 +40,13 @@ _FIELDS: list[_FieldSpec] = [
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
     _FieldSpec("api_base", "openai", "base_url", "OPENAI_API_BASE"),
+    _FieldSpec(
+        "embedding_dimensions",
+        "openai",
+        "embedding_dimensions",
+        "EMBEDDING_DIMENSIONS",
+        int,
+    ),
     _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
@@ -57,6 +65,8 @@ class Config:
     When set, LiteLLM routes all requests to this endpoint.
     Example: ``http://localhost:1234/v1``
     """
+
+    embedding_dimensions: int = _DEFAULT_EMBEDDING_DIMENSIONS
 
     database_path: str = "context_use.db"
     """
@@ -152,6 +162,8 @@ def save_config(cfg: Config) -> Path:
         lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
     if cfg.api_base:
         lines.append(f'base_url = "{cfg.api_base}"')
+    if cfg.embedding_dimensions != _DEFAULT_EMBEDDING_DIMENSIONS:
+        lines.append(f"embedding_dimensions = {cfg.embedding_dimensions}")
     lines.append("")
 
     if cfg.database_path:
@@ -181,7 +193,7 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     from context_use.store.sqlite import SqliteStore
 
     storage = DiskStorage(str(cfg.storage_path))
-    store = SqliteStore(path=cfg.db_path)
+    store = SqliteStore(path=cfg.db_path, embedding_dimensions=cfg.embedding_dimensions)
 
     api_key = cfg.openai_api_key or ""
 
@@ -190,7 +202,7 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
             model=cfg.openai_model,
             api_key=api_key,
             embedding_model=cfg.openai_embedding_model,
-            api_base=cfg.api_base,
+            base_url=cfg.api_base,
         )
     else:
         llm_client = LiteLLMBatchClient(

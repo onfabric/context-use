@@ -65,19 +65,19 @@ class _LiteLLMBase(BaseLLMClient):
         model: str,
         api_key: str,
         embedding_model: str,
-        api_base: str = "",
+        base_url: str = "",
     ) -> None:
         self._model = model
         self._embedding_model = embedding_model
         self._api_key = api_key
-        self._api_base = api_base or None
+        self._base_url = base_url or None
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
             api_key=self._api_key,
-            api_base=self._api_base,
+            base_url=self._base_url,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return text.strip()
@@ -89,7 +89,7 @@ class _LiteLLMBase(BaseLLMClient):
             messages=_build_messages(prompt),
             response_format=_build_response_format(prompt),
             api_key=self._api_key,
-            api_base=self._api_base,
+            base_url=self._base_url,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return json.loads(text.strip())
@@ -107,7 +107,7 @@ class _LiteLLMBase(BaseLLMClient):
             model=self._embedding_model,
             input=[text],
             api_key=self._api_key,
-            api_base=self._api_base,
+            api_base=self._base_url,
         )
         return response.data[0]["embedding"]
 
@@ -395,9 +395,9 @@ class LiteLLMSyncClient(_LiteLLMBase):
         model: str,
         api_key: str,
         embedding_model: str,
-        api_base: str = "",
+        base_url: str = "",
     ) -> None:
-        super().__init__(model, api_key, embedding_model, api_base=api_base)
+        super().__init__(model, api_key, embedding_model, base_url=base_url)
         self._gen_cache: dict[str, BatchResults] = {}  # type: ignore[type-arg]
         self._embed_cache: dict[str, EmbedBatchResults] = {}
 
@@ -449,7 +449,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
                     model=self._embedding_model,
                     input=[item.text],
                     api_key=self._api_key,
-                    api_base=self._api_base,
+                    api_base=self._base_url,
                 )
                 results[item.item_id] = response.data[0]["embedding"]
             except Exception:

@@ -48,6 +48,11 @@ class ConfigShowCommand(BaseCommand):
         else:
             out.kv("API base URL", f"{out.dim('default (OpenAI)')} {badge('api_base')}")
 
+        out.kv(
+            "Embedding dimensions",
+            f"{cfg.embedding_dimensions} {badge('embedding_dimensions')}",
+        )
+
         out.kv("Store", f"sqlite ({cfg.db_path}) {badge('database_path')}")
         out.kv("Data directory", f"{cfg.data_dir} {badge('data_dir')}")
 
