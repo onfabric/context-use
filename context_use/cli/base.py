@@ -57,14 +57,6 @@ def _safe_current_state(batch: Batch) -> State:
 
 
 class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
-    _STATUS_STYLES: dict[str, str] = {
-        **out.BatchStatusSpinner._STATUS_STYLES,
-        "MEMORY_GENERATE_PENDING": "bright_cyan",
-        "MEMORY_GENERATE_COMPLETE": "spring_green3",
-        "MEMORY_EMBED_PENDING": "bright_blue",
-        "MEMORY_EMBED_COMPLETE": "green",
-    }
-
     @classmethod
     def from_batches(cls, batches: list[Batch]) -> MemoryBatchStatusSpinner:
         rows: list[tuple[str, str, State, str]] = []

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import random
 from datetime import datetime
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import Field
 
@@ -31,6 +31,7 @@ class MemoryGeneratePendingState(CurrentState):
     """LLM batch job submitted — polling for results."""
 
     status: Literal["MEMORY_GENERATE_PENDING"] = "MEMORY_GENERATE_PENDING"
+    style: ClassVar[str] = "bright_cyan"
     job_key: str
     submitted_at: datetime = Field(default_factory=_utc_now)
 
@@ -44,6 +45,7 @@ class MemoryGenerateCompleteState(NextState):
     """LLM results received and stored in tapestry_memories."""
 
     status: Literal["MEMORY_GENERATE_COMPLETE"] = "MEMORY_GENERATE_COMPLETE"
+    style: ClassVar[str] = "spring_green3"
     completed_at: datetime = Field(default_factory=_utc_now)
     memories_count: int = 0
     created_memory_ids: list[str] = Field(default_factory=list)
@@ -53,6 +55,7 @@ class MemoryEmbedPendingState(CurrentState):
     """Embedding batch job submitted — polling for results."""
 
     status: Literal["MEMORY_EMBED_PENDING"] = "MEMORY_EMBED_PENDING"
+    style: ClassVar[str] = "bright_blue"
     job_key: str
     submitted_at: datetime = Field(default_factory=_utc_now)
 
@@ -66,6 +69,7 @@ class MemoryEmbedCompleteState(NextState):
     """Embeddings received and stored on tapestry_memories."""
 
     status: Literal["MEMORY_EMBED_COMPLETE"] = "MEMORY_EMBED_COMPLETE"
+    style: ClassVar[str] = "green"
     completed_at: datetime = Field(default_factory=_utc_now)
     embedded_count: int = 0
 

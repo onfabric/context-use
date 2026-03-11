@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from datetime import UTC, datetime
-from typing import Literal
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -20,12 +20,14 @@ class State(BaseModel):
     """Base marker for all states.
 
     Concrete subclasses MUST define a ``status`` Pydantic field
-    (typically ``status: Literal[...] = ...``).
+    (typically ``status: Literal[...] = ...``) and a ``style``
+    class variable for spinner display.
     """
 
     model_config = ConfigDict(frozen=True)
 
     status: str
+    style: ClassVar[str] = "bright_blue"
 
 
 class CurrentState(State):
@@ -80,6 +82,7 @@ class CreatedState(NextState):
     """Batch created — ready for processing."""
 
     status: Literal["CREATED"] = "CREATED"
+    style: ClassVar[str] = "cyan"
     timestamp: datetime = Field(default_factory=_utc_now)
 
 
@@ -87,6 +90,7 @@ class CompleteState(StopState):
     """Batch processing finished successfully."""
 
     status: Literal["COMPLETE"] = "COMPLETE"
+    style: ClassVar[str] = "bold green"
     completed_at: datetime = Field(default_factory=_utc_now)
 
 
@@ -94,6 +98,7 @@ class SkippedState(StopState):
     """Batch skipped — nothing to process."""
 
     status: Literal["SKIPPED"] = "SKIPPED"
+    style: ClassVar[str] = "yellow"
     skipped_at: datetime = Field(default_factory=_utc_now)
     reason: str
 
@@ -102,6 +107,7 @@ class FailedState(StopState):
     """Batch failed with an error."""
 
     status: Literal["FAILED"] = "FAILED"
+    style: ClassVar[str] = "red"
     error_message: str
     failed_at: datetime = Field(default_factory=_utc_now)
     previous_status: str

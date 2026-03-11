@@ -107,13 +107,6 @@ class _Row:
 
 
 class BatchStatusSpinner:
-    _STATUS_STYLES: dict[str, str] = {
-        "CREATED": "cyan",
-        "COMPLETE": "bold green",
-        "SKIPPED": "yellow",
-        "FAILED": "red",
-    }
-
     def __init__(
         self,
         batches: list[tuple[str, str, State, str]],
@@ -176,7 +169,10 @@ class BatchStatusSpinner:
             table.add_row(
                 self._indicator(row.state),
                 row.label,
-                self._status_text(row.state.status),
+                Text(
+                    row.state.status.replace("_", " ").title(),
+                    style=row.state.style,
+                ),
                 Text(row.detail, style="dim") if row.detail else Text(""),
             )
         return table
@@ -190,7 +186,3 @@ class BatchStatusSpinner:
         if state.status == "SKIPPED":
             return Text("!", style="yellow")
         return Text("✓", style="green")
-
-    def _status_text(self, status: str) -> Text:
-        style = self._STATUS_STYLES.get(status, "bright_blue")
-        return Text(status.replace("_", " ").title(), style=style)
