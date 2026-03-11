@@ -99,18 +99,6 @@ def banner() -> None:
     print(bold("context-use") + dim(" — turn your data exports into AI memory"))
 
 
-_STATUS_STYLES: dict[str, str] = {
-    "CREATED": "cyan",
-    "MEMORY_GENERATE_PENDING": "bright_cyan",
-    "MEMORY_GENERATE_COMPLETE": "spring_green3",
-    "MEMORY_EMBED_PENDING": "bright_blue",
-    "MEMORY_EMBED_COMPLETE": "green",
-    "COMPLETE": "bold green",
-    "SKIPPED": "yellow",
-    "FAILED": "red",
-}
-
-
 @dataclass
 class _Row:
     label: str
@@ -119,6 +107,13 @@ class _Row:
 
 
 class BatchStatusSpinner:
+    _STATUS_STYLES: dict[str, str] = {
+        "CREATED": "cyan",
+        "COMPLETE": "bold green",
+        "SKIPPED": "yellow",
+        "FAILED": "red",
+    }
+
     def __init__(
         self,
         batches: list[tuple[str, str, State, str]],
@@ -187,7 +182,6 @@ class BatchStatusSpinner:
             return Text("!", style="yellow")
         return Text("✓", style="green")
 
-    @staticmethod
-    def _status_text(status: str) -> Text:
-        style = _STATUS_STYLES.get(status, "bright_blue")
+    def _status_text(self, status: str) -> Text:
+        style = self._STATUS_STYLES.get(status, "bright_blue")
         return Text(status.replace("_", " ").title(), style=style)

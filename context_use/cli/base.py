@@ -55,6 +55,16 @@ def _safe_current_state(batch: Batch) -> State:
         return CreatedState()
 
 
+class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
+    _STATUS_STYLES: dict[str, str] = {
+        **out.BatchStatusSpinner._STATUS_STYLES,
+        "MEMORY_GENERATE_PENDING": "bright_cyan",
+        "MEMORY_GENERATE_COMPLETE": "spring_green3",
+        "MEMORY_EMBED_PENDING": "bright_blue",
+        "MEMORY_EMBED_COMPLETE": "green",
+    }
+
+
 async def run_batches(
     ctx: ContextUse,
     batches: list[Batch],
@@ -79,7 +89,7 @@ async def run_batches(
         for b in batches
     ]
 
-    with out.BatchStatusSpinner(spinner_rows) as spinner:
+    with MemoryBatchStatusSpinner(spinner_rows) as spinner:
         while pending:
             advanced_any = False
 
