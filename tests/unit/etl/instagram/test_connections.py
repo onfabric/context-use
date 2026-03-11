@@ -11,18 +11,13 @@ from context_use.providers.instagram.connections import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_FOLLOWERS_JSON,
     INSTAGRAM_FOLLOWING_JSON,
 )
 
 FOLLOWERS_ARCHIVE_PATH = "connections/followers_and_following/followers_1.json"
 FOLLOWING_ARCHIVE_PATH = "connections/followers_and_following/following.json"
-
-
-# ---------------------------------------------------------------------------
-# Followers tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramFollowersPipe(PipeTestKit):
@@ -102,11 +97,6 @@ class TestInstagramFollowersPipe(PipeTestKit):
     def test_glob_pattern_has_wildcard(self):
         """Confirm the glob pattern matches followers_1.json, followers_2.json, etc."""
         assert "*" in InstagramFollowersPipe.archive_path_pattern
-
-
-# ---------------------------------------------------------------------------
-# Following tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramFollowingPipe(PipeTestKit):

@@ -11,18 +11,13 @@ from context_use.providers.instagram.saved import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_SAVED_COLLECTIONS_JSON,
     INSTAGRAM_SAVED_POSTS_JSON,
 )
 
 SAVED_POSTS_ARCHIVE_PATH = "your_instagram_activity/saved/saved_posts.json"
 SAVED_COLLECTIONS_ARCHIVE_PATH = "your_instagram_activity/saved/saved_collections.json"
-
-
-# ---------------------------------------------------------------------------
-# Saved posts tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramSavedPostsPipe(PipeTestKit):
@@ -147,11 +142,6 @@ class TestInstagramSavedPostsPipe(PipeTestKit):
         task = self._make_task(key)
         records = list(pipe.extract(task, storage))
         assert len(records) == 0
-
-
-# ---------------------------------------------------------------------------
-# Saved collections tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramSavedCollectionsPipe(PipeTestKit):

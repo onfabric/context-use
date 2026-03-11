@@ -11,17 +11,12 @@ from context_use.providers.instagram.videos_watched import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_VIDEOS_WATCHED_V0_JSON,
     INSTAGRAM_VIDEOS_WATCHED_V1_JSON,
 )
 
 ARCHIVE_PATH = "ads_information/ads_and_topics/videos_watched.json"
-
-
-# ---------------------------------------------------------------------------
-# V0 tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramVideosWatchedV0Pipe(PipeTestKit):
@@ -108,11 +103,6 @@ class TestInstagramVideosWatchedV0Pipe(PipeTestKit):
         rows = list(pipe.run(task, storage))
         for row in rows:
             assert row.interaction_type == "instagram_videos_watched"
-
-
-# ---------------------------------------------------------------------------
-# V1 tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramVideosWatchedV1Pipe(PipeTestKit):

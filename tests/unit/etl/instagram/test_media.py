@@ -12,7 +12,7 @@ from context_use.providers.instagram.media import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_POSTS_JSON,
     INSTAGRAM_REELS_JSON,
     INSTAGRAM_STORIES_JSON,

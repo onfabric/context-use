@@ -10,7 +10,7 @@ from context_use.providers.instagram.profile_searches import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import INSTAGRAM_PROFILE_SEARCHES_JSON
+from tests.unit.etl.instagram.conftest import INSTAGRAM_PROFILE_SEARCHES_JSON
 
 ARCHIVE_PATH = "logged_information/recent_searches/profile_searches.json"
 

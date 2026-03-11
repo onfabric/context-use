@@ -8,7 +8,7 @@ import pytest
 from context_use.providers.claude.conversations import ClaudeConversationsPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import CLAUDE_CONVERSATIONS
+from tests.unit.etl.claude.conftest import CLAUDE_CONVERSATIONS
 
 
 class TestClaudeConversationsPipe(PipeTestKit):

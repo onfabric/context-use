@@ -11,18 +11,13 @@ from context_use.providers.instagram.comments import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_POST_COMMENTS_JSON,
     INSTAGRAM_REELS_COMMENTS_JSON,
 )
 
 POST_COMMENTS_ARCHIVE_PATH = "your_instagram_activity/comments/post_comments_1.json"
 REELS_COMMENTS_ARCHIVE_PATH = "your_instagram_activity/comments/reels_comments.json"
-
-
-# ---------------------------------------------------------------------------
-# Post comments tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramCommentPostsPipe(PipeTestKit):
@@ -146,11 +141,6 @@ class TestInstagramCommentPostsPipe(PipeTestKit):
         records = list(pipe.extract(task, storage))
         assert len(records) == 1
         assert records[0].comment == "Valid comment"
-
-
-# ---------------------------------------------------------------------------
-# Reels comments tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramCommentReelsPipe(PipeTestKit):

@@ -8,7 +8,7 @@ import pytest
 from context_use.providers.chatgpt.conversations import ChatGPTConversationsPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import CHATGPT_CONVERSATIONS
+from tests.unit.etl.chatgpt.conftest import CHATGPT_CONVERSATIONS
 
 
 class TestChatGPTConversationsPipe(PipeTestKit):

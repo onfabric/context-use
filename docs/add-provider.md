@@ -10,7 +10,7 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 | 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
 | 3 | `context_use/providers/<provider>/__init__.py` | Import the new module (one line) so the registration fires |
 | 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
-| 5 | `tests/unit/etl/test_<provider>_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
+| 5 | `tests/unit/etl/<provider>/test_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
 
 For a **new** provider, also:
 
@@ -274,11 +274,44 @@ See `context_use/testing/pipe_test_kit.py` — it's ~160 lines and fully docstri
 
 The kit auto-generates: extract type/count checks, ThreadRow structural validation (including `unique_key` prefix, `fibreKind` in payload, non-empty preview), unique key checks, count tracking, and ClassVar validation. Read the class for the full list.
 
-See `tests/unit/etl/` for working test suites — each test file demonstrates `PipeTestKit` subclassing alongside provider-specific assertions (message direction, asset URIs, edge-case filtering, payload structure).
+Tests are split by provider under `tests/unit/etl/<provider>/`. See any existing test file for a working example of `PipeTestKit` subclassing alongside provider-specific assertions (message direction, asset URIs, edge-case filtering, payload structure).
+
+A CI-enforced meta-test (`tests/unit/etl/core/test_pipe_coverage.py`) checks that **every registered pipe** has a corresponding `PipeTestKit` subclass. If you add a new pipe without a test, this test will fail.
+
+### Test directory layout
+
+```
+tests/unit/etl/
+├── core/                           # Pipe base-class, registry, payload tests
+│   ├── test_pipe.py
+│   ├── test_registry.py
+│   ├── test_payload.py
+│   └── test_pipe_coverage.py       # ← enforces every pipe has tests
+├── chatgpt/
+│   ├── conftest.py                 # fixture data for ChatGPT
+│   └── test_conversations.py
+├── claude/
+│   ├── conftest.py
+│   └── test_conversations.py
+├── google/
+│   ├── conftest.py                 # fixture data for all Google pipes
+│   ├── test_search.py
+│   ├── test_youtube.py
+│   ├── test_discover.py
+│   ├── test_shopping.py
+│   └── test_lens.py
+└── instagram/
+    ├── conftest.py                 # fixture data for all Instagram pipes
+    ├── test_media.py
+    ├── test_likes.py
+    └── ...
+```
 
 ### Fixture Data
 
 Place realistic test data under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure. The fixture JSON should exercise edge cases while staying small enough to reason about.
+
+Load fixture JSON in the provider's `conftest.py` (e.g. `tests/unit/etl/instagram/conftest.py`) and import those constants from the test file.
 
 ### Storage in Tests
 

@@ -13,7 +13,7 @@ from context_use.providers.instagram.likes import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_LIKED_POSTS_V0_JSON,
     INSTAGRAM_LIKED_POSTS_V1_JSON,
     INSTAGRAM_STORY_LIKES_V0_JSON,
@@ -22,11 +22,6 @@ from tests.conftest import (
 
 LIKED_POSTS_ARCHIVE_PATH = "your_instagram_activity/likes/liked_posts.json"
 STORY_LIKES_ARCHIVE_PATH = "your_instagram_activity/story_interactions/story_likes.json"
-
-
-# ---------------------------------------------------------------------------
-# Liked posts — V0 tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramLikedPostsV0Pipe(PipeTestKit):
@@ -123,11 +118,6 @@ class TestInstagramLikedPostsV0Pipe(PipeTestKit):
             assert row.interaction_type == "instagram_liked_posts"
 
 
-# ---------------------------------------------------------------------------
-# Liked posts — V1 tests
-# ---------------------------------------------------------------------------
-
-
 class TestInstagramLikedPostsV1Pipe(PipeTestKit):
     pipe_class = InstagramLikedPostsPipe
     expected_extract_count = 2
@@ -218,11 +208,6 @@ class TestInstagramLikedPostsV1Pipe(PipeTestKit):
             assert row.interaction_type == "instagram_liked_posts"
 
 
-# ---------------------------------------------------------------------------
-# Story likes — V0 tests
-# ---------------------------------------------------------------------------
-
-
 class TestInstagramStoryLikesV0Pipe(PipeTestKit):
     pipe_class = InstagramStoryLikesV0Pipe
     expected_extract_count = 1
@@ -296,11 +281,6 @@ class TestInstagramStoryLikesV0Pipe(PipeTestKit):
         rows = list(pipe.run(task, storage))
         for row in rows:
             assert row.interaction_type == "instagram_story_likes"
-
-
-# ---------------------------------------------------------------------------
-# Story likes — V1 tests
-# ---------------------------------------------------------------------------
 
 
 class TestInstagramStoryLikesV1Pipe(PipeTestKit):

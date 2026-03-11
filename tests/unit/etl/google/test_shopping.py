@@ -8,7 +8,7 @@ import pytest
 from context_use.providers.google.shopping import GoogleShoppingPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import GOOGLE_SHOPPING_JSON
+from tests.unit.etl.google.conftest import GOOGLE_SHOPPING_JSON
 
 _BASE = "Portability/My Activity"
 

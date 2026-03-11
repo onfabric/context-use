@@ -12,7 +12,7 @@ from context_use.providers.google.search import (
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import (
+from tests.unit.etl.google.conftest import (
     GOOGLE_IMAGE_SEARCH_JSON,
     GOOGLE_SEARCH_JSON,
     GOOGLE_VIDEO_SEARCH_JSON,
