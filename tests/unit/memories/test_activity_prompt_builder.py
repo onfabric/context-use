@@ -45,7 +45,7 @@ class TestHasContent:
         assert not builder.has_content()
 
     def test_threads_without_assets(self) -> None:
-        """Text-only threads should count as content (unlike MediaMemoryPromptBuilder)."""
+        """Text-only threads should count (unlike MediaMemoryPromptBuilder)."""
         thread = _make_thread("Searched Paris", DT_DAY1)
         ctx = GroupContext(group_id="g1", new_threads=[thread])
         builder = ActivityMemoryPromptBuilder(contexts=[ctx])
