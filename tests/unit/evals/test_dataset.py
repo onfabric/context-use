@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.evals.longmemeval.dataset import LongMemEvalDataset
+from evals.longmemeval.dataset import LongMemEvalDataset
 
 FIXTURE_PATH = (
     Path(__file__).resolve().parents[2] / "fixtures/evals/longmemeval/sample.json"

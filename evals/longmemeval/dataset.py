@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from context_use.evals.longmemeval.schema import Question
+from evals.longmemeval.schema import Question
 
 
 class LongMemEvalDataset:

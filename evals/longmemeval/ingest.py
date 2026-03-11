@@ -11,10 +11,11 @@ from context_use.etl.payload.models import (
     FibreSendMessage,
     FibreTextMessage,
 )
-from context_use.evals.longmemeval.schema import Question, Turn
+from evals.longmemeval.schema import Question, Turn
 
 PROVIDER = "longmemeval"
-INTERACTION_TYPE = "longmemeval_sessions"
+# Use the agent conversation memory prompt builder
+INTERACTION_TYPE = "chatgpt_conversations"
 
 _APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 

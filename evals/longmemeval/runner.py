@@ -8,16 +8,16 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from context_use.evals.judge import LLMJudge
-from context_use.evals.longmemeval.ingest import question_to_thread_rows
-from context_use.evals.longmemeval.schema import Question
-from context_use.evals.metrics import compute_metrics
-from context_use.evals.types import EvalMetrics, EvalResult
+from evals.judge import LLMJudge
+from evals.longmemeval.ingest import question_to_thread_rows
+from evals.longmemeval.schema import Question
+from evals.metrics import compute_metrics
+from evals.types import EvalMetrics, EvalResult
 
 if TYPE_CHECKING:
-    from context_use.evals.longmemeval.dataset import LongMemEvalDataset
     from context_use.llm.base import BaseLLMClient
     from context_use.store.base import Store
+    from evals.longmemeval.dataset import LongMemEvalDataset
 
 logger = logging.getLogger(__name__)
 
@@ -151,9 +151,9 @@ class LongMemEvalRunner:
 
     @staticmethod
     async def _create_eval_task(store: Store, question: Question) -> str:
-        from context_use.evals.longmemeval.ingest import INTERACTION_TYPE, PROVIDER
         from context_use.models.archive import Archive, ArchiveStatus
         from context_use.models.etl_task import EtlTask, EtlTaskStatus
+        from evals.longmemeval.ingest import INTERACTION_TYPE, PROVIDER
 
         archive = Archive(provider=PROVIDER, status=ArchiveStatus.COMPLETED.value)
         archive = await store.create_archive(archive)
@@ -169,12 +169,9 @@ class LongMemEvalRunner:
 
     async def _generate_memories(self, store: Store) -> None:
         import context_use.memories.manager  # noqa: F401 — register managers
+        import context_use.providers.chatgpt  # noqa: F401 — register memory config
         from context_use.batch.grouper import CollectionGrouper, ThreadGroup
-        from context_use.batch.manager import (
-            BatchContext,
-            get_manager_for_category,
-        )
-        from context_use.evals.longmemeval.ingest import INTERACTION_TYPE
+        from context_use.batch.manager import BatchContext, get_manager_for_category
         from context_use.memories.config import MemoryConfig
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.memories.prompt.conversation import (
@@ -182,6 +179,7 @@ class LongMemEvalRunner:
         )
         from context_use.models.batch import BatchCategory
         from context_use.storage.disk import DiskStorage
+        from evals.longmemeval.ingest import INTERACTION_TYPE
 
         threads = await store.get_unprocessed_threads(
             interaction_types=[INTERACTION_TYPE],

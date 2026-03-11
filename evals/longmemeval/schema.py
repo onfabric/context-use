@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class Turn(BaseModel):
@@ -20,6 +20,11 @@ class Question(BaseModel):
     question: str
     question_type: str
     answer: str
+
+    @field_validator("answer", mode="before")
+    @classmethod
+    def coerce_answer_to_str(cls, v: object) -> str:
+        return str(v)
     question_date: str | None = None
     haystack_sessions: list[list[Turn]]
     haystack_session_ids: list[str] = Field(default_factory=list)

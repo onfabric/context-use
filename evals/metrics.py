@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from context_use.evals.types import EvalMetrics, EvalResult, TypeMetrics
+from evals.types import EvalMetrics, EvalResult, TypeMetrics
 
 
 def compute_metrics(results: list[EvalResult]) -> EvalMetrics:

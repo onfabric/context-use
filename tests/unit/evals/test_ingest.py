@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 
 from context_use.etl.payload.models import CURRENT_THREAD_PAYLOAD_VERSION
-from context_use.evals.longmemeval.dataset import LongMemEvalDataset
-from context_use.evals.longmemeval.ingest import (
+from evals.longmemeval.dataset import LongMemEvalDataset
+from evals.longmemeval.ingest import (
     INTERACTION_TYPE,
     PROVIDER,
     question_to_thread_rows,
@@ -81,7 +81,7 @@ class TestQuestionToThreadRows:
             assert row.preview
 
     def test_empty_sessions(self) -> None:
-        from context_use.evals.longmemeval.schema import Question
+        from evals.longmemeval.schema import Question
 
         q = Question(
             question_id="empty",
@@ -93,7 +93,7 @@ class TestQuestionToThreadRows:
         assert question_to_thread_rows(q) == []
 
     def test_fallback_session_ids(self) -> None:
-        from context_use.evals.longmemeval.schema import Question, Turn
+        from evals.longmemeval.schema import Question, Turn
 
         q = Question(
             question_id="no_ids",

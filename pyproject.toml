@@ -72,7 +72,7 @@ indent-width = 4
 
 [tool.pyright]
 typeCheckingMode = "standard"
-include = ["context_use", "tests"]
+include = ["context_use", "evals", "tests"]
 exclude = [
     ".venv/",
     ".venv*/",

@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from pydantic import BaseModel
 
-from context_use.evals.judge import JUDGE_PROMPT, LLMJudge, _JudgeSchema
 from context_use.llm.base import BaseLLMClient, PromptItem
+from evals.judge import JUDGE_PROMPT, LLMJudge, _JudgeSchema
 
 
 class _FakeLLMClient(BaseLLMClient):

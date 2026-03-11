@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from context_use.evals.metrics import compute_metrics
-from context_use.evals.types import EvalResult, JudgeVerdict
+from evals.metrics import compute_metrics
+from evals.types import EvalResult, JudgeVerdict
 
 
 def _make_result(

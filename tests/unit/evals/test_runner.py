@@ -5,8 +5,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
-from context_use.evals.longmemeval.dataset import LongMemEvalDataset
-from context_use.evals.longmemeval.runner import LongMemEvalRunner, RunConfig
+from evals.longmemeval.dataset import LongMemEvalDataset
+from evals.longmemeval.runner import LongMemEvalRunner, RunConfig
 from context_use.llm.base import (
     BaseLLMClient,
     BatchResults,
@@ -46,7 +46,7 @@ class _FakeLLMClient(BaseLLMClient):
     async def structured_completion(
         self, prompt: PromptItem, schema: type[BaseModel]
     ) -> BaseModel:
-        from context_use.evals.judge import _JudgeSchema
+        from evals.judge import _JudgeSchema
 
         return _JudgeSchema(reasoning="Stubbed.", verdict="CORRECT")
 

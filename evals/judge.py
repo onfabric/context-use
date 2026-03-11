@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from context_use.evals.types import JudgeVerdict
+from evals.types import JudgeVerdict
 from context_use.llm.base import PromptItem
 
 if TYPE_CHECKING:
