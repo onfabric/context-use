@@ -4,6 +4,12 @@
 
 Turn your data exports into portable AI memory.
 
+# For Agents
+
+Use the [SKILL.md](skills/context-use/SKILL.md) file on how to use context-use to get to personalize your answers to the human.
+
+# For Humans
+
 ## Install
 
 ```bash
@@ -76,12 +82,12 @@ context-use-data/
 
 ## Supported providers
 
-| Provider | Status | Data types | Export guide |
-|----------|--------|------------|-------------|
-| ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
-| Claude | Available | Conversations | [Export your data](https://privacy.claude.com/en/articles/9450526-how-can-i-export-my-claude-data) |
-| Instagram | Available | Stories, Reels, Posts, Likes, Followers, ... | [Export your data](https://help.instagram.com/181231772500920) |
-| Google | Coming soon | Searches, YouTube | [Export your data](https://support.google.com/accounts/answer/3024190) |
-| WhatsApp | Coming soon | Conversations | [Export your data](https://faq.whatsapp.com/1180414079177245) |
+| Provider  | Status      | Data types                                   | Export guide                                                                                                |
+| --------- | ----------- | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| ChatGPT   | Available   | Conversations                                | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
+| Claude    | Available   | Conversations                                | [Export your data](https://privacy.claude.com/en/articles/9450526-how-can-i-export-my-claude-data)          |
+| Instagram | Available   | Stories, Reels, Posts, Likes, Followers, ... | [Export your data](https://help.instagram.com/181231772500920)                                              |
+| Google    | Coming soon | Searches, YouTube                            | [Export your data](https://support.google.com/accounts/answer/3024190)                                      |
+| WhatsApp  | Coming soon | Conversations                                | [Export your data](https://faq.whatsapp.com/1180414079177245)                                               |
 
 Want another provider? Contribute it by pointing your coding agent to the [Adding a Data Provider](docs/add-provider.md) guide.
