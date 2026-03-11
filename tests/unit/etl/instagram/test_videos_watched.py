@@ -4,14 +4,16 @@ from context_use.providers.instagram.videos_watched import (
     InstagramVideosWatchedPipe,
     InstagramVideosWatchedV0Pipe,
 )
-from context_use.testing import PipeTestKit
+from context_use.testing import AttributedToProfileMixin, PipeTestKit, VideoObjectMixin
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_VIDEOS_WATCHED_V0_JSON,
     INSTAGRAM_VIDEOS_WATCHED_V1_JSON,
 )
 
 
-class TestInstagramVideosWatchedV0Pipe(PipeTestKit):
+class TestInstagramVideosWatchedV0Pipe(
+    VideoObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramVideosWatchedV0Pipe
     expected_extract_count = 3
     expected_transform_count = 3
@@ -25,14 +27,8 @@ class TestInstagramVideosWatchedV0Pipe(PipeTestKit):
         assert record.timestamp == 1743840091
         assert record.source is not None
 
-    def test_payload_object_is_video(self, transformed_rows):
-        for row in transformed_rows:
-            obj = row.payload["object"]
-            assert obj["type"] == "Video"
-
-    def test_payload_has_attributed_to_profile(self, transformed_rows):
+    def test_attribution_name_and_url(self, transformed_rows):
         attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
         assert attr["name"] == "synthetic_creator_1"
         assert attr["url"] == "https://www.instagram.com/synthetic_creator_1"
 
@@ -43,7 +39,7 @@ class TestInstagramVideosWatchedV0Pipe(PipeTestKit):
         assert "instagram" in preview.lower()
 
 
-class TestInstagramVideosWatchedV1Pipe(PipeTestKit):
+class TestInstagramVideosWatchedV1Pipe(VideoObjectMixin, PipeTestKit):
     pipe_class = InstagramVideosWatchedPipe
     expected_extract_count = 1
     expected_transform_count = 1
@@ -53,14 +49,13 @@ class TestInstagramVideosWatchedV1Pipe(PipeTestKit):
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
-        assert record.author is None  # v1 has no author
+        assert record.author is None
         assert record.video_url == "https://www.instagram.com/reel/SYNTHETIC_VIDEO/"
         assert record.timestamp == 1770746034
         assert record.source is not None
 
-    def test_payload_object_is_video_with_url(self, transformed_rows):
+    def test_payload_object_url(self, transformed_rows):
         obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Video"
         assert obj["url"] == "https://www.instagram.com/reel/SYNTHETIC_VIDEO/"
         assert "attributedTo" not in obj
 

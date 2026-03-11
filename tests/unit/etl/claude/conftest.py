@@ -1,11 +1,5 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from context_use.testing.fixtures import load_fixture
 
-FIXTURES_DIR = Path(__file__).parents[3] / "fixtures"
-ALICE_CLAUDE_DIR = FIXTURES_DIR / "users" / "alice" / "claude" / "v1"
-
-CLAUDE_CONVERSATIONS: list[dict] = json.loads(
-    (ALICE_CLAUDE_DIR / "conversations.json").read_text()
-)
+CLAUDE_CONVERSATIONS: list[dict] = load_fixture("users/alice/claude/v1/conversations.json")

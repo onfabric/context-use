@@ -1,69 +1,13 @@
 from __future__ import annotations
 
-import json
-from pathlib import Path
+from context_use.testing.fixtures import load_fixture
 
-FIXTURES_DIR = Path(__file__).parents[3] / "fixtures"
-ALICE_GOOGLE_DIR = FIXTURES_DIR / "users" / "alice" / "google" / "v1"
+_BASE = "users/alice/google/v1/Portability/My Activity"
 
-GOOGLE_SEARCH_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR / "Portability" / "My Activity" / "Search" / "MyActivity.json"
-    ).read_text()
-)
-
-GOOGLE_VIDEO_SEARCH_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR
-        / "Portability"
-        / "My Activity"
-        / "Video Search"
-        / "MyActivity.json"
-    ).read_text()
-)
-
-GOOGLE_IMAGE_SEARCH_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR
-        / "Portability"
-        / "My Activity"
-        / "Image Search"
-        / "MyActivity.json"
-    ).read_text()
-)
-
-GOOGLE_YOUTUBE_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR / "Portability" / "My Activity" / "YouTube" / "MyActivity.json"
-    ).read_text()
-)
-
-GOOGLE_SHOPPING_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR
-        / "Portability"
-        / "My Activity"
-        / "Shopping"
-        / "MyActivity.json"
-    ).read_text()
-)
-
-GOOGLE_DISCOVER_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR
-        / "Portability"
-        / "My Activity"
-        / "Discover"
-        / "MyActivity.json"
-    ).read_text()
-)
-
-GOOGLE_LENS_JSON: list[dict] = json.loads(
-    (
-        ALICE_GOOGLE_DIR
-        / "Portability"
-        / "My Activity"
-        / "Google Lens"
-        / "MyActivity.json"
-    ).read_text()
-)
+GOOGLE_SEARCH_JSON: list[dict] = load_fixture(f"{_BASE}/Search/MyActivity.json")
+GOOGLE_VIDEO_SEARCH_JSON: list[dict] = load_fixture(f"{_BASE}/Video Search/MyActivity.json")
+GOOGLE_IMAGE_SEARCH_JSON: list[dict] = load_fixture(f"{_BASE}/Image Search/MyActivity.json")
+GOOGLE_YOUTUBE_JSON: list[dict] = load_fixture(f"{_BASE}/YouTube/MyActivity.json")
+GOOGLE_SHOPPING_JSON: list[dict] = load_fixture(f"{_BASE}/Shopping/MyActivity.json")
+GOOGLE_DISCOVER_JSON: list[dict] = load_fixture(f"{_BASE}/Discover/MyActivity.json")
+GOOGLE_LENS_JSON: list[dict] = load_fixture(f"{_BASE}/Google Lens/MyActivity.json")

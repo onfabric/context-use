@@ -6,7 +6,7 @@ from context_use.providers.instagram.likes import (
     InstagramStoryLikesPipe,
     InstagramStoryLikesV0Pipe,
 )
-from context_use.testing import PipeTestKit
+from context_use.testing import AttributedToProfileMixin, PipeTestKit, PostObjectMixin
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_LIKED_POSTS_V0_JSON,
     INSTAGRAM_LIKED_POSTS_V1_JSON,
@@ -15,7 +15,9 @@ from tests.unit.etl.instagram.conftest import (
 )
 
 
-class TestInstagramLikedPostsV0Pipe(PipeTestKit):
+class TestInstagramLikedPostsV0Pipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramLikedPostsV0Pipe
     expected_extract_count = 2
     expected_transform_count = 2
@@ -30,16 +32,11 @@ class TestInstagramLikedPostsV0Pipe(PipeTestKit):
         assert record.timestamp == 1770775983
         assert record.source is not None
 
-    def test_payload_object_is_post(self, transformed_rows):
-        for row in transformed_rows:
-            obj = row.payload["object"]
-            assert obj["type"] == "Note"  # FibrePost extends Note
-            assert obj["fibreKind"] == "Post"
-
-    def test_payload_has_attributed_to(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
-        assert attr["name"] == "synthetic_foodblog"
+    def test_attribution_name(self, transformed_rows):
+        assert (
+            transformed_rows[0].payload["object"]["attributedTo"]["name"]
+            == "synthetic_foodblog"
+        )
 
     def test_payload_has_post_url(self, transformed_rows):
         obj = transformed_rows[0].payload["object"]
@@ -53,7 +50,9 @@ class TestInstagramLikedPostsV0Pipe(PipeTestKit):
         assert "instagram" in preview.lower()
 
 
-class TestInstagramLikedPostsV1Pipe(PipeTestKit):
+class TestInstagramLikedPostsV1Pipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramLikedPostsPipe
     expected_extract_count = 2
     expected_transform_count = 2
@@ -74,16 +73,17 @@ class TestInstagramLikedPostsV1Pipe(PipeTestKit):
         assert record.href == "https://www.instagram.com/p/YYYYYYYYYYY/"
         assert record.timestamp == 1770683481
 
-    def test_payload_object_is_post_with_url(self, transformed_rows):
-        obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Note"  # FibrePost extends Note
-        assert obj["fibreKind"] == "Post"
-        assert obj["url"] == "https://www.instagram.com/reel/XXXXXXXXXXX/"
+    def test_payload_object_url(self, transformed_rows):
+        assert (
+            transformed_rows[0].payload["object"]["url"]
+            == "https://www.instagram.com/reel/XXXXXXXXXXX/"
+        )
 
-    def test_payload_has_attributed_to_from_owner(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
-        assert attr["name"] == "synthetic_foodblog"
+    def test_attribution_name(self, transformed_rows):
+        assert (
+            transformed_rows[0].payload["object"]["attributedTo"]["name"]
+            == "synthetic_foodblog"
+        )
 
     def test_preview_includes_liked(self, transformed_rows):
         preview = transformed_rows[0].preview
@@ -91,7 +91,9 @@ class TestInstagramLikedPostsV1Pipe(PipeTestKit):
         assert "synthetic_foodblog" in preview
 
 
-class TestInstagramStoryLikesV0Pipe(PipeTestKit):
+class TestInstagramStoryLikesV0Pipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramStoryLikesV0Pipe
     expected_extract_count = 1
     expected_transform_count = 1
@@ -102,19 +104,17 @@ class TestInstagramStoryLikesV0Pipe(PipeTestKit):
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
         assert record.title == "synthetic_photographer"
-        assert record.href is None  # story likes have no href
+        assert record.href is None
         assert record.timestamp == 1771028852
 
-    def test_payload_object_is_post_without_url(self, transformed_rows):
-        obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Note"
-        assert obj["fibreKind"] == "Post"
-        assert "url" not in obj
+    def test_payload_object_has_no_url(self, transformed_rows):
+        assert "url" not in transformed_rows[0].payload["object"]
 
-    def test_payload_has_attributed_to(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
-        assert attr["name"] == "synthetic_photographer"
+    def test_attribution_name(self, transformed_rows):
+        assert (
+            transformed_rows[0].payload["object"]["attributedTo"]["name"]
+            == "synthetic_photographer"
+        )
 
     def test_preview_includes_liked(self, transformed_rows):
         preview = transformed_rows[0].preview
@@ -122,7 +122,9 @@ class TestInstagramStoryLikesV0Pipe(PipeTestKit):
         assert "synthetic_photographer" in preview
 
 
-class TestInstagramStoryLikesV1Pipe(PipeTestKit):
+class TestInstagramStoryLikesV1Pipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramStoryLikesPipe
     expected_extract_count = 1
     expected_transform_count = 1
@@ -133,20 +135,18 @@ class TestInstagramStoryLikesV1Pipe(PipeTestKit):
     def test_record_fields_with_owner(self, extracted_records):
         record = extracted_records[0]
         assert record.title == "synthetic_photographer"
-        assert record.href is None  # story likes still have no URL
+        assert record.href is None
         assert record.timestamp == 1771028852
         assert record.source is not None
 
-    def test_payload_object_is_post_without_url(self, transformed_rows):
-        obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Note"
-        assert obj["fibreKind"] == "Post"
-        assert "url" not in obj
+    def test_payload_object_has_no_url(self, transformed_rows):
+        assert "url" not in transformed_rows[0].payload["object"]
 
-    def test_payload_has_attributed_to_from_owner(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
-        assert attr["name"] == "synthetic_photographer"
+    def test_attribution_name(self, transformed_rows):
+        assert (
+            transformed_rows[0].payload["object"]["attributedTo"]["name"]
+            == "synthetic_photographer"
+        )
 
     def test_preview_includes_liked(self, transformed_rows):
         preview = transformed_rows[0].preview

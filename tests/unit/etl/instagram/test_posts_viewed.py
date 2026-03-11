@@ -4,14 +4,16 @@ from context_use.providers.instagram.posts_viewed import (
     InstagramPostsViewedPipe,
     InstagramPostsViewedV0Pipe,
 )
-from context_use.testing import PipeTestKit
+from context_use.testing import AttributedToProfileMixin, PipeTestKit, PostObjectMixin
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_POSTS_VIEWED_V0_JSON,
     INSTAGRAM_POSTS_VIEWED_V1_JSON,
 )
 
 
-class TestInstagramPostsViewedV0Pipe(PipeTestKit):
+class TestInstagramPostsViewedV0Pipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramPostsViewedV0Pipe
     expected_extract_count = 3
     expected_transform_count = 3
@@ -23,18 +25,11 @@ class TestInstagramPostsViewedV0Pipe(PipeTestKit):
         record = extracted_records[0]
         assert record.author == "synthetic_foodie"
         assert record.timestamp == 1743840091
-        assert record.post_url is None  # v0 has no URL
+        assert record.post_url is None
         assert record.source is not None
 
-    def test_payload_object_is_post(self, transformed_rows):
-        for row in transformed_rows:
-            obj = row.payload["object"]
-            assert obj["type"] == "Note"  # FibrePost extends Note
-            assert obj["fibreKind"] == "Post"
-
-    def test_payload_has_attributed_to_profile(self, transformed_rows):
+    def test_attribution_name_and_url(self, transformed_rows):
         attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
         assert attr["name"] == "synthetic_foodie"
         assert attr["url"] == "https://www.instagram.com/synthetic_foodie"
 
@@ -45,7 +40,7 @@ class TestInstagramPostsViewedV0Pipe(PipeTestKit):
         assert "instagram" in preview.lower()
 
 
-class TestInstagramPostsViewedV1Pipe(PipeTestKit):
+class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
     pipe_class = InstagramPostsViewedPipe
     expected_extract_count = 2
     expected_transform_count = 2
@@ -66,11 +61,11 @@ class TestInstagramPostsViewedV1Pipe(PipeTestKit):
         assert record.post_url == "https://www.instagram.com/p/SYNTHETIC_POST_2/"
         assert record.timestamp == 1771762100
 
-    def test_payload_object_is_post_with_url(self, transformed_rows):
-        obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Note"  # FibrePost extends Note
-        assert obj["fibreKind"] == "Post"
-        assert obj["url"] == "https://www.instagram.com/p/SYNTHETIC_POST_1/"
+    def test_payload_object_url(self, transformed_rows):
+        assert (
+            transformed_rows[0].payload["object"]["url"]
+            == "https://www.instagram.com/p/SYNTHETIC_POST_1/"
+        )
 
     def test_payload_has_attributed_to_from_owner(self, transformed_rows):
         attr = transformed_rows[0].payload["object"]["attributedTo"]

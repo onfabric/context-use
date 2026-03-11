@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import ClassVar
 
 import pytest
@@ -13,8 +14,81 @@ from context_use.storage.base import StorageBackend
 from context_use.storage.disk import DiskStorage
 
 
-class PipeTestKit:
-    """Base class for Pipe conformance tests.
+class ExtractConformanceTests:
+    """Auto-generated conformance tests for the extract stage."""
+
+    pipe_class: ClassVar[type[Pipe]]
+    expected_extract_count: ClassVar[int]
+
+    def test_extract_yields_record_schema_instances(
+        self, extracted_records: list[BaseModel]
+    ) -> None:
+        assert len(extracted_records) >= 1, "extract() should yield at least one record"
+        for r in extracted_records:
+            assert isinstance(r, self.pipe_class.record_schema), (
+                f"Expected {self.pipe_class.record_schema.__name__}, "
+                f"got {type(r).__name__}"
+            )
+
+    def test_extract_count(self, extracted_records: list[BaseModel]) -> None:
+        assert len(extracted_records) == self.expected_extract_count
+
+
+class TransformConformanceTests:
+    """Auto-generated conformance tests for the transform stage."""
+
+    pipe_class: ClassVar[type[Pipe]]
+    expected_transform_count: ClassVar[int]
+    expected_fibre_kind: ClassVar[str | None]
+
+    def test_run_yields_well_formed_thread_rows(
+        self, transformed_rows: list[ThreadRow]
+    ) -> None:
+        assert len(transformed_rows) >= 1, "run() should yield at least one ThreadRow"
+
+        for row in transformed_rows:
+            assert isinstance(row, ThreadRow)
+            assert row.unique_key, "unique_key must be set"
+
+            assert row.provider == self.pipe_class.provider, (
+                f"provider mismatch: {row.provider!r} != {self.pipe_class.provider!r}"
+            )
+            assert row.interaction_type == self.pipe_class.interaction_type, (
+                f"interaction_type mismatch: "
+                f"{row.interaction_type!r} "
+                f"!= {self.pipe_class.interaction_type!r}"
+            )
+
+            assert row.version, "ThreadRow.version must be set"
+            assert row.asat is not None, "ThreadRow.asat must be set"
+            assert row.asat.tzinfo is not None, "ThreadRow.asat must be timezone-aware"
+            assert row.asat <= datetime.now(UTC), (
+                "ThreadRow.asat must not be in the future"
+            )
+
+            assert isinstance(row.payload, dict), "payload must be a dict"
+            assert "fibreKind" in row.payload, "payload must contain 'fibreKind'"
+
+            assert row.preview, "Preview should not be empty"
+
+    def test_run_count(self, transformed_rows: list[ThreadRow]) -> None:
+        assert len(transformed_rows) == self.expected_transform_count
+
+    def test_unique_keys_are_unique(self, transformed_rows: list[ThreadRow]) -> None:
+        keys = [r.unique_key for r in transformed_rows]
+        assert len(keys) == len(set(keys)), (
+            f"Duplicate unique_keys: {[k for k in keys if keys.count(k) > 1]}"
+        )
+
+    def test_fibre_kind(self, transformed_rows: list[ThreadRow]) -> None:
+        if self.expected_fibre_kind is None:
+            pytest.skip("expected_fibre_kind not set")
+        for row in transformed_rows:
+            assert row.payload["fibreKind"] == self.expected_fibre_kind
+
+
+class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
+    """Full Pipe conformance suite covering both extract and transform stages.
 
     Subclass this and set:
 
@@ -25,26 +99,12 @@ class PipeTestKit:
     - ``fixture_key``: storage key (e.g. ``"archive/path/data.json"``)
 
     If ``fixture_data`` and ``fixture_key`` are set, ``pipe_fixture`` is
-    auto-generated.  Otherwise, override the ``pipe_fixture`` fixture
-    manually.
+    auto-generated.  Otherwise, override the ``pipe_fixture`` fixture manually.
 
     Convenience fixtures ``extracted_records`` and ``transformed_rows``
     eliminate per-method boilerplate in provider-specific tests.
-
-    Auto-generated tests
-    --------------------
-    - **Extract phase:** ``test_extract_yields_record_schema_instances``,
-      ``test_extract_count``
-    - **Transform phase (via ``run()``):**
-      ``test_run_yields_well_formed_thread_rows``, ``test_run_count``,
-      ``test_unique_keys_are_unique``
-    - **Fibre kind:** ``test_fibre_kind`` (when ``expected_fibre_kind``
-      is set)
-    - **Counts:** ``test_counts_tracked``
-    - **Class vars:** ``test_class_vars_set``
     """
 
-    pipe_class: ClassVar[type[Pipe]]
     expected_extract_count: ClassVar[int]
     expected_transform_count: ClassVar[int]
 
@@ -89,60 +149,6 @@ class PipeTestKit:
             status=EtlTaskStatus.CREATED.value,
         )
 
-    def test_extract_yields_record_schema_instances(
-        self, extracted_records: list[BaseModel]
-    ) -> None:
-        assert len(extracted_records) >= 1, "extract() should yield at least one record"
-        for r in extracted_records:
-            assert isinstance(r, self.pipe_class.record_schema), (
-                f"Expected {self.pipe_class.record_schema.__name__}, "
-                f"got {type(r).__name__}"
-            )
-
-    def test_extract_count(self, extracted_records: list[BaseModel]) -> None:
-        assert len(extracted_records) == self.expected_extract_count
-
-    def test_run_yields_well_formed_thread_rows(
-        self, transformed_rows: list[ThreadRow]
-    ) -> None:
-        assert len(transformed_rows) >= 1, "run() should yield at least one ThreadRow"
-
-        for row in transformed_rows:
-            assert isinstance(row, ThreadRow)
-            assert row.unique_key, "unique_key must be set"
-
-            assert row.provider == self.pipe_class.provider, (
-                f"provider mismatch: {row.provider!r} != {self.pipe_class.provider!r}"
-            )
-            assert row.interaction_type == self.pipe_class.interaction_type, (
-                f"interaction_type mismatch: "
-                f"{row.interaction_type!r} "
-                f"!= {self.pipe_class.interaction_type!r}"
-            )
-
-            assert row.version, "ThreadRow.version must be set"
-            assert row.asat is not None, "ThreadRow.asat must be set"
-
-            assert isinstance(row.payload, dict), "payload must be a dict"
-            assert "fibreKind" in row.payload, "payload must contain 'fibreKind'"
-
-            assert row.preview, "Preview should not be empty"
-
-    def test_run_count(self, transformed_rows: list[ThreadRow]) -> None:
-        assert len(transformed_rows) == self.expected_transform_count
-
-    def test_unique_keys_are_unique(self, transformed_rows: list[ThreadRow]) -> None:
-        keys = [r.unique_key for r in transformed_rows]
-        assert len(keys) == len(set(keys)), (
-            f"Duplicate unique_keys: {[k for k in keys if keys.count(k) > 1]}"
-        )
-
-    def test_fibre_kind(self, transformed_rows: list[ThreadRow]) -> None:
-        if self.expected_fibre_kind is None:
-            pytest.skip("expected_fibre_kind not set")
-        for row in transformed_rows:
-            assert row.payload["fibreKind"] == self.expected_fibre_kind
-
     def test_counts_tracked(self, pipe_fixture) -> None:
         storage, key = pipe_fixture
         pipe = self.pipe_class()
@@ -160,6 +166,13 @@ class PipeTestKit:
             f"error_count {pipe.error_count} != 0 — "
             "fixture data should not trigger errors"
         )
+
+    def test_unique_keys_are_stable(self, pipe_fixture) -> None:
+        storage, key = pipe_fixture
+        task = self._make_task(key)
+        first = [r.unique_key for r in self.pipe_class().run(task, storage)]
+        second = [r.unique_key for r in self.pipe_class().run(task, storage)]
+        assert first == second, "unique_keys must be deterministic across runs"
 
     def test_class_vars_set(self) -> None:
         cls = self.pipe_class

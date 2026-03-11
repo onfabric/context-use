@@ -8,7 +8,7 @@ from context_use.providers.instagram.saved import (
     InstagramSavedPostsPipe,
 )
 from context_use.storage.disk import DiskStorage
-from context_use.testing import PipeTestKit
+from context_use.testing import AttributedToProfileMixin, PipeTestKit, PostObjectMixin
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_SAVED_COLLECTIONS_JSON,
     INSTAGRAM_SAVED_POSTS_JSON,
@@ -18,7 +18,9 @@ SAVED_POSTS_ARCHIVE_PATH = "your_instagram_activity/saved/saved_posts.json"
 SAVED_COLLECTIONS_ARCHIVE_PATH = "your_instagram_activity/saved/saved_collections.json"
 
 
-class TestInstagramSavedPostsPipe(PipeTestKit):
+class TestInstagramSavedPostsPipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramSavedPostsPipe
     expected_extract_count = 1
     expected_transform_count = 1
@@ -38,19 +40,9 @@ class TestInstagramSavedPostsPipe(PipeTestKit):
         assert target["fibreKind"] == "CollectionFavourites"
         assert target["name"] == "Favourites"
 
-    def test_payload_object_is_post(self, transformed_rows):
+    def test_attribution_name_and_url(self, transformed_rows):
         obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Note"  # FibrePost extends Note
-        assert obj["fibreKind"] == "Post"
-
-    def test_payload_has_attributed_to(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
-        assert attr["name"] == "synthetic_chef"
-
-    def test_payload_has_post_url(self, transformed_rows):
-        obj = transformed_rows[0].payload["object"]
-        assert "url" in obj
+        assert obj["attributedTo"]["name"] == "synthetic_chef"
         assert "AAAAAAAAAAA" in obj["url"]
 
     def test_preview_includes_saved(self, transformed_rows):
@@ -80,7 +72,9 @@ class TestInstagramSavedPostsPipe(PipeTestKit):
         assert len(records) == 0
 
 
-class TestInstagramSavedCollectionsPipe(PipeTestKit):
+class TestInstagramSavedCollectionsPipe(
+    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
+):
     pipe_class = InstagramSavedCollectionsPipe
     expected_extract_count = 2
     expected_transform_count = 2
@@ -114,16 +108,10 @@ class TestInstagramSavedCollectionsPipe(PipeTestKit):
         assert target["name"] == "Recipes"
         assert "published" in target
 
-    def test_payload_object_is_post_with_url(self, transformed_rows):
+    def test_payload_object_url_and_attribution(self, transformed_rows):
         obj = transformed_rows[0].payload["object"]
-        assert obj["type"] == "Note"
-        assert obj["fibreKind"] == "Post"
         assert "BBBBBBBBBBB" in obj["url"]
-
-    def test_payload_has_attributed_to(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["type"] == "Profile"
-        assert attr["name"] == "synthetic_chef"
+        assert obj["attributedTo"]["name"] == "synthetic_chef"
 
     def test_preview_includes_saved_to(self, transformed_rows):
         preview = transformed_rows[0].preview
