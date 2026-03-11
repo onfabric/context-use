@@ -25,11 +25,10 @@ class TestInstagramStoriesPipe(PipeTestKit):
         record = extracted_records[0]
         assert record.uri
         assert record.creation_timestamp > 0
-        assert record.media_type in ("Image", "Video")
         assert record.source is not None
 
-    def test_media_type_inference(self, extracted_records):
-        types = [r.media_type for r in extracted_records]
+    def test_media_type_in_payload(self, transformed_rows):
+        types = [r.payload["object"]["type"] for r in transformed_rows]
         assert "Video" in types
         assert "Image" in types
 
@@ -49,9 +48,6 @@ class TestInstagramReelsPipe(PipeTestKit):
     expected_fibre_kind = "Create"
     fixture_data = INSTAGRAM_REELS_JSON
     fixture_key = "archive/your_instagram_activity/media/reels.json"
-
-    def test_reel_is_video(self, extracted_records):
-        assert extracted_records[0].media_type == "Video"
 
     def test_reel_transform(self, transformed_rows):
         assert len(transformed_rows) == 1
@@ -73,9 +69,6 @@ class TestInstagramPostsPipe(PipeTestKit):
     expected_fibre_kind = "Create"
     fixture_data = INSTAGRAM_POSTS_JSON
     fixture_key = "archive/your_instagram_activity/media/posts_1.json"
-
-    def test_post_is_image(self, extracted_records):
-        assert extracted_records[0].media_type == "Image"
 
     def test_post_title(self, extracted_records):
         assert extracted_records[0].title == "Homemade pasta for dinner"

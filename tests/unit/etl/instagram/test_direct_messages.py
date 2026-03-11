@@ -29,8 +29,8 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
         assert record.source is not None
 
     def test_sender_identification(self, extracted_records):
-        sent_messages = [r for r in extracted_records if not r.is_inbound]
-        received_messages = [r for r in extracted_records if r.is_inbound]
+        sent_messages = [r for r in extracted_records if r.sender_name != r.title]
+        received_messages = [r for r in extracted_records if r.sender_name == r.title]
 
         assert len(sent_messages) == 2
         assert len(received_messages) == 3
@@ -252,7 +252,7 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
         assert len(records) == 1
         assert records[0].content is None
         assert records[0].link == "https://www.instagram.com/p/abc123/"
-        assert records[0].is_inbound is False
+        assert records[0].sender_name != records[0].title
 
         rows = list(pipe.run(task, storage))
         obj = rows[0].payload["object"]

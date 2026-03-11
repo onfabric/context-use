@@ -79,9 +79,6 @@ def _build_payload(
 ) -> FibreSendMessage | FibreReceiveMessage:
     ctx_kwargs: dict = {
         "type": "Collection",
-        # The real thread URL (/direct/t/{numeric_id}/) is not present in
-        # Instagram's data export. This synthetic URL is a stable unique key
-        # for grouping; it does not resolve to an actual conversation.
         "id": f"https://www.instagram.com/direct/{record.thread_path}",
         "name": record.title,
     }
@@ -92,7 +89,8 @@ def _build_payload(
     message = FibreTextMessage(**msg_kwargs)  # type: ignore[reportCallIssue]
     published = datetime.fromtimestamp(record.timestamp_ms / 1000.0, tz=UTC)
 
-    if not record.is_inbound:
+    is_inbound = record.sender_name == record.title
+    if not is_inbound:
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=Profile(name=record.title),  # type: ignore[reportCallIssue]
@@ -159,7 +157,6 @@ class _InstagramDMPipe(Pipe[InstagramDirectMessageRecord]):
                 timestamp_ms=timestamp_ms,
                 thread_path=thread_path,
                 title=title,
-                is_inbound=(sender_name == title),
                 source=json.dumps(msg, default=str),
             )
 

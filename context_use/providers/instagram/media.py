@@ -21,9 +21,6 @@ from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramMediaItem,
     InstagramMediaRecord,
-    InstagramPostsEntry,
-    InstagramReelsManifest,
-    InstagramStoriesManifest,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -31,37 +28,23 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
-
-def _infer_media_type(uri: str) -> str:
-    """Infer 'Image' or 'Video' from file extension."""
-    lower = uri.lower()
-    if lower.endswith((".mp4", ".mov", ".avi", ".webm", ".srt")):
-        return "Video"
-    return "Image"
+_VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".webm", ".srt")
 
 
-def _items_to_records(
-    items: list[InstagramMediaItem],
-    source_file: str,
+def _raw_items_to_records(
+    raw_items: list[dict],
 ) -> Iterator[InstagramMediaRecord]:
-    """Convert InstagramMediaItems into InstagramMediaRecord instances."""
-    for item in items:
+    for raw_item in raw_items:
+        item = InstagramMediaItem.model_validate(raw_item)
         yield InstagramMediaRecord(
             uri=item.uri,
             creation_timestamp=item.creation_timestamp,
             title=item.title,
-            media_type=_infer_media_type(item.uri),
-            source=json.dumps({"file": source_file, "uri": item.uri}),
+            source=json.dumps(raw_item, default=str),
         )
 
 
 class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
-    """Shared transform logic for Instagram media (stories and reels).
-
-    Subclasses implement :meth:`extract_file` to parse their specific
-    manifest format; :meth:`transform` is inherited.
-    """
-
     provider = PROVIDER
     archive_version = 1
     record_schema = InstagramMediaRecord
@@ -71,14 +54,13 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
         record: InstagramMediaRecord,
         task: EtlTask,
     ) -> ThreadRow:
-        payload = self._build_payload(record, task.provider)
+        payload = self._build_payload(record)
         assert payload is not None, f"Unexpected None payload for uri={record.uri!r}"
 
         asat = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
-        unique_key = payload.unique_key()
 
         return ThreadRow(
-            unique_key=unique_key,
+            unique_key=payload.unique_key(),
             provider=self.provider,
             interaction_type=self.interaction_type,
             preview=payload.get_preview(task.provider) or "",
@@ -90,13 +72,11 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
         )
 
     @staticmethod
-    def _build_payload(
-        record: InstagramMediaRecord,
-        provider: str,
-    ) -> FibreCreateObject | None:
+    def _build_payload(record: InstagramMediaRecord) -> FibreCreateObject:
         published = datetime.fromtimestamp(float(record.creation_timestamp), tz=UTC)
 
-        if record.media_type == "Video":
+        is_video = record.uri.lower().endswith(_VIDEO_EXTENSIONS)
+        if is_video:
             media_obj = Video(name=record.title or None, published=published)  # type: ignore[reportCallIssue]
         else:
             media_obj = Image(name=record.title or None, published=published)  # type: ignore[reportCallIssue]
@@ -108,13 +88,6 @@ class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
 
 
 class InstagramStoriesPipe(_InstagramMediaPipe):
-    """ETL pipe for Instagram stories.
-
-    Reads ``stories.json``, yields individual
-    :class:`InstagramMediaRecord` instances, and transforms each
-    into a :class:`ThreadRow` with an ActivityStreams payload.
-    """
-
     interaction_type = "instagram_stories"
     archive_path_pattern = "your_instagram_activity/media/stories.json"
 
@@ -124,18 +97,11 @@ class InstagramStoriesPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramStoriesManifest.model_validate_json(raw)
-        yield from _items_to_records(manifest.ig_stories, source_uri)
+        data = json.loads(raw)
+        yield from _raw_items_to_records(data.get("ig_stories", []))
 
 
 class InstagramReelsPipe(_InstagramMediaPipe):
-    """ETL pipe for Instagram reels.
-
-    Reads ``reels.json``, flattens nested media lists, yields individual
-    :class:`InstagramMediaRecord` instances, and transforms each
-    into a :class:`ThreadRow` with an ActivityStreams payload.
-    """
-
     interaction_type = "instagram_reels"
     archive_path_pattern = "your_instagram_activity/media/reels.json"
 
@@ -145,23 +111,16 @@ class InstagramReelsPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramReelsManifest.model_validate_json(raw)
+        data = json.loads(raw)
 
-        all_items: list[InstagramMediaItem] = []
-        for entry in manifest.ig_reels_media:
-            all_items.extend(entry.media)
+        raw_items: list[dict] = []
+        for entry in data.get("ig_reels_media", []):
+            raw_items.extend(entry.get("media", []))
 
-        yield from _items_to_records(all_items, source_uri)
+        yield from _raw_items_to_records(raw_items)
 
 
 class InstagramPostsPipe(_InstagramMediaPipe):
-    """ETL pipe for Instagram posts.
-
-    Reads ``posts_*.json``, flattens nested media lists, yields individual
-    :class:`InstagramMediaRecord` instances, and transforms each
-    into a :class:`ThreadRow` with an ActivityStreams payload.
-    """
-
     interaction_type = "instagram_posts"
     archive_path_pattern = "your_instagram_activity/media/posts_*.json"
 
@@ -171,14 +130,13 @@ class InstagramPostsPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        entries = json.loads(raw)
+        entries: list[dict] = json.loads(raw)
 
-        all_items: list[InstagramMediaItem] = []
+        raw_items: list[dict] = []
         for entry in entries:
-            validated = InstagramPostsEntry.model_validate(entry)
-            all_items.extend(validated.media)
+            raw_items.extend(entry.get("media", []))
 
-        yield from _items_to_records(all_items, source_uri)
+        yield from _raw_items_to_records(raw_items)
 
 
 _MEDIA_MEMORY_CONFIG = MemoryConfig(
