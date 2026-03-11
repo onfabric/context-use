@@ -59,12 +59,28 @@ def _safe_current_state(batch: Batch) -> State:
 class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
     @classmethod
     def from_batches(cls, batches: list[Batch]) -> MemoryBatchStatusSpinner:
+        from context_use.memories.states import (
+            MemoryEmbedCompleteState,
+            MemoryEmbedPendingState,
+            MemoryGenerateCompleteState,
+            MemoryGeneratePendingState,
+        )
+
         rows: list[tuple[str, str, State, str]] = []
         for b in batches:
             state = _safe_current_state(b)
             detail = _batch_detail_from_state(state)
             rows.append((b.id, f"Batch {b.batch_number:03d}", state, detail))
-        return cls(rows)
+
+        spinner = cls(rows)
+        spinner._STYLES = {
+            **spinner._STYLES,
+            MemoryGeneratePendingState: "bright_cyan",
+            MemoryGenerateCompleteState: "spring_green3",
+            MemoryEmbedPendingState: "bright_blue",
+            MemoryEmbedCompleteState: "green",
+        }
+        return spinner
 
 
 async def _advance_and_update(

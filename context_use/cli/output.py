@@ -11,7 +11,14 @@ from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 
-from context_use.batch.states import State, StopState
+from context_use.batch.states import (
+    CompleteState,
+    CreatedState,
+    FailedState,
+    SkippedState,
+    State,
+    StopState,
+)
 
 
 def _supports_color() -> bool:
@@ -107,6 +114,13 @@ class _Row:
 
 
 class BatchStatusSpinner:
+    _STYLES: dict[type[State], str] = {
+        CreatedState: "cyan",
+        CompleteState: "bold green",
+        SkippedState: "yellow",
+        FailedState: "red",
+    }
+
     def __init__(
         self,
         batches: list[tuple[str, str, State, str]],
@@ -166,13 +180,11 @@ class BatchStatusSpinner:
         table.add_column(ratio=1)
 
         for row in self._rows.values():
+            style = self._STYLES.get(type(row.state), "bright_blue")
             table.add_row(
                 self._indicator(row.state),
                 row.label,
-                Text(
-                    row.state.status.replace("_", " ").title(),
-                    style=row.state.style,
-                ),
+                Text(row.state.status.replace("_", " ").title(), style=style),
                 Text(row.detail, style="dim") if row.detail else Text(""),
             )
         return table
