@@ -110,9 +110,13 @@ async def _advance_and_update(
     reporter: out.BatchReporter,
 ) -> ScheduleInstruction:
     instruction = await ctx.advance_batch(batch_id)
-    head = await ctx.get_batch_head_state(batch_id)
-    if head is not None:
-        reporter.update(batch_id, head, detail=_batch_detail_from_state(head))
+    batch = await ctx.get_batch(batch_id)
+    if batch is not None:
+        try:
+            state = batch.parse_current_state()
+            reporter.update(batch_id, state, detail=_batch_detail_from_state(state))
+        except Exception:
+            out.warn(f"Error parsing state for batch {batch_id}")
     return instruction
 
 
