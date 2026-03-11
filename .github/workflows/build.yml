@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: build:required
+    name: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -31,7 +31,7 @@ jobs:
           path: dist/
 
   smoke:
-    name: "smoke (py${{ matrix.python-version }}):required"
+    name: "smoke (py${{ matrix.python-version }})"
     needs: build
     runs-on: ubuntu-latest
     strategy:
@@ -58,3 +58,18 @@ jobs:
         run: |
           source .venv/bin/activate
           context-use --version
+          context-use --help
+
+  ci-passed:
+    name: build:required
+    if: always()
+    needs: [build, smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs passed
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" || "${{ contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "Some jobs failed or were cancelled"
+            exit 1
+          fi
+          echo "All CI jobs passed"
