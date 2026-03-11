@@ -15,7 +15,7 @@ from context_use.etl.payload.models import (
     Page,
 )
 from context_use.memories.config import MemoryConfig
-from context_use.memories.prompt.media import MediaMemoryPromptBuilder
+from context_use.memories.prompt.activity import ActivityMemoryPromptBuilder
 from context_use.models.etl_task import EtlTask
 from context_use.providers.airbnb.schemas import PROVIDER, AirbnbReservationRecord
 from context_use.providers.registry import declare_interaction
@@ -109,7 +109,7 @@ declare_interaction(
     InteractionConfig(
         pipe=AirbnbReservationsPipe,
         memory=MemoryConfig(
-            prompt_builder=MediaMemoryPromptBuilder,
+            prompt_builder=ActivityMemoryPromptBuilder,
             grouper=WindowGrouper,
         ),
     )
