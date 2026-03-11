@@ -64,6 +64,15 @@ class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
         "MEMORY_EMBED_COMPLETE": "green",
     }
 
+    @classmethod
+    def from_batches(cls, batches: list[Batch]) -> MemoryBatchStatusSpinner:
+        rows: list[tuple[str, str, State, str]] = []
+        for b in batches:
+            state = _safe_current_state(b)
+            detail = _batch_detail_from_state(state)
+            rows.append((b.id, f"Batch {b.batch_number:03d}", state, detail))
+        return cls(rows)
+
 
 async def run_batches(
     ctx: ContextUse,
@@ -71,25 +80,13 @@ async def run_batches(
     *,
     should_sleep_after_each_batch: bool = True,
 ) -> None:
-    """Drive all batches to completion with a live status spinner."""
-    from context_use.batch.states import StopState
-
     if not batches:
         return
 
-    states: dict[str, State] = {b.id: _safe_current_state(b) for b in batches}
-    details: dict[str, str] = {
-        b.id: _batch_detail_from_state(states[b.id]) for b in batches
-    }
     next_due: dict[str, float] = {b.id: 0.0 for b in batches}
-    pending = {b.id for b in batches if not isinstance(states[b.id], StopState)}
 
-    spinner_rows = [
-        (b.id, f"Batch {b.batch_number:03d}", states[b.id], details[b.id])
-        for b in batches
-    ]
-
-    with MemoryBatchStatusSpinner(spinner_rows) as spinner:
+    with MemoryBatchStatusSpinner.from_batches(batches) as spinner:
+        pending = spinner.pending_ids
         while pending:
             advanced_any = False
 
@@ -102,14 +99,11 @@ async def run_batches(
 
                 instruction = await ctx.advance_batch(batch_id)
                 head = await ctx.get_batch_head_state(batch_id)
-                state = head if head is not None else states[batch_id]
-                detail = _batch_detail_from_state(state)
-                states[batch_id] = state
-                if detail:
-                    details[batch_id] = detail
+                if head is not None:
+                    spinner.update(
+                        batch_id, head, detail=_batch_detail_from_state(head)
+                    )
                 advanced_any = True
-
-                spinner.update(batch_id, state, detail=details[batch_id])
 
                 if instruction.stop:
                     pending.discard(batch_id)

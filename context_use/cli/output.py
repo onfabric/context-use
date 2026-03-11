@@ -145,14 +145,23 @@ class BatchStatusSpinner:
             self._live = None
             self._console.print("")
 
+    @property
+    def pending_ids(self) -> set[str]:
+        return {
+            batch_id
+            for batch_id, row in self._rows.items()
+            if not isinstance(row.state, StopState)
+        }
+
     def update(self, batch_id: str, state: State, *, detail: str = "") -> None:
         row = self._rows.get(batch_id)
         if row is None:
             return
-        if row.state == state and row.detail == detail:
+        effective_detail = detail or row.detail
+        if row.state == state and row.detail == effective_detail:
             return
         row.state = state
-        row.detail = detail
+        row.detail = effective_detail
         if self._live is not None:
             self._live.update(self._render(), refresh=True)
 
