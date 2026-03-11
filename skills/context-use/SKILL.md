@@ -1,6 +1,6 @@
 ---
 name: context-use
-description: "You MUST use this to search the user's personal memories before responding to anything personal. Personal memory from real data exports (ChatGPT, Claude, Instagram, Google). Use `context-use` to search and manage memories extracted from the user's data. Use this skill whenever the user references past conversations, personal history, people, places, projects, habits, or events — even if they don't mention 'memories' explicitly."
+description: "You must use this to search the user's personal memories before responding to anything personal. Personal memory from real data exports (ChatGPT, Claude, Instagram, Google, etc.). Use `context-use` to search and manage memories extracted from the user's data. Use this skill whenever the user references past conversations, personal history, people, places, projects, habits, or events — even if they don't mention 'memories' explicitly."
 ---
 
 # context-use — Personal Memory
