@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import os
 import sys
-from collections.abc import Sequence
 from dataclasses import dataclass
 from types import TracebackType
 
@@ -120,21 +119,13 @@ class _Row:
 
 
 class BatchStatusSpinner:
-    """Per-batch Rich live-rendered progress table.
-
-    Each row maps to one batch and renders a spinner (or terminal icon),
-    the current :class:`State` status, and an optional detail string.
-    """
-
-    _LABEL_WIDTH = 12
-    _STATUS_WIDTH = 28
-
-    def __init__(self, batches: Sequence[tuple[str, str, State, str]]) -> None:
-        self._order = [bid for bid, _, _, _ in batches]
-        self._rows: dict[str, _Row] = {
-            bid: _Row(label=label, state=state, detail=detail)
-            for bid, label, state, detail in batches
-        }
+    def __init__(
+        self,
+        batches: list[tuple[str, str, State, str]],
+    ) -> None:
+        self._rows: dict[str, _Row] = {}
+        for batch_id, label, state, detail in batches:
+            self._rows[batch_id] = _Row(label=label, state=state, detail=detail)
         self._console = Console()
         self._live: Live | None = None
 
@@ -167,27 +158,19 @@ class BatchStatusSpinner:
             return
         row.state = state
         row.detail = detail
-        self._refresh()
-
-    def tick(self) -> None:
-        self._refresh()
-
-    def _refresh(self) -> None:
         if self._live is not None:
             self._live.update(self._render(), refresh=True)
 
     def _render(self) -> Table:
         table = Table.grid(padding=(0, 1), expand=True)
         table.add_column(width=2, no_wrap=True)
-        table.add_column(width=self._LABEL_WIDTH, no_wrap=True)
-        table.add_column(width=self._STATUS_WIDTH)
+        table.add_column(width=12, no_wrap=True)
+        table.add_column(width=28)
         table.add_column(ratio=1)
 
-        for bid in self._order:
-            row = self._rows[bid]
-            done = isinstance(row.state, StopState)
+        for row in self._rows.values():
             table.add_row(
-                self._indicator(row.state, done),
+                self._indicator(row.state),
                 row.label,
                 self._status_text(row.state.status),
                 Text(row.detail, style="dim") if row.detail else Text(""),
@@ -195,8 +178,8 @@ class BatchStatusSpinner:
         return table
 
     @staticmethod
-    def _indicator(state: State, done: bool) -> RenderableType:
-        if not done:
+    def _indicator(state: State) -> RenderableType:
+        if not isinstance(state, StopState):
             return Spinner("dots", style="cyan")
         if state.status == "FAILED":
             return Text("✗", style="red")

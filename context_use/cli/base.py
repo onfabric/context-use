@@ -62,56 +62,53 @@ async def run_batches(
     should_sleep_after_each_batch: bool = True,
 ) -> None:
     """Drive all batches to completion with a live status spinner."""
-    from context_use.batch.manager import ScheduleInstruction
     from context_use.batch.states import StopState
 
     if not batches:
         return
 
-    ordered_ids = [b.id for b in batches]
-    next_due: dict[str, float] = {bid: 0.0 for bid in ordered_ids}
     states: dict[str, State] = {b.id: _safe_current_state(b) for b in batches}
     details: dict[str, str] = {
-        bid: _batch_detail_from_state(states[bid]) for bid in ordered_ids
+        b.id: _batch_detail_from_state(states[b.id]) for b in batches
     }
+    next_due: dict[str, float] = {b.id: 0.0 for b in batches}
+    pending = {b.id for b in batches if not isinstance(states[b.id], StopState)}
 
-    rows = [
+    spinner_rows = [
         (b.id, f"Batch {b.batch_number:03d}", states[b.id], details[b.id])
         for b in batches
     ]
-    pending: set[str] = {
-        bid for bid in ordered_ids if not isinstance(states[bid], StopState)
-    }
 
-    with out.BatchStatusSpinner(rows) as spinner:
+    with out.BatchStatusSpinner(spinner_rows) as spinner:
         while pending:
             advanced_any = False
 
-            for bid in ordered_ids:
-                if bid not in pending:
+            for batch in batches:
+                batch_id = batch.id
+                if batch_id not in pending:
                     continue
-                if next_due[bid] > time.monotonic():
+                if next_due[batch_id] > time.monotonic():
                     continue
 
-                instruction: ScheduleInstruction = await ctx.advance_batch(bid)
-                head = await ctx.get_batch_head_state(bid)
-                state = head if head is not None else states[bid]
+                instruction = await ctx.advance_batch(batch_id)
+                head = await ctx.get_batch_head_state(batch_id)
+                state = head if head is not None else states[batch_id]
                 detail = _batch_detail_from_state(state)
-                states[bid] = state
+                states[batch_id] = state
                 if detail:
-                    details[bid] = detail
+                    details[batch_id] = detail
                 advanced_any = True
 
+                spinner.update(batch_id, state, detail=details[batch_id])
+
                 if instruction.stop:
-                    spinner.update(bid, state, detail=details[bid])
-                    pending.discard(bid)
+                    pending.discard(batch_id)
                     continue
 
                 countdown = float(instruction.countdown or 0)
                 if not should_sleep_after_each_batch:
                     countdown = 0
-                next_due[bid] = time.monotonic() + countdown
-                spinner.update(bid, state, detail=details[bid])
+                next_due[batch_id] = time.monotonic() + countdown
 
             if not pending:
                 break
