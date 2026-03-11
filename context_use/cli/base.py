@@ -73,9 +73,9 @@ class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
         cls._STYLES = {
             **out._base_styles(),
             MemoryGeneratePendingState: "bright_cyan",
-            MemoryGenerateCompleteState: "spring_green3",
+            MemoryGenerateCompleteState: "chartreuse1",
             MemoryEmbedPendingState: "bright_blue",
-            MemoryEmbedCompleteState: "green",
+            MemoryEmbedCompleteState: "chartreuse1",
         }
 
 
