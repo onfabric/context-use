@@ -1,5 +1,7 @@
 """Protocol describing the memory operations the agent tools require."""
 
+from __future__ import annotations
+
 from datetime import date
 from typing import Protocol
 

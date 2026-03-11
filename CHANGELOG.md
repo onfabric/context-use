@@ -1,3 +1,13 @@
+## [0.3.1] - 2026-03-11
+
+### ⚙️ Miscellaneous Tasks
+
+- Remove data folder placeholder (#163)
+
+### ◀️ Revert
+
+- Bring back future annotations (#166)
+
 ## [0.3.0] - 2026-03-10
 
 ### 🚀 Features
