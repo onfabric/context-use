@@ -75,6 +75,19 @@ Fibre models in `context_use/etl/payload/models.py` are the shared vocabulary of
 | `FibreFollowActor` / `FibreFollowedByActor` | Follow/follower events |
 | `FibreCommentObject` | User commented on something |
 
+ActivityStreams models use JSON-LD field aliases (`@type`, `@id`) that conflict with keyword construction. Build a plain dict and unpack it:
+
+```python
+ctx_kwargs: dict = {
+    "type": "Collection",
+    "id": f"https://example.com/{record.thread_id}",
+    "name": record.title,
+}
+context = Collection(**ctx_kwargs)
+```
+
+Most AS model constructors also require a `# type: ignore[reportCallIssue]` suppression due to the alias mismatch with pyright.
+
 **Do not add a new fibre type to accommodate small differences between records from the same pipe.** Variation within a pipe — a plain text message, a story reply, a shared post — is handled in `transform()` through content composition, not by creating new types. Fibre types represent categorically different kinds of interaction. If you think you need a new type, first check whether an existing one covers the semantic meaning; explain your reasoning in the PR.
 
 To add a genuinely new fibre type: subclass the appropriate AS base (`Activity` or `Object`) with `_BaseFibreMixin`, add a `fibreKind` literal field, implement `_get_preview()`, call `model_rebuild()` at module level, and add it to the `FibreByType` union at the bottom of the file. The models have to be compliant with [Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/)
@@ -156,7 +169,8 @@ See `context_use/memories/prompt/base.py` for the ABC (`BasePromptBuilder`) and 
 
 | Builder | Module | Use case |
 |---------|--------|----------|
-| `ConversationMemoryPromptBuilder` | `memories/prompt/conversation.py` | Chat / DM transcripts |
+| `AgentConversationMemoryPromptBuilder` | `memories/prompt/conversation.py` | Conversations with an AI assistant (ChatGPT, Claude) |
+| `HumanConversationMemoryPromptBuilder` | `memories/prompt/conversation.py` | Conversations between people (DMs, chats) |
 | `MediaMemoryPromptBuilder` | `memories/prompt/media.py` | Visual media grouped by day |
 
 To write a custom prompt builder, subclass `BasePromptBuilder` (or a stock builder) and implement `build()` and `has_content()`.
@@ -165,7 +179,8 @@ To write a custom prompt builder, subclass `BasePromptBuilder` (or a stock build
 
 | Interaction pattern | Grouper | Prompt builder |
 |---------------------|---------|----------------|
-| Chat / DM conversations | `CollectionGrouper` | `ConversationMemoryPromptBuilder` |
+| AI assistant conversations | `CollectionGrouper` | `AgentConversationMemoryPromptBuilder` |
+| Human-to-human conversations | `CollectionGrouper` | `HumanConversationMemoryPromptBuilder` |
 | Visual media (stories, reels, posts) | `WindowGrouper` | `MediaMemoryPromptBuilder` |
 
 ---
