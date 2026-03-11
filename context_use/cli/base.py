@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
-from context_use.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
     from context_use.batch.manager import ScheduleInstruction
     from context_use.batch.states import State
+    from context_use.config import Config
     from context_use.facade.types import PipelineResult
     from context_use.models.batch import Batch
 
@@ -57,11 +57,11 @@ def _safe_current_state(batch: Batch) -> State:
 
 
 class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
-    _STYLES: dict[type[State], str] = {**out.BatchStatusSpinner._STYLES}
+    _STYLES: dict[type[State], str] | None = None
 
     @classmethod
     def _ensure_memory_styles(cls) -> None:
-        if len(cls._STYLES) > len(out.BatchStatusSpinner._STYLES):
+        if cls._STYLES is not None:
             return
         from context_use.memories.states import (
             MemoryEmbedCompleteState,
@@ -71,7 +71,7 @@ class MemoryBatchStatusSpinner(out.BatchStatusSpinner):
         )
 
         cls._STYLES = {
-            **cls._STYLES,
+            **out._base_styles(),
             MemoryGeneratePendingState: "bright_cyan",
             MemoryGenerateCompleteState: "spring_green3",
             MemoryEmbedPendingState: "bright_blue",
@@ -183,6 +183,8 @@ def prompt_api_key(cfg: Config) -> Config:
 
     Calls ``sys.exit(1)`` if the user does not enter a key.
     """
+    from context_use.config import save_config
+
     out.warn("OpenAI API key not configured.")
     out.info("Get an API key at https://platform.openai.com/api-keys")
     print()
@@ -465,6 +467,8 @@ class ContextCommand(BaseCommand, ABC):
     llm_mode: ClassVar[str] = "batch"
 
     async def execute(self, args: argparse.Namespace) -> None:
+        from context_use.config import build_ctx, load_config
+
         cfg = load_config()
         cfg = self._prepare(cfg, args)
         try:

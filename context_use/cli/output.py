@@ -5,7 +5,7 @@ import os
 import sys
 from dataclasses import dataclass
 from types import TracebackType
-from typing import Protocol, Self
+from typing import TYPE_CHECKING, Protocol, Self
 
 from rich.console import Console, RenderableType
 from rich.live import Live
@@ -13,14 +13,8 @@ from rich.spinner import Spinner
 from rich.table import Table
 from rich.text import Text
 
-from context_use.batch.states import (
-    CompleteState,
-    CreatedState,
-    FailedState,
-    SkippedState,
-    State,
-    StopState,
-)
+if TYPE_CHECKING:
+    from context_use.batch.states import State
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +124,28 @@ class BatchReporter(Protocol):
     ) -> None: ...
 
 
+def _is_stop_state(state: State) -> bool:
+    from context_use.batch.states import StopState
+
+    return isinstance(state, StopState)
+
+
+def _base_styles() -> dict[type[State], str]:
+    from context_use.batch.states import (
+        CompleteState,
+        CreatedState,
+        FailedState,
+        SkippedState,
+    )
+
+    return {
+        CreatedState: "cyan",
+        CompleteState: "bold green",
+        SkippedState: "yellow",
+        FailedState: "red",
+    }
+
+
 class LogBatchReporter:
     def __init__(self, batches: list[tuple[str, str, State, str]]) -> None:
         self._rows: dict[str, _Row] = {}
@@ -154,7 +170,7 @@ class LogBatchReporter:
         return {
             batch_id
             for batch_id, row in self._rows.items()
-            if not isinstance(row.state, StopState)
+            if not _is_stop_state(row.state)
         }
 
     def update(self, batch_id: str, state: State, *, detail: str = "") -> None:
@@ -173,12 +189,7 @@ class LogBatchReporter:
 
 
 class BatchStatusSpinner:
-    _STYLES: dict[type[State], str] = {
-        CreatedState: "cyan",
-        CompleteState: "bold green",
-        SkippedState: "yellow",
-        FailedState: "red",
-    }
+    _STYLES: dict[type[State], str] | None = None
 
     def __init__(
         self,
@@ -187,6 +198,8 @@ class BatchStatusSpinner:
         self._rows: dict[str, _Row] = {}
         for batch_id, label, state, detail in batches:
             self._rows[batch_id] = _Row(label=label, state=state, detail=detail)
+        if self._STYLES is None:
+            self.__class__._STYLES = _base_styles()
         self._console = Console()
         self._live: Live | None = None
 
@@ -216,7 +229,7 @@ class BatchStatusSpinner:
         return {
             batch_id
             for batch_id, row in self._rows.items()
-            if not isinstance(row.state, StopState)
+            if not _is_stop_state(row.state)
         }
 
     def update(self, batch_id: str, state: State, *, detail: str = "") -> None:
@@ -238,8 +251,9 @@ class BatchStatusSpinner:
         table.add_column(width=28)
         table.add_column(ratio=1)
 
+        styles = self._STYLES or {}
         for row in self._rows.values():
-            style = self._STYLES.get(type(row.state), "bright_blue")
+            style = styles.get(type(row.state), "bright_blue")
             table.add_row(
                 self._indicator(row.state),
                 row.label,
@@ -250,10 +264,10 @@ class BatchStatusSpinner:
 
     @staticmethod
     def _indicator(state: State) -> RenderableType:
-        if not isinstance(state, StopState):
-            return Spinner("dots", style="cyan")
-        if state.status == "FAILED":
-            return Text("✗", style="red")
-        if state.status == "SKIPPED":
-            return Text("!", style="yellow")
-        return Text("✓", style="green")
+        if _is_stop_state(state):
+            if state.status == "FAILED":
+                return Text("✗", style="red")
+            if state.status == "SKIPPED":
+                return Text("!", style="yellow")
+            return Text("✓", style="green")
+        return Spinner("dots", style="cyan")
