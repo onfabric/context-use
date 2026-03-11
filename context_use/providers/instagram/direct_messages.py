@@ -32,6 +32,16 @@ def _is_attachment_placeholder(content: str) -> bool:
     return content.endswith(" sent an attachment.")
 
 
+def _link_content_type(link: str) -> str | None:
+    if "/stories/" in link:
+        return "story"
+    if "/reel/" in link:
+        return "reel"
+    if "/p/" in link:
+        return "post"
+    return None
+
+
 def _compose_message_content(record: InstagramDirectMessageRecord) -> str:
     link = record.link or ""
     text = (
@@ -39,13 +49,21 @@ def _compose_message_content(record: InstagramDirectMessageRecord) -> str:
         if record.content and not _is_attachment_placeholder(record.content)
         else None
     )
-    if "/stories/" in link:
+    content_type = _link_content_type(link)
+    if content_type == "story":
         return f"Replied to story with '{text}'" if text else "Replied to a story"
     if record.original_content_owner and record.share_text:
         snippet = record.share_text[:200].rstrip()
         return f"Shared from @{record.original_content_owner}: {snippet}"
+    if record.original_content_owner:
+        label = f" ({content_type})" if content_type else ""
+        return f"Shared from @{record.original_content_owner}{label}"
     if record.share_text:
-        return record.share_text[:200]
+        return f"Shared: {record.share_text[:200]}"
+    if content_type and text:
+        return f"Shared a {content_type} with '{text}'"
+    if content_type:
+        return f"Shared a {content_type}"
     if text:
         return text
     return link
