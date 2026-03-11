@@ -1,3 +1,23 @@
+## [0.4.0] - 2026-03-11
+
+### 🚀 Features
+
+- Etl to process IG DMs (#173)
+- Memory batch status spinners (#170)
+
+### 📚 Documentation
+
+- Agents skill (#165)
+
+### ⚡ Performance
+
+- Improve cli startup speed (#167)
+
+### ⚙️ Miscellaneous Tasks
+
+- Check build is working across python versions (#169)
+- Simplify agents.md and extract the guide to add a provider (#164)
+
 ## [0.3.1] - 2026-03-11
 
 ### ⚙️ Miscellaneous Tasks
