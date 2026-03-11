@@ -4,12 +4,13 @@
 - Never add doc comments unless the entity genuinely needs an explanation that good naming and scoping cannot convey.
 - Don't make sweeping refactors alongside feature work. Keep diffs focused.
 - Always clean up after yourself: remove unused imports, variables, functions, fields, classes, and modules. Eliminate code duplication.
+- Write type-safe code. Add type annotations to all function signatures and avoid `Any` where a concrete type is possible.
 
 # Workflow for Non-Trivial Tasks
 
 1. **Plan first.** Before writing code, identify the files that need changes and consider edge cases.
 2. **Implement.** Write clean, minimal code that solves the problem.
-3. **Test.** Run the test suite and verify everything passes. See [Testing](#testing).
+3. **Verify.** Run `uv run pyright` and `uv run pytest` and fix any errors before committing.
 4. **Update docs.** If your changes affect documented behavior, update `README.md` and any relevant files in `docs/` in the same PR.
 
 # Testing
