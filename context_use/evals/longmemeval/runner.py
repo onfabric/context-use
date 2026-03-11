@@ -178,7 +178,7 @@ class LongMemEvalRunner:
         from context_use.memories.config import MemoryConfig
         from context_use.memories.factory import MemoryBatchFactory
         from context_use.memories.prompt.conversation import (
-            ConversationMemoryPromptBuilder,
+            AgentConversationMemoryPromptBuilder,
         )
         from context_use.models.batch import BatchCategory
         from context_use.storage.disk import DiskStorage
@@ -190,7 +190,7 @@ class LongMemEvalRunner:
             return
 
         memory_config = MemoryConfig(
-            prompt_builder=ConversationMemoryPromptBuilder,
+            prompt_builder=AgentConversationMemoryPromptBuilder,
             grouper=CollectionGrouper,
         )
         grouper = memory_config.create_grouper()
