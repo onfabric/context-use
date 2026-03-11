@@ -23,7 +23,11 @@ from context_use.memories.prompt.conversation import (
     AgentConversationMemoryPromptBuilder,
 )
 from context_use.models.etl_task import EtlTask
-from context_use.providers.claude.schemas import PROVIDER, ClaudeConversationRecord
+from context_use.providers.claude.schemas import (
+    PROVIDER,
+    ClaudeConversation,
+    ClaudeConversationRecord,
+)
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -98,14 +102,25 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
         stream = storage.open_stream(source_uri)
 
         try:
-            for conversation in ijson.items(stream, "item"):
-                conversation_title = conversation.get("name")
-                conversation_id = conversation.get("uuid")
-                chat_messages = conversation.get("chat_messages", [])
+            for raw_conversation in ijson.items(stream, "item"):
+                try:
+                    conversation = ClaudeConversation.model_validate(raw_conversation)
+                except Exception:
+                    logger.debug(
+                        "%s: skipping invalid conversation in %s",
+                        self.__class__.__name__,
+                        source_uri,
+                    )
+                    continue
 
-                for message in chat_messages:
-                    sender = message.get("sender")
-                    if sender not in ("human", "assistant"):
+                raw_messages: list[dict] = raw_conversation.get(  # type: ignore[assignment]
+                    "chat_messages", []
+                )
+
+                for message, raw_message in zip(
+                    conversation.chat_messages, raw_messages, strict=True
+                ):
+                    if message.sender not in ("human", "assistant"):
                         continue
 
                     # The archive stores message text in two places: a top-level
@@ -116,20 +131,20 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
                     # placeholders. Extracting only ``type == "text"`` blocks from
                     # ``content`` gives clean prose without that noise.
                     text = "\n\n".join(
-                        block["text"]
-                        for block in message.get("content", [])
-                        if block.get("type") == "text" and block.get("text", "").strip()
+                        block.text
+                        for block in message.content
+                        if block.type == "text" and block.text and block.text.strip()
                     )
                     if not text:
                         continue
 
                     yield ClaudeConversationRecord(
-                        role=sender,
+                        role=message.sender,
                         content=text,
-                        created_at=message.get("created_at"),
-                        conversation_id=conversation_id,
-                        conversation_title=conversation_title,
-                        source=json.dumps(message, default=str),
+                        created_at=message.created_at,
+                        conversation_id=conversation.uuid,
+                        conversation_title=conversation.name,
+                        source=json.dumps(raw_message, default=str),
                     )
         finally:
             stream.close()
