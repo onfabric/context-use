@@ -10,7 +10,7 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 | 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
 | 3 | `context_use/providers/<provider>/__init__.py` | Import the new module (one line) so the registration fires |
 | 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
-| 5 | `tests/unit/etl/test_<provider>_<type>.py` | Subclass `PipeTestKit` + add provider-specific tests |
+| 5 | `tests/unit/etl/<provider>/test_<type>.py` | Subclass `PipeTestKit` (set `fixture_data`, `fixture_key`, counts) + add provider-specific tests |
 
 For a **new** provider, also:
 
@@ -266,22 +266,66 @@ To write a custom prompt builder, subclass `BasePromptBuilder` (or a stock build
 
 ### PipeTestKit
 
-See `context_use/testing/pipe_test_kit.py` — it's ~160 lines and fully docstringed. Subclass it and provide:
+See `context_use/testing/pipe_test_kit.py`. Subclass it and set class variables:
 
-- `pipe_class` — the `Pipe` subclass under test
-- `expected_extract_count` / `expected_transform_count` — expected counts from the fixture
-- `pipe_fixture` — pytest fixture returning `(StorageBackend, key)`
+| Class var | Required | Description |
+|-----------|----------|-------------|
+| `pipe_class` | yes | The `Pipe` subclass under test |
+| `expected_extract_count` | yes | Number of records expected from extract |
+| `expected_transform_count` | yes | Number of ThreadRows expected from run |
+| `fixture_data` | yes | JSON-serialisable fixture data (loaded in conftest) |
+| `fixture_key` | yes | Storage key, e.g. `"archive/path/data.json"` |
+| `expected_fibre_kind` | no | If set, auto-asserts all rows have this fibreKind |
 
-The kit auto-generates: extract type/count checks, ThreadRow structural validation (including `unique_key` prefix, `fibreKind` in payload, non-empty preview), unique key checks, count tracking, and ClassVar validation. Read the class for the full list.
+When `fixture_data` and `fixture_key` are set, `PipeTestKit` auto-generates the `pipe_fixture`. No override needed.
 
-See `tests/unit/etl/` for working test suites — each test file demonstrates `PipeTestKit` subclassing alongside provider-specific assertions (message direction, asset URIs, edge-case filtering, payload structure).
+**Auto-generated conformance tests:** extract type/count, ThreadRow validation (unique_key, provider, interaction_type, version, asat, fibreKind, preview), unique keys, fibre kind (if set), count tracking, ClassVar validation.
+
+**Convenience fixtures** for provider-specific tests:
+
+- `extracted_records` — calls `extract()` with fixture data, returns `list[BaseModel]`
+- `transformed_rows` — calls `run()` with fixture data, returns `list[ThreadRow]`
+
+Minimal example:
+
+```python
+from context_use.providers.myco.search import MyCoSearchPipe
+from context_use.testing import PipeTestKit
+from tests.unit.etl.myco.conftest import MYCO_SEARCH_JSON
+
+class TestMyCoSearchPipe(PipeTestKit):
+    pipe_class = MyCoSearchPipe
+    fixture_data = MYCO_SEARCH_JSON
+    fixture_key = "archive/search/results.json"
+    expected_extract_count = 4
+    expected_transform_count = 4
+    expected_fibre_kind = "Search"
+
+    def test_preview_text(self, transformed_rows):
+        assert any("python" in r.preview for r in transformed_rows)
+
+    def test_record_has_query(self, extracted_records):
+        assert extracted_records[0].query == "python tutorials"
+```
+
+Tests that need custom inline data (e.g. edge-case filtering) still accept `tmp_path` directly and build their own storage.
+
+A CI-enforced meta-test (`tests/unit/etl/core/test_pipe_coverage.py`) checks that **every registered pipe** has a corresponding `PipeTestKit` subclass. Adding a new pipe without a test will fail CI.
+
+### Test directory layout
+
+```
+tests/unit/etl/
+├── core/                           # Pipe base-class, registry, payload tests
+│   └── test_pipe_coverage.py       # ← enforces every pipe has tests
+├── <provider>/
+│   ├── conftest.py                 # fixture data constants
+│   └── test_<interaction>.py       # PipeTestKit subclass(es)
+└── ...
+```
 
 ### Fixture Data
 
 Place realistic test data under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure. The fixture JSON should exercise edge cases while staying small enough to reason about.
 
-### Storage in Tests
-
-Use `DiskStorage(str(tmp_path / "store"))` backed by pytest's `tmp_path`. Write fixture data with `storage.write(key, data)`.
-
-Use `self._make_task(key)` to build a transient `EtlTask` in provider-specific tests.
+Load fixture JSON in the provider's `conftest.py` (e.g. `tests/unit/etl/instagram/conftest.py`) and import those constants from the test file.
