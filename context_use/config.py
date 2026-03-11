@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import tomllib
 from dataclasses import dataclass, field
