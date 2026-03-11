@@ -206,23 +206,23 @@ class InstagramMediaRecord(BaseModel):
     source: str | None = None
 
 
-class InstagramDMShare(InstagramBaseModel):
+class InstagramDirectMessageShare(InstagramBaseModel):
     link: str | None = None
     share_text: str | None = None
     original_content_owner: str | None = None
 
 
-class InstagramDMMessage(InstagramBaseModel):
+class InstagramDirectMessageItem(InstagramBaseModel):
     sender_name: str
     timestamp_ms: int
     content: str | None = None
-    share: InstagramDMShare | None = None
+    share: InstagramDirectMessageShare | None = None
 
 
-class InstagramDMFile(InstagramBaseModel):
+class InstagramDirectMessageManifest(InstagramBaseModel):
     thread_path: str
     title: str
-    messages: list[InstagramDMMessage]
+    messages: list[InstagramDirectMessageItem]
 
 
 class InstagramDirectMessageRecord(BaseModel):

@@ -22,8 +22,8 @@ from context_use.memories.prompt.conversation import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
+    InstagramDirectMessageManifest,
     InstagramDirectMessageRecord,
-    InstagramDMFile,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -116,7 +116,7 @@ class _InstagramDMPipe(Pipe[InstagramDirectMessageRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramDirectMessageRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramDMFile.model_validate_json(raw)
+        manifest = InstagramDirectMessageManifest.model_validate_json(raw)
 
         for msg in manifest.messages:
             share = msg.share

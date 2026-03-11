@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from context_use.providers.instagram.direct_messages import InstagramDirectMessagesPipe
-from context_use.providers.instagram.schemas import InstagramDMFile
+from context_use.providers.instagram.schemas import InstagramDirectMessageManifest
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.instagram.conftest import INSTAGRAM_DM_INBOX_JSON
@@ -314,7 +314,7 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
             "magic_words": [],
             "future_field": "tolerated",
         }
-        manifest = InstagramDMFile.model_validate(data)
+        manifest = InstagramDirectMessageManifest.model_validate(data)
         assert manifest.thread_path == "inbox/bob_123"
         assert len(manifest.messages) == 1
         assert manifest.messages[0].sender_name == "bob"
