@@ -104,7 +104,7 @@ _STATUS_STYLES: dict[str, str] = {
     "CREATED": "cyan",
     "MEMORY_GENERATE_PENDING": "bright_cyan",
     "MEMORY_GENERATE_COMPLETE": "spring_green3",
-    "MEMORY_EMBED_PENDING": "green3",
+    "MEMORY_EMBED_PENDING": "bright_blue",
     "MEMORY_EMBED_COMPLETE": "green",
     "COMPLETE": "bold green",
     "SKIPPED": "yellow",
