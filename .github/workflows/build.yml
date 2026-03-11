@@ -60,7 +60,7 @@ jobs:
           context-use --version
           context-use --help
 
-  ci-passed:
+  build-passed:
     name: build:required
     if: always()
     needs: [build, smoke]
