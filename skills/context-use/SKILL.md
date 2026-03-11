@@ -8,6 +8,21 @@ description: Search the user's personal memories before responding to anything p
 Install: `pip install context-use`
 Requires OpenAI API key. Check: `context-use config show`. Set: `context-use config set-key <key>`.
 
+## Bootstrap (first time)
+
+If `context-use memories list --limit 1` returns nothing, the user hasn't ingested data yet.
+
+1. Ask them for the path to their ZIP data export (they must download it themselves — see the provider table in [Ingest](#ingest)).
+2. Run the pipeline:
+   ```bash
+   context-use pipeline --quick <provider> <path-to-zip>
+   ```
+3. Generate a profile so the user can see what you now know about them:
+   ```bash
+   context-use agent profile
+   ```
+   Share the profile with the user — it builds trust and lets them correct anything wrong early.
+
 ## Core Rule
 
 **Always search memories before responding to anything personal.** Weave results naturally — never announce "I found this in your memories."
@@ -86,6 +101,6 @@ Verify: `context-use memories list --limit 5`.
 | Rate limits (quick mode) | Drop `--quick` to use batch API |
 | Export not ready | Normal for Instagram/Google — user waits |
 | `context-use` not found | `pip install context-use` |
-| No memories found | Guide user through [Ingest](#ingest) |
+| No memories found | Guide user through [Bootstrap](#bootstrap-first-time) |
 | Unknown provider | Must be: `chatgpt`, `claude`, `instagram`, `google` |
 | File not found | Verify path with `ls`, confirm ZIP location |
