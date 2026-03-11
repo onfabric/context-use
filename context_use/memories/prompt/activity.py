@@ -110,9 +110,7 @@ class ActivityMemoryPromptBuilder(BasePromptBuilder):
             context_block = self._format_context(ctx)
 
             prompt = (
-                ACTIVITY_MEMORIES_PROMPT.replace(
-                    "{{FROM_DATE}}", from_date.isoformat()
-                )
+                ACTIVITY_MEMORIES_PROMPT.replace("{{FROM_DATE}}", from_date.isoformat())
                 .replace("{{TO_DATE}}", to_date.isoformat())
                 .replace("{{CONTEXT}}", context_block)
                 .replace("{{ACTIVITIES}}", activities_block)
