@@ -12,17 +12,6 @@ ALICE_CHATGPT_DIR = FIXTURES_DIR / "users" / "alice" / "chatgpt" / "v1"
 ALICE_GOOGLE_DIR = FIXTURES_DIR / "users" / "alice" / "google" / "v1"
 ALICE_INSTAGRAM_DIR = FIXTURES_DIR / "users" / "alice" / "instagram" / "v1"
 
-INSTAGRAM_DM_INBOX_JSON: dict = json.loads(
-    (
-        ALICE_INSTAGRAM_DIR
-        / "your_instagram_activity"
-        / "messages"
-        / "inbox"
-        / "bobsmith_1234567890"
-        / "message_1.json"
-    ).read_text()
-)
-
 
 def build_zip(files: dict[str, bytes | str]) -> bytes:
     buf = io.BytesIO()

@@ -8,7 +8,7 @@ import pytest
 from context_use.providers.instagram.direct_messages import InstagramDirectMessagesPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
-from tests.conftest import INSTAGRAM_DM_INBOX_JSON
+from tests.unit.etl.instagram.conftest import INSTAGRAM_DM_INBOX_JSON
 
 INBOX_ARCHIVE_PATH = (
     "your_instagram_activity/messages/inbox/bobsmith_1234567890/message_1.json"

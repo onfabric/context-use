@@ -150,3 +150,14 @@ INSTAGRAM_SAVED_COLLECTIONS_JSON: dict = json.loads(
         / "saved_collections.json"
     ).read_text()
 )
+
+INSTAGRAM_DM_INBOX_JSON: dict = json.loads(
+    (
+        ALICE_INSTAGRAM_DIR
+        / "your_instagram_activity"
+        / "messages"
+        / "inbox"
+        / "bobsmith_1234567890"
+        / "message_1.json"
+    ).read_text()
+)
