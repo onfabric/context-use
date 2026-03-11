@@ -1,6 +1,7 @@
 from context_use.providers.instagram import (
     comments,
     connections,
+    direct_messages,
     likes,
     media,
     posts_viewed,
@@ -16,6 +17,7 @@ register_provider(
     modules=[
         comments,
         connections,
+        direct_messages,
         likes,
         media,
         posts_viewed,

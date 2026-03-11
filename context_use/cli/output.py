@@ -1,7 +1,22 @@
 from __future__ import annotations
 
+import logging
 import os
 import sys
+from dataclasses import dataclass
+from types import TracebackType
+from typing import TYPE_CHECKING, Protocol, Self
+
+from rich.console import Console, RenderableType
+from rich.live import Live
+from rich.spinner import Spinner
+from rich.table import Table
+from rich.text import Text
+
+if TYPE_CHECKING:
+    from context_use.batch.states import State
+
+logger = logging.getLogger(__name__)
 
 
 def _supports_color() -> bool:
@@ -43,9 +58,6 @@ def red(text: str) -> str:
 
 def cyan(text: str) -> str:
     return _ansi("36", text)
-
-
-# ── Structured output ───────────────────────────────────────────────
 
 
 def header(title: str) -> None:
@@ -90,3 +102,172 @@ def next_step(command: str, description: str = "") -> None:
 def banner() -> None:
     """Print the opening banner."""
     print(bold("context-use") + dim(" — turn your data exports into AI memory"))
+
+
+@dataclass
+class _Row:
+    label: str
+    state: State
+    detail: str = ""
+
+
+class BatchReporter(Protocol):
+    @property
+    def pending_ids(self) -> set[str]: ...
+    def update(self, batch_id: str, state: State, *, detail: str = "") -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None: ...
+
+
+def _is_stop_state(state: State) -> bool:
+    from context_use.batch.states import StopState
+
+    return isinstance(state, StopState)
+
+
+def _base_styles() -> dict[type[State], str]:
+    from context_use.batch.states import (
+        CompleteState,
+        CreatedState,
+        FailedState,
+        SkippedState,
+    )
+
+    return {
+        CreatedState: "cyan",
+        CompleteState: "bold green",
+        SkippedState: "yellow",
+        FailedState: "red",
+    }
+
+
+class LogBatchReporter:
+    def __init__(self, batches: list[tuple[str, str, State, str]]) -> None:
+        self._rows: dict[str, _Row] = {}
+        for batch_id, label, state, detail in batches:
+            self._rows[batch_id] = _Row(label=label, state=state, detail=detail)
+
+    def __enter__(self) -> LogBatchReporter:
+        for batch_id, row in self._rows.items():
+            logger.info("[%s] %s — %s", batch_id, row.label, row.state.status)
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        pass
+
+    @property
+    def pending_ids(self) -> set[str]:
+        return {
+            batch_id
+            for batch_id, row in self._rows.items()
+            if not _is_stop_state(row.state)
+        }
+
+    def update(self, batch_id: str, state: State, *, detail: str = "") -> None:
+        row = self._rows.get(batch_id)
+        if row is None:
+            return
+        effective_detail = detail or row.detail
+        if row.state == state and row.detail == effective_detail:
+            return
+        row.state = state
+        row.detail = effective_detail
+        msg = f"[{batch_id}] {row.label} — {state.status}"
+        if effective_detail:
+            msg += f" ({effective_detail})"
+        logger.info(msg)
+
+
+class BatchStatusSpinner:
+    _STYLES: dict[type[State], str] | None = None
+
+    def __init__(
+        self,
+        batches: list[tuple[str, str, State, str]],
+    ) -> None:
+        self._rows: dict[str, _Row] = {}
+        for batch_id, label, state, detail in batches:
+            self._rows[batch_id] = _Row(label=label, state=state, detail=detail)
+        if self._STYLES is None:
+            self.__class__._STYLES = _base_styles()
+        self._console = Console()
+        self._live: Live | None = None
+
+    def __enter__(self) -> Self:
+        self._live = Live(
+            self._render(),
+            console=self._console,
+            refresh_per_second=12,
+            transient=False,
+        )
+        self._live.__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        if self._live is not None:
+            self._live.__exit__(exc_type, exc_val, exc_tb)
+            self._live = None
+            self._console.print("")
+
+    @property
+    def pending_ids(self) -> set[str]:
+        return {
+            batch_id
+            for batch_id, row in self._rows.items()
+            if not _is_stop_state(row.state)
+        }
+
+    def update(self, batch_id: str, state: State, *, detail: str = "") -> None:
+        row = self._rows.get(batch_id)
+        if row is None:
+            return
+        effective_detail = detail or row.detail
+        if row.state == state and row.detail == effective_detail:
+            return
+        row.state = state
+        row.detail = effective_detail
+        if self._live is not None:
+            self._live.update(self._render(), refresh=True)
+
+    def _render(self) -> Table:
+        table = Table.grid(padding=(0, 1), expand=True)
+        table.add_column(width=2, no_wrap=True)
+        table.add_column(width=12, no_wrap=True)
+        table.add_column(width=28)
+        table.add_column(ratio=1)
+
+        styles = self._STYLES or {}
+        for row in self._rows.values():
+            style = styles.get(type(row.state), "bright_blue")
+            table.add_row(
+                self._indicator(row.state),
+                row.label,
+                Text(row.state.status.replace("_", " ").title(), style=style),
+                Text(row.detail, style="dim") if row.detail else Text(""),
+            )
+        return table
+
+    @staticmethod
+    def _indicator(state: State) -> RenderableType:
+        if _is_stop_state(state):
+            if state.status == "FAILED":
+                return Text("✗", style="red")
+            if state.status == "SKIPPED":
+                return Text("!", style="yellow")
+            return Text("✓", style="green")
+        return Spinner("dots", style="cyan")

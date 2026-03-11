@@ -87,7 +87,6 @@ class BaseBatchManager(ABC):
     async def try_advance_state(self) -> ScheduleInstruction:
         """Advance one step and return what the runner should do next."""
         batch_id = self.batch.id
-        current_status = self.batch.current_status
 
         async with self.ctx.store.atomic():
             refreshed = await self.ctx.store.get_batch(batch_id)
@@ -95,6 +94,7 @@ class BaseBatchManager(ABC):
                 logger.error("[%s] Batch not found in store", batch_id)
                 return ScheduleInstruction(stop=True)
             self.batch = refreshed
+            current_status = self.batch.current_status
 
             try:
                 current_state = self.batch.parse_current_state()
@@ -137,12 +137,13 @@ class BaseBatchManager(ABC):
                 await self.ctx.store.update_batch(self.batch)
 
             except Exception as exc:
-                logger.error(
-                    "[%s] Error advancing state: %s",
-                    batch_id,
-                    exc,
-                    exc_info=True,
-                )
+                if logger.isEnabledFor(logging.INFO):
+                    logger.error(
+                        "[%s] Error advancing state: %s",
+                        batch_id,
+                        exc,
+                        exc_info=True,
+                    )
                 self.batch.push_state(
                     FailedState(
                         error_message=str(exc),

@@ -20,7 +20,9 @@ from context_use.etl.payload.models import (
     FibreTextMessage,
 )
 from context_use.memories.config import MemoryConfig
-from context_use.memories.prompt.conversation import ConversationMemoryPromptBuilder
+from context_use.memories.prompt.conversation import (
+    AgentConversationMemoryPromptBuilder,
+)
 from context_use.models.etl_task import EtlTask
 from context_use.providers.chatgpt.schemas import (
     PROVIDER,
@@ -180,7 +182,7 @@ declare_interaction(
     InteractionConfig(
         pipe=ChatGPTConversationsPipe,
         memory=MemoryConfig(
-            prompt_builder=ConversationMemoryPromptBuilder,
+            prompt_builder=AgentConversationMemoryPromptBuilder,
             grouper=CollectionGrouper,
         ),
     )
