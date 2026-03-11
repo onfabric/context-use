@@ -44,12 +44,16 @@ def providers() -> list[str]:
 
 
 def require_api_key(cfg: Config) -> None:
-    """Exit with guidance if no API key is configured (no interactive prompt)."""
-    if cfg.openai_api_key:
+    """Exit with guidance if no API key is configured (no interactive prompt).
+
+    Skipped when a custom ``api_base`` is set (local APIs typically need no key).
+    """
+    if cfg.is_configured:
         return
     out.error(
-        "OpenAI API key not configured. "
-        "Run 'context-use config set-key <key>' or set OPENAI_API_KEY."
+        "No API configured. Either:\n"
+        "  • Run 'context-use config set-key <key>' or set OPENAI_API_KEY, or\n"
+        "  • Run 'context-use config set-url <url>' to use a local API (e.g. LM Studio)"
     )
     sys.exit(1)
 
@@ -57,10 +61,17 @@ def require_api_key(cfg: Config) -> None:
 def prompt_api_key(cfg: Config) -> Config:
     """Interactively prompt for an API key, save it, and return updated cfg.
 
+    Skipped when a custom ``api_base`` is already set.
     Calls ``sys.exit(1)`` if the user does not enter a key.
     """
+    if cfg.uses_local_api:
+        return cfg
+
     out.warn("OpenAI API key not configured.")
     out.info("Get an API key at https://platform.openai.com/api-keys")
+    out.info(
+        "Or run 'context-use config set-url <url>' to use a local API (e.g. LM Studio)"
+    )
     print()
 
     key = input("  Enter your OpenAI API key: ").strip()
@@ -343,8 +354,9 @@ class ContextCommand(BaseCommand, ABC):
     async def execute(self, args: argparse.Namespace) -> None:
         cfg = load_config()
         cfg = self._prepare(cfg, args)
+        llm_mode = "sync" if cfg.uses_local_api else self.llm_mode
         try:
-            ctx = build_ctx(cfg, llm_mode=self.llm_mode)
+            ctx = build_ctx(cfg, llm_mode=llm_mode)
         except ImportError as exc:
             out.error(str(exc))
             sys.exit(1)

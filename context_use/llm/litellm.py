@@ -15,7 +15,6 @@ from context_use.llm.base import (
     EmbedItem,
     PromptItem,
 )
-from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 
 logger = logging.getLogger(__name__)
 
@@ -51,24 +50,32 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     return [{"role": "user", "content": parts}]
 
 
+def _strip_model_prefix(model: str) -> str:
+    """Return the bare model name without a ``provider/`` prefix."""
+    return model.split("/", 1)[-1]
+
+
 class _LiteLLMBase(BaseLLMClient):
     """Shared init, completion, and embed_query for litellm-backed clients."""
 
     def __init__(
         self,
-        model: OpenAIModel,
+        model: str,
         api_key: str,
-        embedding_model: OpenAIEmbeddingModel,
+        embedding_model: str,
+        api_base: str = "",
     ) -> None:
         self._model = model
         self._embedding_model = embedding_model
         self._api_key = api_key
+        self._api_base = api_base or None
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
             api_key=self._api_key,
+            api_base=self._api_base,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return text.strip()
@@ -80,6 +87,7 @@ class _LiteLLMBase(BaseLLMClient):
             messages=_build_messages(prompt),
             response_format=_build_response_format(prompt),
             api_key=self._api_key,
+            api_base=self._api_base,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return json.loads(text.strip())
@@ -97,6 +105,7 @@ class _LiteLLMBase(BaseLLMClient):
             model=self._embedding_model,
             input=[text],
             api_key=self._api_key,
+            api_base=self._api_base,
         )
         return response.data[0]["embedding"]
 
@@ -106,9 +115,9 @@ _BATCH_TERMINAL_STATES: set[str] = {"failed", "cancelled", "expired"}
 
 def _build_batch_jsonl_line(
     item: PromptItem,
-    model: OpenAIModel,
+    model: str,
 ) -> dict[str, Any]:
-    model_name = model.model_name()
+    model_name = _strip_model_prefix(model)
     return {
         "custom_id": item.item_id,
         "method": "POST",
@@ -123,9 +132,9 @@ def _build_batch_jsonl_line(
 
 def _build_embed_batch_jsonl_line(
     item: EmbedItem,
-    model: OpenAIEmbeddingModel,
+    model: str,
 ) -> dict[str, Any]:
-    model_name = model.model_name()
+    model_name = _strip_model_prefix(model)
     return {
         "custom_id": item.item_id,
         "method": "POST",
@@ -381,11 +390,12 @@ class LiteLLMSyncClient(_LiteLLMBase):
 
     def __init__(
         self,
-        model: OpenAIModel,
+        model: str,
         api_key: str,
-        embedding_model: OpenAIEmbeddingModel,
+        embedding_model: str,
+        api_base: str = "",
     ) -> None:
-        super().__init__(model, api_key, embedding_model)
+        super().__init__(model, api_key, embedding_model, api_base=api_base)
         self._gen_cache: dict[str, BatchResults] = {}  # type: ignore[type-arg]
         self._embed_cache: dict[str, EmbedBatchResults] = {}
 
@@ -437,6 +447,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
                     model=self._embedding_model,
                     input=[item.text],
                     api_key=self._api_key,
+                    api_base=self._api_base,
                 )
                 results[item.item_id] = response.data[0]["embedding"]
             except Exception:

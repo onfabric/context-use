@@ -46,7 +46,9 @@ _EPILOG = (
     "  context-use config show                      "
     "Show current settings\n"
     "  context-use config set-key                   "
-    "Change OpenAI API key\n"
+    "Change API key\n"
+    "  context-use config set-url <url>             "
+    "Use a local API (e.g. LM Studio)\n"
     "  context-use config path                      "
     "Print config file location\n"
 )

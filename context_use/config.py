@@ -6,11 +6,10 @@ from typing import Literal, NamedTuple
 
 from context_use import ContextUse
 from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
-from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
 from context_use.storage.disk import DiskStorage
 
-_DEFAULT_MODEL = OpenAIModel.GPT_5_2
-_DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
+_DEFAULT_MODEL = "openai/gpt-5.2"
+_DEFAULT_EMBEDDING_MODEL = "openai/text-embedding-3-large"
 _DEFAULT_DATA_DIR = Path("./context-use-data")
 
 ConfigSource = Literal["env", "file", "default"]
@@ -37,6 +36,7 @@ _FIELDS: list[_FieldSpec] = [
     _FieldSpec(
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
+    _FieldSpec("api_base", "openai", "base_url", "OPENAI_API_BASE"),
     _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
     _FieldSpec("data_dir", "data", "dir", None, Path),
 ]
@@ -46,9 +46,15 @@ _FIELDS: list[_FieldSpec] = [
 class Config:
     openai_api_key: str = ""
 
-    # LLM models — shared by the memories pipeline and the personal agent
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
+
+    api_base: str = ""
+    """
+    Custom base URL for an OpenAI-compatible API (e.g. LM Studio).
+    When set, LiteLLM routes all requests to this endpoint.
+    Example: ``http://localhost:1234/v1``
+    """
 
     database_path: str = "context_use.db"
     """
@@ -61,7 +67,11 @@ class Config:
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.openai_api_key)
+        return bool(self.openai_api_key) or bool(self.api_base)
+
+    @property
+    def uses_local_api(self) -> bool:
+        return bool(self.api_base)
 
     @property
     def input_dir(self) -> Path:
@@ -138,6 +148,8 @@ def save_config(cfg: Config) -> Path:
         lines.append(f'model = "{cfg.openai_model}"')
     if cfg.openai_embedding_model != _DEFAULT_EMBEDDING_MODEL:
         lines.append(f'embedding_model = "{cfg.openai_embedding_model}"')
+    if cfg.api_base:
+        lines.append(f'base_url = "{cfg.api_base}"')
     lines.append("")
 
     if cfg.database_path:
@@ -170,20 +182,19 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     store = SqliteStore(path=cfg.db_path)
 
     api_key = cfg.openai_api_key or ""
-    model = OpenAIModel(cfg.openai_model)
-    embedding_model = OpenAIEmbeddingModel(cfg.openai_embedding_model)
 
     if llm_mode == "sync":
         llm_client = LiteLLMSyncClient(
-            model=model,
+            model=cfg.openai_model,
             api_key=api_key,
-            embedding_model=embedding_model,
+            embedding_model=cfg.openai_embedding_model,
+            api_base=cfg.api_base,
         )
     else:
         llm_client = LiteLLMBatchClient(
-            model=model,
+            model=cfg.openai_model,
             api_key=api_key,
-            embedding_model=embedding_model,
+            embedding_model=cfg.openai_embedding_model,
         )
 
     return ContextUse(storage=storage, store=store, llm_client=llm_client)

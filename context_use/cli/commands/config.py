@@ -41,6 +41,11 @@ class ConfigShowCommand(BaseCommand):
             f"{cfg.openai_embedding_model} {badge('openai_embedding_model')}",
         )
 
+        if cfg.api_base:
+            out.kv("API base URL", f"{cfg.api_base} {badge('api_base')}")
+        else:
+            out.kv("API base URL", f"{out.dim('default (OpenAI)')} {badge('api_base')}")
+
         out.kv("Store", f"sqlite ({cfg.db_path}) {badge('database_path')}")
         out.kv("Data directory", f"{cfg.data_dir} {badge('data_dir')}")
 
@@ -52,7 +57,11 @@ class ConfigShowCommand(BaseCommand):
         )
         print()
         out.info("To change settings:")
-        out.next_step("context-use config set-key", "change OpenAI API key")
+        out.next_step("context-use config set-key", "change API key")
+        out.next_step(
+            "context-use config set-url <url>",
+            "set custom API base URL (e.g. LM Studio)",
+        )
         print()
 
 
@@ -91,6 +100,55 @@ class ConfigSetKeyCommand(BaseCommand):
         out.success(f"API key saved to {path}")
 
 
+class ConfigSetUrlCommand(BaseCommand):
+    name = "set-url"
+    help = "Set a custom API base URL (e.g. http://localhost:1234/v1 for LM Studio)"
+
+    def add_arguments(self, parser: argparse.ArgumentParser) -> None:
+        parser.add_argument(
+            "url",
+            nargs="?",
+            default=None,
+            help="Base URL for an OpenAI-compatible API (omit to enter interactively)",
+        )
+        parser.add_argument(
+            "--clear",
+            action="store_true",
+            help="Remove the custom base URL and revert to the default (OpenAI)",
+        )
+
+    async def execute(self, args: argparse.Namespace) -> None:
+        cfg = load_config() if config_path().exists() else Config()
+
+        if args.clear:
+            cfg.api_base = ""
+            path = save_config(cfg)
+            out.success(
+                f"Custom base URL cleared — using default (OpenAI). Saved to {path}"
+            )
+            return
+
+        if args.url:
+            url = args.url.strip()
+        else:
+            out.info("Set a custom base URL for an OpenAI-compatible API.")
+            out.info("Example: http://localhost:1234/v1 (LM Studio)")
+            print()
+
+            if cfg.api_base:
+                out.kv("Current URL", cfg.api_base)
+
+            url = input("  API base URL: ").strip()
+            if not url:
+                out.warn("No URL entered — keeping current value.")
+                return
+
+        cfg.api_base = url
+        path = save_config(cfg)
+        out.success(f"API base URL saved to {path}")
+        out.info("Use --quick mode for local APIs (batch mode requires OpenAI).")
+
+
 class ConfigPathCommand(BaseCommand):
     name = "path"
     help = "Print config file location"
@@ -105,5 +163,6 @@ class ConfigGroup(CommandGroup):
     subcommands = [
         ConfigShowCommand,
         ConfigSetKeyCommand,
+        ConfigSetUrlCommand,
         ConfigPathCommand,
     ]

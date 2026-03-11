@@ -62,13 +62,12 @@ class AdkAgentBackend(AgentBackend):
         *,
         api_key: str,
         model: str,
+        api_base: str = "",
     ) -> None:
-        """
-        Args:
-            api_key: OpenAI (or compatible) API key.
-            model:   LiteLLM model string.
-        """
-        self._model = LiteLlm(model=model, api_key=api_key)
+        kwargs: dict = {"model": model, "api_key": api_key}
+        if api_base:
+            kwargs["api_base"] = api_base
+        self._model = LiteLlm(**kwargs)
 
     async def run(
         self,
