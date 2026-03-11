@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from context_use.providers.instagram.direct_messages import InstagramDirectMessagesPipe
+from context_use.providers.instagram.schemas import InstagramDMFile
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.instagram.conftest import INSTAGRAM_DM_INBOX_JSON
@@ -257,3 +258,63 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
         rows = list(pipe.run(task, storage))
         obj = rows[0].payload["object"]
         assert obj["url"] == "https://www.instagram.com/p/abc123/"
+
+    def test_file_schema_gates_missing_thread_path(self, tmp_path: Path):
+        data = {
+            "participants": [{"name": "ghost"}, {"name": "alice"}],
+            "messages": [
+                {
+                    "sender_name": "ghost",
+                    "timestamp_ms": 1725000000000,
+                    "content": "Hello!",
+                },
+            ],
+            "title": "ghost",
+        }
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = "archive/your_instagram_activity/messages/inbox/ghost_999/message_1.json"
+        storage.write(key, json.dumps(data).encode())
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
+
+    def test_file_schema_gates_missing_messages(self, tmp_path: Path):
+        data = {
+            "title": "ghost",
+            "thread_path": "inbox/ghost_999",
+        }
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = "archive/your_instagram_activity/messages/inbox/ghost_999/message_1.json"
+        storage.write(key, json.dumps(data).encode())
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
+
+    def test_file_schema_tolerates_extra_fields(self):
+        data = {
+            "participants": [{"name": "bob"}],
+            "messages": [
+                {
+                    "sender_name": "bob",
+                    "timestamp_ms": 1725000000000,
+                    "content": "Hi",
+                    "is_geoblocked_for_viewer": False,
+                    "some_new_field": "value",
+                },
+            ],
+            "title": "bob",
+            "thread_path": "inbox/bob_123",
+            "is_still_participant": True,
+            "magic_words": [],
+            "future_field": "tolerated",
+        }
+        manifest = InstagramDMFile.model_validate(data)
+        assert manifest.thread_path == "inbox/bob_123"
+        assert len(manifest.messages) == 1
+        assert manifest.messages[0].sender_name == "bob"

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -24,7 +23,7 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramDirectMessageRecord,
-    fix_instagram_encoding,
+    InstagramDMFile,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -117,50 +116,27 @@ class _InstagramDMPipe(Pipe[InstagramDirectMessageRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramDirectMessageRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
+        manifest = InstagramDMFile.model_validate_json(raw)
 
-        thread_path = data.get("thread_path")
-        if not thread_path:
-            # skips all messages in this file; thread_path is file-level
-            # and we cannot create the collection URL without it
-            return
-        # title is the name of the account the user is messaging with
-        title = fix_instagram_encoding(data.get("title", ""))
+        for msg in manifest.messages:
+            share = msg.share
+            link = share.link if share else None
+            share_text = share.share_text if share else None
+            original_content_owner = share.original_content_owner if share else None
 
-        for msg in data.get("messages", []):
-            sender_name = fix_instagram_encoding(msg.get("sender_name", ""))
-            timestamp_ms = msg.get("timestamp_ms")
-            if timestamp_ms is None:
-                continue
-
-            raw_content: str | None = msg.get("content")
-            content = fix_instagram_encoding(raw_content) if raw_content else None
-
-            share = msg.get("share") or {}
-            raw_link: str | None = share.get("link")
-            link = fix_instagram_encoding(raw_link) if raw_link else None
-            raw_share_text: str | None = share.get("share_text")
-            share_text = (
-                fix_instagram_encoding(raw_share_text) if raw_share_text else None
-            )
-            raw_owner: str | None = share.get("original_content_owner")
-            original_content_owner = (
-                fix_instagram_encoding(raw_owner) if raw_owner else None
-            )
-
-            if not content and not link and not share_text:
+            if not msg.content and not link and not share_text:
                 continue
 
             yield InstagramDirectMessageRecord(
-                sender_name=sender_name,
-                content=content,
+                sender_name=msg.sender_name,
+                content=msg.content,
                 link=link,
                 share_text=share_text,
                 original_content_owner=original_content_owner,
-                timestamp_ms=timestamp_ms,
-                thread_path=thread_path,
-                title=title,
-                source=json.dumps(msg, default=str),
+                timestamp_ms=msg.timestamp_ms,
+                thread_path=manifest.thread_path,
+                title=manifest.title,
+                source=msg.model_dump_json(),
             )
 
     def transform(
