@@ -25,191 +25,99 @@ If the provider needs a new fibre (payload) type, see [Extending Payload Models]
 
 ---
 
-## Architecture Overview
-
-```
-  ZIP archive
-       │
-       ▼
-  ┌────────────────────────────────────────────────┐
-  │  ETL Pipeline                                   │
-  │                                                 │
-  │  Pipe.extract()  →  Pipe.transform()  →  Store  │
-  │  (parse archive)    (→ ThreadRow)    (persist)  │
-  └────────────────────┬───────────────────────────┘
-                       │
-                  Thread rows in Store
-                       │
-                       ▼
-  ┌────────────────────────────────────────────────┐
-  │  Memory Pipeline                                │
-  │                                                 │
-  │  Grouper         →  PromptBuilder  →  LLM batch │
-  │  (partition          (format           (generate │
-  │   threads)            prompts)          memories)│
-  │                                         │       │
-  │                                         ▼       │
-  │                                    Embed batch  │
-  │                                    (vectorise)  │
-  └────────────────────────────────────────────────┘
-                       │
-                  Memories + embeddings in Store
-                       │
-                       ▼
-                  Semantic search
-```
-
 Key design rules:
 
 - **Pipe is ET, not ETL.** Load is handled by the `Store`.
 - **One Pipe class = one interaction type.** Each subclass handles one kind of data (e.g. stories, reels, DMs).
 - **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the facade collects and persists via `Store.insert_threads()`.
 - **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
-- **Memory generation is async and batched.** The `MemoryBatchManager` state machine submits OpenAI batch jobs for both generation and embedding, polling until complete.
-- **Store is SQLite-backed.** `SqliteStore` uses `aiosqlite` + `sqlite-vec` for persistence and vector search with zero external service dependencies.
 
 ---
 
-## Store Abstraction
+### Steps and their purpose
 
-All data access goes through the `Store` ABC — see `context_use/store/base.py` for the full interface with all abstract methods and docstrings.
+The pipeline has two stages connected by a **record schema** — a Pydantic model you define per pipe.
 
-| Store | Module | Use case |
-|-------|--------|----------|
-| `SqliteStore` | `store/sqlite/` | Default. Persistent. Uses SQLite + sqlite-vec for semantic search. |
+**`extract_file(source_uri, storage) → Iterator[RecordSchema]`** answers: *what is in this file?*
 
-All Store methods accept and return **domain models** from `context_use/models/` — pure Python dataclasses with no ORM dependencies.
+- Parse the raw archive, flatten nested structures, and enrich each item with any file-level context.
+- Yield one record per logical item — one message, one post, one comment.
+- Capture **every field that could plausibly be useful** in `transform`: sender, recipients, timestamps, content text, media URIs, reaction counts, reply context, etc. When in doubt, include it.
+- Keep field values as close to the source as possible. Do not compose strings, derive values, or make semantic decisions here.
+- Skip only when data is **structurally unusable**: a required field is missing, or there is no renderable content at all.
 
----
+**`transform(record, task) → ThreadRow`** answers: *what does this record mean?*
 
-## Unified Registry
+- Map the record's fields onto the appropriate fibre model. **Use all the information the record carries** — do not silently drop fields that have a place in the payload.
+- Apply semantic logic where needed: detect system-generated strings, compose the human-readable content field, choose the right fibre type for variation within the pipe.
+- **Do not introduce fields that have no basis in the record.** If a fibre field cannot be populated from the record, leave it unset rather than guessing.
+- Build the fibre payload (see below) and return a `ThreadRow`.
 
-Providers register themselves via two functions in `context_use/providers/registry.py`. No edits to `registry.py` are ever needed when adding a new provider or interaction type.
+### The record schema as interface
 
-| Layer | Key file | What to read |
-|-------|----------|-------------|
-| Shared types | `context_use/providers/types.py` | `InteractionConfig`, `ProviderConfig` dataclasses |
-| Per-interaction | `context_use/providers/<provider>/<module>.py` | bare `declare_interaction()` calls at module level |
-| Per-provider | `context_use/providers/<provider>/__init__.py` | module imports + `register_provider()` call |
-| Top-level trigger | `context_use/providers/__init__.py` | imports each provider package to fire registration |
+The record schema is a **contract between `extract_file` and `transform`** — a complete, faithful structured mirror of the useful raw data for one logical item.
 
-### `declare_interaction(config)`
+- Include **every source field that could inform the transformation**: content, participants, media references, timestamps, context flags. Omit only fields that are provably irrelevant to any downstream use.
+- Include a `source: str | None = None` field so `transform` can stash the raw JSON for audit.
+- Keep field values as they appear in the source. Do not pre-compose strings or derive values — that is `transform`'s responsibility.
 
-Call this at module level in a pipe module. It reads the provider name from `config.pipe.provider` (the ClassVar already on every `Pipe` subclass) and accumulates the config into an internal list. Returns `None` — do not assign the result.
+### Using payload (fibre) models
 
-```python
-# providers/instagram/media.py
-from context_use.providers.instagram.schemas import PROVIDER
-from context_use.providers.registry import declare_interaction
+Fibre models in `context_use/etl/payload/models.py` are the shared vocabulary of what happened. Most pipes will use one of these:
 
-declare_interaction(InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG))
-declare_interaction(InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG))
-```
+| Fibre | When to use |
+|---|---|
+| `FibreSendMessage` | User sent a message to someone |
+| `FibreReceiveMessage` | User received a message from someone |
+| `FibreCreateObject` | User posted an image or video |
+| `FibreViewObject` | User viewed a post, video, or reel |
+| `FibreAddObject` | User added something to a collection (liked, saved) |
+| `FibreFollowActor` / `FibreFollowedByActor` | Follow/follower events |
+| `FibreCommentObject` | User commented on something |
 
-### `register_provider(name, modules)`
+**Do not add a new fibre type to accommodate small differences between records from the same pipe.** Variation within a pipe — a plain text message, a story reply, a shared post — is handled in `transform()` through content composition, not by creating new types. Fibre types represent categorically different kinds of interaction. If you think you need a new type, first check whether an existing one covers the semantic meaning; explain your reasoning in the PR.
 
-Call this once in a provider `__init__.py`. Pass every pipe module as `modules` — because module objects must be imported before they can be passed, this makes the dependency on those imports structurally explicit rather than relying on side-effect ordering. Raises `ValueError` if any module in `modules` declared no interactions. Returns `None` — do not assign the result.
+To add a genuinely new fibre type: subclass the appropriate AS base (`Activity` or `Object`) with `_BaseFibreMixin`, add a `fibreKind` literal field, implement `_get_preview()`, call `model_rebuild()` at module level, and add it to the `FibreByType` union at the bottom of the file. The models have to be compliant with [Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/)
 
-```python
-# providers/instagram/__init__.py
-from context_use.providers.instagram import comments, connections, likes, media, ...
-from context_use.providers.instagram.schemas import PROVIDER
-from context_use.providers.registry import register_provider
+### Writing previews
 
-register_provider(PROVIDER, modules=[comments, connections, likes, media, ...])
-```
+`payload.get_preview(provider)` returns a short natural-language string stored in `ThreadRow.preview`. It is the primary input the memory pipeline feeds to the LLM — if the preview is weak, the generated memories will be weak.
 
-### Adding a pipe to an existing provider
+A good preview reads like a sentence a person would say:
 
-1. In the pipe module, call `declare_interaction(InteractionConfig(...))` at module level for each pipe class.
-2. In the provider's `__init__.py`, add one import line for the new module — this is what fires the declaration.
+> "Sent message 'hey, when are you free?' to Alice on Instagram"
+> "Received message 'sounds good, see you then' from Bob on Instagram"
+> "Posted video on Instagram"
 
-### Adding a new provider
+Rules for `_get_preview`:
 
-1. Define `PROVIDER = "<name>"` in `schemas.py`. Import it into every pipe module (for the `provider` ClassVar) and into `__init__.py` (for `register_provider`). This is the single source of truth for the provider name.
-2. Create the provider package under `context_use/providers/<provider>/` with `schemas.py`, pipe module(s), and `__init__.py` that imports the submodules and calls `register_provider(PROVIDER, modules=[...])`.
-3. Add one import line for the new provider package in `context_use/providers/__init__.py`.
+- **Build the preview exclusively from the fibre payload fields** — never from the record, the raw source, or any external state. The payload is the only input available at preview time.
+- Write a complete, human-readable sentence — not a label or metadata string.
+- Include the provider name.
+- Include actor/target names when known.
+- For message content, truncate at ~100 characters with `...`.
+- Omit technical identifiers: no IDs, URLs, or timestamps.
 
----
+If the payload fields are too sparse to produce a meaningful sentence, that is a signal that `transform` is not populating the fibre model fully enough — fix the transformation, not the preview.
 
-## ETL Pipe Reference
+### Glob patterns (`archive_path_pattern`)
 
-### Writing a Pipe
-
-The base class is `context_use/etl/core/pipe.py` — read it; it's ~90 lines with full docstrings on every ClassVar and method. The output type is `ThreadRow` in `context_use/etl/core/types.py`.
-
-See `context_use/providers/` for working implementations — each provider subdirectory contains complete pipes. Different providers have different extraction logic (e.g. streaming large JSON with `ijson`, parsing manifests, fan-out with one file per conversation). When writing a new pipe, browse the existing providers to find the closest pattern.
-
-#### Required ClassVars
-
-Every `Pipe` subclass must set: `provider`, `interaction_type`, `archive_version`, `archive_path_pattern`, `record_schema`. See the base class docstrings for details.
-
-#### `extract_file()` Contract
-
-- Subclasses implement `extract_file(source_uri, storage)` — single-file logic only. The base class `extract()` loops over `task.source_uris` and delegates to `extract_file()` for each file.
-- Read from `storage.read(source_uri)` (small files) or `storage.open_stream(source_uri)` (large files — streaming with `ijson`).
-- Yield one validated Pydantic model per logical item.
-- Filter bad/irrelevant records here — don't push that into `transform()`.
-
-#### `transform()` Contract
-
-- Build an ActivityStreams payload using Fibre models from `context_use/etl/payload/models.py`.
-- Return a `ThreadRow` with all required fields (see `context_use/etl/core/types.py`).
-- Set `unique_key` via `payload.unique_key()` (returns a content hash).
-- Set `preview` via `payload.get_preview(provider)`.
-- For media pipes, set `asset_uri` as `f"{task.archive_id}/{record.uri}"`.
-
-#### `run()` — Do Not Override
-
-`run()` is a template method on the base class. It calls `extract()`, then `transform()` for each record, and yields `ThreadRow` instances lazily.
-
-### Record Schemas
-
-Record schemas are Pydantic `BaseModel` subclasses that `extract()` yields. Rules:
-
-- Include a `source: str | None = None` field so `transform()` can stash the raw JSON for audit/debug.
-- Name descriptively — the class name appears in test output.
-
-See existing schemas in each provider's `schemas.py`.
-
-### Glob Patterns (`archive_path_pattern`)
-
-Uses Python's `fnmatch` syntax relative to the archive root (not including the archive ID prefix). Patterns without wildcards match exactly one file. Patterns with wildcards bundle **all matched files into one EtlTask** via `source_uris` (sorted for determinism). The base class `extract()` loops over `source_uris` and calls `extract_file()` for each, so subclasses always implement single-file logic. See `ProviderConfig.discover_tasks()` in `context_use/providers/types.py`.
-
-### Extending Payload Models
-
-Payload models live in `context_use/etl/payload/models.py`. They follow ActivityStreams 2.0 conventions.
-
-**Before creating a new fibre type**, check the existing ones in that file — most new pipes will use `FibreSendMessage`, `FibreReceiveMessage`, or `FibreCreateObject`.
-
-To add a new fibre type:
-
-1. Subclass the appropriate AS base (`Activity` or `Object`) with `_BaseFibreMixin`
-2. Add a `fibreKind` literal field
-3. Implement `_get_preview()`
-4. Call `model_rebuild()` at module level
-5. Add to the `FibreByType` discriminated union at the bottom of the file
-
-The mixin provides: `unique_key()`, `to_dict()`, `get_preview()`, `get_asat()`. See how existing pipes in `context_use/providers/` build payloads in their `transform()` methods.
-
-### Shared Base Class Pattern
-
-When a provider has multiple interaction types that share the same `record_schema` and `transform()` logic, extract the shared code into a private base class. Only the concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered. See the Instagram media pipes in `context_use/providers/instagram/media.py` for this pattern.
-
-### Versioning via Inheritance
-
-If a provider ships a new archive format, **don't edit the existing pipe**. Subclass it, override `extract()`, and set a new `archive_version` / `archive_path_pattern`. `transform()` is inherited when the `record_schema` stays the same.
-
-`archive_version` tracks the **provider's export format**; `ThreadRow.version` tracks the **payload schema** version (`CURRENT_THREAD_PAYLOAD_VERSION`). They are independent.
+Uses `fnmatch` syntax relative to the archive root (no archive ID prefix). Patterns with wildcards bundle all matched files into one `EtlTask` via `source_uris` (sorted for determinism). `extract_file` always handles a single file — the base class loops.
 
 ### Storage
 
-Pipes interact with storage via the `StorageBackend` ABC (`context_use/storage/base.py`):
+- `storage.read(key) → bytes` — read a file in full (small JSON files).
+- `storage.open_stream(key) → BinaryIO` — open a stream (large files, use with `ijson`).
 
-- `storage.read(key) -> bytes` — read a file in full (good for small JSON files).
-- `storage.open_stream(key) -> BinaryIO` — open a stream (good for large files).
+### Shared base class pattern
 
-The `key` is the full path including the archive ID prefix, e.g. `archive/conversations.json`.
+When a provider has multiple interaction types sharing the same `record_schema` and `transform()`, extract shared logic into a private base class. Only concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered. See `context_use/providers/instagram/media.py`.
+
+### Versioning via inheritance
+
+To support a new archive format, subclass the existing pipe, override `extract_file()`, and set a new `archive_version` / `archive_path_pattern`. `transform()` is inherited when `record_schema` is unchanged.
+
+`archive_version` tracks the provider's export format. `ThreadRow.version` tracks the payload schema version (`CURRENT_THREAD_PAYLOAD_VERSION`). They are independent.
 
 ---
 
