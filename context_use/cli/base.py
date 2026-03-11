@@ -20,21 +20,27 @@ def _batch_detail_from_state(state: "State | None") -> str:
     if state is None:
         return ""
     from context_use.batch.states import FailedState
+    from context_use.memories.states import (
+        MemoryEmbedCompleteState,
+        MemoryGenerateCompleteState,
+    )
 
     if isinstance(state, FailedState):
         message = state.error_message.strip()
         if not message:
             return ""
         return message.splitlines()[0]
-    memories_count = getattr(state, "memories_count", None)
-    if isinstance(memories_count, int):
-        return f"{memories_count} memories generated"
-    embedded_count = getattr(state, "embedded_count", None)
-    if isinstance(embedded_count, int):
-        return f"{embedded_count} memories embedded"
-    created_ids = getattr(state, "created_memory_ids", None)
-    if isinstance(created_ids, list):
-        return f"{len(created_ids)} memories stored"
+
+    if isinstance(state, MemoryGenerateCompleteState):
+        if state.memories_count > 0:
+            return f"{state.memories_count} memories generated"
+        if state.created_memory_ids:
+            return f"{len(state.created_memory_ids)} memories stored"
+        return ""
+
+    if isinstance(state, MemoryEmbedCompleteState):
+        return f"{state.embedded_count} memories embedded"
+
     return ""
 
 
