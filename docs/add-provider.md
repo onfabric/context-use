@@ -6,7 +6,7 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 
 | Step | File | Action |
 |------|------|--------|
-| 1 | `context_use/providers/<provider>/schemas.py` | Add Pydantic record model(s) |
+| 1 | `context_use/providers/<provider>/schemas.py` | Add file schema(s) and record model(s) |
 | 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
 | 3 | `context_use/providers/<provider>/__init__.py` | Import the new module (one line) so the registration fires |
 | 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
@@ -40,7 +40,8 @@ The pipeline has two stages connected by a **record schema** — a Pydantic mode
 
 **`extract_file(source_uri, storage) → Iterator[RecordSchema]`** answers: *what is in this file?*
 
-- Parse the raw archive, flatten nested structures, and enrich each item with any file-level context.
+- **Validate first.** Parse the raw file against its [file schema](#file-schemas). This is a breaking-change gate: if the file's structure no longer matches what the pipe expects, validation raises, and `extract()` logs a warning and skips the file. No transformation will run against a file that fails this check.
+- Flatten the validated file's items into records, enriching each with any file-level context (e.g. fields that live at the file root rather than on each individual item).
 - Yield one record per logical item — one message, one post, one comment.
 - Capture **every field that could plausibly be useful** in `transform`: sender, recipients, timestamps, content text, media URIs, reaction counts, reply context, etc. When in doubt, include it.
 - Keep field values as close to the source as possible. Do not compose strings, derive values, or make semantic decisions here.
@@ -54,13 +55,22 @@ The pipeline has two stages connected by a **record schema** — a Pydantic mode
 - When building a `Collection` context (e.g. for conversations or threads), set its `id` to the **real, user-facing URL** of the conversation or collection whenever possible. If the archive does not expose the public identifier, construct a stable synthetic URL from the data that is available and **add a comment** explaining that the URL is synthetic and why.
 - Build the fibre payload (see below) and return a `ThreadRow`.
 
+### File schemas
+
+Each pipe has a corresponding **file schema** — a Pydantic model in `schemas.py` that represents the top-level structure of one archive file. Its role is to act as a gate: if the provider changes its export format in a way that breaks the assumptions the pipe depends on, validation will fail before any records are processed.
+
+- File schemas should tolerate extra fields (Pydantic's default behaviour) so that newly added fields do not break the pipeline — only structural changes that remove or rename required fields should cause a failure.
+- They model what `extract_file` needs to iterate over: the top-level container and any file-level fields.
+
 ### The record schema as interface
 
-The record schema is a **contract between `extract_file` and `transform`** — a complete, faithful structured mirror of the useful raw data for one logical item.
+The record schema is a **contract between `extract_file` and `transform`** — a complete, faithful, flat mirror of the useful raw data for one logical item.
 
 - Include **every source field that could inform the transformation**: content, participants, media references, timestamps, context flags. Omit only fields that are provably irrelevant to any downstream use.
-- Include a `source: str | None = None` field so `transform` can stash the raw JSON for audit.
+- Include a `source: str | None = None` field that holds the raw source item — as close to the original data as possible, before any enrichment with file-level context. This makes it possible to detect drift: if the provider adds fields that the record does not yet capture, comparing `source` to the record payload reveals the gap.
 - Keep field values as they appear in the source. Do not pre-compose strings or derive values — that is `transform`'s responsibility.
+
+The record is the stable interface between extract and transform. If the provider's file format changes, only `extract_file` (and the file schema) should need updating — `transform` reads from the record and is insulated from raw format details.
 
 ### Using payload (fibre) models
 
