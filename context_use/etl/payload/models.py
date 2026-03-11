@@ -83,6 +83,9 @@ class _BaseFibreMixin:
         """
         return None
 
+    def get_participant_label(self) -> str:
+        return "ME"
+
 
 # --- Fibre Objects ---
 
@@ -225,6 +228,12 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
 
     def is_inbound(self) -> bool:
         return True
+
+    def get_participant_label(self) -> str:
+        name = self.actor.name
+        if isinstance(name, str):
+            return name
+        return "THEM"
 
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Received {self.object._get_preview(provider)} from {self.actor.name}"
