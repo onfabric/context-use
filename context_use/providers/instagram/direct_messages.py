@@ -77,6 +77,9 @@ def _compose_message_content(record: InstagramDirectMessageRecord) -> str:
 def _build_payload(
     record: InstagramDirectMessageRecord,
 ) -> FibreSendMessage | FibreReceiveMessage:
+    # The real thread URL (/direct/t/{numeric_id}/) is not present in
+    # Instagram's data export. This synthetic URL is a stable unique key
+    # for grouping; it does not resolve to an actual conversation.
     ctx_kwargs: dict = {
         "type": "Collection",
         "id": f"https://www.instagram.com/direct/{record.thread_path}",
