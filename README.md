@@ -4,6 +4,12 @@
 
 Turn your data exports into portable AI memory.
 
+# For Agents
+
+Use the [SKILL.md](skills/context-use/SKILL.md) file on how to use context-use to get to personalize your answers to the human.
+
+# For Humans
+
 ## Install
 
 ```bash
