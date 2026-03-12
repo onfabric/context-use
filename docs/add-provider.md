@@ -68,11 +68,11 @@ Each pipe validates its input via Pydantic models in `schemas.py`. How that vali
 - Nested structures (sub-objects, inner arrays) must be modelled as Pydantic classes too — not left as `dict` or `dict[str, Any]`.
 - Do not use `TypeAdapter(list[...])` — it loads the entire file into memory and is superseded by streaming for flat arrays and by a typed wrapper class for envelope objects.
 
-**Files that are a flat JSON array at the root** must be streamed with `storage.open_stream()` + `ijson`. There is no whole-file schema in this case — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop). The item model is the validation gate: if an item fails, that item fails, not the entire file.
+**Files that are a flat JSON array at the root** must be streamed with `storage.open_stream()` + `ijson`. There is no whole-file schema in this case — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop). The item model is the validation gate: if an item fails validation, the exception must propagate — do not wrap `model_validate` in a try/except. The base class will mark the task as failed so the schema can be fixed.
 
 The only exception is genuinely opaque sub-structures — nested dicts whose internal schema is fully unknown and that the pipe never inspects. Use `dict[str, object] | None`, not `dict[str, Any] | None`; avoid `Any` wherever a concrete type is possible. When a field can hold values of different types (e.g. text parts and attachment parts in the same list), model it as a typed union rather than collapsing to the common base type.
 
-**Do not suppress validation errors.** If a node or item fails validation, the schema does not accurately model the data — fix the schema. Silently swallowing errors (e.g. via `field_validator` try/except that returns `None`) hides schema drift and makes it impossible to detect when the provider changes its format.
+**Do not suppress validation errors.** If a node or item fails validation, the schema does not accurately model the data — fix the schema. Silently swallowing errors anywhere (e.g. a try/except around `model_validate` in `extract_file`, or a `field_validator` that catches and returns `None`) hides schema drift and makes it impossible to detect when the provider changes its format. Let validation exceptions propagate.
 
 **Allow extra fields** (Pydantic's default behaviour). Providers add fields over time; schemas must not reject files that contain fields beyond what the pipe currently uses. Only the removal or renaming of a field the pipe depends on should cause a validation failure.
 
