@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramLabelValue,
     InstagramPostsViewedRecord,
     InstagramStringMapDataWrapper,
+    extract_owner_username,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -140,7 +141,7 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
 
                 # Nested Owner dict: {title: "Owner", dict: [{dict: [...]}]}
                 if lv_data.get("title") == "Owner":
-                    author = self._extract_owner_username(lv_data)
+                    author = extract_owner_username(lv_data)
 
             yield InstagramPostsViewedRecord(
                 author=author,
@@ -148,32 +149,6 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
                 timestamp=timestamp,
                 source=json.dumps(raw_item),
             )
-
-    @staticmethod
-    def _extract_owner_username(owner_data: dict) -> str | None:
-        """Extract the username from the nested Owner dict structure.
-
-        The Owner entry looks like::
-
-            {
-                "title": "Owner",
-                "dict": [
-                    {
-                        "title": "",
-                        "dict": [
-                            {"label": "Username", "value": "some_user"},
-                            {"label": "Name", "value": "Some User"},
-                            ...
-                        ]
-                    }
-                ]
-            }
-        """
-        for outer in owner_data.get("dict", []):
-            for inner in outer.get("dict", []):
-                if inner.get("label") == "Username":
-                    return inner.get("value")
-        return None
 
 
 declare_interaction(InteractionConfig(pipe=InstagramPostsViewedPipe, memory=None))

@@ -19,17 +19,12 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramCommentRecord,
-    InstagramCommentSchema,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-
-class _CommentStringMapData(InstagramCommentSchema, extra="allow"):
-    """Extended comment string_map_data that includes the optional Media Owner."""
 
 
 class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):

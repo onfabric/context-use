@@ -20,6 +20,7 @@ from context_use.providers.instagram.schemas import (
     InstagramLabelValue,
     InstagramLikedPostRecord,
     InstagramStringListDataWrapper,
+    extract_owner_username,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -72,11 +73,6 @@ class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
             version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=published,
         )
-
-
-# ---------------------------------------------------------------------------
-# V0 pipes — string_list_data format (top-level wrapper key)
-# ---------------------------------------------------------------------------
 
 
 class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
@@ -145,11 +141,6 @@ class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
                 )
 
 
-# ---------------------------------------------------------------------------
-# V1 pipes — label_values format (bare JSON array)
-# ---------------------------------------------------------------------------
-
-
 class InstagramLikedPostsPipe(_InstagramLikePipe):
     """ETL pipe for Instagram liked posts — v1 archive format.
 
@@ -187,7 +178,7 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
 
                 # Nested Owner dict: {title: "Owner", dict: [{dict: [...]}]}
                 if lv_data.get("title") == "Owner":
-                    title = self._extract_owner_username(lv_data)
+                    title = extract_owner_username(lv_data)
 
             yield InstagramLikedPostRecord(
                 title=title or "",
@@ -195,32 +186,6 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
                 timestamp=timestamp,
                 source=json.dumps(raw_item),
             )
-
-    @staticmethod
-    def _extract_owner_username(owner_data: dict) -> str | None:
-        """Extract the username from the nested Owner dict structure.
-
-        The Owner entry looks like::
-
-            {
-                "title": "Owner",
-                "dict": [
-                    {
-                        "title": "",
-                        "dict": [
-                            {"label": "Username", "value": "some_user"},
-                            {"label": "Name", "value": "Some User"},
-                            ...
-                        ]
-                    }
-                ]
-            }
-        """
-        for outer in owner_data.get("dict", []):
-            for inner in outer.get("dict", []):
-                if inner.get("label") == "Username":
-                    return inner.get("value")
-        return None
 
 
 class InstagramStoryLikesPipe(_InstagramLikePipe):
@@ -257,7 +222,7 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
                         href = lv.href or lv.value
 
                 if lv_data.get("title") == "Owner":
-                    title = self._extract_owner_username(lv_data)
+                    title = extract_owner_username(lv_data)
 
             yield InstagramLikedPostRecord(
                 title=title or "",
@@ -265,15 +230,6 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
                 timestamp=timestamp,
                 source=json.dumps(raw_item),
             )
-
-    @staticmethod
-    def _extract_owner_username(owner_data: dict) -> str | None:
-        """Extract the username from the nested Owner dict structure."""
-        for outer in owner_data.get("dict", []):
-            for inner in outer.get("dict", []):
-                if inner.get("label") == "Username":
-                    return inner.get("value")
-        return None
 
 
 declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))

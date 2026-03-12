@@ -28,11 +28,6 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# saved_posts — straightforward single-file pipe
-# ---------------------------------------------------------------------------
-
-
 class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
     """ETL pipe for Instagram saved posts.
 
@@ -106,11 +101,6 @@ class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
             version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=published,
         )
-
-
-# ---------------------------------------------------------------------------
-# saved_collections — stateful extraction (interleaved headers + items)
-# ---------------------------------------------------------------------------
 
 
 class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
