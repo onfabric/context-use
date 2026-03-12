@@ -12,9 +12,6 @@ class ClaudeRole(StrEnum):
     ASSISTANT = "assistant"
 
 
-_EMIT_ROLES = frozenset(ClaudeRole)
-
-
 class ClaudeContentBlock(BaseModel):
     type: str
     text: str | None = None
@@ -27,7 +24,7 @@ class ClaudeChatMessage(BaseModel):
 
     @property
     def is_emittable(self) -> bool:
-        return self.sender in _EMIT_ROLES
+        return self.sender in ClaudeRole
 
 
 class ClaudeConversation(BaseModel):
