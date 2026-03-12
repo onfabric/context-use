@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -47,21 +46,17 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
     ) -> Iterator[InstagramCommentRecord]:
         for item in items:
             smd = item.string_map_data
-
-            comment_val = smd.get("Comment", {}).get("value")
+            comment_val = smd.Comment.value
             if not comment_val:
                 continue
 
-            media_owner = smd.get("Media Owner", {}).get("value")
-            timestamp_val = smd.get("Time", {}).get("timestamp")
-            if timestamp_val is None:
-                continue
+            media_owner = smd.Media_Owner.value if smd.Media_Owner else None
 
             yield InstagramCommentRecord(
                 comment=comment_val,
                 media_owner=media_owner,
-                timestamp=timestamp_val,
-                source=json.dumps(item.model_dump()),
+                timestamp=smd.Time.timestamp,
+                source=item.model_dump_json(),
             )
 
     def transform(

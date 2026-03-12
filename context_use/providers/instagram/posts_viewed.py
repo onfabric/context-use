@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -18,11 +17,11 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
-    InstagramAuthorSchema,
     InstagramLabelValue,
     InstagramPostsViewedRecord,
     InstagramPostsViewedV0Manifest,
-    InstagramStringMapDataWrapper,
+    InstagramV1ActivityItem,
+    InstagramV1OwnerEntry,
     extract_owner_username,
 )
 from context_use.providers.registry import declare_interaction
@@ -31,9 +30,7 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
-# V0 wrapper type alias — same shape as videos_watched v0
-_V0Item = InstagramStringMapDataWrapper[InstagramAuthorSchema]
-_v1_activity_list = TypeAdapter(list[dict])
+_v1_activity_list = TypeAdapter(list[InstagramV1ActivityItem])
 
 
 class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
@@ -100,12 +97,11 @@ class InstagramPostsViewedV0Pipe(_InstagramPostsViewedPipe):
     ) -> Iterator[InstagramPostsViewedRecord]:
         raw = storage.read(source_uri)
         manifest = InstagramPostsViewedV0Manifest.model_validate_json(raw)
-        for raw_item in manifest.impressions_history_posts_seen:
-            parsed = _V0Item.model_validate(raw_item)
+        for item in manifest.impressions_history_posts_seen:
             yield InstagramPostsViewedRecord(
-                author=parsed.string_map_data.Author.value,
-                timestamp=parsed.string_map_data.Time.timestamp,
-                source=json.dumps(raw_item),
+                author=item.string_map_data.Author.value,
+                timestamp=item.string_map_data.Time.timestamp,
+                source=item.model_dump_json(),
             )
 
 
@@ -127,30 +123,22 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
     ) -> Iterator[InstagramPostsViewedRecord]:
         raw = storage.read(source_uri)
         items = _v1_activity_list.validate_json(raw)
-        for raw_item in items:
-            timestamp = raw_item.get("timestamp")
-            if timestamp is None:
-                continue
-
+        for item in items:
             post_url: str | None = None
             author: str | None = None
 
-            for lv_data in raw_item.get("label_values", []):
-                # Simple label_value entries have "label"
-                if "label" in lv_data:
-                    lv = InstagramLabelValue.model_validate(lv_data)
+            for lv in item.label_values:
+                if isinstance(lv, InstagramLabelValue):
                     if lv.label == "URL":
                         post_url = lv.value
-
-                # Nested Owner dict: {title: "Owner", dict: [{dict: [...]}]}
-                if lv_data.get("title") == "Owner":
-                    author = extract_owner_username(lv_data)
+                elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+                    author = extract_owner_username(lv)
 
             yield InstagramPostsViewedRecord(
                 author=author,
                 post_url=post_url,
-                timestamp=timestamp,
-                source=json.dumps(raw_item),
+                timestamp=item.timestamp,
+                source=item.model_dump_json(),
             )
 
 

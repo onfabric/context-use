@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -54,20 +53,15 @@ class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
         raw = storage.read(source_uri)
         manifest = InstagramSavedPostsManifest.model_validate_json(raw)
 
-        for raw_item in manifest.saved_saved_media:
-            title = raw_item.get("title", "")
-            smd = raw_item.get("string_map_data", {})
-            saved_on = smd.get("Saved on", {})
-
-            timestamp = saved_on.get("timestamp")
+        for item in manifest.saved_saved_media:
+            timestamp = item.string_map_data.saved_on.timestamp
             if timestamp is None:
                 continue
-
             yield InstagramSavedPostRecord(
-                title=title,
-                href=saved_on.get("href"),
+                title=item.title,
+                href=item.string_map_data.saved_on.href,
                 timestamp=timestamp,
-                source=json.dumps(raw_item),
+                source=item.model_dump_json(),
             )
 
     def transform(
@@ -136,15 +130,19 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
 
         current_collection: tuple[str, int] | None = None  # (name, created)
 
-        for raw_item in manifest.saved_saved_collections:
-            smd = raw_item.get("string_map_data", {})
+        for item in manifest.saved_saved_collections:
+            smd = item.string_map_data
 
             # --- Collection header ---
             if "Creation Time" in smd:
-                name = smd.get("Name", {}).get("value", "")
-                created = smd["Creation Time"].get("timestamp")
-                if name and created is not None:
-                    current_collection = (name, created)
+                name_entry = smd.get("Name")
+                creation_entry = smd["Creation Time"]
+                if (
+                    name_entry
+                    and name_entry.value
+                    and creation_entry.timestamp is not None
+                ):
+                    current_collection = (name_entry.value, creation_entry.timestamp)
                 continue
 
             # --- Child item ---
@@ -158,13 +156,13 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
                 )
                 continue
 
-            name_entry = smd.get("Name", {})
-            item_author = name_entry.get("value", "")
+            name_entry = smd.get("Name")
+            item_author = name_entry.value if name_entry and name_entry.value else ""
             if not item_author:
                 continue
 
-            item_href = name_entry.get("href")
-            item_added_at = smd["Added Time"].get("timestamp")
+            item_href = name_entry.href if name_entry else None
+            item_added_at = smd["Added Time"].timestamp
             if item_added_at is None:
                 continue
 
@@ -176,7 +174,7 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
                 item_author=item_author,
                 item_href=item_href,
                 item_added_at=item_added_at,
-                source=json.dumps(raw_item),
+                source=item.model_dump_json(),
             )
 
     def transform(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 PROVIDER = "instagram"
 
@@ -33,29 +33,11 @@ def _fix_strings_recursive(data: Any) -> Any:
     return data
 
 
-def extract_owner_username(owner_data: dict) -> str | None:
-    """Extract the username from the nested Owner dict in v1 label_values.
-
-    The Owner entry looks like::
-
-        {
-            "title": "Owner",
-            "dict": [
-                {
-                    "title": "",
-                    "dict": [
-                        {"label": "Username", "value": "some_user"},
-                        {"label": "Name", "value": "Some User"},
-                        ...
-                    ]
-                }
-            ]
-        }
-    """
-    for outer in owner_data.get("dict", []):
-        for inner in outer.get("dict", []):
-            if inner.get("label") == "Username":
-                return inner.get("value")
+def extract_owner_username(owner_entry: InstagramV1OwnerEntry) -> str | None:
+    for group in owner_entry.entries:
+        for entry in group.entries:
+            if entry.label == "Username":
+                return entry.value
     return None
 
 
@@ -93,6 +75,21 @@ class InstagramLabelValue(InstagramBaseModel):
     label: str
     value: str | None = None
     href: str | None = None
+
+
+class InstagramV1OwnerInnerGroup(InstagramBaseModel):
+    title: str = ""
+    entries: list[InstagramLabelValue] = Field(alias="dict")
+
+
+class InstagramV1OwnerEntry(InstagramBaseModel):
+    title: str
+    entries: list[InstagramV1OwnerInnerGroup] = Field(alias="dict")
+
+
+class InstagramV1ActivityItem(InstagramBaseModel):
+    timestamp: int
+    label_values: list[InstagramLabelValue | InstagramV1OwnerEntry] = []
 
 
 class InstagramVideoWatchedRecord(BaseModel):
@@ -206,40 +203,85 @@ class InstagramMediaRecord(BaseModel):
     source: str | None = None
 
 
-class InstagramCommentFileItem(BaseModel):
-    string_map_data: dict
+class InstagramCommentStringMapData(InstagramBaseModel):
+    Comment: InstagramValueSchema
+    Time: InstagramTimestampSchema
+    Media_Owner: InstagramValueSchema | None = Field(None, alias="Media Owner")
+
+
+class InstagramCommentFileItem(InstagramBaseModel):
+    string_map_data: InstagramCommentStringMapData
 
 
 class InstagramReelsCommentsManifest(InstagramBaseModel):
     comments_reels_comments: list[InstagramCommentFileItem]
 
 
+class InstagramV0LikesItem(InstagramBaseModel):
+    title: str = ""
+    string_list_data: list[InstagramHrefTimestampSchema]
+
+
+class InstagramV0SearchItem(InstagramBaseModel):
+    title: str | None = None
+    string_list_data: list[InstagramHrefTimestampSchema]
+
+
 class InstagramLikedPostsV0Manifest(InstagramBaseModel):
-    likes_media_likes: list[dict]
+    likes_media_likes: list[InstagramV0LikesItem]
 
 
 class InstagramStoryLikesV0Manifest(InstagramBaseModel):
-    story_activities_story_likes: list[dict]
+    story_activities_story_likes: list[InstagramV0LikesItem]
 
 
 class InstagramPostsViewedV0Manifest(InstagramBaseModel):
-    impressions_history_posts_seen: list[dict]
+    impressions_history_posts_seen: list[
+        InstagramStringMapDataWrapper[InstagramAuthorSchema]
+    ]
 
 
 class InstagramVideosWatchedV0Manifest(InstagramBaseModel):
-    impressions_history_videos_watched: list[dict]
+    impressions_history_videos_watched: list[
+        InstagramStringMapDataWrapper[InstagramAuthorSchema]
+    ]
 
 
 class InstagramProfileSearchesManifest(InstagramBaseModel):
-    searches_user: list[dict]
+    searches_user: list[InstagramV0SearchItem]
+
+
+class InstagramSavedOnSchema(InstagramBaseModel):
+    href: str | None = None
+    timestamp: int | None = None
+
+
+class InstagramSavedPostSMD(InstagramBaseModel):
+    saved_on: InstagramSavedOnSchema = Field(alias="Saved on")
+
+
+class InstagramSavedPostItem(InstagramBaseModel):
+    title: str = ""
+    string_map_data: InstagramSavedPostSMD
+
+
+class InstagramSavedStringMapEntry(InstagramBaseModel):
+    value: str | None = None
+    href: str | None = None
+    timestamp: int | None = None
+
+
+class InstagramSavedCollectionItem(InstagramBaseModel):
+    title: str = ""
+    string_map_data: dict[str, InstagramSavedStringMapEntry]
 
 
 class InstagramSavedPostsManifest(InstagramBaseModel):
-    saved_saved_media: list[dict]
+    saved_saved_media: list[InstagramSavedPostItem]
 
 
 class InstagramSavedCollectionsManifest(InstagramBaseModel):
-    saved_saved_collections: list[dict]
+    saved_saved_collections: list[InstagramSavedCollectionItem]
 
 
 class InstagramDirectMessageShare(InstagramBaseModel):
