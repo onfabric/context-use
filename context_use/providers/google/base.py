@@ -4,15 +4,20 @@ import json
 import logging
 import urllib.parse
 from collections.abc import Iterator
-from typing import cast
+from typing import ClassVar, cast
 
 import ijson
+from pydantic import BaseModel
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import CURRENT_THREAD_PAYLOAD_VERSION, ThreadPayload
 from context_use.models.etl_task import EtlTask
-from context_use.providers.google.schemas import PROVIDER, GoogleRecord
+from context_use.providers.google.schemas import (
+    PROVIDER,
+    GoogleActivityFileItem,
+    GoogleRecord,
+)
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
@@ -26,12 +31,15 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
     to :meth:`_build_payload`.
 
     Subclasses set ``interaction_type``, ``archive_path_pattern``, and
-    implement :meth:`_build_payload`.
+    implement :meth:`_build_payload`.  Override :attr:`file_schema`
+    when the pipe needs stricter structural validation (e.g. YouTube
+    typed subtitles).
     """
 
     provider = PROVIDER
     archive_version = 1
     record_schema = GoogleRecord
+    file_schema: ClassVar[type[BaseModel]] = GoogleActivityFileItem
 
     def extract_file(
         self,
@@ -41,19 +49,12 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
+                self.file_schema.model_validate(raw)
                 source_json = json.dumps(raw, default=str)
-                try:
-                    record = cast(
-                        GoogleRecord,
-                        self.record_schema.model_validate(raw),
-                    )
-                except Exception:
-                    logger.debug(
-                        "%s: skipping invalid record in %s",
-                        self.__class__.__name__,
-                        source_uri,
-                    )
-                    continue
+                record = cast(
+                    GoogleRecord,
+                    self.record_schema.model_validate(raw),
+                )
                 record.source = source_json
                 yield record
         finally:

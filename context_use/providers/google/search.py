@@ -45,14 +45,14 @@ class _BaseGoogleSearchPipe(_BaseGooglePipe):
         url = self.clean_url(record.titleUrl)
         published = record.time
 
-        # --- "Searched for ..." / "Defined ..." → FibreSearch ---
+        # "Searched for ..." / "Defined ..." → FibreSearch
         for prefix in _SEARCH_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
                 page = Page(name=name, url=url, published=published)  # type: ignore[reportCallIssue]
                 return FibreSearch(object=page, published=published)  # type: ignore[reportCallIssue]
 
-        # --- "Visited ..." / "Viewed ..." → FibreViewObject ---
+        # "Visited ..." / "Viewed ..." → FibreViewObject
         for prefix in _VIEW_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
@@ -63,22 +63,16 @@ class _BaseGoogleSearchPipe(_BaseGooglePipe):
 
 
 class GoogleSearchPipe(_BaseGoogleSearchPipe):
-    """Google Search activity."""
-
     interaction_type = "google_search"
     archive_path_pattern = "Portability/My Activity/Search/MyActivity.json"
 
 
 class GoogleVideoSearchPipe(_BaseGoogleSearchPipe):
-    """Google Video Search activity."""
-
     interaction_type = "google_video_search"
     archive_path_pattern = "Portability/My Activity/Video Search/MyActivity.json"
 
 
 class GoogleImageSearchPipe(_BaseGoogleSearchPipe):
-    """Google Image Search activity."""
-
     interaction_type = "google_image_search"
     archive_path_pattern = "Portability/My Activity/Image Search/MyActivity.json"
 
