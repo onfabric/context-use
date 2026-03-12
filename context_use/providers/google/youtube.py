@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime
 
 from context_use.etl.payload.models import (
     FibreAddObjectToCollection,
@@ -80,42 +81,42 @@ class GoogleYoutubePipe(_BaseGooglePipe):
         published = record.time
         channel = _extract_channel(record)
 
-        # --- "Searched for ..." → FibreSearch ---
+        # "Searched for ..." → FibreSearch
         for prefix in _SEARCH_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
                 page = Page(name=name, url=url, published=published)  # type: ignore[reportCallIssue]
                 return FibreSearch(object=page, published=published)  # type: ignore[reportCallIssue]
 
-        # --- "Watched ..." / "Viewed ..." → FibreViewObject ---
+        # "Watched ..." / "Viewed ..." → FibreViewObject
         for prefix in _VIEW_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
                 video = _make_video(name, url, published, channel)
                 return FibreViewObject(object=video, published=published)  # type: ignore[reportCallIssue]
 
-        # --- "Liked ..." → FibreLike ---
+        # "Liked ..." → FibreLike
         for prefix in _LIKE_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
                 video = _make_video(name, url, published, channel)
                 return FibreLike(object=video, published=published)  # type: ignore[reportCallIssue]
 
-        # --- "Disliked ..." → FibreDislike ---
+        # "Disliked ..." → FibreDislike
         for prefix in _DISLIKE_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
                 video = _make_video(name, url, published, channel)
                 return FibreDislike(object=video, published=published)  # type: ignore[reportCallIssue]
 
-        # --- "Subscribed to ..." → FibreFollowing ---
+        # "Subscribed to ..." → FibreFollowing
         for prefix in _SUBSCRIBE_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
                 profile = Profile(name=name, url=url, published=published)  # type: ignore[reportCallIssue]
                 return FibreFollowing(object=profile, published=published)  # type: ignore[reportCallIssue]
 
-        # --- "Saved ..." → FibreAddObjectToCollection ---
+        # "Saved ..." → FibreAddObjectToCollection
         for prefix in _SAVE_PREFIXES:
             if record.title.startswith(prefix):
                 name = record.title[len(prefix) :].strip() or None
@@ -130,33 +131,28 @@ class GoogleYoutubePipe(_BaseGooglePipe):
 
 
 def _extract_channel(record: GoogleYoutubeRecord) -> Person | None:
-    """Extract channel attribution from the ``subtitles`` field."""
     if not record.subtitles:
         return None
     for entry in record.subtitles:
-        name = entry.get("name")
-        url = entry.get("url")
-        if name and url:
-            return Person(name=name, url=url)  # type: ignore[reportCallIssue]
-        if name:
-            return Person(name=name)  # type: ignore[reportCallIssue]
+        if entry.name and entry.url:
+            return Person(name=entry.name, url=entry.url)  # type: ignore[reportCallIssue]
+        if entry.name:
+            return Person(name=entry.name)  # type: ignore[reportCallIssue]
     return None
 
 
 def _make_video(
     name: str | None,
     url: str | None,
-    published: object,
+    published: datetime,
     channel: Person | None,
 ) -> Video:
-    """Build a ``Video`` object with optional channel attribution."""
-    kwargs: dict = {}
+    kwargs: dict[str, object] = {}
     if name:
         kwargs["name"] = name
     if url:
         kwargs["url"] = url
-    if published:
-        kwargs["published"] = published
+    kwargs["published"] = published
     if channel:
         kwargs["attributedTo"] = channel
     return Video(**kwargs)  # type: ignore[reportCallIssue]
