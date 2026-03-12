@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from context_use.providers.instagram.connections import (
     InstagramFollowersPipe,
     InstagramFollowingPipe,
 )
+from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_FOLLOWERS_JSON,
@@ -18,6 +21,17 @@ class TestInstagramFollowersPipe(PipeTestKit):
     expected_fibre_kind = "FollowedBy"
     fixture_data = INSTAGRAM_FOLLOWERS_JSON
     fixture_key = "archive/connections/followers_and_following/followers_1.json"
+
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"not": "an array"}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
@@ -50,6 +64,18 @@ class TestInstagramFollowingPipe(PipeTestKit):
     expected_fibre_kind = "Following"
     fixture_data = INSTAGRAM_FOLLOWING_JSON
     fixture_key = "archive/connections/followers_and_following/following.json"
+
+    def test_file_schema_gates_missing_key(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"wrong_key": []}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from context_use.providers.instagram.videos_watched import (
     InstagramVideosWatchedPipe,
     InstagramVideosWatchedV0Pipe,
 )
+from context_use.storage.disk import DiskStorage
 from context_use.testing import AttributedToProfileMixin, PipeTestKit, VideoObjectMixin
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_VIDEOS_WATCHED_V0_JSON,
@@ -20,6 +23,18 @@ class TestInstagramVideosWatchedV0Pipe(
     fixture_data = INSTAGRAM_VIDEOS_WATCHED_V0_JSON
     fixture_key = "archive/ads_information/ads_and_topics/videos_watched.json"
     expected_fibre_kind = "View"
+
+    def test_file_schema_gates_missing_key(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"wrong_key": []}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
@@ -46,6 +61,17 @@ class TestInstagramVideosWatchedV1Pipe(VideoObjectMixin, PipeTestKit):
     fixture_data = INSTAGRAM_VIDEOS_WATCHED_V1_JSON
     fixture_key = "archive/ads_information/ads_and_topics/videos_watched.json"
     expected_fibre_kind = "View"
+
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"not": "an array"}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]

@@ -23,7 +23,12 @@ from context_use.memories.prompt.conversation import (
     AgentConversationMemoryPromptBuilder,
 )
 from context_use.models.etl_task import EtlTask
-from context_use.providers.claude.schemas import PROVIDER, ClaudeConversationRecord
+from context_use.providers.claude.schemas import (
+    PROVIDER,
+    ClaudeConversation,
+    ClaudeConversationRecord,
+    ClaudeRole,
+)
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -32,9 +37,10 @@ logger = logging.getLogger(__name__)
 
 CLAUDE_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
+_TEXT_BLOCK_TYPE = "text"
+
 
 def _parse_timestamp(ts: str | None) -> datetime | None:
-    """Parse an ISO 8601 timestamp string to a timezone-aware datetime."""
     if not ts:
         return None
     try:
@@ -46,7 +52,6 @@ def _parse_timestamp(ts: str | None) -> datetime | None:
 def _build_payload(
     record: ClaudeConversationRecord,
 ) -> FibreSendMessage | FibreReceiveMessage | None:
-    """Build an ActivityStreams payload from a conversation record."""
     context = None
     if record.conversation_title or record.conversation_id:
         ctx_kwargs: dict = {"type": "Collection"}
@@ -60,13 +65,13 @@ def _build_payload(
 
     published = _parse_timestamp(record.created_at)
 
-    if record.role == "human":
+    if record.role == ClaudeRole.HUMAN:
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=CLAUDE_APPLICATION,
             published=published,
         )
-    elif record.role == "assistant":
+    elif record.role == ClaudeRole.ASSISTANT:
         return FibreReceiveMessage(  # type: ignore[reportCallIssue]
             object=message,
             actor=CLAUDE_APPLICATION,
@@ -77,13 +82,6 @@ def _build_payload(
 
 
 class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
-    """ETL pipe for Claude conversations.
-
-    Reads ``conversations.json`` via ijson streaming, yields individual
-    :class:`ClaudeConversationRecord` instances, and transforms each
-    into a :class:`ThreadRow` with an ActivityStreams payload.
-    """
-
     provider = PROVIDER
     interaction_type = "claude_conversations"
     archive_version = 1
@@ -98,14 +96,11 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
         stream = storage.open_stream(source_uri)
 
         try:
-            for conversation in ijson.items(stream, "item"):
-                conversation_title = conversation.get("name")
-                conversation_id = conversation.get("uuid")
-                chat_messages = conversation.get("chat_messages", [])
+            for raw_conversation in ijson.items(stream, "item"):
+                conversation = ClaudeConversation.model_validate(raw_conversation)
 
-                for message in chat_messages:
-                    sender = message.get("sender")
-                    if sender not in ("human", "assistant"):
+                for message in conversation.chat_messages:
+                    if not message.is_emittable:
                         continue
 
                     # The archive stores message text in two places: a top-level
@@ -113,23 +108,25 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
                     # array of typed blocks. For assistant messages that invoked
                     # tools, ``text`` collapses tool_use/tool_result blocks into
                     # "This block is not supported on your current device yet."
-                    # placeholders. Extracting only ``type == "text"`` blocks from
-                    # ``content`` gives clean prose without that noise.
+                    # placeholders. Extracting only _TEXT_BLOCK_TYPE blocks gives
+                    # clean prose without that noise.
                     text = "\n\n".join(
-                        block["text"]
-                        for block in message.get("content", [])
-                        if block.get("type") == "text" and block.get("text", "").strip()
+                        block.text
+                        for block in message.content
+                        if block.type == _TEXT_BLOCK_TYPE
+                        and block.text
+                        and block.text.strip()
                     )
                     if not text:
                         continue
 
                     yield ClaudeConversationRecord(
-                        role=sender,
+                        role=message.sender,
                         content=text,
-                        created_at=message.get("created_at"),
-                        conversation_id=conversation_id,
-                        conversation_title=conversation_title,
-                        source=json.dumps(message, default=str),
+                        created_at=message.created_at,
+                        conversation_id=conversation.uuid,
+                        conversation_title=conversation.name,
+                        source=json.dumps(message.model_dump(), default=str),
                     )
         finally:
             stream.close()

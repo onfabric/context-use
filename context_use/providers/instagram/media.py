@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+
+import ijson
 
 from context_use.batch.grouper import WindowGrouper
 from context_use.etl.core.pipe import Pipe
@@ -131,15 +132,13 @@ class InstagramPostsPipe(_InstagramMediaPipe):
         source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
-        raw = storage.read(source_uri)
-        entries = json.loads(raw)
-
-        all_items: list[InstagramMediaItem] = []
-        for entry in entries:
-            validated = InstagramPostsEntry.model_validate(entry)
-            all_items.extend(validated.media)
-
-        yield from _items_to_records(all_items)
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                entry = InstagramPostsEntry.model_validate(raw)
+                yield from _items_to_records(entry.media)
+        finally:
+            stream.close()
 
 
 _MEDIA_MEMORY_CONFIG = MemoryConfig(

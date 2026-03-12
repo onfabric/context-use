@@ -21,6 +21,18 @@ class TestInstagramProfileSearchesPipe(PipeTestKit):
     fixture_data = INSTAGRAM_PROFILE_SEARCHES_JSON
     fixture_key = f"archive/{ARCHIVE_PATH}"
 
+    def test_file_schema_gates_missing_key(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"wrong_key": []}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
+
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
         assert record.username == "synthetic_chef_account"
