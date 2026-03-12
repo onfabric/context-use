@@ -27,7 +27,7 @@ from context_use.providers.chatgpt.schemas import (
     PROVIDER,
     ChatGPTConversation,
     ChatGPTConversationRecord,
-    ChatGPTMessage,
+    ChatGPTRole,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -36,14 +36,6 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 CHATGPT_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
-
-_ROLE_USER = "user"
-_ROLE_ASSISTANT = "assistant"
-_EMIT_ROLES = frozenset({_ROLE_USER, _ROLE_ASSISTANT})
-
-
-def _is_emittable(message: ChatGPTMessage) -> bool:
-    return message.content.content_type == "text" and message.author.role in _EMIT_ROLES
 
 
 def _parse_timestamp(ts: float | None) -> datetime | None:
@@ -68,13 +60,13 @@ def _build_payload(
 
     published = _parse_timestamp(record.create_time)
 
-    if record.role == _ROLE_USER:
+    if record.role == ChatGPTRole.USER:
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=CHATGPT_APPLICATION,
             published=published,
         )
-    elif record.role == _ROLE_ASSISTANT:
+    elif record.role == ChatGPTRole.ASSISTANT:
         return FibreReceiveMessage(  # type: ignore[reportCallIssue]
             object=message,
             actor=CHATGPT_APPLICATION,
@@ -113,7 +105,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
 
                 for _msg_id, node in conversation.mapping.items():
                     message = node.message
-                    if message is None or not _is_emittable(message):
+                    if message is None or not message.is_emittable:
                         continue
                     if not message.content.parts:
                         continue

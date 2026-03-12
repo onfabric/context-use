@@ -11,6 +11,7 @@ from context_use.providers.chatgpt.schemas import (
     ChatGPTConversation,
     ChatGPTMappingNode,
     ChatGPTMessage,
+    ChatGPTRole,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
@@ -26,7 +27,7 @@ class TestChatGPTConversationsPipe(PipeTestKit):
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
-        assert record.role in ("user", "assistant")
+        assert record.role in ChatGPTRole
         assert record.content
         assert record.conversation_id is not None
         assert record.conversation_title is not None
