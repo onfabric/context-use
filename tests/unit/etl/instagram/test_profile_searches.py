@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from context_use.providers.instagram.profile_searches import (
+from context_use.providers.instagram.profile_searches.pipe import (
     InstagramProfileSearchesPipe,
 )
 from context_use.storage.disk import DiskStorage

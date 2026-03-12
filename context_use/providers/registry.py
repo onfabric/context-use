@@ -19,7 +19,7 @@ def declare_interaction(config: InteractionConfig) -> None:
 
     Example::
 
-        # providers/instagram/media.py
+        # providers/instagram/media/pipe.py
         from context_use.providers.registry import declare_interaction
 
         declare_interaction(
@@ -51,7 +51,12 @@ def register_provider(name: str, modules: list[types.ModuleType]) -> None:
     declared = _interactions_by_provider.get(name, [])
     modules_with_interactions = {config.pipe.__module__ for config in declared}
     missing = [
-        m.__name__ for m in modules if m.__name__ not in modules_with_interactions
+        m.__name__
+        for m in modules
+        if not any(
+            mod == m.__name__ or mod.startswith(m.__name__ + ".")
+            for mod in modules_with_interactions
+        )
     ]
     if missing:
         raise ValueError(

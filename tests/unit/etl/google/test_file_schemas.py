@@ -3,8 +3,8 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from context_use.providers.google.schemas import (
-    GoogleActivityFileItem,
+from context_use.providers.google.schemas import GoogleActivityFileItem
+from context_use.providers.google.youtube.schemas import (
     GoogleYoutubeFileItem,
     GoogleYoutubeSubtitle,
 )

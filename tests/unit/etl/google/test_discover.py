@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from context_use.providers.google.discover import GoogleDiscoverPipe
+from context_use.providers.google.discover.pipe import GoogleDiscoverPipe
 from context_use.testing import PipeTestKit
 from tests.unit.etl.google.conftest import GOOGLE_DISCOVER_JSON
 

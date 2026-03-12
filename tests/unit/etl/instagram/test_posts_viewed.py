@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_use.providers.instagram.posts_viewed import (
+from context_use.providers.instagram.posts_viewed.pipe import (
     InstagramPostsViewedPipe,
     InstagramPostsViewedV0Pipe,
 )

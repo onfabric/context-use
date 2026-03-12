@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from context_use.providers.google.shopping import GoogleShoppingPipe
+from context_use.providers.google.shopping.pipe import GoogleShoppingPipe
 from context_use.testing import PipeTestKit
 from tests.unit.etl.google.conftest import GOOGLE_SHOPPING_JSON
 

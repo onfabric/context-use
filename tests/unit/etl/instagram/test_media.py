@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_use.providers.instagram.media import (
+from context_use.providers.instagram.media.pipe import (
     InstagramPostsPipe,
     InstagramReelsPipe,
     InstagramStoriesPipe,
