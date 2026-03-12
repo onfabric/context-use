@@ -1,3 +1,1 @@
-from context_use.providers.instagram.posts_viewed.v0.pipe import (  # noqa: F401
-    InstagramPostsViewedV0Pipe,
-)
+from context_use.providers.instagram.posts_viewed.v0 import pipe as pipe  # noqa: F401

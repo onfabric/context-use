@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from context_use.providers.instagram.posts_viewed.v0.pipe import (
-    InstagramPostsViewedV0Pipe,
+    InstagramPostsViewedPipe as InstagramPostsViewedV0Pipe,
 )
 from context_use.providers.instagram.posts_viewed.v1.pipe import (
-    InstagramPostsViewedV1Pipe,
+    InstagramPostsViewedPipe,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import AttributedToProfileMixin, PipeTestKit, PostObjectMixin
@@ -58,7 +58,7 @@ class TestInstagramPostsViewedV0Pipe(
 
 
 class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
-    pipe_class = InstagramPostsViewedV1Pipe
+    pipe_class = InstagramPostsViewedPipe
     expected_extract_count = 2
     expected_transform_count = 2
     fixture_data = INSTAGRAM_POSTS_VIEWED_V1_JSON

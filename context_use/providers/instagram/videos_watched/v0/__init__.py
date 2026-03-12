@@ -1,3 +1,1 @@
-from context_use.providers.instagram.videos_watched.v0.pipe import (  # noqa: F401
-    InstagramVideosWatchedV0Pipe,
-)
+from context_use.providers.instagram.videos_watched.v0 import pipe as pipe  # noqa: F401

@@ -9,7 +9,7 @@ from context_use.providers.instagram.schemas import (
     InstagramV1ActivityItem,
 )
 from context_use.providers.instagram.videos_watched.pipe import (
-    InstagramVideosWatchedPipe,
+    _InstagramVideosWatchedPipe,
 )
 from context_use.providers.instagram.videos_watched.record import (
     InstagramVideoWatchedRecord,
@@ -19,7 +19,7 @@ from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 
-class InstagramVideosWatchedV1Pipe(InstagramVideosWatchedPipe):
+class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
     archive_version = 1
     archive_path_pattern = "ads_information/ads_and_topics/videos_watched.json"
 
@@ -47,4 +47,4 @@ class InstagramVideosWatchedV1Pipe(InstagramVideosWatchedPipe):
             stream.close()
 
 
-declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedV1Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedPipe, memory=None))

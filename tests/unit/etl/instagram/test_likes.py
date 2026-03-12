@@ -3,8 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from context_use.providers.instagram.likes.v0.pipe import (
-    InstagramLikedPostsV0Pipe,
-    InstagramStoryLikesV0Pipe,
+    InstagramLikedPostsPipe as InstagramLikedPostsV0Pipe,
+)
+from context_use.providers.instagram.likes.v0.pipe import (
+    InstagramStoryLikesPipe,
 )
 from context_use.providers.instagram.likes.v1.pipe import InstagramLikedPostsPipe
 from context_use.storage.disk import DiskStorage
@@ -115,10 +117,10 @@ class TestInstagramLikedPostsV1Pipe(
         assert "synthetic_foodblog" in preview
 
 
-class TestInstagramStoryLikesV0Pipe(
+class TestInstagramStoryLikesPipe(
     PostObjectMixin, AttributedToProfileMixin, PipeTestKit
 ):
-    pipe_class = InstagramStoryLikesV0Pipe
+    pipe_class = InstagramStoryLikesPipe
     expected_extract_count = 1
     expected_transform_count = 1
     fixture_data = INSTAGRAM_STORY_LIKES_V0_JSON

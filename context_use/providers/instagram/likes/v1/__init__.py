@@ -1,3 +1,1 @@
-from context_use.providers.instagram.likes.v1.pipe import (  # noqa: F401
-    InstagramLikedPostsPipe,
-)
+from context_use.providers.instagram.likes.v1 import pipe as pipe  # noqa: F401

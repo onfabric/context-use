@@ -6,14 +6,14 @@ from context_use.providers.instagram.schemas import (
 )
 
 
-class InstagramV0LikesItem(InstagramBaseModel):
+class InstagramLikesItem(InstagramBaseModel):
     title: str = ""
     string_list_data: list[InstagramHrefTimestampSchema]
 
 
-class InstagramLikedPostsV0Manifest(InstagramBaseModel):
-    likes_media_likes: list[InstagramV0LikesItem]
+class InstagramLikedPostsManifest(InstagramBaseModel):
+    likes_media_likes: list[InstagramLikesItem]
 
 
-class InstagramStoryLikesV0Manifest(InstagramBaseModel):
-    story_activities_story_likes: list[InstagramV0LikesItem]
+class InstagramStoryLikesManifest(InstagramBaseModel):
+    story_activities_story_likes: list[InstagramLikesItem]

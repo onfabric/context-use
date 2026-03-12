@@ -7,7 +7,7 @@ from context_use.providers.instagram.schemas import (
 )
 
 
-class InstagramVideosWatchedV0Manifest(InstagramBaseModel):
+class InstagramVideosWatchedManifest(InstagramBaseModel):
     impressions_history_videos_watched: list[
         InstagramStringMapDataWrapper[InstagramAuthorSchema]
     ]

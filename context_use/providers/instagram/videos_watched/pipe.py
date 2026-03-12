@@ -17,7 +17,7 @@ from context_use.providers.instagram.videos_watched.record import (
 )
 
 
-class InstagramVideosWatchedPipe(Pipe[InstagramVideoWatchedRecord]):
+class _InstagramVideosWatchedPipe(Pipe[InstagramVideoWatchedRecord]):
     provider = PROVIDER
     interaction_type = "instagram_videos_watched"
     record_schema = InstagramVideoWatchedRecord

@@ -4,7 +4,7 @@ from collections.abc import Iterator
 
 import ijson
 
-from context_use.providers.instagram.posts_viewed.pipe import InstagramPostsViewedPipe
+from context_use.providers.instagram.posts_viewed.pipe import _InstagramPostsViewedPipe
 from context_use.providers.instagram.posts_viewed.record import (
     InstagramPostsViewedRecord,
 )
@@ -19,7 +19,7 @@ from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 
-class InstagramPostsViewedV1Pipe(InstagramPostsViewedPipe):
+class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
     archive_version = 1
     archive_path_pattern = "ads_information/ads_and_topics/posts_viewed.json"
 
@@ -52,4 +52,4 @@ class InstagramPostsViewedV1Pipe(InstagramPostsViewedPipe):
             stream.close()
 
 
-declare_interaction(InteractionConfig(pipe=InstagramPostsViewedV1Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramPostsViewedPipe, memory=None))

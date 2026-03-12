@@ -17,7 +17,7 @@ from context_use.providers.instagram.posts_viewed.record import (
 from context_use.providers.instagram.schemas import PROVIDER
 
 
-class InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
+class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
     provider = PROVIDER
     interaction_type = "instagram_posts_viewed"
     record_schema = InstagramPostsViewedRecord
