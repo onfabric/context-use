@@ -25,9 +25,9 @@ from context_use.memories.prompt.conversation import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.claude.schemas import (
     PROVIDER,
-    ClaudeChatMessage,
     ClaudeConversation,
     ClaudeConversationRecord,
+    ClaudeRole,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -37,14 +37,7 @@ logger = logging.getLogger(__name__)
 
 CLAUDE_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
-_ROLE_HUMAN = "human"
-_ROLE_ASSISTANT = "assistant"
-_EMIT_ROLES = frozenset({_ROLE_HUMAN, _ROLE_ASSISTANT})
 _TEXT_BLOCK_TYPE = "text"
-
-
-def _is_emittable(message: ClaudeChatMessage) -> bool:
-    return message.sender in _EMIT_ROLES
 
 
 def _parse_timestamp(ts: str | None) -> datetime | None:
@@ -72,13 +65,13 @@ def _build_payload(
 
     published = _parse_timestamp(record.created_at)
 
-    if record.role == _ROLE_HUMAN:
+    if record.role == ClaudeRole.HUMAN:
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=CLAUDE_APPLICATION,
             published=published,
         )
-    elif record.role == _ROLE_ASSISTANT:
+    elif record.role == ClaudeRole.ASSISTANT:
         return FibreReceiveMessage(  # type: ignore[reportCallIssue]
             object=message,
             actor=CLAUDE_APPLICATION,
@@ -107,7 +100,7 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
                 conversation = ClaudeConversation.model_validate(raw_conversation)
 
                 for message in conversation.chat_messages:
-                    if not _is_emittable(message):
+                    if not message.is_emittable:
                         continue
 
                     # The archive stores message text in two places: a top-level

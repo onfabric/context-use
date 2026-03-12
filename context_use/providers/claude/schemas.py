@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel
 
 PROVIDER = "claude"
+
+
+class ClaudeRole(StrEnum):
+    HUMAN = "human"
+    ASSISTANT = "assistant"
 
 
 class ClaudeContentBlock(BaseModel):
@@ -14,6 +21,10 @@ class ClaudeChatMessage(BaseModel):
     sender: str
     content: list[ClaudeContentBlock] = []
     created_at: str | None = None
+
+    @property
+    def is_emittable(self) -> bool:
+        return self.sender in ClaudeRole
 
 
 class ClaudeConversation(BaseModel):

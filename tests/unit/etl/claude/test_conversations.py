@@ -13,6 +13,7 @@ from context_use.providers.claude.schemas import (
     ClaudeContentBlock,
     ClaudeConversation,
     ClaudeConversationRecord,
+    ClaudeRole,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
@@ -134,6 +135,20 @@ class TestClaudeConversationFileSchema:
     def test_content_defaults_to_empty_list(self) -> None:
         msg = ClaudeChatMessage.model_validate({"sender": "human"})
         assert msg.content == []
+
+    @pytest.mark.parametrize("sender", [ClaudeRole.HUMAN, ClaudeRole.ASSISTANT])
+    def test_is_emittable_true(self, sender: str) -> None:
+        msg = ClaudeChatMessage(sender=sender)
+        assert msg.is_emittable is True
+
+    @pytest.mark.parametrize("sender", ["system", "tool", "unknown"])
+    def test_is_emittable_false(self, sender: str) -> None:
+        msg = ClaudeChatMessage(sender=sender)
+        assert msg.is_emittable is False
+
+    def test_claude_role_values(self) -> None:
+        assert ClaudeRole.HUMAN == "human"
+        assert ClaudeRole.ASSISTANT == "assistant"
 
     def test_invalid_conversation_fails_file(self, tmp_path: str) -> None:
         fixture = [
