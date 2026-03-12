@@ -40,24 +40,21 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
     archive_version = 1
     record_schema = InstagramCommentRecord
 
-    def _extract_from_items(
-        self,
-        items: list[InstagramCommentFileItem],
-    ) -> Iterator[InstagramCommentRecord]:
-        for item in items:
-            smd = item.string_map_data
-            comment_val = smd.Comment.value
-            if not comment_val:
-                continue
-
-            media_owner = smd.Media_Owner.value if smd.Media_Owner else None
-
-            yield InstagramCommentRecord(
-                comment=comment_val,
-                media_owner=media_owner,
-                timestamp=smd.Time.timestamp,
-                source=item.model_dump_json(),
-            )
+    @staticmethod
+    def _extract_item(
+        item: InstagramCommentFileItem,
+    ) -> InstagramCommentRecord | None:
+        smd = item.string_map_data
+        comment_val = smd.Comment.value
+        if not comment_val:
+            return None
+        media_owner = smd.Media_Owner.value if smd.Media_Owner else None
+        return InstagramCommentRecord(
+            comment=comment_val,
+            media_owner=media_owner,
+            timestamp=smd.Time.timestamp,
+            source=item.model_dump_json(),
+        )
 
     def transform(
         self,
@@ -104,18 +101,11 @@ class InstagramCommentPostsPipe(_InstagramCommentPipe):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                item = InstagramCommentFileItem.model_validate(raw)
-                smd = item.string_map_data
-                comment_val = smd.Comment.value
-                if not comment_val:
-                    continue
-                media_owner = smd.Media_Owner.value if smd.Media_Owner else None
-                yield InstagramCommentRecord(
-                    comment=comment_val,
-                    media_owner=media_owner,
-                    timestamp=smd.Time.timestamp,
-                    source=item.model_dump_json(),
+                record = self._extract_item(
+                    InstagramCommentFileItem.model_validate(raw)
                 )
+                if record is not None:
+                    yield record
         finally:
             stream.close()
 
@@ -131,7 +121,10 @@ class InstagramCommentReelsPipe(_InstagramCommentPipe):
     ) -> Iterator[InstagramCommentRecord]:
         raw = storage.read(source_uri)
         manifest = InstagramReelsCommentsManifest.model_validate_json(raw)
-        yield from self._extract_from_items(manifest.comments_reels_comments)
+        for item in manifest.comments_reels_comments:
+            record = self._extract_item(item)
+            if record is not None:
+                yield record
 
 
 declare_interaction(InteractionConfig(pipe=InstagramCommentPostsPipe, memory=None))
