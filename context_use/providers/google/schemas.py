@@ -16,7 +16,6 @@ class GoogleActivityFileItem(BaseModel):
     activityControls: list[str] | None = None
     locationInfos: list[dict[str, object]] | None = None
     details: list[dict[str, object]] | None = None
-    subtitles: list[dict[str, object]] | None = None
 
 
 class GoogleYoutubeSubtitle(BaseModel):
