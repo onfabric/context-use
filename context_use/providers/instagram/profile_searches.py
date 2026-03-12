@@ -23,6 +23,7 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
+
 class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
     """ETL pipe for Instagram profile searches.
 
