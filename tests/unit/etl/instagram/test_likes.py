@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_use.providers.instagram.likes.pipe import (
-    InstagramLikedPostsPipe,
+from context_use.providers.instagram.likes.v0.pipe import (
     InstagramLikedPostsV0Pipe,
     InstagramStoryLikesV0Pipe,
 )
+from context_use.providers.instagram.likes.v1.pipe import InstagramLikedPostsPipe
 from context_use.storage.disk import DiskStorage
 from context_use.testing import AttributedToProfileMixin, PipeTestKit, PostObjectMixin
 from tests.unit.etl.instagram.conftest import (

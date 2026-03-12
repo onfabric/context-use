@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_use.providers.instagram.videos_watched.pipe import (
-    InstagramVideosWatchedPipe,
+from context_use.providers.instagram.videos_watched.v0.pipe import (
     InstagramVideosWatchedV0Pipe,
+)
+from context_use.providers.instagram.videos_watched.v1.pipe import (
+    InstagramVideosWatchedV1Pipe,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import AttributedToProfileMixin, PipeTestKit, VideoObjectMixin
@@ -55,7 +57,7 @@ class TestInstagramVideosWatchedV0Pipe(
 
 
 class TestInstagramVideosWatchedV1Pipe(VideoObjectMixin, PipeTestKit):
-    pipe_class = InstagramVideosWatchedPipe
+    pipe_class = InstagramVideosWatchedV1Pipe
     expected_extract_count = 1
     expected_transform_count = 1
     fixture_data = INSTAGRAM_VIDEOS_WATCHED_V1_JSON
