@@ -25,6 +25,17 @@ class TestInstagramCommentPostsPipe(PipeTestKit):
     fixture_data = INSTAGRAM_POST_COMMENTS_JSON
     fixture_key = f"archive/{POST_COMMENTS_ARCHIVE_PATH}"
 
+    def test_file_schema_gates_non_array(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = f"archive/{POST_COMMENTS_ARCHIVE_PATH}"
+        storage.write(key, b'{"not": "an array"}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
+
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
         assert record.comment == "This looks amazing!"
@@ -94,6 +105,17 @@ class TestInstagramCommentReelsPipe(PipeTestKit):
     expected_fibre_kind = "Comment"
     fixture_data = INSTAGRAM_REELS_COMMENTS_JSON
     fixture_key = "archive/your_instagram_activity/comments/reels_comments.json"
+
+    def test_file_schema_gates_missing_key(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = "archive/your_instagram_activity/comments/reels_comments.json"
+        storage.write(key, b'{"wrong_key": []}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]

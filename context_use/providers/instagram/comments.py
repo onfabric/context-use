@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from typing import ClassVar
+
+from pydantic import TypeAdapter
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -18,7 +18,9 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
+    InstagramCommentFileItem,
     InstagramCommentRecord,
+    InstagramReelsCommentsManifest,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -38,35 +40,23 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
     archive_version = 1
     record_schema = InstagramCommentRecord
 
-    _json_key: ClassVar[str | None] = None
-    """Top-level JSON key wrapping the items array, or ``None`` for bare arrays."""
-
-    def extract_file(
+    def _extract_from_items(
         self,
-        source_uri: str,
-        storage: StorageBackend,
+        items: list[InstagramCommentFileItem],
     ) -> Iterator[InstagramCommentRecord]:
-        raw = storage.read(source_uri)
-        data = json.loads(raw)
-
-        items = data.get(self._json_key, []) if self._json_key is not None else data
-        for raw_item in items:
-            smd = raw_item.get("string_map_data", {})
-
-            comment_val = smd.get("Comment", {}).get("value")
+        for item in items:
+            smd = item.string_map_data
+            comment_val = smd.Comment.value
             if not comment_val:
                 continue
 
-            media_owner = smd.get("Media Owner", {}).get("value")
-            timestamp_val = smd.get("Time", {}).get("timestamp")
-            if timestamp_val is None:
-                continue
+            media_owner = smd.Media_Owner.value if smd.Media_Owner else None
 
             yield InstagramCommentRecord(
                 comment=comment_val,
                 media_owner=media_owner,
-                timestamp=timestamp_val,
-                source=json.dumps(raw_item),
+                timestamp=smd.Time.timestamp,
+                source=item.model_dump_json(),
             )
 
     def transform(
@@ -102,30 +92,35 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
         )
 
 
+_post_comments_file_schema = TypeAdapter(list[InstagramCommentFileItem])
+
+
 class InstagramCommentPostsPipe(_InstagramCommentPipe):
-    """ETL pipe for Instagram post comments.
-
-    Reads a bare top-level JSON array from
-    ``your_instagram_activity/comments/post_comments_1.json``.
-    Each item has ``{string_map_data: {Comment, "Media Owner", Time}}``.
-    """
-
     interaction_type = "instagram_comments_posts"
     archive_path_pattern = "your_instagram_activity/comments/post_comments*.json"
-    _json_key = None
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramCommentRecord]:
+        raw = storage.read(source_uri)
+        items = _post_comments_file_schema.validate_json(raw)
+        yield from self._extract_from_items(items)
 
 
 class InstagramCommentReelsPipe(_InstagramCommentPipe):
-    """ETL pipe for Instagram reel comments.
-
-    Reads ``comments_reels_comments`` from
-    ``your_instagram_activity/comments/reels_comments.json``.
-    Each item has ``{string_map_data: {Comment, "Media Owner", Time}}``.
-    """
-
     interaction_type = "instagram_comments_reels"
     archive_path_pattern = "your_instagram_activity/comments/reels_comments.json"
-    _json_key = "comments_reels_comments"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramCommentRecord]:
+        raw = storage.read(source_uri)
+        manifest = InstagramReelsCommentsManifest.model_validate_json(raw)
+        yield from self._extract_from_items(manifest.comments_reels_comments)
 
 
 declare_interaction(InteractionConfig(pipe=InstagramCommentPostsPipe, memory=None))

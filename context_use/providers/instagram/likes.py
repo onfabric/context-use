@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+
+from pydantic import TypeAdapter
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -16,10 +17,12 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
-    InstagramHrefTimestampSchema,
     InstagramLabelValue,
     InstagramLikedPostRecord,
-    InstagramStringListDataWrapper,
+    InstagramLikedPostsV0Manifest,
+    InstagramStoryLikesV0Manifest,
+    InstagramV1ActivityItem,
+    InstagramV1OwnerEntry,
     extract_owner_username,
 )
 from context_use.providers.registry import declare_interaction
@@ -28,7 +31,7 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
-_LikeItem = InstagramStringListDataWrapper[InstagramHrefTimestampSchema]
+_v1_activity_list = TypeAdapter(list[InstagramV1ActivityItem])
 
 
 class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
@@ -94,29 +97,18 @@ class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("likes_media_likes", [])
-        for raw_item in items:
-            title = raw_item.get("title", "")
-            parsed = _LikeItem.model_validate(raw_item)
-            for entry in parsed.string_list_data:
+        manifest = InstagramLikedPostsV0Manifest.model_validate_json(raw)
+        for item in manifest.likes_media_likes:
+            for entry in item.string_list_data:
                 yield InstagramLikedPostRecord(
-                    title=title,
+                    title=item.title,
                     href=entry.href,
                     timestamp=entry.timestamp,
-                    source=json.dumps(raw_item),
+                    source=item.model_dump_json(),
                 )
 
 
 class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
-    """ETL pipe for Instagram story likes — v0 archive format.
-
-    Reads ``story_activities_story_likes`` from
-    ``your_instagram_activity/story_interactions/story_likes.json``.
-    Each item has ``{title, string_list_data: [{timestamp}]}``.
-    Creates ``FibreLike(object=FibrePost(attributedTo=Profile(...)))``.
-    """
-
     interaction_type = "instagram_story_likes"
     archive_version = 0
     archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
@@ -127,17 +119,14 @@ class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("story_activities_story_likes", [])
-        for raw_item in items:
-            title = raw_item.get("title", "")
-            parsed = _LikeItem.model_validate(raw_item)
-            for entry in parsed.string_list_data:
+        manifest = InstagramStoryLikesV0Manifest.model_validate_json(raw)
+        for item in manifest.story_activities_story_likes:
+            for entry in item.string_list_data:
                 yield InstagramLikedPostRecord(
-                    title=title,
+                    title=item.title,
                     href=entry.href,
                     timestamp=entry.timestamp,
-                    source=json.dumps(raw_item),
+                    source=item.model_dump_json(),
                 )
 
 
@@ -160,31 +149,23 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
-        for raw_item in items:
-            timestamp = raw_item.get("timestamp")
-            if timestamp is None:
-                continue
-
+        items = _v1_activity_list.validate_json(raw)
+        for item in items:
             href: str | None = None
             title: str | None = None
 
-            for lv_data in raw_item.get("label_values", []):
-                # Simple label_value entries have "label"
-                if "label" in lv_data:
-                    lv = InstagramLabelValue.model_validate(lv_data)
+            for lv in item.label_values:
+                if isinstance(lv, InstagramLabelValue):
                     if lv.label == "URL":
                         href = lv.href or lv.value
-
-                # Nested Owner dict: {title: "Owner", dict: [{dict: [...]}]}
-                if lv_data.get("title") == "Owner":
-                    title = extract_owner_username(lv_data)
+                elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+                    title = extract_owner_username(lv)
 
             yield InstagramLikedPostRecord(
                 title=title or "",
                 href=href,
-                timestamp=timestamp,
-                source=json.dumps(raw_item),
+                timestamp=item.timestamp,
+                source=item.model_dump_json(),
             )
 
 
@@ -206,29 +187,23 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
-        for raw_item in items:
-            timestamp = raw_item.get("timestamp")
-            if timestamp is None:
-                continue
-
+        items = _v1_activity_list.validate_json(raw)
+        for item in items:
             href: str | None = None
             title: str | None = None
 
-            for lv_data in raw_item.get("label_values", []):
-                if "label" in lv_data:
-                    lv = InstagramLabelValue.model_validate(lv_data)
+            for lv in item.label_values:
+                if isinstance(lv, InstagramLabelValue):
                     if lv.label == "URL":
                         href = lv.href or lv.value
-
-                if lv_data.get("title") == "Owner":
-                    title = extract_owner_username(lv_data)
+                elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+                    title = extract_owner_username(lv)
 
             yield InstagramLikedPostRecord(
                 title=title or "",
                 href=href,
-                timestamp=timestamp,
-                source=json.dumps(raw_item),
+                timestamp=item.timestamp,
+                source=item.model_dump_json(),
             )
 
 

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+
+from pydantic import TypeAdapter
 
 from context_use.batch.grouper import WindowGrouper
 from context_use.etl.core.pipe import Pipe
@@ -32,6 +33,7 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 _VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".webm", ".srt")
+_posts_file_schema = TypeAdapter(list[InstagramPostsEntry])
 
 
 def _items_to_records(
@@ -132,12 +134,11 @@ class InstagramPostsPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        entries = json.loads(raw)
+        entries = _posts_file_schema.validate_json(raw)
 
         all_items: list[InstagramMediaItem] = []
         for entry in entries:
-            validated = InstagramPostsEntry.model_validate(entry)
-            all_items.extend(validated.media)
+            all_items.extend(entry.media)
 
         yield from _items_to_records(all_items)
 

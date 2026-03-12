@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import ClassVar
+
+from pydantic import TypeAdapter
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -28,10 +29,10 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
+_followers_file_schema = TypeAdapter(list[InstagramConnectionItem])
 
-def _parse_connection_item(raw_item: dict) -> InstagramConnectionRecord:
-    """Validate a raw archive dict and flatten into a connection record."""
-    item = InstagramConnectionItem.model_validate(raw_item)
+
+def _parse_connection_item(item: InstagramConnectionItem) -> InstagramConnectionRecord:
     sld = item.string_list_data[0]
     username = (
         (sld.href or "").rstrip("/").split("/")[-1] if sld.href else (sld.value or "")
@@ -40,7 +41,7 @@ def _parse_connection_item(raw_item: dict) -> InstagramConnectionRecord:
         username=username,
         profile_url=sld.href,
         timestamp=sld.timestamp,
-        source=json.dumps(raw_item),
+        source=item.model_dump_json(),
     )
 
 
@@ -114,7 +115,7 @@ class InstagramFollowersPipe(_InstagramConnectionPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramConnectionRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
+        items = _followers_file_schema.validate_json(raw)
         for item_dict in items:
             yield _parse_connection_item(item_dict)
 
