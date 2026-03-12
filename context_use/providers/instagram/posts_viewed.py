@@ -5,6 +5,8 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
+from pydantic import TypeAdapter
+
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import (
@@ -19,6 +21,7 @@ from context_use.providers.instagram.schemas import (
     InstagramAuthorSchema,
     InstagramLabelValue,
     InstagramPostsViewedRecord,
+    InstagramPostsViewedV0Manifest,
     InstagramStringMapDataWrapper,
     extract_owner_username,
 )
@@ -30,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 # V0 wrapper type alias — same shape as videos_watched v0
 _V0Item = InstagramStringMapDataWrapper[InstagramAuthorSchema]
+_v1_activity_list = TypeAdapter(list[dict])
 
 
 class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
@@ -95,9 +99,8 @@ class InstagramPostsViewedV0Pipe(_InstagramPostsViewedPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramPostsViewedRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("impressions_history_posts_seen", [])
-        for raw_item in items:
+        manifest = InstagramPostsViewedV0Manifest.model_validate_json(raw)
+        for raw_item in manifest.impressions_history_posts_seen:
             parsed = _V0Item.model_validate(raw_item)
             yield InstagramPostsViewedRecord(
                 author=parsed.string_map_data.Author.value,
@@ -123,7 +126,7 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramPostsViewedRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
+        items = _v1_activity_list.validate_json(raw)
         for raw_item in items:
             timestamp = raw_item.get("timestamp")
             if timestamp is None:

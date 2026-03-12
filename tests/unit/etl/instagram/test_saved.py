@@ -28,6 +28,18 @@ class TestInstagramSavedPostsPipe(
     fixture_key = f"archive/{SAVED_POSTS_ARCHIVE_PATH}"
     expected_fibre_kind = "AddToCollection"
 
+    def test_file_schema_gates_missing_key(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"wrong_key": []}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
+
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
         assert record.title == "synthetic_chef"
@@ -81,6 +93,18 @@ class TestInstagramSavedCollectionsPipe(
     fixture_data = INSTAGRAM_SAVED_COLLECTIONS_JSON
     fixture_key = f"archive/{SAVED_COLLECTIONS_ARCHIVE_PATH}"
     expected_fibre_kind = "AddToCollection"
+
+    def test_file_schema_gates_missing_key(self, tmp_path: Path):
+        storage = DiskStorage(str(tmp_path / "store"))
+        assert self.fixture_key is not None
+        key = self.fixture_key
+        storage.write(key, b'{"wrong_key": []}')
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
 
     def test_record_fields_first_item(self, extracted_records):
         record = extracted_records[0]

@@ -6,6 +6,8 @@ from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import ClassVar
 
+from pydantic import TypeAdapter
+
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import (
@@ -27,6 +29,8 @@ from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
+
+_followers_file_schema = TypeAdapter(list[dict])
 
 
 def _parse_connection_item(raw_item: dict) -> InstagramConnectionRecord:
@@ -114,7 +118,7 @@ class InstagramFollowersPipe(_InstagramConnectionPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramConnectionRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
+        items = _followers_file_schema.validate_json(raw)
         for item_dict in items:
             yield _parse_connection_item(item_dict)
 

@@ -206,6 +206,42 @@ class InstagramMediaRecord(BaseModel):
     source: str | None = None
 
 
+class InstagramCommentFileItem(BaseModel):
+    string_map_data: dict
+
+
+class InstagramReelsCommentsManifest(InstagramBaseModel):
+    comments_reels_comments: list[InstagramCommentFileItem]
+
+
+class InstagramLikedPostsV0Manifest(InstagramBaseModel):
+    likes_media_likes: list[dict]
+
+
+class InstagramStoryLikesV0Manifest(InstagramBaseModel):
+    story_activities_story_likes: list[dict]
+
+
+class InstagramPostsViewedV0Manifest(InstagramBaseModel):
+    impressions_history_posts_seen: list[dict]
+
+
+class InstagramVideosWatchedV0Manifest(InstagramBaseModel):
+    impressions_history_videos_watched: list[dict]
+
+
+class InstagramProfileSearchesManifest(InstagramBaseModel):
+    searches_user: list[dict]
+
+
+class InstagramSavedPostsManifest(InstagramBaseModel):
+    saved_saved_media: list[dict]
+
+
+class InstagramSavedCollectionsManifest(InstagramBaseModel):
+    saved_saved_collections: list[dict]
+
+
 class InstagramDirectMessageShare(InstagramBaseModel):
     link: str | None = None
     share_text: str | None = None

@@ -19,7 +19,9 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramSavedCollectionRecord,
+    InstagramSavedCollectionsManifest,
     InstagramSavedPostRecord,
+    InstagramSavedPostsManifest,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -50,9 +52,9 @@ class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramSavedPostRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
+        manifest = InstagramSavedPostsManifest.model_validate_json(raw)
 
-        for raw_item in data.get("saved_saved_media", []):
+        for raw_item in manifest.saved_saved_media:
             title = raw_item.get("title", "")
             smd = raw_item.get("string_map_data", {})
             saved_on = smd.get("Saved on", {})
@@ -130,11 +132,11 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramSavedCollectionRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
+        manifest = InstagramSavedCollectionsManifest.model_validate_json(raw)
 
         current_collection: tuple[str, int] | None = None  # (name, created)
 
-        for raw_item in data.get("saved_saved_collections", []):
+        for raw_item in manifest.saved_saved_collections:
             smd = raw_item.get("string_map_data", {})
 
             # --- Collection header ---

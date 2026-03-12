@@ -5,6 +5,8 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
+from pydantic import TypeAdapter
+
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import (
@@ -19,6 +21,8 @@ from context_use.providers.instagram.schemas import (
     InstagramHrefTimestampSchema,
     InstagramLabelValue,
     InstagramLikedPostRecord,
+    InstagramLikedPostsV0Manifest,
+    InstagramStoryLikesV0Manifest,
     InstagramStringListDataWrapper,
     extract_owner_username,
 )
@@ -29,6 +33,7 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 _LikeItem = InstagramStringListDataWrapper[InstagramHrefTimestampSchema]
+_v1_activity_list = TypeAdapter(list[dict])
 
 
 class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
@@ -94,9 +99,8 @@ class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("likes_media_likes", [])
-        for raw_item in items:
+        manifest = InstagramLikedPostsV0Manifest.model_validate_json(raw)
+        for raw_item in manifest.likes_media_likes:
             title = raw_item.get("title", "")
             parsed = _LikeItem.model_validate(raw_item)
             for entry in parsed.string_list_data:
@@ -109,14 +113,6 @@ class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
 
 
 class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
-    """ETL pipe for Instagram story likes — v0 archive format.
-
-    Reads ``story_activities_story_likes`` from
-    ``your_instagram_activity/story_interactions/story_likes.json``.
-    Each item has ``{title, string_list_data: [{timestamp}]}``.
-    Creates ``FibreLike(object=FibrePost(attributedTo=Profile(...)))``.
-    """
-
     interaction_type = "instagram_story_likes"
     archive_version = 0
     archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
@@ -127,9 +123,8 @@ class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("story_activities_story_likes", [])
-        for raw_item in items:
+        manifest = InstagramStoryLikesV0Manifest.model_validate_json(raw)
+        for raw_item in manifest.story_activities_story_likes:
             title = raw_item.get("title", "")
             parsed = _LikeItem.model_validate(raw_item)
             for entry in parsed.string_list_data:
@@ -160,7 +155,7 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
+        items = _v1_activity_list.validate_json(raw)
         for raw_item in items:
             timestamp = raw_item.get("timestamp")
             if timestamp is None:
@@ -206,7 +201,7 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
+        items = _v1_activity_list.validate_json(raw)
         for raw_item in items:
             timestamp = raw_item.get("timestamp")
             if timestamp is None:

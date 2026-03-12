@@ -16,6 +16,7 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramHrefTimestampSchema,
+    InstagramProfileSearchesManifest,
     InstagramProfileSearchRecord,
     InstagramStringListDataWrapper,
 )
@@ -49,9 +50,8 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramProfileSearchRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("searches_user", [])
-        for raw_item in items:
+        manifest = InstagramProfileSearchesManifest.model_validate_json(raw)
+        for raw_item in manifest.searches_user:
             parsed = _SearchItem.model_validate(raw_item)
             title = raw_item.get("title")
             for entry in parsed.string_list_data:
