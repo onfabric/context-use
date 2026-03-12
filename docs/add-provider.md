@@ -46,6 +46,8 @@ The pipeline has two stages connected by a **record schema** — a Pydantic mode
 - Capture **every field that could plausibly be useful** in `transform`: sender, recipients, timestamps, content text, media URIs, reaction counts, reply context, etc. When in doubt, include it.
 - Keep field values as close to the source as possible. Do not compose strings, derive values, or make semantic decisions here.
 - Skip only when data is **structurally unusable**: a required field is missing, or there is no renderable content at all.
+- Extract filter criteria (role names, content types, etc.) to named module-level constants when they appear in more than one place. Single-use, self-evident values can stay as literals.
+- When filtering requires checking multiple conditions, extract a dedicated predicate so the extract loop stays readable. Separate *what records we want* from *whether the record has usable content*; keep data-quality checks inline.
 
 **`transform(record, task) → ThreadRow`** answers: *what does this record mean?*
 
@@ -57,16 +59,20 @@ The pipeline has two stages connected by a **record schema** — a Pydantic mode
 
 ### File schemas
 
-Each pipe has a corresponding **file schema** — a Pydantic model in `schemas.py` that represents the top-level structure of one archive file. Its role is to act as a gate: if the provider changes its export format in a way that breaks the assumptions the pipe depends on, validation will fail before any records are processed.
+Each pipe validates its input via Pydantic models in `schemas.py`. How that validation is structured depends on the file's top-level structure.
 
-**Validate the full structure, not just the envelope.** A file schema must model every layer down to the fields `extract_file` actually reads:
+**Files that are not a flat JSON array at the root** (an object with envelope fields, a nested structure, etc.) must be read in full with `storage.read()` and validated with a file-level schema. Its role is a breaking-change gate — if the file's structure no longer matches what the pipe expects, validation raises before any records are processed.
 
 - If the file is a JSON object wrapping a list, model the object as a Pydantic class and make the list field a `list[ItemModel]` — not `list[dict]`.
 - If the file is a bare JSON array, use `TypeAdapter(list[ItemModel])` — not `TypeAdapter(list[dict])`.
 - For each item model, declare every field the pipe reads as a typed attribute. Fields that are optional in the real data should be typed `field: T | None = None`. Required fields should have no default.
 - Nested structures (sub-objects, inner arrays) must be modelled as Pydantic classes too — not left as `dict` or `dict[str, Any]`.
 
-The only exception is genuinely opaque payloads — fields whose schema is fully unknown and that the pipe never inspects. Those may remain `dict[str, Any] | None`.
+**Files that are a flat JSON array at the root** can and should be streamed with `storage.open_stream()` + `ijson`. There is no whole-file schema in this case — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop). The item model is the validation gate: if an item fails, that item fails, not the entire file.
+
+The only exception is genuinely opaque sub-structures — nested dicts whose internal schema is fully unknown and that the pipe never inspects. Use `dict[str, object] | None`, not `dict[str, Any] | None`; avoid `Any` wherever a concrete type is possible. When a field can hold values of different types (e.g. text parts and attachment parts in the same list), model it as a typed union rather than collapsing to the common base type.
+
+**Do not suppress validation errors.** If a node or item fails validation, the schema does not accurately model the data — fix the schema. Silently swallowing errors (e.g. via `field_validator` try/except that returns `None`) hides schema drift and makes it impossible to detect when the provider changes its format.
 
 **Allow extra fields** (Pydantic's default behaviour). Providers add fields over time; schemas must not reject files that contain fields beyond what the pipe currently uses. Only the removal or renaming of a field the pipe depends on should cause a validation failure.
 
@@ -125,10 +131,14 @@ If the payload fields are too sparse to produce a meaningful sentence, that is a
 
 Uses `fnmatch` syntax relative to the archive root (no archive ID prefix). Patterns with wildcards bundle all matched files into one `EtlTask` via `source_uris` (sorted for determinism). `extract_file` always handles a single file — the base class loops.
 
+### Timestamp helpers
+
+When converting a Unix epoch to a timezone-aware `datetime`, use a thin module-level helper rather than inlining the conversion. Do not add ambiguity-resolution logic (e.g. ms-vs-s detection) unless there is evidence from real export data that the provider actually uses mixed formats.
+
 ### Storage
 
-- `storage.read(key) → bytes` — read a file in full (small JSON files).
-- `storage.open_stream(key) → BinaryIO` — open a stream (large files, use with `ijson`).
+- `storage.read(key) → bytes` — read a file in full. Use when the file is not a flat JSON array (envelope object, nested structure); pair with a whole-file schema validated via `model_validate` or `TypeAdapter`.
+- `storage.open_stream(key) → BinaryIO` — open a stream without loading the file into memory. Use when the file is a flat JSON array at the root; pair with `ijson.items(stream, "item")` and per-item validation.
 
 ### Shared base class pattern
 
