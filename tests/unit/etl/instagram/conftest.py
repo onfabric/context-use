@@ -42,9 +42,6 @@ INSTAGRAM_LIKED_POSTS_V1_JSON: list[dict] = load_fixture(
 INSTAGRAM_STORY_LIKES_V0_JSON: dict = load_fixture(
     f"{_BASE}/v0/your_instagram_activity/story_interactions/story_likes.json"
 )
-INSTAGRAM_STORY_LIKES_V1_JSON: list[dict] = load_fixture(
-    f"{_BASE}/v1/your_instagram_activity/story_interactions/story_likes.json"
-)
 
 INSTAGRAM_POST_COMMENTS_JSON: list[dict] = load_fixture(
     f"{_BASE}/v1/your_instagram_activity/comments/post_comments_1.json"

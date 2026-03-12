@@ -11,7 +11,7 @@ class ChatGPTAuthor(BaseModel):
 
 class ChatGPTContent(BaseModel):
     content_type: str | None = None
-    parts: list[str] | None = None
+    parts: list[str | dict[str, object]] | None = None
 
 
 class ChatGPTMessage(BaseModel):
@@ -20,13 +20,17 @@ class ChatGPTMessage(BaseModel):
     create_time: float | None = None
 
 
+class ChatGPTMappingNode(BaseModel):
+    message: ChatGPTMessage | None = None
+
+
+class ChatGPTConversation(BaseModel):
+    title: str | None = None
+    conversation_id: str | None = None
+    mapping: dict[str, ChatGPTMappingNode]
+
+
 class ChatGPTConversationRecord(BaseModel):
-    """Enriched extraction output for ChatGPT conversations.
-
-    Flattened from the nested ``ChatGPTMessage`` structure with
-    conversation-level context (id, title) added by extraction.
-    """
-
     role: str
     content: str
     create_time: float | None = None

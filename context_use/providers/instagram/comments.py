@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from typing import ClassVar
+
+import ijson
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -18,7 +18,9 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
+    InstagramCommentFileItem,
     InstagramCommentRecord,
+    InstagramReelsCommentsManifest,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -38,36 +40,21 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
     archive_version = 1
     record_schema = InstagramCommentRecord
 
-    _json_key: ClassVar[str | None] = None
-    """Top-level JSON key wrapping the items array, or ``None`` for bare arrays."""
-
-    def extract_file(
-        self,
-        source_uri: str,
-        storage: StorageBackend,
-    ) -> Iterator[InstagramCommentRecord]:
-        raw = storage.read(source_uri)
-        data = json.loads(raw)
-
-        items = data.get(self._json_key, []) if self._json_key is not None else data
-        for raw_item in items:
-            smd = raw_item.get("string_map_data", {})
-
-            comment_val = smd.get("Comment", {}).get("value")
-            if not comment_val:
-                continue
-
-            media_owner = smd.get("Media Owner", {}).get("value")
-            timestamp_val = smd.get("Time", {}).get("timestamp")
-            if timestamp_val is None:
-                continue
-
-            yield InstagramCommentRecord(
-                comment=comment_val,
-                media_owner=media_owner,
-                timestamp=timestamp_val,
-                source=json.dumps(raw_item),
-            )
+    @staticmethod
+    def _extract_item(
+        item: InstagramCommentFileItem,
+    ) -> InstagramCommentRecord | None:
+        smd = item.string_map_data
+        comment_val = smd.Comment.value
+        if not comment_val:
+            return None
+        media_owner = smd.Media_Owner.value if smd.Media_Owner else None
+        return InstagramCommentRecord(
+            comment=comment_val,
+            media_owner=media_owner,
+            timestamp=smd.Time.timestamp,
+            source=item.model_dump_json(),
+        )
 
     def transform(
         self,
@@ -103,29 +90,41 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
 
 
 class InstagramCommentPostsPipe(_InstagramCommentPipe):
-    """ETL pipe for Instagram post comments.
-
-    Reads a bare top-level JSON array from
-    ``your_instagram_activity/comments/post_comments_1.json``.
-    Each item has ``{string_map_data: {Comment, "Media Owner", Time}}``.
-    """
-
     interaction_type = "instagram_comments_posts"
     archive_path_pattern = "your_instagram_activity/comments/post_comments*.json"
-    _json_key = None
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramCommentRecord]:
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                record = self._extract_item(
+                    InstagramCommentFileItem.model_validate(raw)
+                )
+                if record is not None:
+                    yield record
+        finally:
+            stream.close()
 
 
 class InstagramCommentReelsPipe(_InstagramCommentPipe):
-    """ETL pipe for Instagram reel comments.
-
-    Reads ``comments_reels_comments`` from
-    ``your_instagram_activity/comments/reels_comments.json``.
-    Each item has ``{string_map_data: {Comment, "Media Owner", Time}}``.
-    """
-
     interaction_type = "instagram_comments_reels"
     archive_path_pattern = "your_instagram_activity/comments/reels_comments.json"
-    _json_key = "comments_reels_comments"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramCommentRecord]:
+        raw = storage.read(source_uri)
+        manifest = InstagramReelsCommentsManifest.model_validate_json(raw)
+        for item in manifest.comments_reels_comments:
+            record = self._extract_item(item)
+            if record is not None:
+                yield record
 
 
 declare_interaction(InteractionConfig(pipe=InstagramCommentPostsPipe, memory=None))
