@@ -1,8 +1,15 @@
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel
 
 PROVIDER = "chatgpt"
+
+
+class ChatGPTRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
 
 
 class ChatGPTAuthor(BaseModel):
@@ -18,6 +25,10 @@ class ChatGPTMessage(BaseModel):
     author: ChatGPTAuthor
     content: ChatGPTContent
     create_time: float | None = None
+
+    @property
+    def is_emittable(self) -> bool:
+        return self.content.content_type == "text" and self.author.role in ChatGPTRole
 
 
 class ChatGPTMappingNode(BaseModel):
