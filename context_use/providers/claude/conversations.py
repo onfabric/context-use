@@ -25,6 +25,7 @@ from context_use.memories.prompt.conversation import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.claude.schemas import (
     PROVIDER,
+    ClaudeChatMessage,
     ClaudeConversation,
     ClaudeConversationRecord,
 )
@@ -36,9 +37,17 @@ logger = logging.getLogger(__name__)
 
 CLAUDE_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
+_ROLE_HUMAN = "human"
+_ROLE_ASSISTANT = "assistant"
+_EMIT_ROLES = frozenset({_ROLE_HUMAN, _ROLE_ASSISTANT})
+_TEXT_BLOCK_TYPE = "text"
+
+
+def _is_emittable(message: ClaudeChatMessage) -> bool:
+    return message.sender in _EMIT_ROLES
+
 
 def _parse_timestamp(ts: str | None) -> datetime | None:
-    """Parse an ISO 8601 timestamp string to a timezone-aware datetime."""
     if not ts:
         return None
     try:
@@ -50,7 +59,6 @@ def _parse_timestamp(ts: str | None) -> datetime | None:
 def _build_payload(
     record: ClaudeConversationRecord,
 ) -> FibreSendMessage | FibreReceiveMessage | None:
-    """Build an ActivityStreams payload from a conversation record."""
     context = None
     if record.conversation_title or record.conversation_id:
         ctx_kwargs: dict = {"type": "Collection"}
@@ -64,13 +72,13 @@ def _build_payload(
 
     published = _parse_timestamp(record.created_at)
 
-    if record.role == "human":
+    if record.role == _ROLE_HUMAN:
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=CLAUDE_APPLICATION,
             published=published,
         )
-    elif record.role == "assistant":
+    elif record.role == _ROLE_ASSISTANT:
         return FibreReceiveMessage(  # type: ignore[reportCallIssue]
             object=message,
             actor=CLAUDE_APPLICATION,
@@ -81,13 +89,6 @@ def _build_payload(
 
 
 class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
-    """ETL pipe for Claude conversations.
-
-    Reads ``conversations.json`` via ijson streaming, yields individual
-    :class:`ClaudeConversationRecord` instances, and transforms each
-    into a :class:`ThreadRow` with an ActivityStreams payload.
-    """
-
     provider = PROVIDER
     interaction_type = "claude_conversations"
     archive_version = 1
@@ -103,24 +104,10 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
 
         try:
             for raw_conversation in ijson.items(stream, "item"):
-                try:
-                    conversation = ClaudeConversation.model_validate(raw_conversation)
-                except Exception:
-                    logger.debug(
-                        "%s: skipping invalid conversation in %s",
-                        self.__class__.__name__,
-                        source_uri,
-                    )
-                    continue
+                conversation = ClaudeConversation.model_validate(raw_conversation)
 
-                raw_messages: list[dict] = raw_conversation.get(  # type: ignore[assignment]
-                    "chat_messages", []
-                )
-
-                for message, raw_message in zip(
-                    conversation.chat_messages, raw_messages, strict=True
-                ):
-                    if message.sender not in ("human", "assistant"):
+                for message in conversation.chat_messages:
+                    if not _is_emittable(message):
                         continue
 
                     # The archive stores message text in two places: a top-level
@@ -128,12 +115,14 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
                     # array of typed blocks. For assistant messages that invoked
                     # tools, ``text`` collapses tool_use/tool_result blocks into
                     # "This block is not supported on your current device yet."
-                    # placeholders. Extracting only ``type == "text"`` blocks from
-                    # ``content`` gives clean prose without that noise.
+                    # placeholders. Extracting only _TEXT_BLOCK_TYPE blocks gives
+                    # clean prose without that noise.
                     text = "\n\n".join(
                         block.text
                         for block in message.content
-                        if block.type == "text" and block.text and block.text.strip()
+                        if block.type == _TEXT_BLOCK_TYPE
+                        and block.text
+                        and block.text.strip()
                     )
                     if not text:
                         continue
@@ -144,7 +133,7 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
                         created_at=message.created_at,
                         conversation_id=conversation.uuid,
                         conversation_title=conversation.name,
-                        source=json.dumps(raw_message, default=str),
+                        source=json.dumps(message.model_dump(), default=str),
                     )
         finally:
             stream.close()

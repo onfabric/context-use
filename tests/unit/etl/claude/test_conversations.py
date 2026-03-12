@@ -135,7 +135,7 @@ class TestClaudeConversationFileSchema:
         msg = ClaudeChatMessage.model_validate({"sender": "human"})
         assert msg.content == []
 
-    def test_invalid_conversation_skipped_in_extraction(self, tmp_path: str) -> None:
+    def test_invalid_conversation_fails_file(self, tmp_path: str) -> None:
         fixture = [
             {"not_a_conversation": True},
             {
@@ -162,6 +162,6 @@ class TestClaudeConversationFileSchema:
             source_uris=[key],
             status=EtlTaskStatus.CREATED.value,
         )
-        records = list(pipe.extract(task, storage))
-        assert len(records) == 1
-        assert records[0].conversation_id == "conv-valid"
+        rows = list(pipe.run(task, storage))
+        assert rows == []
+        assert pipe.error_count == 1
