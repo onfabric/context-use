@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -15,18 +14,14 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
-    InstagramHrefTimestampSchema,
+    InstagramProfileSearchesManifest,
     InstagramProfileSearchRecord,
-    InstagramStringListDataWrapper,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-_SearchItem = InstagramStringListDataWrapper[InstagramHrefTimestampSchema]
-
 
 class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
     """ETL pipe for Instagram profile searches.
@@ -49,13 +44,10 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramProfileSearchRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("searches_user", [])
-        for raw_item in items:
-            parsed = _SearchItem.model_validate(raw_item)
-            title = raw_item.get("title")
-            for entry in parsed.string_list_data:
-                username = entry.value or title
+        manifest = InstagramProfileSearchesManifest.model_validate_json(raw)
+        for item in manifest.searches_user:
+            for entry in item.string_list_data:
+                username = entry.value or item.title
                 # Skip entries with no username — preview would be unusable
                 if not username:
                     continue
@@ -63,7 +55,7 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
                     username=username,
                     href=entry.href,
                     timestamp=entry.timestamp,
-                    source=json.dumps(raw_item),
+                    source=item.model_dump_json(),
                 )
 
     def transform(

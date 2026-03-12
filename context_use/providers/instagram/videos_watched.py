@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+
+from pydantic import TypeAdapter
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -16,9 +17,9 @@ from context_use.etl.payload.models import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.schemas import (
     PROVIDER,
-    InstagramAuthorSchema,
     InstagramLabelValue,
-    InstagramStringMapDataWrapper,
+    InstagramV1ActivityItem,
+    InstagramVideosWatchedV0Manifest,
     InstagramVideoWatchedRecord,
 )
 from context_use.providers.registry import declare_interaction
@@ -27,8 +28,7 @@ from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
-# V0 wrapper type alias
-_V0Item = InstagramStringMapDataWrapper[InstagramAuthorSchema]
+_v1_activity_list = TypeAdapter(list[InstagramV1ActivityItem])
 
 
 class _InstagramVideosWatchedPipe(Pipe[InstagramVideoWatchedRecord]):
@@ -94,14 +94,12 @@ class InstagramVideosWatchedV0Pipe(_InstagramVideosWatchedPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramVideoWatchedRecord]:
         raw = storage.read(source_uri)
-        data = json.loads(raw)
-        items = data.get("impressions_history_videos_watched", [])
-        for raw_item in items:
-            parsed = _V0Item.model_validate(raw_item)
+        manifest = InstagramVideosWatchedV0Manifest.model_validate_json(raw)
+        for item in manifest.impressions_history_videos_watched:
             yield InstagramVideoWatchedRecord(
-                author=parsed.string_map_data.Author.value,
-                timestamp=parsed.string_map_data.Time.timestamp,
-                source=json.dumps(raw_item),
+                author=item.string_map_data.Author.value,
+                timestamp=item.string_map_data.Time.timestamp,
+                source=item.model_dump_json(),
             )
 
 
@@ -121,24 +119,18 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramVideoWatchedRecord]:
         raw = storage.read(source_uri)
-        items: list[dict] = json.loads(raw)
-        for raw_item in items:
-            timestamp = raw_item.get("timestamp")
-            if timestamp is None:
-                continue
-
-            # Extract URL from label_values
+        items = _v1_activity_list.validate_json(raw)
+        for item in items:
             video_url: str | None = None
-            for lv_data in raw_item.get("label_values", []):
-                lv = InstagramLabelValue.model_validate(lv_data)
-                if lv.label == "URL":
+            for lv in item.label_values:
+                if isinstance(lv, InstagramLabelValue) and lv.label == "URL":
                     video_url = lv.value
                     break
 
             yield InstagramVideoWatchedRecord(
                 video_url=video_url,
-                timestamp=timestamp,
-                source=json.dumps(raw_item),
+                timestamp=item.timestamp,
+                source=item.model_dump_json(),
             )
 
 
