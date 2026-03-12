@@ -97,7 +97,7 @@ class TestInstagramPostsPipe(PipeTestKit):
     fixture_data = INSTAGRAM_POSTS_JSON
     fixture_key = "archive/your_instagram_activity/media/posts_1.json"
 
-    def test_file_schema_gates_non_array(self, tmp_path: Path):
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
         assert self.fixture_key is not None
         key = self.fixture_key
@@ -107,7 +107,6 @@ class TestInstagramPostsPipe(PipeTestKit):
 
         rows = list(pipe.run(task, storage))
         assert len(rows) == 0
-        assert pipe.error_count == 1
 
     def test_post_title(self, extracted_records):
         assert extracted_records[0].title == "Homemade pasta for dinner"

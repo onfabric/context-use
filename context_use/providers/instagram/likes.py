@@ -4,7 +4,7 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
-from pydantic import TypeAdapter
+import ijson
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -30,8 +30,6 @@ from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-_v1_activity_list = TypeAdapter(list[InstagramV1ActivityItem])
 
 
 class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
@@ -148,25 +146,28 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
         source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
-        raw = storage.read(source_uri)
-        items = _v1_activity_list.validate_json(raw)
-        for item in items:
-            href: str | None = None
-            title: str | None = None
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                item = InstagramV1ActivityItem.model_validate(raw)
+                href: str | None = None
+                title: str | None = None
 
-            for lv in item.label_values:
-                if isinstance(lv, InstagramLabelValue):
-                    if lv.label == "URL":
-                        href = lv.href or lv.value
-                elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
-                    title = extract_owner_username(lv)
+                for lv in item.label_values:
+                    if isinstance(lv, InstagramLabelValue):
+                        if lv.label == "URL":
+                            href = lv.href or lv.value
+                    elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+                        title = extract_owner_username(lv)
 
-            yield InstagramLikedPostRecord(
-                title=title or "",
-                href=href,
-                timestamp=item.timestamp,
-                source=item.model_dump_json(),
-            )
+                yield InstagramLikedPostRecord(
+                    title=title or "",
+                    href=href,
+                    timestamp=item.timestamp,
+                    source=item.model_dump_json(),
+                )
+        finally:
+            stream.close()
 
 
 class InstagramStoryLikesPipe(_InstagramLikePipe):
@@ -186,25 +187,28 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
-        raw = storage.read(source_uri)
-        items = _v1_activity_list.validate_json(raw)
-        for item in items:
-            href: str | None = None
-            title: str | None = None
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                item = InstagramV1ActivityItem.model_validate(raw)
+                href: str | None = None
+                title: str | None = None
 
-            for lv in item.label_values:
-                if isinstance(lv, InstagramLabelValue):
-                    if lv.label == "URL":
-                        href = lv.href or lv.value
-                elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
-                    title = extract_owner_username(lv)
+                for lv in item.label_values:
+                    if isinstance(lv, InstagramLabelValue):
+                        if lv.label == "URL":
+                            href = lv.href or lv.value
+                    elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+                        title = extract_owner_username(lv)
 
-            yield InstagramLikedPostRecord(
-                title=title or "",
-                href=href,
-                timestamp=item.timestamp,
-                source=item.model_dump_json(),
-            )
+                yield InstagramLikedPostRecord(
+                    title=title or "",
+                    href=href,
+                    timestamp=item.timestamp,
+                    source=item.model_dump_json(),
+                )
+        finally:
+            stream.close()
 
 
 declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))

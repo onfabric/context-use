@@ -4,7 +4,7 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
-from pydantic import TypeAdapter
+import ijson
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -92,9 +92,6 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
         )
 
 
-_post_comments_file_schema = TypeAdapter(list[InstagramCommentFileItem])
-
-
 class InstagramCommentPostsPipe(_InstagramCommentPipe):
     interaction_type = "instagram_comments_posts"
     archive_path_pattern = "your_instagram_activity/comments/post_comments*.json"
@@ -104,9 +101,23 @@ class InstagramCommentPostsPipe(_InstagramCommentPipe):
         source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramCommentRecord]:
-        raw = storage.read(source_uri)
-        items = _post_comments_file_schema.validate_json(raw)
-        yield from self._extract_from_items(items)
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                item = InstagramCommentFileItem.model_validate(raw)
+                smd = item.string_map_data
+                comment_val = smd.Comment.value
+                if not comment_val:
+                    continue
+                media_owner = smd.Media_Owner.value if smd.Media_Owner else None
+                yield InstagramCommentRecord(
+                    comment=comment_val,
+                    media_owner=media_owner,
+                    timestamp=smd.Time.timestamp,
+                    source=item.model_dump_json(),
+                )
+        finally:
+            stream.close()
 
 
 class InstagramCommentReelsPipe(_InstagramCommentPipe):

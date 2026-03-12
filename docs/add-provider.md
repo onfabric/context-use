@@ -64,11 +64,11 @@ Each pipe validates its input via Pydantic models in `schemas.py`. How that vali
 **Files that are not a flat JSON array at the root** (an object with envelope fields, a nested structure, etc.) must be read in full with `storage.read()` and validated with a file-level schema. Its role is a breaking-change gate — if the file's structure no longer matches what the pipe expects, validation raises before any records are processed.
 
 - If the file is a JSON object wrapping a list, model the object as a Pydantic class and make the list field a `list[ItemModel]` — not `list[dict]`.
-- If the file is a bare JSON array, use `TypeAdapter(list[ItemModel])` — not `TypeAdapter(list[dict])`.
 - For each item model, declare every field the pipe reads as a typed attribute. Fields that are optional in the real data should be typed `field: T | None = None`. Required fields should have no default.
 - Nested structures (sub-objects, inner arrays) must be modelled as Pydantic classes too — not left as `dict` or `dict[str, Any]`.
+- Do not use `TypeAdapter(list[...])` — it loads the entire file into memory and is superseded by streaming for flat arrays and by a typed wrapper class for envelope objects.
 
-**Files that are a flat JSON array at the root** can and should be streamed with `storage.open_stream()` + `ijson`. There is no whole-file schema in this case — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop). The item model is the validation gate: if an item fails, that item fails, not the entire file.
+**Files that are a flat JSON array at the root** must be streamed with `storage.open_stream()` + `ijson`. There is no whole-file schema in this case — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop). The item model is the validation gate: if an item fails, that item fails, not the entire file.
 
 The only exception is genuinely opaque sub-structures — nested dicts whose internal schema is fully unknown and that the pipe never inspects. Use `dict[str, object] | None`, not `dict[str, Any] | None`; avoid `Any` wherever a concrete type is possible. When a field can hold values of different types (e.g. text parts and attachment parts in the same list), model it as a typed union rather than collapsing to the common base type.
 

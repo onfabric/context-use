@@ -63,7 +63,7 @@ class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
     fixture_key = "archive/ads_information/ads_and_topics/posts_viewed.json"
     expected_fibre_kind = "View"
 
-    def test_file_schema_gates_non_array(self, tmp_path: Path):
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
         assert self.fixture_key is not None
         key = self.fixture_key
@@ -73,7 +73,6 @@ class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
 
         rows = list(pipe.run(task, storage))
         assert len(rows) == 0
-        assert pipe.error_count == 1
 
     def test_record_fields_with_owner(self, extracted_records):
         record = extracted_records[0]

@@ -4,7 +4,7 @@ import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
-from pydantic import TypeAdapter
+import ijson
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -27,8 +27,6 @@ from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-_v1_activity_list = TypeAdapter(list[InstagramV1ActivityItem])
 
 
 class _InstagramVideosWatchedPipe(Pipe[InstagramVideoWatchedRecord]):
@@ -118,20 +116,23 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
         source_uri: str,
         storage: StorageBackend,
     ) -> Iterator[InstagramVideoWatchedRecord]:
-        raw = storage.read(source_uri)
-        items = _v1_activity_list.validate_json(raw)
-        for item in items:
-            video_url: str | None = None
-            for lv in item.label_values:
-                if isinstance(lv, InstagramLabelValue) and lv.label == "URL":
-                    video_url = lv.value
-                    break
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                item = InstagramV1ActivityItem.model_validate(raw)
+                video_url: str | None = None
+                for lv in item.label_values:
+                    if isinstance(lv, InstagramLabelValue) and lv.label == "URL":
+                        video_url = lv.value
+                        break
 
-            yield InstagramVideoWatchedRecord(
-                video_url=video_url,
-                timestamp=item.timestamp,
-                source=item.model_dump_json(),
-            )
+                yield InstagramVideoWatchedRecord(
+                    video_url=video_url,
+                    timestamp=item.timestamp,
+                    source=item.model_dump_json(),
+                )
+        finally:
+            stream.close()
 
 
 declare_interaction(InteractionConfig(pipe=InstagramVideosWatchedPipe, memory=None))
