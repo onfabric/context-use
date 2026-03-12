@@ -171,30 +171,5 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
             stream.close()
 
 
-class InstagramStoryLikesPipe(_InstagramLikePipe):
-    """ETL pipe for Instagram story likes — v1 archive format.
-
-    V1 files are a bare JSON array of ``{timestamp, media, label_values}``
-    items.  The story author username is nested inside an ``Owner`` dict entry.
-    Creates ``FibreLike(object=FibrePost(attributedTo=Profile(...)))``.
-    """
-
-    interaction_type = "instagram_story_likes"
-    archive_version = 1
-    archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
-
-    def extract_file(
-        self,
-        source_uri: str,
-        storage: StorageBackend,
-    ) -> Iterator[InstagramLikedPostRecord]:
-        stream = storage.open_stream(source_uri)
-        try:
-            for raw in ijson.items(stream, "item"):
-                yield _extract_like_item(InstagramV1ActivityItem.model_validate(raw))
-        finally:
-            stream.close()
-
-
 declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
