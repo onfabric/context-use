@@ -4,15 +4,11 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
-PROVIDER = "google"
 
-
-class GoogleActivityFileItem(BaseModel):
-    header: str
+class GoogleRecord(BaseModel):
     title: str
-    time: datetime
     titleUrl: str | None = None
+    time: datetime
     products: list[str] | None = None
-    activityControls: list[str] | None = None
     locationInfos: list[dict[str, object]] | None = None
-    details: list[dict[str, object]] | None = None
+    source: str | None = None

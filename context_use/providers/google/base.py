@@ -13,10 +13,10 @@ from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import CURRENT_THREAD_PAYLOAD_VERSION, ThreadPayload
 from context_use.models.etl_task import EtlTask
+from context_use.providers.google.record import GoogleRecord
 from context_use.providers.google.schemas import (
     PROVIDER,
     GoogleActivityFileItem,
-    GoogleRecord,
 )
 from context_use.storage.base import StorageBackend
 

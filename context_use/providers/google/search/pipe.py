@@ -9,7 +9,7 @@ from context_use.etl.payload.models import (
     ThreadPayload,
 )
 from context_use.providers.google.base import _BaseGooglePipe
-from context_use.providers.google.schemas import GoogleRecord
+from context_use.providers.google.record import GoogleRecord
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
