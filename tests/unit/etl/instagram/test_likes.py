@@ -156,5 +156,3 @@ class TestInstagramStoryLikesV0Pipe(
         preview = transformed_rows[0].preview
         assert "Liked" in preview
         assert "synthetic_photographer" in preview
-
-
