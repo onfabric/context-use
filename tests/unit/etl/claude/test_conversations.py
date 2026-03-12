@@ -7,12 +7,12 @@ from pydantic import ValidationError
 
 from context_use.etl.core.types import ThreadRow
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
-from context_use.providers.claude.conversations import ClaudeConversationsPipe
-from context_use.providers.claude.schemas import (
+from context_use.providers.claude.conversations.pipe import ClaudeConversationsPipe
+from context_use.providers.claude.conversations.record import ClaudeConversationRecord
+from context_use.providers.claude.conversations.schemas import (
     ClaudeChatMessage,
     ClaudeContentBlock,
     ClaudeConversation,
-    ClaudeConversationRecord,
     ClaudeRole,
 )
 from context_use.storage.disk import DiskStorage

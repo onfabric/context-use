@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from context_use.providers.google.lens import GoogleLensPipe
+from context_use.providers.google.lens.pipe import GoogleLensPipe
 from context_use.testing import PipeTestKit
 from tests.unit.etl.google.conftest import GOOGLE_LENS_JSON
 

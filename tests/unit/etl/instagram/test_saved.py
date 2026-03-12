@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from context_use.providers.instagram.saved import (
+from context_use.providers.instagram.saved.pipe import (
     InstagramSavedCollectionsPipe,
     InstagramSavedPostsPipe,
 )

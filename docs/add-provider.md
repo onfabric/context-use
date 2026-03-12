@@ -6,17 +6,21 @@ For a new pipe in an **existing** provider (e.g. adding messages to `instagram`)
 
 | Step | File | Action |
 |------|------|--------|
-| 1 | `context_use/providers/<provider>/schemas.py` | Add file schema(s) and record model(s) |
-| 2 | `context_use/providers/<provider>/<module>.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
-| 3 | `context_use/providers/<provider>/__init__.py` | Import the new module (one line) so the registration fires |
-| 4 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
-| 5 | `tests/unit/etl/<provider>/test_<type>.py` | Subclass `PipeTestKit` (set `fixture_data`, `fixture_key`, counts) + add provider-specific tests |
+| 1 | `context_use/providers/<provider>/<interaction>/schemas.py` | Add file schema(s) for the new interaction type |
+| 2 | `context_use/providers/<provider>/<interaction>/record.py` | Add record model(s) |
+| 3 | `context_use/providers/<provider>/<interaction>/pipe.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
+| 4 | `context_use/providers/<provider>/<interaction>/__init__.py` | Import the pipe class from `pipe.py` so the registration fires |
+| 5 | `context_use/providers/<provider>/__init__.py` | Import the new interaction package (one line) so the registration fires |
+| 6 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
+| 7 | `tests/unit/etl/<provider>/test_<type>.py` | Subclass `PipeTestKit` (set `fixture_data`, `fixture_key`, counts) + add provider-specific tests |
+
+If schemas are shared across interaction types within a provider, put them in `context_use/providers/<provider>/schemas.py`.
 
 For a **new** provider, also:
 
 | Step | File | Action |
 |------|------|--------|
-| A | `context_use/providers/<provider>/` | Create package (`__init__.py`, `schemas.py`, pipe module(s)) |
+| A | `context_use/providers/<provider>/` | Create package (`__init__.py`, shared `schemas.py` if needed, interaction subpackages) |
 | B | `context_use/providers/__init__.py` | Import the new provider package (one line) so it registers |
 
 No changes to `registry.py` are ever needed.
@@ -76,7 +80,7 @@ The only exception is genuinely opaque sub-structures — nested dicts whose int
 
 **Allow extra fields** (Pydantic's default behaviour). Providers add fields over time; schemas must not reject files that contain fields beyond what the pipe currently uses. Only the removal or renaming of a field the pipe depends on should cause a validation failure.
 
-In practice, follow the Instagram provider as a reference implementation: see `InstagramV1ActivityItem`, `InstagramCommentStringMapData`, `InstagramSavedPostSMD`, and related models in `context_use/providers/instagram/schemas.py`.
+In practice, follow the Instagram provider as a reference implementation: see `InstagramV1ActivityItem` in `context_use/providers/instagram/schemas.py` (shared schemas), `InstagramCommentStringMapData` in `context_use/providers/instagram/comments/schemas.py`, and `InstagramSavedPostSMD` in `context_use/providers/instagram/saved/schemas.py`.
 
 ### The record schema as interface
 
@@ -142,7 +146,7 @@ When converting a Unix epoch to a timezone-aware `datetime`, use a thin module-l
 
 ### Shared base class pattern
 
-When a provider has multiple interaction types sharing the same `record_schema` and `transform()`, extract shared logic into a private base class. Only concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered. See `context_use/providers/instagram/media.py`.
+When a provider has multiple interaction types sharing the same `record_schema` and `transform()`, extract shared logic into a private base class. Only concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered. See `context_use/providers/instagram/media/pipe.py`.
 
 ### Versioning via inheritance
 
@@ -228,7 +232,7 @@ When `fixture_data` and `fixture_key` are set, `PipeTestKit` auto-generates the 
 Minimal example:
 
 ```python
-from context_use.providers.myco.search import MyCoSearchPipe
+from context_use.providers.myco.search.pipe import MyCoSearchPipe
 from context_use.testing import PipeTestKit
 from tests.unit.etl.myco.conftest import MYCO_SEARCH_JSON
 
@@ -259,7 +263,7 @@ tests/unit/etl/
 │   └── test_pipe_coverage.py       # ← enforces every pipe has tests
 ├── <provider>/
 │   ├── conftest.py                 # fixture data constants
-│   └── test_<interaction>.py       # PipeTestKit subclass(es)
+│   └── test_<interaction_type>.py  # PipeTestKit subclass(es)
 └── ...
 ```
 

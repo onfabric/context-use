@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_use.providers.instagram.likes import (
+from context_use.providers.instagram.likes.pipe import (
     InstagramLikedPostsPipe,
     InstagramLikedPostsV0Pipe,
     InstagramStoryLikesV0Pipe,

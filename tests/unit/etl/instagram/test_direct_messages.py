@@ -3,8 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from context_use.providers.instagram.direct_messages import InstagramDirectMessagesPipe
-from context_use.providers.instagram.schemas import InstagramDirectMessageManifest
+from context_use.providers.instagram.direct_messages.pipe import (
+    InstagramDirectMessagesPipe,
+)
+from context_use.providers.instagram.direct_messages.schemas import (
+    InstagramDirectMessageManifest,
+)
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.instagram.conftest import INSTAGRAM_DM_INBOX_JSON

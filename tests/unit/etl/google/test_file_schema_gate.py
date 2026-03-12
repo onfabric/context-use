@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
-from context_use.providers.google.search import GoogleSearchPipe
-from context_use.providers.google.youtube import GoogleYoutubePipe
+from context_use.providers.google.search.pipe import GoogleSearchPipe
+from context_use.providers.google.youtube.pipe import GoogleYoutubePipe
 from context_use.storage.disk import DiskStorage
 
 

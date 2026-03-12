@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from context_use.providers.google.search import (
+from context_use.providers.google.search.pipe import (
     GoogleImageSearchPipe,
     GoogleSearchPipe,
     GoogleVideoSearchPipe,

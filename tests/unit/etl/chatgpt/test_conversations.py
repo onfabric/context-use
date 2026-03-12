@@ -6,8 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
-from context_use.providers.chatgpt.conversations import ChatGPTConversationsPipe
-from context_use.providers.chatgpt.schemas import (
+from context_use.providers.chatgpt.conversations.pipe import ChatGPTConversationsPipe
+from context_use.providers.chatgpt.conversations.schemas import (
     ChatGPTConversation,
     ChatGPTMappingNode,
     ChatGPTMessage,

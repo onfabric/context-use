@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from context_use.providers.instagram.connections import (
+from context_use.providers.instagram.connections.pipe import (
     InstagramFollowersPipe,
     InstagramFollowingPipe,
 )
