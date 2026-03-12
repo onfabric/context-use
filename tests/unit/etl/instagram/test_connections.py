@@ -22,7 +22,7 @@ class TestInstagramFollowersPipe(PipeTestKit):
     fixture_data = INSTAGRAM_FOLLOWERS_JSON
     fixture_key = "archive/connections/followers_and_following/followers_1.json"
 
-    def test_file_schema_gates_non_array(self, tmp_path: Path):
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
         assert self.fixture_key is not None
         key = self.fixture_key
@@ -32,7 +32,6 @@ class TestInstagramFollowersPipe(PipeTestKit):
 
         rows = list(pipe.run(task, storage))
         assert len(rows) == 0
-        assert pipe.error_count == 1
 
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]

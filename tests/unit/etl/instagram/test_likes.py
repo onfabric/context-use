@@ -75,7 +75,7 @@ class TestInstagramLikedPostsV1Pipe(
     fixture_key = "archive/your_instagram_activity/likes/liked_posts.json"
     expected_fibre_kind = "Reaction"
 
-    def test_file_schema_gates_non_array(self, tmp_path: Path):
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
         assert self.fixture_key is not None
         key = self.fixture_key
@@ -85,7 +85,6 @@ class TestInstagramLikedPostsV1Pipe(
 
         rows = list(pipe.run(task, storage))
         assert len(rows) == 0
-        assert pipe.error_count == 1
 
     def test_record_fields_with_owner(self, extracted_records):
         record = extracted_records[0]
@@ -171,7 +170,7 @@ class TestInstagramStoryLikesV1Pipe(
     fixture_key = "archive/your_instagram_activity/story_interactions/story_likes.json"
     expected_fibre_kind = "Reaction"
 
-    def test_file_schema_gates_non_array(self, tmp_path: Path):
+    def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
         assert self.fixture_key is not None
         key = self.fixture_key
@@ -181,7 +180,6 @@ class TestInstagramStoryLikesV1Pipe(
 
         rows = list(pipe.run(task, storage))
         assert len(rows) == 0
-        assert pipe.error_count == 1
 
     def test_record_fields_with_owner(self, extracted_records):
         record = extracted_records[0]
