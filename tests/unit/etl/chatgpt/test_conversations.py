@@ -10,6 +10,7 @@ from context_use.providers.chatgpt.conversations import ChatGPTConversationsPipe
 from context_use.providers.chatgpt.schemas import (
     ChatGPTConversation,
     ChatGPTMappingNode,
+    ChatGPTMessage,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
@@ -59,7 +60,7 @@ class TestChatGPTConversationSchema:
         assert conv.title == "Test"
         assert conv.conversation_id == "conv-1"
         assert len(conv.mapping) == 1
-        assert conv.mapping["msg-1"].message is not None
+        assert isinstance(conv.mapping["msg-1"].message, ChatGPTMessage)
 
     def test_missing_mapping_raises(self) -> None:
         raw = {"title": "Test", "conversation_id": "conv-1"}
@@ -93,6 +94,29 @@ class TestChatGPTConversationSchema:
             {"message": None, "id": "node-1", "children": ["node-2"]}
         )
         assert node.message is None
+
+    def test_node_with_multimodal_message_parses(self) -> None:
+        node = ChatGPTMappingNode.model_validate(
+            {
+                "message": {
+                    "author": {"role": "user"},
+                    "content": {
+                        "content_type": "multimodal_text",
+                        "parts": [
+                            {"asset_pointer": "file-abc", "width": 1024, "height": 768}
+                        ],
+                    },
+                }
+            }
+        )
+        assert isinstance(node.message, ChatGPTMessage)
+        assert node.message.content.content_type == "multimodal_text"
+
+    def test_node_with_malformed_message_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            ChatGPTMappingNode.model_validate(
+                {"message": {"content": {"content_type": "text", "parts": ["hi"]}}}
+            )
 
 
 class TestChatGPTFileSchemaGate:

@@ -11,7 +11,7 @@ class ChatGPTAuthor(BaseModel):
 
 class ChatGPTContent(BaseModel):
     content_type: str | None = None
-    parts: list[str] | None = None
+    parts: list[str | dict[str, object]] | None = None
 
 
 class ChatGPTMessage(BaseModel):
@@ -21,7 +21,7 @@ class ChatGPTMessage(BaseModel):
 
 
 class ChatGPTMappingNode(BaseModel):
-    message: dict | None = None
+    message: ChatGPTMessage | None = None
 
 
 class ChatGPTConversation(BaseModel):

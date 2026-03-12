@@ -4,7 +4,6 @@ import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
-from decimal import Decimal
 
 import ijson
 
@@ -38,18 +37,17 @@ logger = logging.getLogger(__name__)
 
 CHATGPT_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
-# Timestamps above this threshold are treated as milliseconds (year 2100+)
-_MAX_SECONDS_EPOCH = 4_102_444_800  # 2100-01-01 00:00 UTC
+_ROLE_USER = "user"
+_ROLE_ASSISTANT = "assistant"
+_EMIT_ROLES = frozenset({_ROLE_USER, _ROLE_ASSISTANT})
 
 
-def _safe_timestamp(ts: float | int | None) -> datetime | None:
-    """Convert a Unix epoch to datetime, handling ms-vs-s ambiguity."""
-    if ts is None:
-        return None
-    ts = float(ts)
-    if ts > _MAX_SECONDS_EPOCH:
-        ts /= 1000.0
-    return datetime.fromtimestamp(ts, tz=UTC)
+def _is_emittable(message: ChatGPTMessage) -> bool:
+    return message.content.content_type == "text" and message.author.role in _EMIT_ROLES
+
+
+def _parse_timestamp(ts: float | None) -> datetime | None:
+    return datetime.fromtimestamp(ts, tz=UTC) if ts is not None else None
 
 
 def _build_payload(
@@ -68,15 +66,15 @@ def _build_payload(
 
     message = FibreTextMessage(content=record.content, context=context)  # type: ignore[reportCallIssue]
 
-    published = _safe_timestamp(record.create_time)
+    published = _parse_timestamp(record.create_time)
 
-    if record.role == "user":
+    if record.role == _ROLE_USER:
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=CHATGPT_APPLICATION,
             published=published,
         )
-    elif record.role == "assistant":
+    elif record.role == _ROLE_ASSISTANT:
         return FibreReceiveMessage(  # type: ignore[reportCallIssue]
             object=message,
             actor=CHATGPT_APPLICATION,
@@ -114,40 +112,23 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
                 )
 
                 for _msg_id, node in conversation.mapping.items():
-                    message_data = node.message
-                    if not message_data:
+                    message = node.message
+                    if message is None or not _is_emittable(message):
                         continue
-                    if "author" not in message_data or "content" not in message_data:
+                    if not message.content.parts:
                         continue
-
-                    content = message_data.get("content", {})
-                    if content.get("content_type") != "text":
+                    part = message.content.parts[0]
+                    if not isinstance(part, str) or not part.strip():
                         continue
-
-                    try:
-                        parsed = ChatGPTMessage.model_validate(message_data)
-                    except Exception:
-                        continue
-
-                    if parsed.author.role not in ("user", "assistant"):
-                        continue
-                    if not parsed.content.parts or not parsed.content.parts[0]:
-                        continue
-                    text = parsed.content.parts[0]
-                    if not text.strip():
-                        continue
-
-                    create_time = parsed.create_time
-                    if isinstance(create_time, Decimal):
-                        create_time = float(create_time)
+                    text = part
 
                     yield ChatGPTConversationRecord(
-                        role=parsed.author.role,
+                        role=message.author.role,
                         content=text,
-                        create_time=create_time,
+                        create_time=message.create_time,
                         conversation_id=conversation.conversation_id,
                         conversation_title=conversation.title,
-                        source=json.dumps(message_data, default=str),
+                        source=json.dumps(message.model_dump(), default=str),
                     )
         finally:
             stream.close()
@@ -163,7 +144,7 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
             "extract() should have filtered this record"
         )
 
-        asat = _safe_timestamp(record.create_time) or datetime.now(UTC)
+        asat = _parse_timestamp(record.create_time) or datetime.now(UTC)
 
         return ThreadRow(
             unique_key=payload.unique_key(),
