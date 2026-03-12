@@ -128,6 +128,23 @@ class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
                 )
 
 
+def _extract_like_item(item: InstagramV1ActivityItem) -> InstagramLikedPostRecord:
+    href: str | None = None
+    title: str | None = None
+    for lv in item.label_values:
+        if isinstance(lv, InstagramLabelValue):
+            if lv.label == "URL":
+                href = lv.href or lv.value
+        elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+            title = extract_owner_username(lv)
+    return InstagramLikedPostRecord(
+        title=title or "",
+        href=href,
+        timestamp=item.timestamp,
+        source=item.model_dump_json(),
+    )
+
+
 class InstagramLikedPostsPipe(_InstagramLikePipe):
     """ETL pipe for Instagram liked posts — v1 archive format.
 
@@ -149,23 +166,7 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                item = InstagramV1ActivityItem.model_validate(raw)
-                href: str | None = None
-                title: str | None = None
-
-                for lv in item.label_values:
-                    if isinstance(lv, InstagramLabelValue):
-                        if lv.label == "URL":
-                            href = lv.href or lv.value
-                    elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
-                        title = extract_owner_username(lv)
-
-                yield InstagramLikedPostRecord(
-                    title=title or "",
-                    href=href,
-                    timestamp=item.timestamp,
-                    source=item.model_dump_json(),
-                )
+                yield _extract_like_item(InstagramV1ActivityItem.model_validate(raw))
         finally:
             stream.close()
 
@@ -190,23 +191,7 @@ class InstagramStoryLikesPipe(_InstagramLikePipe):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                item = InstagramV1ActivityItem.model_validate(raw)
-                href: str | None = None
-                title: str | None = None
-
-                for lv in item.label_values:
-                    if isinstance(lv, InstagramLabelValue):
-                        if lv.label == "URL":
-                            href = lv.href or lv.value
-                    elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
-                        title = extract_owner_username(lv)
-
-                yield InstagramLikedPostRecord(
-                    title=title or "",
-                    href=href,
-                    timestamp=item.timestamp,
-                    source=item.model_dump_json(),
-                )
+                yield _extract_like_item(InstagramV1ActivityItem.model_validate(raw))
         finally:
             stream.close()
 
