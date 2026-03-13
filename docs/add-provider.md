@@ -4,22 +4,22 @@
 
 Each new pipe is developed in **three sequential pull requests**. Stop and request feedback after each before proceeding to the next.
 
-### PR 1 — Schema Generation
+### PR 1 — Schema & Fixtures
 
 | Step | File | Action |
 |------|------|--------|
-| 1 | *(temporary, not committed)* | Collect sample files from one or more archives |
+| 1 | *(temporary, not committed)* | Collect sample files from one or more real archives |
 | 2 | `providers/<prov>/<interaction>/schema.json` | Generate JSON Schema with `genson` (merge multiple samples) |
 | 3 | `providers/<prov>/<interaction>/schemas.py` | Generate Pydantic models with `datamodel-codegen` |
 | 4 | | Review and adjust generated models per [schema rules](#schema-rules) |
+| 5 | `tests/fixtures/users/alice/<prov>/v1/...` | Generate fixture data from the real archive, validate against `schema.json` |
 
 ### PR 2 — Extraction
 
 | Step | File | Action |
 |------|------|--------|
-| 5 | `providers/<prov>/<interaction>/record.py` | Define record model (extract→transform contract) |
-| 6 | `providers/<prov>/<interaction>/pipe.py` | Implement `Pipe` subclass with `extract_file()` |
-| 7 | `tests/fixtures/users/alice/<prov>/v1/...` | Add fixture data |
+| 6 | `providers/<prov>/<interaction>/record.py` | Define record model (extract→transform contract) |
+| 7 | `providers/<prov>/<interaction>/pipe.py` | Implement `Pipe` subclass with `extract_file()` |
 | 8 | `tests/unit/etl/<prov>/test_<type>.py` | Add extraction tests (use `extracted_records` fixture) |
 
 ### PR 3 — Transformation
@@ -29,7 +29,7 @@ Each new pipe is developed in **three sequential pull requests**. Stop and reque
 | 9 | `providers/<prov>/<interaction>/pipe.py` | Implement `transform()`, call `declare_interaction()` at module level |
 | 10 | `providers/<prov>/<interaction>/__init__.py` | Import the pipe class so registration fires |
 | 11 | `providers/<prov>/__init__.py` | Import the interaction package (one line) |
-| 12 | `tests/unit/etl/<prov>/test_<type>.py` | Expand to full `PipeTestKit` suite |
+| 12 | `tests/unit/etl/<prov>/test_<type>.py` | Expand to full `PipeTestKit` suite (fixtures already exist from PR 1) |
 
 If schemas are shared across interaction types within a provider, put them in `providers/<prov>/schemas.py`.
 
@@ -60,10 +60,13 @@ Key design rules:
 
 ### Step 1: Schema Generation (PR 1)
 
-The goal is to produce two version-controlled artifacts from sample archive files:
+The goal is to produce three version-controlled artifacts from real archive files:
 
 1. **`schema.json`** — a JSON Schema document, the canonical description of the file's structure.
 2. **`schemas.py`** — Pydantic models generated from the JSON Schema, used for runtime validation.
+3. **Test fixtures** — small, representative samples extracted from the real archive data, validated against `schema.json`.
+
+All three are derived from real archives. This guarantees that schemas describe actual provider data, fixtures conform to those schemas, and pipe tests exercise realistic structures.
 
 #### Collecting samples
 
@@ -119,7 +122,30 @@ Review and adjust generated models before committing:
 
 In practice, follow the Instagram provider as a reference: `InstagramV1ActivityItem` in `providers/instagram/schemas.py` (shared schemas), `InstagramCommentStringMapData` in `providers/instagram/comments/schemas.py`, and `InstagramSavedPostSMD` in `providers/instagram/saved/schemas.py`.
 
-> **⏸ Stop here.** Open a PR with `schema.json` and `schemas.py`. Request feedback before proceeding to extraction.
+#### Generating test fixtures from real archives
+
+Test fixtures must be derived from the same real archives used to generate the schema — never invented synthetically. This keeps schemas, fixtures, and pipe logic in sync.
+
+1. **Sample**: extract a small, representative subset from the real archive file. Include enough items to cover edge cases (optional fields present/absent, different content types) while staying small enough to reason about. Redact or anonymize PII.
+2. **Validate**: validate the fixture against `schema.json`. If validation passes, the fixture is structurally consistent with the schema.
+3. **Commit**: place the fixture under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure.
+
+If the fixture fails validation — e.g. because `schema.json` was updated after ingesting a new archive — regenerate the fixture from the current real archive data and re-validate. A fixture that does not pass schema validation must not be committed.
+
+Load fixture JSON in the provider's `conftest.py` (e.g. `tests/unit/etl/instagram/conftest.py`) and import those constants from test files.
+
+#### Keeping schemas and fixtures in sync
+
+When a new archive reveals fields or structures not covered by the current schema:
+
+1. Re-run `genson` with the new archive's sample merged into the existing samples → updated `schema.json`.
+2. Regenerate `schemas.py` via `make generate-schemas`.
+3. Re-validate existing fixtures against the updated `schema.json`. If they fail, regenerate them from the real archive data.
+4. Run tests — if extraction or transformation logic relied on assumptions the schema change invalidated, update the pipe code.
+
+This ensures the chain **real archives → schema → fixtures → tests** never goes stale.
+
+> **⏸ Stop here.** Open a PR with `schema.json`, `schemas.py`, and test fixtures. Request feedback before proceeding to extraction.
 
 ---
 
@@ -175,7 +201,7 @@ The error message is the triage signal:
 - `storage.read(key) → bytes` — for envelope objects. Pair with `model_validate_json`.
 - `storage.open_stream(key) → BinaryIO` — for flat arrays. Pair with `ijson.items(stream, "item")` and per-item validation.
 
-> **⏸ Stop here.** Open a PR with `record.py`, the extraction logic in `pipe.py`, fixture data, and extraction tests. Request feedback before proceeding to transformation.
+> **⏸ Stop here.** Open a PR with `record.py`, the extraction logic in `pipe.py`, and extraction tests (using fixtures from PR 1). Request feedback before proceeding to transformation.
 
 ---
 
@@ -379,6 +405,6 @@ tests/unit/etl/
 
 ### Fixture Data
 
-Place realistic test data under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure. The fixture JSON should exercise edge cases while staying small enough to reason about.
+Fixtures are generated from real archive data and validated against `schema.json` as part of [Step 1: Schema Generation](#step-1-schema-generation-pr-1). They live under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure.
 
 Load fixture JSON in the provider's `conftest.py` (e.g. `tests/unit/etl/instagram/conftest.py`) and import those constants from the test file.
