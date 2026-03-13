@@ -26,41 +26,78 @@ genson sample1.json sample2.json > providers/acme/bookmarks/schema.json
 
 For **flat arrays** (JSON array at root), the schema should describe a **single item**, not the array wrapper. Extract items and pass them individually, or run `genson` on the array and then extract the `items` sub-schema from the result into `schema.json`.
 
-#### Generating Pydantic models with datamodel-code-generator
+#### Reviewing and adjusting schema.json
 
-[`datamodel-code-generator`](https://github.com/koxudaxi/datamodel-code-generator) generates typed Pydantic v2 models from a JSON Schema:
+`schema.json` is the **single source of truth**. `schemas.py` is always a deterministic, mechanical output of it — never edited by hand. All structural decisions must be encoded in `schema.json` first; `schemas.py` is then regenerated.
+
+After `genson` produces the initial schema, review it and make targeted adjustments where the inferred schema is too strict or too specific for real-world data:
+
+- **Optionality**: Only remove a field from `required` when there is evidence it can be absent — e.g. it is missing in at least one of the archives fed to `genson`, or you have strong reason to believe it may not appear in archives you do not have. Do not speculatively mark fields as optional.
+- **Opaque sub-structures**: For fields the pipe never inspects, simplify their schema to `{"type": "object"}` (no `properties`, no `required`). This avoids false validation failures when those sub-structures evolve. `genson` over-specifies them from the sample data.
+- **Unconstrained nullable fields**: Fields that appear as `{"type": "null"}` in the generated schema have only been observed as `null` across all samples. Replace them with `{}` (unconstrained) so validation does not fail if the provider starts returning a real value there.
+- **Unions**: When a field genuinely holds different types across the sample data, `genson` produces a `anyOf` or type array. Keep these — they reflect reality.
+- **Extra fields**: Do not add `"additionalProperties": false`. Providers add fields over time; unknown fields must be silently accepted.
+- **No `items` wrapper**: For flat arrays, the schema describes a single item. Do not wrap it in an array schema.
+
+Do not touch anything else. Every other aspect of the generated schema — field names, nesting depth, required sets for well-evidenced fields — must remain exactly as `genson` produced it.
+
+#### Generating schemas.py with datamodel-code-generator
+
+Once `schema.json` is finalised, generate `schemas.py` deterministically:
 
 ```bash
 datamodel-codegen \
   --input providers/acme/bookmarks/schema.json \
   --input-file-type jsonschema \
   --output providers/acme/bookmarks/schemas.py \
-  --output-model-type pydantic_v2.BaseModel
-```
-
-For providers with a custom base model (e.g. Instagram's `InstagramBaseModel` which fixes broken UTF-8 encoding), use `--base-class` so every generated model inherits from it instead of plain `BaseModel`:
-
-```bash
-datamodel-codegen \
-  --input providers/instagram/likes/schema.json \
-  --input-file-type jsonschema \
-  --output providers/instagram/likes/schemas.py \
   --output-model-type pydantic_v2.BaseModel \
-  --base-class context_use.providers.instagram.schemas.InstagramBaseModel
+  --formatters ruff-format ruff-check
 ```
 
-#### Schema rules
+Do not use `--base-class`. Provider-specific data quirks (e.g. Instagram's broken UTF-8 encoding) must be handled in `extract_file`, not in the schema model. Applying a fix inside a `@model_validator` bakes extraction logic into a structural class and requires the generator to know about a provider-specific base — coupling two layers that should be independent. Instead, fix the raw data before calling `model_validate`:
 
-Review and adjust generated models before committing:
+```python
+for raw_item in ijson.items(stream, "item"):
+    item = InstagramLikesItem.model_validate(_fix_strings_recursive(raw_item))
+```
 
-- **Optionality**: A field present in all samples may still be optional in real data. Change to `field: T | None = None` when appropriate.
-- **Naming**: Rename auto-generated names (e.g. `Model`, `ModelItem`) to follow project conventions (e.g. `BookmarksManifest`, `BookmarkItem`).
-- **Nested structures**: Verify nested objects are Pydantic classes, not `dict` or `dict[str, Any]`. Use `dict[str, object] | None` only for genuinely opaque sub-structures the pipe never inspects.
-- **Unions**: When a field holds different types (e.g. text parts and attachment parts in the same list), model as a typed union rather than collapsing to a common base.
-- **Extra fields**: Keep Pydantic's default of allowing extra fields. Providers add fields over time; schemas must not reject unknown fields. Only the removal or renaming of a field the pipe depends on should cause a validation failure.
-- **No `TypeAdapter(list[...])`**: For flat arrays, define only the item model. Streaming handles array iteration.
+Schema models answer one question: *does this data have the right shape?* They must not encode *how to read* the data correctly.
 
-In practice, follow the Instagram provider as a reference: `InstagramV1ActivityItem` in `providers/instagram/schemas.py` (shared schemas), `InstagramCommentStringMapData` in `providers/instagram/comments/schemas.py`, and `InstagramSavedPostSMD` in `providers/instagram/saved/schemas.py`.
+**`schemas.py` must always be in sync with `schema.json`.** If a structural change is needed — a field becomes optional, a sub-structure is simplified, a type is widened — make the change in `schema.json` and regenerate. Never edit `schemas.py` by hand to fix a structural issue.
+
+##### Naming classes via `$defs`
+
+`datamodel-code-generator` derives class names from `$defs` keys. After `genson` produces an inline schema, lift inline object definitions into `$defs` and replace each occurrence with a `$ref`. The `$defs` key becomes the class name:
+
+```json
+{
+  "$schema": "http://json-schema.org/schema#",
+  "title": "BookmarksManifest",
+  "$defs": {
+    "BookmarkItem": {
+      "type": "object",
+      "properties": { "url": { "type": "string" } },
+      "required": ["url"]
+    }
+  },
+  "properties": {
+    "bookmarks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/BookmarkItem" }
+    }
+  },
+  "required": ["bookmarks"]
+}
+```
+
+The root object's class name comes from the top-level `"title"` field.
+
+##### schemas.py is read-only after generation
+
+Do not edit `schemas.py` after generation. `schemas.py` contains only what the generator produces.
+
+Unconstrained fields (`{}` in JSON Schema) generate `Any` in Python. This is the only case where `Any` appears in `schemas.py`: it directly reflects that the field has only been observed as `null` across all available archives, and there is not yet enough evidence to assert a more specific type. If future archives reveal a consistent structure, replace `{}` with a concrete schema and regenerate.
+
 
 #### Generating test fixtures from real archives
 
