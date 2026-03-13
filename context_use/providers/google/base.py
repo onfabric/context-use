@@ -14,32 +14,20 @@ from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import CURRENT_THREAD_PAYLOAD_VERSION, ThreadPayload
 from context_use.models.etl_task import EtlTask
 from context_use.providers.google.record import GoogleRecord
-from context_use.providers.google.schemas import (
-    PROVIDER,
-    GoogleActivityFileItem,
-)
+from context_use.providers.google.schemas import Model
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
+PROVIDER = "google"
+
 
 class _BaseGooglePipe(Pipe[GoogleRecord]):
-    """Shared infrastructure for all Google Takeout pipes.
-
-    Handles ``ijson`` streaming in :meth:`extract_file`, URL cleanup,
-    and a shared :meth:`transform` that delegates payload construction
-    to :meth:`_build_payload`.
-
-    Subclasses set ``interaction_type``, ``archive_path_pattern``, and
-    implement :meth:`_build_payload`.  Override :attr:`file_schema`
-    when the pipe needs stricter structural validation (e.g. YouTube
-    typed subtitles).
-    """
-
     provider = PROVIDER
     archive_version = 1
     record_schema = GoogleRecord
-    file_schema: ClassVar[type[BaseModel]] = GoogleActivityFileItem
+    file_schema: ClassVar[type[BaseModel]] = Model
+    _recognised_prefixes: ClassVar[tuple[str, ...]] = ()
 
     def extract_file(
         self,
@@ -56,6 +44,10 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
                     self.record_schema.model_validate(raw),
                 )
                 record.source = source_json
+                if self._recognised_prefixes and not any(
+                    record.title.startswith(p) for p in self._recognised_prefixes
+                ):
+                    continue
                 yield record
         finally:
             stream.close()
@@ -104,10 +96,4 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
         )
 
     def _build_payload(self, record: GoogleRecord) -> ThreadPayload:
-        """Build an ActivityStreams payload from a Google record.
-
-        Subclasses must override this.  It is guaranteed to be called
-        only for records that survived prefix filtering in
-        :meth:`extract_file`.
-        """
         raise NotImplementedError

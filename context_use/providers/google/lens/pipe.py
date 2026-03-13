@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
-
 from context_use.etl.payload.models import (
     FibreSearch,
     Page,
@@ -11,7 +9,6 @@ from context_use.providers.google.base import _BaseGooglePipe
 from context_use.providers.google.record import GoogleRecord
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
-from context_use.storage.base import StorageBackend
 
 _LENS_PLUS_PREFIX = "Searched with Google Lens + "
 _SEARCHED_FOR_PREFIX = "Searched for "
@@ -23,29 +20,9 @@ _RECOGNISED_PREFIXES = (_LENS_PLUS_PREFIX, _SEARCHED_FOR_PREFIX)
 
 
 class GoogleLensPipe(_BaseGooglePipe):
-    """Google Lens activity.
-
-    Handles three title patterns:
-
-    - ``"Searched with Google Lens + \\"<query>\\""`` — visual search with
-      text refinement → :class:`FibreSearch`
-    - ``"Searched for <query>"`` — text search after a Lens session
-      → :class:`FibreSearch`
-    - ``"Searched with Google Lens"`` (bare) — camera-only, no textual
-      content → filtered out during extraction (consistent with aertex).
-    """
-
     interaction_type = "google_lens"
     archive_path_pattern = "Portability/My Activity/Google Lens/MyActivity.json"
-
-    def extract_file(
-        self,
-        source_uri: str,
-        storage: StorageBackend,
-    ) -> Iterator[GoogleRecord]:
-        for record in super().extract_file(source_uri, storage):
-            if any(record.title.startswith(p) for p in _RECOGNISED_PREFIXES):
-                yield record
+    _recognised_prefixes = _RECOGNISED_PREFIXES
 
     def _build_payload(self, record: GoogleRecord) -> ThreadPayload:
         url = self.clean_url(record.titleUrl)
