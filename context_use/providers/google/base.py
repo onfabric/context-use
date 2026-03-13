@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import urllib.parse
 from collections.abc import Iterator
 from typing import ClassVar, cast
@@ -16,8 +15,6 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.google.record import GoogleRecord
 from context_use.providers.google.schemas import Model
 from context_use.storage.base import StorageBackend
-
-logger = logging.getLogger(__name__)
 
 PROVIDER = "google"
 
