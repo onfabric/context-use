@@ -41,6 +41,8 @@ After `genson` produces the initial schema, review it and make targeted adjustme
 
 Do not touch anything else. Every other aspect of the generated schema — field names, nesting depth, required sets for well-evidenced fields — must remain exactly as `genson` produced it.
 
+If you decide to generalise the schema beyond the adjustments listed above — for example, widening a type, collapsing a sub-structure further than the "opaque sub-structures" rule requires, or removing a required field without direct evidence from the sample archives — the PR must explicitly call out each such decision and explain the reasoning: what evidence or constraint motivated the change, and why the standard rules were insufficient.
+
 #### Generating schemas.py with datamodel-code-generator
 
 Once `schema.json` is finalised, generate `schemas.py` deterministically:
