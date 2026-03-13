@@ -23,6 +23,7 @@ Issues = "https://github.com/onfabric/context-use/issues"
 
 [project.optional-dependencies]
 gcs = ["google-cloud-storage>=2.10.0,<3"]
+proxy = ["fastapi>=0.115", "uvicorn[standard]>=0.34"]
 
 [dependency-groups]
 dev = [
@@ -33,7 +34,7 @@ dev = [
     "pytest-asyncio",
     "pre-commit>=4.5.1",
     # All optional extras included so Pyright can resolve every import.
-    "context-use[gcs]",
+    "context-use[gcs,proxy]",
     "git-cliff>=2.12.0",
     "twine>=6.2.0",
     "check-wheel-contents>=0.6.3",

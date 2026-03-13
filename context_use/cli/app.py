@@ -44,6 +44,10 @@ _EPILOG = (
     '  context-use agent ask "<your-prompt>"        '
     "Send a free-form task to the agent\n"
     "\n"
+    "Proxy:\n"
+    "  context-use proxy                            "
+    "Start the context enrichment proxy\n"
+    "\n"
     "Configuration:\n"
     "  context-use config show                      "
     "Show current settings\n"
