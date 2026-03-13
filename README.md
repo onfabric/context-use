@@ -6,7 +6,7 @@ Turn your data exports into portable AI memory.
 
 # For Agents
 
-Use the [SKILL.md](skills/context-use/SKILL.md) file on how to use context-use to get to personalize your answers to the human.
+Make your answers to the human feel truly personal — use the skill at [SKILL.md](skills/context-use/SKILL.md).
 
 # For Humans
 
