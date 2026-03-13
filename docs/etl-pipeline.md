@@ -67,33 +67,6 @@ Schema models answer one question: *does this data have the right shape?* They m
 
 **`schemas.py` must always be in sync with `schema.json`.** If a structural change is needed — a field becomes optional, a sub-structure is simplified, a type is widened — make the change in `schema.json` and regenerate. Never edit `schemas.py` by hand to fix a structural issue.
 
-##### Naming classes via `$defs`
-
-`datamodel-code-generator` derives class names from `$defs` keys. After `genson` produces an inline schema, lift inline object definitions into `$defs` and replace each occurrence with a `$ref`. The `$defs` key becomes the class name:
-
-```json
-{
-  "$schema": "http://json-schema.org/schema#",
-  "title": "BookmarksManifest",
-  "$defs": {
-    "BookmarkItem": {
-      "type": "object",
-      "properties": { "url": { "type": "string" } },
-      "required": ["url"]
-    }
-  },
-  "properties": {
-    "bookmarks": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/BookmarkItem" }
-    }
-  },
-  "required": ["bookmarks"]
-}
-```
-
-The root object's class name comes from the top-level `"title"` field.
-
 ##### schemas.py is read-only after generation
 
 Do not edit `schemas.py` after generation. `schemas.py` contains only what the generator produces.
