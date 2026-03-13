@@ -148,7 +148,9 @@ class TestClaudeConversationFileSchema:
 
     def test_flags_accepts_any_value(self) -> None:
         for flags_val in [None, "x", 0, True, {}]:
-            item = ContentItem.model_validate({**_VALID_CONTENT_ITEM, "flags": flags_val})
+            item = ContentItem.model_validate(
+                {**_VALID_CONTENT_ITEM, "flags": flags_val}
+            )
             assert item.flags == flags_val
 
     def test_claude_role_values(self) -> None:
