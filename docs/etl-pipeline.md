@@ -174,16 +174,16 @@ To add a genuinely new fibre type: subclass the appropriate AS base (`Activity` 
 
 A good preview reads like a sentence a person would say:
 
-> "Sent message 'hey, when are you free?' to Alice on Instagram"
-> "Received message 'sounds good, see you then' from Bob on ChatGPT"
-> "Posted image on Instagram"
-> "Viewed post on Google"
-> "Liked post by @janedoe on Instagram"
-> "Commented 'this is amazing!' on Alice's post on Instagram"
-> "Searched for 'best restaurants nearby' on Google"
-> "Saved post by @traveler to 'Trip Ideas' on Instagram"
-> "Following Bob on Instagram"
-> "Followed by Alice on Instagram"
+> Sent message "hey, when are you free?" to alice on Instagram
+> Received message "Sure! Here are a few options..." from assistant on ChatGPT
+> Posted image on Instagram with caption: "Team at work"
+> Viewed page "Best pasta recipes - BBC Good Food" via Google
+> Liked post by janedoe on Instagram
+> Commented "this is amazing!" on alice's post on Instagram
+> Searched "best restaurants nearby" on Google
+> Saved to "Trip Ideas" post by traveler on Instagram
+> Following bob on Instagram
+> Followed by alice on Instagram
 
 Rules for `_get_preview`:
 
