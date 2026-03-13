@@ -61,3 +61,6 @@ class Thread:
     def get_collection(self) -> str | None:
         """Get collection ID for this thread."""
         return self._parsed_payload.get_collection()
+
+    def get_participant_label(self) -> str:
+        return self._parsed_payload.get_participant_label()
