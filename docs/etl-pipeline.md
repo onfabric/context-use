@@ -10,9 +10,9 @@ The goal is to produce three version-controlled artifacts from real archive file
 
 All three are derived from real archives. This guarantees that schemas describe actual provider data, fixtures conform to those schemas, and pipe tests exercise realistic structures.
 
-#### Collecting samples
+#### Collecting input files
 
-Extract the target file from one or more archives. Use at least 2–3 samples from different exports to cover field variations (optional fields, type differences). Samples are temporary and not committed to the repo.
+Use the **whole file** from each archive — not a subset. Many field variations are rare and only surface across a large number of records, so sampling risks missing outliers. Feed complete files from multiple archives into `genson` to maximise coverage. The archive files themselves are not committed to the repo.
 
 #### Generating JSON Schema with genson
 
@@ -49,8 +49,6 @@ datamodel-codegen \
   --base-class context_use.providers.instagram.schemas.InstagramBaseModel
 ```
 
-All schemas can be regenerated at once via `make generate-schemas`, which discovers every `schema.json` and runs `datamodel-codegen` with the correct provider-specific flags.
-
 #### Schema rules
 
 Review and adjust generated models before committing:
@@ -75,17 +73,6 @@ Test fixtures must be derived from the same real archives used to generate the s
 If the fixture fails validation — e.g. because `schema.json` was updated after ingesting a new archive — regenerate the fixture from the current real archive data and re-validate. A fixture that does not pass schema validation must not be committed.
 
 Load fixture JSON in the provider's `conftest.py` (e.g. `tests/unit/etl/instagram/conftest.py`) and import those constants from test files.
-
-#### Keeping schemas and fixtures in sync
-
-When a new archive reveals fields or structures not covered by the current schema:
-
-1. Re-run `genson` with the new archive's sample merged into the existing samples → updated `schema.json`.
-2. Regenerate `schemas.py` via `make generate-schemas`.
-3. Re-validate existing fixtures against the updated `schema.json`. If they fail, regenerate them from the real archive data.
-4. Run tests — if extraction or transformation logic relied on assumptions the schema change invalidated, update the pipe code.
-
-This ensures the chain **real archives → schema → fixtures → tests** never goes stale.
 
 > **⏸ Stop here.** Open a PR with `schema.json`, `schemas.py`, and test fixtures. Request feedback before proceeding to extraction.
 
@@ -188,8 +175,15 @@ To add a genuinely new fibre type: subclass the appropriate AS base (`Activity` 
 A good preview reads like a sentence a person would say:
 
 > "Sent message 'hey, when are you free?' to Alice on Instagram"
-> "Received message 'sounds good, see you then' from Bob on Instagram"
-> "Posted video on Instagram"
+> "Received message 'sounds good, see you then' from Bob on ChatGPT"
+> "Posted image on Instagram"
+> "Viewed post on Google"
+> "Liked post by @janedoe on Instagram"
+> "Commented 'this is amazing!' on Alice's post on Instagram"
+> "Searched for 'best restaurants nearby' on Google"
+> "Saved post by @traveler to 'Trip Ideas' on Instagram"
+> "Following Bob on Instagram"
+> "Followed by Alice on Instagram"
 
 Rules for `_get_preview`:
 
