@@ -69,7 +69,7 @@ Schema models answer one question: *does this data have the right shape?* They m
 
 ##### schemas.py is read-only after generation
 
-Do not edit `schemas.py` after generation. `schemas.py` contains only what the generator produces.
+Do not edit `schemas.py` after generation. `schemas.py` contains only what the generator produces. Do not restructure `schema.json` (e.g. with `$defs` or `title` fields) to influence the generated class names — accept whatever names `datamodel-codegen` assigns.
 
 Unconstrained fields (`{}` in JSON Schema) generate `Any` in Python. This is the only case where `Any` appears in `schemas.py`: it directly reflects that the field has only been observed as `null` across all available archives, and there is not yet enough evidence to assert a more specific type. If future archives reveal a consistent structure, replace `{}` with a concrete schema and regenerate.
 
