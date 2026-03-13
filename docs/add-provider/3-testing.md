@@ -68,6 +68,6 @@ tests/unit/etl/
 
 ### Fixture Data
 
-Fixtures are generated from real archive data and validated against `schema.json` as part of [Step 1: Schema Generation](etl-pipeline.md#step-1-schema-generation-pr-1). They live under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure.
+Fixtures are generated from real archive data and validated against `schema.json` as part of [Step 1: Schema Generation](1-etl-pipeline.md#step-1-schema-generation-pr-1). They live under `tests/fixtures/users/alice/<provider>/<archive_version>/`, mirroring the actual archive directory structure.
 
 Load fixture JSON in the provider's `conftest.py` (e.g. `tests/unit/etl/instagram/conftest.py`) and import those constants from the test file.

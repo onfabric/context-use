@@ -4,17 +4,17 @@
 
 Each new pipe is developed in **three sequential pull requests**. Stop and request feedback after each before proceeding to the next.
 
-### PR 1 — Schema & Fixtures
+### PR 1 — Schema & Fixtures ([details](1-etl-pipeline.md#step-1-schema-generation-pr-1))
 
 | Step | File | Action |
 |------|------|--------|
 | 1 | *(temporary, not committed)* | Collect sample files from one or more real archives |
 | 2 | `providers/<prov>/<interaction>/schema.json` | Generate JSON Schema with `genson` (merge multiple samples) |
 | 3 | `providers/<prov>/<interaction>/schemas.py` | Generate Pydantic models with `datamodel-codegen` |
-| 4 | | Review and adjust generated models per [schema rules](etl-pipeline.md#schema-rules) |
+| 4 | | Review and adjust generated models per [schema rules](1-etl-pipeline.md#schema-rules) |
 | 5 | `tests/fixtures/users/alice/<prov>/v1/...` | Generate fixture data from the real archive, validate against `schema.json` |
 
-### PR 2 — Extraction
+### PR 2 — Extraction ([details](1-etl-pipeline.md#step-2-extraction-pr-2))
 
 | Step | File | Action |
 |------|------|--------|
@@ -22,7 +22,7 @@ Each new pipe is developed in **three sequential pull requests**. Stop and reque
 | 7 | `providers/<prov>/<interaction>/pipe.py` | Implement `Pipe` subclass with `extract_file()` |
 | 8 | `tests/unit/etl/<prov>/test_<type>.py` | Add extraction tests (use `extracted_records` fixture) |
 
-### PR 3 — Transformation
+### PR 3 — Transformation ([details](1-etl-pipeline.md#step-3-transformation-pr-3))
 
 | Step | File | Action |
 |------|------|--------|
@@ -42,7 +42,7 @@ For a **new provider**, also:
 
 No changes to `registry.py` are ever needed.
 
-If the provider needs a new fibre (payload) type, see [Extending Payload Models](etl-pipeline.md#extending-payload-models).
+If the provider needs a new fibre (payload) type, see [Extending Payload Models](1-etl-pipeline.md#extending-payload-models).
 
 ---
 
@@ -53,13 +53,3 @@ Key design rules:
 - **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the facade collects and persists via `Store.insert_threads()`.
 - **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
 - **Three PRs, three reviews.** Schema → extraction → transformation. Each is a separate PR. Stop and request feedback before proceeding.
-
----
-
-## Detailed Guides
-
-| Guide | Contents |
-|-------|----------|
-| [ETL Pipeline](etl-pipeline.md) | Schema generation, extraction, transformation, shared patterns |
-| [Memory Pipeline](memory-pipeline.md) | Groupers, prompt builders, memory config |
-| [Testing](testing.md) | PipeTestKit, fixtures, per-PR testing |
