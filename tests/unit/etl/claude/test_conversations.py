@@ -9,11 +9,11 @@ from context_use.etl.core.types import ThreadRow
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.providers.claude.conversations.pipe import ClaudeConversationsPipe
 from context_use.providers.claude.conversations.record import ClaudeConversationRecord
+from context_use.providers.claude.conversations.pipe import ClaudeRole
 from context_use.providers.claude.conversations.schemas import (
-    ClaudeChatMessage,
-    ClaudeContentBlock,
-    ClaudeConversation,
-    ClaudeRole,
+    ChatMessage,
+    ContentItem,
+    Model,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
@@ -71,20 +71,39 @@ class TestClaudeConversationsPipe(PipeTestKit):
             assert "sender" in raw
 
 
+_VALID_CONTENT_ITEM: dict = {
+    "start_timestamp": "2025-01-01T00:00:00Z",
+    "stop_timestamp": "2025-01-01T00:00:01Z",
+    "flags": None,
+    "type": "text",
+    "text": "hello",
+}
+
+_VALID_MESSAGE: dict = {
+    "uuid": "msg-1",
+    "text": "hello",
+    "content": [_VALID_CONTENT_ITEM],
+    "sender": "human",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z",
+    "attachments": [],
+    "files": [],
+}
+
+_VALID_CONVERSATION: dict = {
+    "uuid": "conv-1",
+    "name": "Test",
+    "summary": "",
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z",
+    "account": {"uuid": "acct-1"},
+    "chat_messages": [_VALID_MESSAGE],
+}
+
+
 class TestClaudeConversationFileSchema:
     def test_valid_conversation(self) -> None:
-        data = {
-            "uuid": "conv-1",
-            "name": "Test",
-            "chat_messages": [
-                {
-                    "sender": "human",
-                    "content": [{"type": "text", "text": "hello"}],
-                    "created_at": "2025-01-01T00:00:00Z",
-                }
-            ],
-        }
-        conv = ClaudeConversation.model_validate(data)
+        conv = Model.model_validate(_VALID_CONVERSATION)
         assert conv.uuid == "conv-1"
         assert conv.name == "Test"
         assert len(conv.chat_messages) == 1
@@ -92,59 +111,45 @@ class TestClaudeConversationFileSchema:
 
     def test_extra_fields_tolerated(self) -> None:
         data = {
-            "uuid": "conv-1",
-            "name": "Test",
-            "summary": "some summary",
-            "account": {"uuid": "acct-1"},
+            **_VALID_CONVERSATION,
             "some_future_field": 42,
             "chat_messages": [
-                {
-                    "sender": "human",
-                    "content": [{"type": "text", "text": "hi", "citations": []}],
-                    "created_at": "2025-01-01T00:00:00Z",
-                    "uuid": "msg-1",
-                    "attachments": [],
-                    "files": [],
-                    "unknown_field": True,
-                }
+                {**_VALID_MESSAGE, "unknown_field": True},
             ],
         }
-        conv = ClaudeConversation.model_validate(data)
+        conv = Model.model_validate(data)
         assert len(conv.chat_messages) == 1
 
-    def test_missing_chat_messages_raises(self) -> None:
+    def test_missing_required_conversation_field_raises(self) -> None:
+        data = {k: v for k, v in _VALID_CONVERSATION.items() if k != "uuid"}
         with pytest.raises(ValidationError):
-            ClaudeConversation.model_validate({"uuid": "conv-1", "name": "Test"})
+            Model.model_validate(data)
 
-    def test_missing_sender_raises(self) -> None:
+    def test_missing_required_message_field_raises(self) -> None:
+        data = {k: v for k, v in _VALID_MESSAGE.items() if k != "sender"}
         with pytest.raises(ValidationError):
-            ClaudeChatMessage.model_validate(
-                {"content": [{"type": "text", "text": "hi"}]}
-            )
+            ChatMessage.model_validate(data)
 
-    def test_missing_content_block_type_raises(self) -> None:
+    def test_missing_content_item_type_raises(self) -> None:
+        data = {k: v for k, v in _VALID_CONTENT_ITEM.items() if k != "type"}
         with pytest.raises(ValidationError):
-            ClaudeContentBlock.model_validate({"text": "hi"})
+            ContentItem.model_validate(data)
 
-    def test_empty_chat_messages_valid(self) -> None:
-        conv = ClaudeConversation.model_validate(
-            {"chat_messages": [], "uuid": "conv-1"}
+    def test_content_item_text_is_optional(self) -> None:
+        item = ContentItem.model_validate(
+            {
+                "start_timestamp": None,
+                "stop_timestamp": None,
+                "flags": None,
+                "type": "tool_use",
+            }
         )
-        assert conv.chat_messages == []
+        assert item.text is None
 
-    def test_content_defaults_to_empty_list(self) -> None:
-        msg = ClaudeChatMessage.model_validate({"sender": "human"})
-        assert msg.content == []
-
-    @pytest.mark.parametrize("sender", [ClaudeRole.HUMAN, ClaudeRole.ASSISTANT])
-    def test_is_emittable_true(self, sender: str) -> None:
-        msg = ClaudeChatMessage(sender=sender)
-        assert msg.is_emittable is True
-
-    @pytest.mark.parametrize("sender", ["system", "tool", "unknown"])
-    def test_is_emittable_false(self, sender: str) -> None:
-        msg = ClaudeChatMessage(sender=sender)
-        assert msg.is_emittable is False
+    def test_flags_accepts_any_value(self) -> None:
+        for flags_val in [None, "x", 0, True, {}]:
+            item = ContentItem.model_validate({**_VALID_CONTENT_ITEM, "flags": flags_val})
+            assert item.flags == flags_val
 
     def test_claude_role_values(self) -> None:
         assert ClaudeRole.HUMAN == "human"
