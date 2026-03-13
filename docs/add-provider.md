@@ -1,27 +1,44 @@
 # Adding a Data Provider
 
-## Quick Reference — Checklist
+## Quick Reference
 
-For a new pipe in an **existing** provider (e.g. adding messages to `instagram`):
+Each new pipe is developed in **three sequential pull requests**. Stop and request feedback after each before proceeding to the next.
 
-| Step | File | Action |
-|------|------|--------|
-| 1 | `context_use/providers/<provider>/<interaction>/schemas.py` | Add file schema(s) for the new interaction type |
-| 2 | `context_use/providers/<provider>/<interaction>/record.py` | Add record model(s) |
-| 3 | `context_use/providers/<provider>/<interaction>/pipe.py` | Create `Pipe` subclass with `extract_file()` + `transform()`, call `declare_interaction()` at module level |
-| 4 | `context_use/providers/<provider>/<interaction>/__init__.py` | Import the pipe class from `pipe.py` so the registration fires |
-| 5 | `context_use/providers/<provider>/__init__.py` | Import the new interaction package (one line) so the registration fires |
-| 6 | `tests/fixtures/users/alice/<provider>/v1/...` | Add fixture data (real archive structure) |
-| 7 | `tests/unit/etl/<provider>/test_<type>.py` | Subclass `PipeTestKit` (set `fixture_data`, `fixture_key`, counts) + add provider-specific tests |
-
-If schemas are shared across interaction types within a provider, put them in `context_use/providers/<provider>/schemas.py`.
-
-For a **new** provider, also:
+### PR 1 — Schema Generation
 
 | Step | File | Action |
 |------|------|--------|
-| A | `context_use/providers/<provider>/` | Create package (`__init__.py`, shared `schemas.py` if needed, interaction subpackages) |
-| B | `context_use/providers/__init__.py` | Import the new provider package (one line) so it registers |
+| 1 | *(temporary, not committed)* | Collect sample files from one or more archives |
+| 2 | `providers/<prov>/<interaction>/schema.json` | Generate JSON Schema with `genson` (merge multiple samples) |
+| 3 | `providers/<prov>/<interaction>/schemas.py` | Generate Pydantic models with `datamodel-codegen` |
+| 4 | | Review and adjust generated models per [schema rules](#schema-rules) |
+
+### PR 2 — Extraction
+
+| Step | File | Action |
+|------|------|--------|
+| 5 | `providers/<prov>/<interaction>/record.py` | Define record model (extract→transform contract) |
+| 6 | `providers/<prov>/<interaction>/pipe.py` | Implement `Pipe` subclass with `extract_file()` |
+| 7 | `tests/fixtures/users/alice/<prov>/v1/...` | Add fixture data |
+| 8 | `tests/unit/etl/<prov>/test_<type>.py` | Add extraction tests (use `extracted_records` fixture) |
+
+### PR 3 — Transformation
+
+| Step | File | Action |
+|------|------|--------|
+| 9 | `providers/<prov>/<interaction>/pipe.py` | Implement `transform()`, call `declare_interaction()` at module level |
+| 10 | `providers/<prov>/<interaction>/__init__.py` | Import the pipe class so registration fires |
+| 11 | `providers/<prov>/__init__.py` | Import the interaction package (one line) |
+| 12 | `tests/unit/etl/<prov>/test_<type>.py` | Expand to full `PipeTestKit` suite |
+
+If schemas are shared across interaction types within a provider, put them in `providers/<prov>/schemas.py`.
+
+For a **new provider**, also:
+
+| Step | File | Action |
+|------|------|--------|
+| A | `providers/<prov>/` | Create package (`__init__.py`, shared `schemas.py` if needed, interaction subpackages) |
+| B | `providers/__init__.py` | Import the new provider package (one line) so it registers |
 
 No changes to `registry.py` are ever needed.
 
@@ -35,54 +52,82 @@ Key design rules:
 - **One Pipe class = one interaction type.** Each subclass handles one kind of data (e.g. stories, reels, DMs).
 - **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the facade collects and persists via `Store.insert_threads()`.
 - **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
+- **Three PRs, three reviews.** Schema → extraction → transformation. Each is a separate PR. Stop and request feedback before proceeding.
 
 ---
 
-### Steps and their purpose
+## ETL Pipeline
 
-The pipeline has two stages connected by a **record schema** — a Pydantic model you define per pipe.
+### Step 1: Schema Generation (PR 1)
 
-**`extract_file(source_uri, storage) → Iterator[RecordSchema]`** answers: *what is in this file?*
+The goal is to produce two version-controlled artifacts from sample archive files:
 
-- **Validate first.** Parse the raw file against its [file schema](#file-schemas). This is a breaking-change gate: if the file's structure no longer matches what the pipe expects, validation raises, and `extract()` logs a warning and skips the file. No transformation will run against a file that fails this check.
-- Flatten the validated file's items into records, enriching each with any file-level context (e.g. fields that live at the file root rather than on each individual item).
-- Yield one record per logical item — one message, one post, one comment.
-- Capture **every field that could plausibly be useful** in `transform`: sender, recipients, timestamps, content text, media URIs, reaction counts, reply context, etc. When in doubt, include it.
-- Keep field values as close to the source as possible. Do not compose strings, derive values, or make semantic decisions here.
-- Skip only when data is **structurally unusable**: a required field is missing, or there is no renderable content at all.
-- Extract filter criteria (role names, content types, etc.) to named module-level constants when they appear in more than one place. Single-use, self-evident values can stay as literals.
-- When filtering requires checking multiple conditions, extract a dedicated predicate so the extract loop stays readable. Separate *what records we want* from *whether the record has usable content*; keep data-quality checks inline.
+1. **`schema.json`** — a JSON Schema document, the canonical description of the file's structure.
+2. **`schemas.py`** — Pydantic models generated from the JSON Schema, used for runtime validation.
 
-**`transform(record, task) → ThreadRow`** answers: *what does this record mean?*
+#### Collecting samples
 
-- Map the record's fields onto the appropriate fibre model. **Use all the information the record carries** — do not silently drop fields that have a place in the payload.
-- Apply semantic logic where needed: detect system-generated strings, compose the human-readable content field, choose the right fibre type for variation within the pipe.
-- **Do not introduce fields that have no basis in the record.** If a fibre field cannot be populated from the record, leave it unset rather than guessing.
-- When building a `Collection` context (e.g. for conversations or threads), set its `id` to the **real, user-facing URL** of the conversation or collection whenever possible. If the archive does not expose the public identifier, construct a stable synthetic URL from the data that is available and **add a comment** explaining that the URL is synthetic and why.
-- Build the fibre payload (see below) and return a `ThreadRow`.
+Extract the target file from one or more archives. Use at least 2–3 samples from different exports to cover field variations (optional fields, type differences). Samples are temporary and not committed to the repo.
 
-### File schemas
+#### Generating JSON Schema with genson
 
-Each pipe validates its input via Pydantic models in `schemas.py`. How that validation is structured depends on the file's top-level structure.
+[`genson`](https://github.com/wolverdude/genson) infers a JSON Schema from sample data. When given multiple samples it merges them: fields present in some but not others become non-required, and type unions are created when a field differs across samples.
 
-**Files that are not a flat JSON array at the root** (an object with envelope fields, a nested structure, etc.) must be read in full with `storage.read()` and validated with a file-level schema. Its role is a breaking-change gate — if the file's structure no longer matches what the pipe expects, validation raises before any records are processed.
+For **envelope objects** (JSON object at root), run `genson` on the full file(s):
 
-- If the file is a JSON object wrapping a list, model the object as a Pydantic class and make the list field a `list[ItemModel]` — not `list[dict]`.
-- For each item model, declare every field the pipe reads as a typed attribute. Fields that are optional in the real data should be typed `field: T | None = None`. Required fields should have no default.
-- Nested structures (sub-objects, inner arrays) must be modelled as Pydantic classes too — not left as `dict` or `dict[str, Any]`.
-- Do not use `TypeAdapter(list[...])` — it loads the entire file into memory and is superseded by streaming for flat arrays and by a typed wrapper class for envelope objects.
+```bash
+genson sample1.json sample2.json > providers/acme/bookmarks/schema.json
+```
 
-**Files that are a flat JSON array at the root** must be streamed with `storage.open_stream()` + `ijson`. There is no whole-file schema in this case — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop). The item model is the validation gate: if an item fails validation, the exception must propagate — do not wrap `model_validate` in a try/except. The base class will mark the task as failed so the schema can be fixed.
+For **flat arrays** (JSON array at root), the schema should describe a **single item**, not the array wrapper. Extract items and pass them individually, or run `genson` on the array and then extract the `items` sub-schema from the result into `schema.json`.
 
-The only exception is genuinely opaque sub-structures — nested dicts whose internal schema is fully unknown and that the pipe never inspects. Use `dict[str, object] | None`, not `dict[str, Any] | None`; avoid `Any` wherever a concrete type is possible. When a field can hold values of different types (e.g. text parts and attachment parts in the same list), model it as a typed union rather than collapsing to the common base type.
+#### Generating Pydantic models with datamodel-code-generator
 
-**Do not suppress validation errors.** If a node or item fails validation, the schema does not accurately model the data — fix the schema. Silently swallowing errors anywhere (e.g. a try/except around `model_validate` in `extract_file`, or a `field_validator` that catches and returns `None`) hides schema drift and makes it impossible to detect when the provider changes its format. Let validation exceptions propagate.
+[`datamodel-code-generator`](https://github.com/koxudaxi/datamodel-code-generator) generates typed Pydantic v2 models from a JSON Schema:
 
-**Allow extra fields** (Pydantic's default behaviour). Providers add fields over time; schemas must not reject files that contain fields beyond what the pipe currently uses. Only the removal or renaming of a field the pipe depends on should cause a validation failure.
+```bash
+datamodel-codegen \
+  --input providers/acme/bookmarks/schema.json \
+  --input-file-type jsonschema \
+  --output providers/acme/bookmarks/schemas.py \
+  --output-model-type pydantic_v2.BaseModel
+```
 
-In practice, follow the Instagram provider as a reference implementation: see `InstagramV1ActivityItem` in `context_use/providers/instagram/schemas.py` (shared schemas), `InstagramCommentStringMapData` in `context_use/providers/instagram/comments/schemas.py`, and `InstagramSavedPostSMD` in `context_use/providers/instagram/saved/schemas.py`.
+For providers with a custom base model (e.g. Instagram's `InstagramBaseModel` which fixes broken UTF-8 encoding), use `--base-class` so every generated model inherits from it instead of plain `BaseModel`:
 
-### The record schema as interface
+```bash
+datamodel-codegen \
+  --input providers/instagram/likes/schema.json \
+  --input-file-type jsonschema \
+  --output providers/instagram/likes/schemas.py \
+  --output-model-type pydantic_v2.BaseModel \
+  --base-class context_use.providers.instagram.schemas.InstagramBaseModel
+```
+
+All schemas can be regenerated at once via `make generate-schemas`, which discovers every `schema.json` and runs `datamodel-codegen` with the correct provider-specific flags.
+
+#### Schema rules
+
+Review and adjust generated models before committing:
+
+- **Optionality**: A field present in all samples may still be optional in real data. Change to `field: T | None = None` when appropriate.
+- **Naming**: Rename auto-generated names (e.g. `Model`, `ModelItem`) to follow project conventions (e.g. `BookmarksManifest`, `BookmarkItem`).
+- **Nested structures**: Verify nested objects are Pydantic classes, not `dict` or `dict[str, Any]`. Use `dict[str, object] | None` only for genuinely opaque sub-structures the pipe never inspects.
+- **Unions**: When a field holds different types (e.g. text parts and attachment parts in the same list), model as a typed union rather than collapsing to a common base.
+- **Extra fields**: Keep Pydantic's default of allowing extra fields. Providers add fields over time; schemas must not reject unknown fields. Only the removal or renaming of a field the pipe depends on should cause a validation failure.
+- **No `TypeAdapter(list[...])`**: For flat arrays, define only the item model. Streaming handles array iteration.
+
+In practice, follow the Instagram provider as a reference: `InstagramV1ActivityItem` in `providers/instagram/schemas.py` (shared schemas), `InstagramCommentStringMapData` in `providers/instagram/comments/schemas.py`, and `InstagramSavedPostSMD` in `providers/instagram/saved/schemas.py`.
+
+> **⏸ Stop here.** Open a PR with `schema.json` and `schemas.py`. Request feedback before proceeding to extraction.
+
+---
+
+### Step 2: Extraction (PR 2)
+
+Extraction answers: *what is in this file?* It parses raw files against the generated schemas, validates them, and flattens the validated data into records.
+
+#### The record schema
 
 The record schema is a **contract between `extract_file` and `transform`** — a complete, faithful, flat mirror of the useful raw data for one logical item.
 
@@ -92,7 +137,63 @@ The record schema is a **contract between `extract_file` and `transform`** — a
 
 The record is the stable interface between extract and transform. If the provider's file format changes, only `extract_file` (and the file schema) should need updating — `transform` reads from the record and is insulated from raw format details. The record schema itself should only change when the source gains a field worth exposing to `transform` — not in response to format changes that do not affect what data is available.
 
-### Using payload (fibre) models
+#### Implementing `extract_file`
+
+`extract_file(source_uri, storage) → Iterator[Record]`:
+
+- **Validate first.** Parse the raw file against its schema. This is the breaking-change gate — no transformation will run against a file that fails validation.
+- Flatten the validated file's items into records, enriching each with any file-level context (e.g. fields that live at the file root rather than on each individual item).
+- Yield one record per logical item — one message, one post, one comment.
+- Capture **every field that could plausibly be useful** in `transform`: sender, recipients, timestamps, content text, media URIs, reaction counts, reply context, etc. When in doubt, include it.
+- Keep field values as close to the source as possible. Do not compose strings, derive values, or make semantic decisions here.
+- Skip only when data is **structurally unusable**: a required field is missing, or there is no renderable content at all.
+- Extract filter criteria (role names, content types, etc.) to named module-level constants when they appear in more than one place. Single-use, self-evident values can stay as literals.
+- When filtering requires checking multiple conditions, extract a dedicated predicate so the extract loop stays readable. Separate *what records we want* from *whether the record has usable content*; keep data-quality checks inline.
+
+#### Validation by file type
+
+**Envelope objects** (not a flat JSON array at root) must be read in full with `storage.read()` and validated with a file-level schema via `Model.model_validate_json(raw)`. If the file is a JSON object wrapping a list, model the object as a Pydantic class and make the list field `list[ItemModel]` — not `list[dict]`.
+
+**Flat arrays** (array at root) must be streamed with `storage.open_stream()` + `ijson.items(stream, "item")`. There is no whole-file schema — define only the item model and validate each item individually as it is streamed (`ItemModel.model_validate(raw_item)` inside the loop).
+
+#### Strict validation
+
+Validation errors are categorically different from runtime errors. A validation failure means the schema doesn't match the data — this is almost always systemic (affects all files of that type), not a transient per-file issue. The pipe must raise `SchemaValidationError` (wrapping Pydantic's `ValidationError`), which the base `Pipe.extract()` does **not** catch — it propagates through `run()` and the task is marked as failed with the full error detail visible.
+
+Other exceptions (IO errors, transient failures) are caught by `extract()`, logged, and the file is skipped — this is unchanged.
+
+**Do not suppress validation errors.** Silently swallowing errors anywhere (e.g. a try/except around `model_validate` in `extract_file`, or a `field_validator` that catches and returns `None`) hides schema drift and makes it impossible to detect when the provider changes its format.
+
+For **streaming (flat arrays)**, strict validation means fail-fast: on the first item that fails `model_validate`, `SchemaValidationError` propagates immediately. Items already yielded before the failure are discarded (the store does batch insert per task). The tradeoff is that you only see the first bad item's error, not all of them — but schema mismatches are systemic, so the first error tells you what needs fixing.
+
+The error message is the triage signal:
+- `missing` on a field the pipe doesn't use → schema too strict, update `schema.json` and regenerate
+- `type_error` on a field the pipe uses → input is wrong or schema needs a type fix
+
+#### Storage
+
+- `storage.read(key) → bytes` — for envelope objects. Pair with `model_validate_json`.
+- `storage.open_stream(key) → BinaryIO` — for flat arrays. Pair with `ijson.items(stream, "item")` and per-item validation.
+
+> **⏸ Stop here.** Open a PR with `record.py`, the extraction logic in `pipe.py`, fixture data, and extraction tests. Request feedback before proceeding to transformation.
+
+---
+
+### Step 3: Transformation (PR 3)
+
+Transformation answers: *what does this record mean?* It maps each record onto the appropriate fibre model and produces a `ThreadRow`.
+
+#### Implementing `transform`
+
+`transform(record, task) → ThreadRow`:
+
+- Map the record's fields onto the appropriate fibre model. **Use all the information the record carries** — do not silently drop fields that have a place in the payload.
+- Apply semantic logic where needed: detect system-generated strings, compose the human-readable content field, choose the right fibre type for variation within the pipe.
+- **Do not introduce fields that have no basis in the record.** If a fibre field cannot be populated from the record, leave it unset rather than guessing.
+- When building a `Collection` context (e.g. for conversations or threads), set its `id` to the **real, user-facing URL** of the conversation or collection whenever possible. If the archive does not expose the public identifier, construct a stable synthetic URL from the data that is available and **add a comment** explaining that the URL is synthetic and why.
+- Build the fibre payload and return a `ThreadRow`.
+
+#### Payload (fibre) models
 
 Fibre models in `context_use/etl/payload/models.py` are the shared vocabulary of what happened. Most pipes will use one of these:
 
@@ -108,9 +209,11 @@ Fibre models in `context_use/etl/payload/models.py` are the shared vocabulary of
 
 **Do not add a new fibre type to accommodate small differences between records from the same pipe.** Variation within a pipe — a plain text message, a story reply, a shared post — is handled in `transform()` through content composition, not by creating new types. Fibre types represent categorically different kinds of interaction. If you think you need a new type, first check whether an existing one covers the semantic meaning; explain your reasoning in the PR.
 
-To add a genuinely new fibre type: subclass the appropriate AS base (`Activity` or `Object`) with `_BaseFibreMixin`, add a `fibreKind` literal field, implement `_get_preview()`, call `model_rebuild()` at module level, and add it to the `FibreByType` union at the bottom of the file. The models have to be compliant with [Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/)
+#### Extending payload models
 
-### Writing previews
+To add a genuinely new fibre type: subclass the appropriate AS base (`Activity` or `Object`) with `_BaseFibreMixin`, add a `fibreKind` literal field, implement `_get_preview()`, call `model_rebuild()` at module level, and add it to the `FibreByType` union at the bottom of the file. The models have to be compliant with [Activity Streams 2.0](https://www.w3.org/TR/activitystreams-core/).
+
+#### Writing previews
 
 `payload.get_preview(provider)` returns a short natural-language string stored in `ThreadRow.preview`. It is the primary input the memory pipeline feeds to the LLM — if the preview is weak, the generated memories will be weak.
 
@@ -131,24 +234,25 @@ Rules for `_get_preview`:
 
 If the payload fields are too sparse to produce a meaningful sentence, that is a signal that `transform` is not populating the fibre model fully enough — fix the transformation, not the preview.
 
-### Glob patterns (`archive_path_pattern`)
+> **⏸ Stop here.** Open a PR with the `transform()` implementation, `declare_interaction()`, package imports, and the full `PipeTestKit` suite. Request feedback.
+
+---
+
+### Shared Patterns
+
+#### Glob patterns (`archive_path_pattern`)
 
 Uses `fnmatch` syntax relative to the archive root (no archive ID prefix). Patterns with wildcards bundle all matched files into one `EtlTask` via `source_uris` (sorted for determinism). `extract_file` always handles a single file — the base class loops.
 
-### Timestamp helpers
+#### Timestamp helpers
 
 When converting a Unix epoch to a timezone-aware `datetime`, use a thin module-level helper rather than inlining the conversion. Do not add ambiguity-resolution logic (e.g. ms-vs-s detection) unless there is evidence from real export data that the provider actually uses mixed formats.
 
-### Storage
-
-- `storage.read(key) → bytes` — read a file in full. Use when the file is not a flat JSON array (envelope object, nested structure); pair with a whole-file schema validated via `model_validate` or `TypeAdapter`.
-- `storage.open_stream(key) → BinaryIO` — open a stream without loading the file into memory. Use when the file is a flat JSON array at the root; pair with `ijson.items(stream, "item")` and per-item validation.
-
-### Shared base class pattern
+#### Shared base class pattern
 
 When a provider has multiple interaction types sharing the same `record_schema` and `transform()`, extract shared logic into a private base class. Only concrete subclasses (which set `interaction_type` and `archive_path_pattern`) get registered. See `context_use/providers/instagram/media/pipe.py`.
 
-### Versioning via inheritance
+#### Versioning via inheritance
 
 To support a new archive format, subclass the existing pipe, override `extract_file()`, and set a new `archive_version` / `archive_path_pattern`. `transform()` is inherited when `record_schema` is unchanged.
 
@@ -229,7 +333,15 @@ When `fixture_data` and `fixture_key` are set, `PipeTestKit` auto-generates the 
 - `extracted_records` — calls `extract()` with fixture data, returns `list[BaseModel]`
 - `transformed_rows` — calls `run()` with fixture data, returns `list[ThreadRow]`
 
-Minimal example:
+#### Testing by PR
+
+**PR 2 (Extraction):** Write tests using the `extracted_records` fixture. Verify record count, field values, and edge cases. You may write a partial `PipeTestKit` subclass with `transform()` stubbed, or test `extract_file()` directly.
+
+**PR 3 (Transformation):** Expand to the full `PipeTestKit` suite. Set `expected_extract_count`, `expected_transform_count`, `expected_fibre_kind`. Add provider-specific assertions on previews, payload fields, etc.
+
+A CI-enforced meta-test (`tests/unit/etl/core/test_pipe_coverage.py`) checks that **every registered pipe** has a corresponding `PipeTestKit` subclass. This check applies after PR 3 when `declare_interaction` fires.
+
+### Minimal example
 
 ```python
 from context_use.providers.myco.search.pipe import MyCoSearchPipe
@@ -252,8 +364,6 @@ class TestMyCoSearchPipe(PipeTestKit):
 ```
 
 Tests that need custom inline data (e.g. edge-case filtering) still accept `tmp_path` directly and build their own storage.
-
-A CI-enforced meta-test (`tests/unit/etl/core/test_pipe_coverage.py`) checks that **every registered pipe** has a corresponding `PipeTestKit` subclass. Adding a new pipe without a test will fail CI.
 
 ### Test directory layout
 
