@@ -1,0 +1,223 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "uuid": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "summary": {
+      "type": "string"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "account": {
+      "type": "object"
+    },
+    "chat_messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "uuid": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "content": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start_timestamp": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "stop_timestamp": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "flags": {},
+                "type": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "citations": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "name": {
+                  "type": "string"
+                },
+                "input": {
+                  "type": "object"
+                },
+                "message": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "integration_name": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "integration_icon_url": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "icon_name": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "context": {},
+                "display_content": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object"
+                    }
+                  ]
+                },
+                "approval_options": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  ]
+                },
+                "approval_key": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "is_mcp_app": {},
+                "tool_use_id": {
+                  "type": [
+                    "null",
+                    "string"
+                  ]
+                },
+                "content": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "is_error": {
+                  "type": "boolean"
+                },
+                "structured_content": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object"
+                    }
+                  ]
+                },
+                "meta": {},
+                "thinking": {
+                  "type": "string"
+                },
+                "summaries": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "cut_off": {
+                  "type": "boolean"
+                },
+                "alternative_display_type": {}
+              },
+              "required": [
+                "flags",
+                "start_timestamp",
+                "stop_timestamp",
+                "type"
+              ]
+            }
+          },
+          "sender": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "attachments",
+          "content",
+          "created_at",
+          "files",
+          "sender",
+          "text",
+          "updated_at",
+          "uuid"
+        ]
+      }
+    }
+  },
+  "required": [
+    "account",
+    "chat_messages",
+    "created_at",
+    "name",
+    "summary",
+    "updated_at",
+    "uuid"
+  ]
+}
