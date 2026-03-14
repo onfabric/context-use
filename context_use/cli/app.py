@@ -6,62 +6,40 @@ from importlib.metadata import version
 
 from context_use.cli.commands import COMMAND_GROUPS, TOP_LEVEL_COMMANDS
 
-DESCRIPTION = """\
-context-use — turn your data exports into portable AI memory
+_BANNER_ART = (
+    "                ▐▌             ▐▌                      \n"
+    " ▟██▖ ▟█▙ ▐▙██▖▐███  ▟█▙ ▝█ █▘▐███      ▐▌ ▐▌▗▟██▖ ▟█▙ \n"
+    "▐▛  ▘▐▛ ▜▌▐▛ ▐▌ ▐▌  ▐▙▄▟▌ ▐█▌  ▐▌       ▐▌ ▐▌▐▙▄▖▘▐▙▄▟▌\n"
+    "▐▌   ▐▌ ▐▌▐▌ ▐▌ ▐▌  ▐▛▀▀▘ ▗█▖  ▐▌   ██▌ ▐▌ ▐▌ ▀▀█▖▐▛▀▀▘\n"
+    "▝█▄▄▌▝█▄█▘▐▌ ▐▌ ▐▙▄ ▝█▄▄▌ ▟▀▙  ▐▙▄      ▐▙▄█▌▐▄▄▟▌▝█▄▄▌\n"
+    " ▝▀▀  ▝▀▘ ▝▘ ▝▘  ▀▀  ▝▀▀ ▝▀ ▀▘  ▀▀       ▀▀▝▘ ▀▀▀  ▝▀▀ "
+)
 
-Turn data exports from ChatGPT, Instagram, and other platforms into personal memories.
-Port your memories to your favorite AI agents so they can understand you more like a
-friend and less like a chatbot.
 
-Quick start: context-use pipeline --quick <zip-path>"""
+_HEADLINE = "Turn your data exports into portable AI memory"
 
 _EPILOG = (
-    "Quick start (real-time API, last 30 days):\n"
-    "  context-use pipeline --quick <zip-path>      "
-    "Ingest + memories preview\n"
-    "\n"
-    "Full pipeline (batch API):\n"
-    "  context-use pipeline                         "
-    "Ingest + memories in one go\n"
-    "\n"
-    "Or step by step:\n"
-    "  1. context-use ingest                        "
-    "Parse an archive\n"
-    "  2. context-use memories generate             "
-    "Generate memories (batch API)\n"
-    "\n"
-    "Explore:\n"
-    "  context-use memories list                    "
-    "Browse memories\n"
-    '  context-use memories search "<your-query>"   '
-    "Semantic search\n"
-    "  context-use memories export                  "
-    "Export to file\n"
-    "\n"
-    "Personal agent:\n"
-    "  context-use agent synthesise                 "
-    "Synthesise pattern memories\n"
-    '  context-use agent ask "<your-prompt>"        '
-    "Send a free-form task to the agent\n"
-    "\n"
-    "Proxy:\n"
-    "  context-use proxy                            "
-    "Start the context enrichment proxy\n"
-    "\n"
-    "Configuration:\n"
-    "  context-use config show                      "
-    "Show current settings\n"
-    "  context-use config set-key                   "
-    "Change OpenAI API key\n"
-    "  context-use config path                      "
-    "Print config file location\n"
+    "examples:\n"
+    "  context-use pipeline --quick export.zip      Quick start (real-time API)\n"
+    "  context-use pipeline                         Full pipeline (batch API)\n"
+    '  context-use memories search "cooking"        Search your memories\n'
+    "  context-use proxy                            Start the context enrichment proxy\n"  # noqa: E501
+    '  context-use agent ask "summarise March"      Ask the personal agent\n'
 )
+
+
+def _banner() -> str:
+    try:
+        ver = version("context-use")
+        return f"\n{_BANNER_ART}  v{ver}\n\n{_HEADLINE}\n"
+    except UnicodeEncodeError:
+        return ""
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="context-use",
-        description=DESCRIPTION,
+        description=_banner(),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=_EPILOG,
     )
