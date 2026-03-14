@@ -103,7 +103,7 @@ class ConfigPathCommand(BaseCommand):
 
 class ConfigGroup(CommandGroup):
     name = "config"
-    help = "View and change settings"
+    help = "show · set-key · path — view and change settings"
     subcommands = [
         ConfigShowCommand,
         ConfigSetKeyCommand,

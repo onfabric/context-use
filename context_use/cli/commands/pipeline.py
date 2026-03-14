@@ -28,7 +28,7 @@ _QUICK_DEFAULT_DAYS = 30
 
 class PipelineCommand(ApiCommand):
     name = "pipeline"
-    help = "Full pipeline — ingest + memories"
+    help = "Ingest + generate memories (--quick for real-time API)"
     description = (
         "Run the full pipeline (ingest, memories). "
         "Uses the batch API by default. "
