@@ -51,7 +51,7 @@ If the provider needs a new fibre (payload) type, see [Extending Payload Models]
 - **Pipe is ET, not ETL.** Load is handled by the `Store`.
 - **One Pipe class = one interaction type.** Each subclass handles one kind of data (e.g. stories, reels, DMs).
 - **`Pipe.run()` yields `Iterator[ThreadRow]`.** Memory-bounded; the facade collects and persists via `Store.insert_threads()`.
-- **`InteractionConfig` = pipe + [memory config](#memory-pipeline).** Declared once per interaction type, co-located with the pipe class.
+- **`InteractionConfig` = pipe + memory config.** Declared once per interaction type, co-located with the pipe class.
 - **Three PRs, three reviews.** Schema → extraction → transformation. Each is a separate PR. Stop and request feedback before proceeding.
 
 ---
@@ -75,55 +75,6 @@ When a provider has multiple interaction types sharing the same `record_schema` 
 To support a new archive format, subclass the existing pipe, override `extract_file()`, and set a new `archive_version` / `archive_path_pattern`. `transform()` is inherited when `record_schema` is unchanged.
 
 `archive_version` tracks the provider's export format. `ThreadRow.version` tracks the payload schema version (`CURRENT_THREAD_PAYLOAD_VERSION`). They are independent.
-
----
-
-## Memory Pipeline
-
-### How It Works
-
-1. **Group threads** — `ThreadGrouper` partitions threads into groups, each becoming one LLM prompt.
-2. **Build prompts** — `BasePromptBuilder` formats each group into a `PromptItem`.
-3. **Submit to LLM** — `MemoryExtractor` sends an OpenAI batch job. The LLM returns `MemorySchema` responses.
-4. **Store memories** — parsed memories are persisted.
-5. **Embed memories** — a second batch job vectorises each memory for semantic search.
-
-### MemoryBatchManager State Machine
-
-See `context_use/memories/manager.py`. States: `CREATED → MEMORY_GENERATE_PENDING → MEMORY_GENERATE_COMPLETE → MEMORY_EMBED_PENDING → MEMORY_EMBED_COMPLETE → COMPLETE`. At any point → `SKIPPED` (no content) or `FAILED` (error).
-
-### MemoryConfig
-
-See `context_use/memories/config.py` — declares `prompt_builder`, `grouper`, and optional kwargs for each. Factory methods: `create_prompt_builder(contexts)` and `create_grouper()`.
-
-### Groupers
-
-See `context_use/batch/grouper.py` for the ABC and both stock implementations.
-
-| Grouper | Group key | Use case |
-|---------|-----------|----------|
-| `WindowGrouper` | Time window | Sliding time-window; good for media (stories, reels) |
-| `CollectionGrouper` | Collection ID from payload | Group by conversation / thread ID; good for chats |
-
-To write a custom grouper, subclass `ThreadGrouper` and implement `group(threads) -> list[ThreadGroup]`.
-
-### Prompt Builders
-
-See `context_use/memories/prompt/base.py` for the ABC (`BasePromptBuilder`) and `GroupContext` / `MemorySchema` models.
-
-| Builder | Module | Use case |
-|---------|--------|----------|
-| `ConversationMemoryPromptBuilder` | `memories/prompt/conversation.py` | Chat / DM transcripts |
-| `MediaMemoryPromptBuilder` | `memories/prompt/media.py` | Visual media grouped by day |
-
-To write a custom prompt builder, subclass `BasePromptBuilder` (or a stock builder) and implement `build()` and `has_content()`.
-
-### Reusable combinations
-
-| Interaction pattern | Grouper | Prompt builder |
-|---------------------|---------|----------------|
-| Chat / DM conversations | `CollectionGrouper` | `ConversationMemoryPromptBuilder` |
-| Visual media (stories, reels, posts) | `WindowGrouper` | `MediaMemoryPromptBuilder` |
 
 ---
 
