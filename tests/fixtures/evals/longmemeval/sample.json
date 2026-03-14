@@ -1,0 +1,97 @@
+[
+  {
+    "question_id": "q001",
+    "question": "What is the user's favorite programming language?",
+    "question_type": "single-session-user",
+    "question_date": "2024-03-15",
+    "answer": "Python",
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I love programming in Python. It's my favorite language.", "has_answer": true},
+        {"role": "assistant", "content": "Python is a great choice! What do you like most about it?"},
+        {"role": "user", "content": "The simplicity and the rich ecosystem of libraries.", "has_answer": false},
+        {"role": "assistant", "content": "Those are definitely Python's strongest points."}
+      ],
+      [
+        {"role": "user", "content": "Can you help me with a recipe for chocolate cake?"},
+        {"role": "assistant", "content": "Sure! Here's a simple recipe for chocolate cake."}
+      ]
+    ],
+    "haystack_session_ids": ["session_001", "session_002"],
+    "haystack_dates": ["2024-03-10", "2024-03-12"],
+    "answer_session_ids": ["session_001"],
+    "correct_docs": [0]
+  },
+  {
+    "question_id": "q002",
+    "question": "Where did the user go on vacation last summer?",
+    "question_type": "multi-session",
+    "question_date": "2024-06-20",
+    "answer": "The user went to Japan and visited Tokyo and Kyoto.",
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I'm planning a trip to Japan this summer.", "has_answer": true},
+        {"role": "assistant", "content": "Japan is wonderful! Which cities are you planning to visit?"},
+        {"role": "user", "content": "I'm thinking Tokyo and Kyoto.", "has_answer": true},
+        {"role": "assistant", "content": "Great choices! Tokyo for modern culture and Kyoto for traditional temples."}
+      ],
+      [
+        {"role": "user", "content": "Just got back from Japan! Tokyo was amazing.", "has_answer": true},
+        {"role": "assistant", "content": "Welcome back! How was Kyoto?"},
+        {"role": "user", "content": "Kyoto was beautiful. The temples were breathtaking.", "has_answer": true},
+        {"role": "assistant", "content": "It sounds like you had an incredible trip."}
+      ],
+      [
+        {"role": "user", "content": "What's a good book to read?"},
+        {"role": "assistant", "content": "I'd recommend 'Sapiens' by Yuval Noah Harari."}
+      ]
+    ],
+    "haystack_session_ids": ["session_010", "session_011", "session_012"],
+    "haystack_dates": ["2024-05-01", "2024-06-15", "2024-06-18"],
+    "answer_session_ids": ["session_010", "session_011"],
+    "correct_docs": [0, 1]
+  },
+  {
+    "question_id": "q003_abs",
+    "question": "What is the user's pet's name?",
+    "question_type": "abstention",
+    "question_date": "2024-04-01",
+    "answer": "The user has never mentioned having a pet.",
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I enjoy hiking on weekends."},
+        {"role": "assistant", "content": "Hiking is great exercise! Do you have a favorite trail?"},
+        {"role": "user", "content": "I usually go to the Blue Ridge Mountains."},
+        {"role": "assistant", "content": "Beautiful area! The views must be spectacular."}
+      ]
+    ],
+    "haystack_session_ids": ["session_020"],
+    "haystack_dates": ["2024-03-20"],
+    "answer_session_ids": [],
+    "correct_docs": []
+  },
+  {
+    "question_id": "q004",
+    "question": "What programming framework did the user switch to?",
+    "question_type": "knowledge-update",
+    "question_date": "2024-07-01",
+    "answer": "The user switched from React to Vue.js.",
+    "haystack_sessions": [
+      [
+        {"role": "user", "content": "I've been using React for my web projects.", "has_answer": true},
+        {"role": "assistant", "content": "React is very popular. How do you like it?"},
+        {"role": "user", "content": "It's good but I'm thinking of trying something new.", "has_answer": false}
+      ],
+      [
+        {"role": "user", "content": "I've decided to switch to Vue.js for my new project.", "has_answer": true},
+        {"role": "assistant", "content": "Vue.js is a great framework! What made you switch?"},
+        {"role": "user", "content": "I find its API more intuitive than React.", "has_answer": true},
+        {"role": "assistant", "content": "Many developers appreciate Vue's simplicity."}
+      ]
+    ],
+    "haystack_session_ids": ["session_030", "session_031"],
+    "haystack_dates": ["2024-04-15", "2024-06-20"],
+    "answer_session_ids": ["session_030", "session_031"],
+    "correct_docs": [0, 1]
+  }
+]
