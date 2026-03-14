@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -19,11 +20,13 @@ from context_use.providers.instagram.saved.record import (
     InstagramSavedCollectionRecord,
     InstagramSavedPostRecord,
 )
-from context_use.providers.instagram.saved.schemas import (
-    InstagramSavedCollectionsManifest,
-    InstagramSavedPostsManifest,
+from context_use.providers.instagram.saved.schema_saved_collections import (
+    Model as SavedCollectionsManifest,
 )
-from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.instagram.saved.schema_saved_posts import (
+    Model as SavedPostsManifest,
+)
+from context_use.providers.instagram.utils import PROVIDER, fix_strings_recursive
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -32,15 +35,6 @@ logger = logging.getLogger(__name__)
 
 
 class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
-    """ETL pipe for Instagram saved posts.
-
-    Reads ``saved_saved_media`` from
-    ``your_instagram_activity/saved/saved_posts.json``.
-    Each item has ``{title, string_map_data: {"Saved on": {href, timestamp}}}``.
-    Creates ``FibreAddObjectToCollection(object=FibrePost(...),
-    target=FibreCollectionFavourites())``.
-    """
-
     provider = PROVIDER
     interaction_type = "instagram_saved_posts"
     archive_version = 1
@@ -53,16 +47,14 @@ class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramSavedPostRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramSavedPostsManifest.model_validate_json(raw)
+        data = fix_strings_recursive(json.loads(raw))
+        manifest = SavedPostsManifest.model_validate(data)
 
         for item in manifest.saved_saved_media:
-            timestamp = item.string_map_data.saved_on.timestamp
-            if timestamp is None:
-                continue
             yield InstagramSavedPostRecord(
                 title=item.title,
-                href=item.string_map_data.saved_on.href,
-                timestamp=timestamp,
+                href=item.string_map_data.Saved_on.href,
+                timestamp=item.string_map_data.Saved_on.timestamp,
                 source=item.model_dump_json(),
             )
 
@@ -102,20 +94,6 @@ class InstagramSavedPostsPipe(Pipe[InstagramSavedPostRecord]):
 
 
 class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
-    """ETL pipe for Instagram saved collections.
-
-    Reads ``saved_saved_collections`` from
-    ``your_instagram_activity/saved/saved_collections.json``.
-
-    The array interleaves collection headers and child items:
-
-    - **Header**: ``{title: "Collection", string_map_data: {Name, "Creation Time", ...}}``
-    - **Item**: ``{string_map_data: {Name: {value, href}, "Added Time": {...}}}``
-
-    The pipe tracks the "current collection" while iterating.  Items
-    that appear before any header are skipped with a warning.
-    """  # noqa: E501
-
     provider = PROVIDER
     interaction_type = "instagram_saved_collections"
     archive_version = 1
@@ -128,27 +106,23 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramSavedCollectionRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramSavedCollectionsManifest.model_validate_json(raw)
+        data = fix_strings_recursive(json.loads(raw))
+        manifest = SavedCollectionsManifest.model_validate(data)
 
-        current_collection: tuple[str, int] | None = None  # (name, created)
+        current_collection: tuple[str, int] | None = None
 
         for item in manifest.saved_saved_collections:
             smd = item.string_map_data
 
-            # --- Collection header ---
-            if "Creation Time" in smd:
-                name_entry = smd.get("Name")
-                creation_entry = smd["Creation Time"]
-                if (
-                    name_entry
-                    and name_entry.value
-                    and creation_entry.timestamp is not None
-                ):
-                    current_collection = (name_entry.value, creation_entry.timestamp)
+            if smd.Creation_Time is not None:
+                if smd.Name_1 and smd.Name_1.value:
+                    current_collection = (
+                        smd.Name_1.value,
+                        smd.Creation_Time.timestamp,
+                    )
                 continue
 
-            # --- Child item ---
-            if "Added Time" not in smd:
+            if smd.Added_Time is None:
                 continue
 
             if current_collection is None:
@@ -158,15 +132,12 @@ class InstagramSavedCollectionsPipe(Pipe[InstagramSavedCollectionRecord]):
                 )
                 continue
 
-            name_entry = smd.get("Name")
-            item_author = name_entry.value if name_entry and name_entry.value else ""
+            item_author = smd.Name_1.value if smd.Name_1 and smd.Name_1.value else ""
             if not item_author:
                 continue
 
-            item_href = name_entry.href if name_entry else None
-            item_added_at = smd["Added Time"].timestamp
-            if item_added_at is None:
-                continue
+            item_href = smd.Name_1.href if smd.Name_1 else None
+            item_added_at = smd.Added_Time.timestamp
 
             coll_name, coll_created = current_collection
 

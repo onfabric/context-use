@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "saved_saved_collections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "string_map_data": {
+            "type": "object",
+            "properties": {
+              "Name": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string"
+                  },
+                  "href": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "value"
+                ]
+              },
+              "Creation Time": {
+                "type": "object",
+                "properties": {
+                  "timestamp": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timestamp"
+                ]
+              },
+              "Update Time": {
+                "type": "object",
+                "properties": {
+                  "timestamp": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timestamp"
+                ]
+              },
+              "Added Time": {
+                "type": "object",
+                "properties": {
+                  "timestamp": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timestamp"
+                ]
+              }
+            },
+            "required": [
+              "Name"
+            ]
+          }
+        },
+        "required": [
+          "string_map_data"
+        ]
+      }
+    }
+  },
+  "required": [
+    "saved_saved_collections"
+  ]
+}

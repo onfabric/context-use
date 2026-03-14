@@ -9,7 +9,7 @@ from context_use.providers.instagram import (
     saved,
     videos_watched,
 )
-from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.instagram.utils import PROVIDER
 from context_use.providers.registry import register_provider
 
 register_provider(

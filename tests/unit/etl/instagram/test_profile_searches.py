@@ -36,7 +36,7 @@ class TestInstagramProfileSearchesPipe(PipeTestKit):
     def test_record_fields(self, extracted_records):
         record = extracted_records[0]
         assert record.username == "synthetic_chef_account"
-        assert record.href == "https://www.instagram.com/synthetic_chef_account"
+        assert record.href == "https://www.instagram.com/_u/synthetic_chef_account"
         assert record.timestamp == 1771115155
         assert record.source is not None
 
@@ -48,7 +48,7 @@ class TestInstagramProfileSearchesPipe(PipeTestKit):
     def test_profile_has_name_and_url(self, transformed_rows):
         obj = transformed_rows[0].payload["object"]
         assert obj["name"] == "synthetic_chef_account"
-        assert "instagram.com/synthetic_chef_account" in obj["url"]
+        assert "instagram.com/_u/synthetic_chef_account" in obj["url"]
 
     def test_preview_includes_profile_name(self, transformed_rows):
         preview = transformed_rows[0].preview
@@ -56,37 +56,32 @@ class TestInstagramProfileSearchesPipe(PipeTestKit):
         assert "synthetic_chef_account" in preview
         assert "instagram" in preview.lower()
 
-    def test_title_fallback_for_username(self, extracted_records, transformed_rows):
-        """When ``value`` is absent, the outer ``title`` is used as username."""
-        title_record = extracted_records[2]
-        assert title_record.username == "synthetic_fitness_coach"
-        assert (
-            title_record.href == "https://www.instagram.com/_u/synthetic_fitness_coach"
-        )
+    def test_third_record_fields(self, extracted_records, transformed_rows):
+        record = extracted_records[2]
+        assert record.username == "synthetic_fitness_coach"
+        assert record.href == "https://www.instagram.com/_u/synthetic_fitness_coach"
 
         obj = transformed_rows[2].payload["object"]
         assert obj["name"] == "synthetic_fitness_coach"
 
     def test_skips_entries_with_no_username(self, tmp_path: Path):
-        """Entries where both ``value`` and ``title`` are empty should be skipped."""
+        """Entries where ``title`` is empty should be skipped."""
         data = {
             "searches_user": [
                 {
                     "title": "",
                     "string_list_data": [
                         {
-                            "href": "https://www.instagram.com/has_no_value",
-                            "value": "",
+                            "href": "https://www.instagram.com/_u/unknown",
                             "timestamp": 1771115155,
                         }
                     ],
                 },
                 {
-                    "title": "",
+                    "title": "valid_user",
                     "string_list_data": [
                         {
-                            "href": "https://www.instagram.com/valid_user",
-                            "value": "valid_user",
+                            "href": "https://www.instagram.com/_u/valid_user",
                             "timestamp": 1771028852,
                         }
                     ],

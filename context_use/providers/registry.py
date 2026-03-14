@@ -39,7 +39,7 @@ def register_provider(name: str, modules: list[types.ModuleType]) -> None:
 
         # providers/instagram/__init__.py
         from context_use.providers.instagram import comments, connections, media, ...
-        from context_use.providers.instagram.schemas import PROVIDER
+        from context_use.providers.instagram.utils import PROVIDER
         from context_use.providers.registry import register_provider
 
         register_provider(PROVIDER, modules=[comments, connections, media, ...])

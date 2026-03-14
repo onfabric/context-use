@@ -72,18 +72,20 @@ class TestInstagramCommentPostsPipe(PipeTestKit):
         """Entries where Comment value is empty should be skipped."""
         data = [
             {
+                "media_list_data": [],
                 "string_map_data": {
                     "Comment": {"value": ""},
                     "Media Owner": {"value": "someone"},
                     "Time": {"timestamp": 1765415135},
-                }
+                },
             },
             {
+                "media_list_data": [],
                 "string_map_data": {
                     "Comment": {"value": "Valid comment"},
                     "Media Owner": {"value": "someone"},
                     "Time": {"timestamp": 1765415136},
-                }
+                },
             },
         ]
         storage = DiskStorage(str(tmp_path / "store"))

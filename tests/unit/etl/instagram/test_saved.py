@@ -80,8 +80,9 @@ class TestInstagramSavedPostsPipe(
 
         pipe = self.pipe_class()
         task = self._make_task(key)
-        records = list(pipe.extract(task, storage))
-        assert len(records) == 0
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 0
+        assert pipe.error_count == 1
 
 
 class TestInstagramSavedCollectionsPipe(

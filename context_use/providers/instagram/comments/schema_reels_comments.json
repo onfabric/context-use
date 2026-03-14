@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "comments_reels_comments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "string_map_data": {
+            "type": "object",
+            "properties": {
+              "Comment": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "value"
+                ]
+              },
+              "Media Owner": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "value"
+                ]
+              },
+              "Time": {
+                "type": "object",
+                "properties": {
+                  "timestamp": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "timestamp"
+                ]
+              }
+            },
+            "required": [
+              "Comment",
+              "Media Owner",
+              "Time"
+            ]
+          }
+        },
+        "required": [
+          "string_map_data"
+        ]
+      }
+    }
+  },
+  "required": [
+    "comments_reels_comments"
+  ]
+}

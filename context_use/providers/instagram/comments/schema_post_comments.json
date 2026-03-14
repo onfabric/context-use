@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "media_list_data": {
+      "type": "array"
+    },
+    "string_map_data": {
+      "type": "object",
+      "properties": {
+        "Comment": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ]
+        },
+        "Media Owner": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "value"
+          ]
+        },
+        "Time": {
+          "type": "object",
+          "properties": {
+            "timestamp": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "timestamp"
+          ]
+        }
+      },
+      "required": [
+        "Comment",
+        "Media Owner",
+        "Time"
+      ]
+    }
+  },
+  "required": [
+    "media_list_data",
+    "string_map_data"
+  ]
+}

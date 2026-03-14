@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "searches_user": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "string_list_data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "href": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "href",
+                "timestamp"
+              ]
+            }
+          }
+        },
+        "required": [
+          "string_list_data",
+          "title"
+        ]
+      }
+    }
+  },
+  "required": [
+    "searches_user"
+  ]
+}

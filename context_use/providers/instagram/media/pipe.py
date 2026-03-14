@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -19,13 +20,25 @@ from context_use.memories.config import MemoryConfig
 from context_use.memories.prompt.media import MediaMemoryPromptBuilder
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.media.record import InstagramMediaRecord
-from context_use.providers.instagram.media.schemas import (
-    InstagramMediaItem,
-    InstagramPostsEntry,
-    InstagramReelsManifest,
-    InstagramStoriesManifest,
+from context_use.providers.instagram.media.schema_posts import (
+    MediaItem as PostsMediaItem,
 )
-from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.instagram.media.schema_posts import (
+    Model as PostsEntry,
+)
+from context_use.providers.instagram.media.schema_reels import (
+    MediaItem as ReelsMediaItem,
+)
+from context_use.providers.instagram.media.schema_reels import (
+    Model as ReelsManifest,
+)
+from context_use.providers.instagram.media.schema_stories import (
+    IgStory,
+)
+from context_use.providers.instagram.media.schema_stories import (
+    Model as StoriesManifest,
+)
+from context_use.providers.instagram.utils import PROVIDER, fix_strings_recursive
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -35,16 +48,24 @@ logger = logging.getLogger(__name__)
 _VIDEO_EXTENSIONS = (".mp4", ".mov", ".avi", ".webm", ".srt")
 
 
-def _items_to_records(
-    items: list[InstagramMediaItem],
-) -> Iterator[InstagramMediaRecord]:
-    for item in items:
-        yield InstagramMediaRecord(
-            uri=item.uri,
-            creation_timestamp=item.creation_timestamp,
-            title=item.title,
-            source=item.model_dump_json(),
-        )
+def _story_to_record(item: IgStory) -> InstagramMediaRecord:
+    return InstagramMediaRecord(
+        uri=item.uri,
+        creation_timestamp=item.creation_timestamp,
+        title=item.title,
+        source=item.model_dump_json(),
+    )
+
+
+def _media_item_to_record(
+    item: PostsMediaItem | ReelsMediaItem,
+) -> InstagramMediaRecord:
+    return InstagramMediaRecord(
+        uri=item.uri,
+        creation_timestamp=item.creation_timestamp,
+        title=item.title,
+        source=item.model_dump_json(),
+    )
 
 
 class _InstagramMediaPipe(Pipe[InstagramMediaRecord]):
@@ -100,8 +121,10 @@ class InstagramStoriesPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramStoriesManifest.model_validate_json(raw)
-        yield from _items_to_records(manifest.ig_stories)
+        data = fix_strings_recursive(json.loads(raw))
+        manifest = StoriesManifest.model_validate(data)
+        for item in manifest.ig_stories:
+            yield _story_to_record(item)
 
 
 class InstagramReelsPipe(_InstagramMediaPipe):
@@ -114,13 +137,12 @@ class InstagramReelsPipe(_InstagramMediaPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramMediaRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramReelsManifest.model_validate_json(raw)
+        data = fix_strings_recursive(json.loads(raw))
+        manifest = ReelsManifest.model_validate(data)
 
-        all_items: list[InstagramMediaItem] = []
         for entry in manifest.ig_reels_media:
-            all_items.extend(entry.media)
-
-        yield from _items_to_records(all_items)
+            for item in entry.media:
+                yield _media_item_to_record(item)
 
 
 class InstagramPostsPipe(_InstagramMediaPipe):
@@ -135,8 +157,9 @@ class InstagramPostsPipe(_InstagramMediaPipe):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                entry = InstagramPostsEntry.model_validate(raw)
-                yield from _items_to_records(entry.media)
+                entry = PostsEntry.model_validate(fix_strings_recursive(raw))
+                for item in entry.media:
+                    yield _media_item_to_record(item)
         finally:
             stream.close()
 

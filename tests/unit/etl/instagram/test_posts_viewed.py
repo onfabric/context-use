@@ -4,55 +4,12 @@ from pathlib import Path
 
 from context_use.providers.instagram.posts_viewed.pipe import (
     InstagramPostsViewedPipe,
-    InstagramPostsViewedV0Pipe,
 )
 from context_use.storage.disk import DiskStorage
-from context_use.testing import AttributedToProfileMixin, PipeTestKit, PostObjectMixin
+from context_use.testing import PipeTestKit, PostObjectMixin
 from tests.unit.etl.instagram.conftest import (
-    INSTAGRAM_POSTS_VIEWED_V0_JSON,
     INSTAGRAM_POSTS_VIEWED_V1_JSON,
 )
-
-
-class TestInstagramPostsViewedV0Pipe(
-    PostObjectMixin, AttributedToProfileMixin, PipeTestKit
-):
-    pipe_class = InstagramPostsViewedV0Pipe
-    expected_extract_count = 3
-    expected_transform_count = 3
-    fixture_data = INSTAGRAM_POSTS_VIEWED_V0_JSON
-    fixture_key = "archive/ads_information/ads_and_topics/posts_viewed.json"
-    expected_fibre_kind = "View"
-
-    def test_file_schema_gates_missing_key(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
-        assert self.fixture_key is not None
-        key = self.fixture_key
-        storage.write(key, b'{"wrong_key": []}')
-        pipe = self.pipe_class()
-        task = self._make_task(key)
-
-        rows = list(pipe.run(task, storage))
-        assert len(rows) == 0
-        assert pipe.error_count == 1
-
-    def test_record_fields(self, extracted_records):
-        record = extracted_records[0]
-        assert record.author == "synthetic_foodie"
-        assert record.timestamp == 1743840091
-        assert record.post_url is None
-        assert record.source is not None
-
-    def test_attribution_name_and_url(self, transformed_rows):
-        attr = transformed_rows[0].payload["object"]["attributedTo"]
-        assert attr["name"] == "synthetic_foodie"
-        assert attr["url"] == "https://www.instagram.com/synthetic_foodie"
-
-    def test_preview_includes_post_and_author(self, transformed_rows):
-        preview = transformed_rows[0].preview
-        assert "Viewed post" in preview
-        assert "synthetic_foodie" in preview
-        assert "instagram" in preview.lower()
 
 
 class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):

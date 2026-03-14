@@ -1,0 +1,145 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "participants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sender_name": {
+            "type": "string"
+          },
+          "timestamp_ms": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "string"
+          },
+          "is_geoblocked_for_viewer": {
+            "type": "boolean"
+          },
+          "is_unsent_image_by_messenger_kid_parent": {
+            "type": "boolean"
+          },
+          "share": {
+            "type": "object",
+            "properties": {
+              "link": {
+                "type": "string"
+              },
+              "share_text": {
+                "type": "string"
+              },
+              "original_content_owner": {
+                "type": "string"
+              },
+              "profile_share_username": {
+                "type": "string"
+              },
+              "profile_share_name": {
+                "type": "string"
+              }
+            }
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "reaction": {
+                  "type": "string"
+                },
+                "actor": {
+                  "type": "string"
+                },
+                "timestamp": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "actor",
+                "reaction"
+              ]
+            }
+          },
+          "photos": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "uri": {
+                  "type": "string"
+                },
+                "creation_timestamp": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "creation_timestamp",
+                "uri"
+              ]
+            }
+          },
+          "audio_files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "uri": {
+                  "type": "string"
+                },
+                "creation_timestamp": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "creation_timestamp",
+                "uri"
+              ]
+            }
+          }
+        },
+        "required": [
+          "is_geoblocked_for_viewer",
+          "sender_name",
+          "timestamp_ms"
+        ]
+      }
+    },
+    "title": {
+      "type": "string"
+    },
+    "is_still_participant": {
+      "type": "boolean"
+    },
+    "thread_path": {
+      "type": "string"
+    },
+    "magic_words": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "is_still_participant",
+    "magic_words",
+    "messages",
+    "participants",
+    "thread_path",
+    "title"
+  ]
+}
