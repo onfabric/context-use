@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "participants": {
+      "type": "array"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sender_name": {
+            "type": "string"
+          },
+          "timestamp_ms": {
+            "type": "integer"
+          },
+          "content": {
+            "type": "string"
+          },
+          "is_geoblocked_for_viewer": {
+            "type": "boolean"
+          },
+          "is_unsent_image_by_messenger_kid_parent": {
+            "type": "boolean"
+          },
+          "reactions": {
+            "type": "array"
+          },
+          "share": {
+            "type": "object",
+            "properties": {
+              "link": {
+                "type": "string"
+              },
+              "share_text": {
+                "type": "string"
+              },
+              "profile_share_username": {
+                "type": "string"
+              },
+              "profile_share_name": {
+                "type": "string"
+              },
+              "original_content_owner": {
+                "type": "string"
+              }
+            }
+          },
+          "photos": {
+            "type": "array"
+          },
+          "audio_files": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "is_geoblocked_for_viewer",
+          "sender_name",
+          "timestamp_ms"
+        ]
+      }
+    },
+    "title": {
+      "type": "string"
+    },
+    "is_still_participant": {
+      "type": "boolean"
+    },
+    "thread_path": {
+      "type": "string"
+    },
+    "magic_words": {
+      "type": "array"
+    }
+  },
+  "required": [
+    "is_still_participant",
+    "magic_words",
+    "messages",
+    "participants",
+    "thread_path",
+    "title"
+  ]
+}

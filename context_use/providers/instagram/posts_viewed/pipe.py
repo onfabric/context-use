@@ -18,15 +18,16 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.posts_viewed.record import (
     InstagramPostsViewedRecord,
 )
-from context_use.providers.instagram.posts_viewed.schemas import (
-    InstagramPostsViewedV0Manifest,
+from context_use.providers.instagram.posts_viewed.schemas_v0 import (
+    Model as PostsViewedV0Manifest,
 )
 from context_use.providers.instagram.schemas import (
     PROVIDER,
-    InstagramLabelValue,
-    InstagramV1ActivityItem,
-    InstagramV1OwnerEntry,
+    _fix_strings_recursive,
     extract_owner_username,
+)
+from context_use.providers.instagram.schemas_v1_activity_item import (
+    Model as V1Item,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -36,12 +37,6 @@ logger = logging.getLogger(__name__)
 
 
 class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
-    """Shared transform logic for Instagram posts viewed (v0 and v1).
-
-    Subclasses implement :meth:`extract_file` to parse their specific
-    archive format; :meth:`transform` is inherited.
-    """
-
     provider = PROVIDER
     interaction_type = "instagram_posts_viewed"
     record_schema = InstagramPostsViewedRecord
@@ -53,7 +48,6 @@ class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
     ) -> ThreadRow:
         published = datetime.fromtimestamp(float(record.timestamp), tz=UTC)
 
-        # Build the FibrePost — author becomes attributedTo Profile
         post_kwargs: dict = {}
         if record.post_url:
             post_kwargs["url"] = record.post_url
@@ -83,12 +77,6 @@ class _InstagramPostsViewedPipe(Pipe[InstagramPostsViewedRecord]):
 
 
 class InstagramPostsViewedV0Pipe(_InstagramPostsViewedPipe):
-    """ETL pipe for Instagram posts viewed — v0 archive format.
-
-    V0 files contain a top-level ``impressions_history_posts_seen``
-    key wrapping an array of ``{string_map_data: {Author, Time}}`` items.
-    """
-
     archive_version = 0
     archive_path_pattern = "ads_information/ads_and_topics/posts_viewed.json"
 
@@ -98,23 +86,16 @@ class InstagramPostsViewedV0Pipe(_InstagramPostsViewedPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramPostsViewedRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramPostsViewedV0Manifest.model_validate_json(raw)
+        manifest = PostsViewedV0Manifest.model_validate_json(raw)
         for item in manifest.impressions_history_posts_seen:
             yield InstagramPostsViewedRecord(
-                author=item.string_map_data.Author.value,
-                timestamp=item.string_map_data.Time.timestamp,
+                author=item.string_map_data.Author_1.value,
+                timestamp=item.string_map_data.Time_1.timestamp,
                 source=item.model_dump_json(),
             )
 
 
 class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
-    """ETL pipe for Instagram posts viewed — v1 archive format.
-
-    V1 files are a bare JSON array of ``{timestamp, media, label_values}``
-    items.  The post URL is in ``label_values`` with ``label == "URL"``,
-    and the author username is nested inside an ``Owner`` dict entry.
-    """
-
     archive_version = 1
     archive_path_pattern = "ads_information/ads_and_topics/posts_viewed.json"
 
@@ -126,15 +107,14 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                item = InstagramV1ActivityItem.model_validate(raw)
+                item = V1Item.model_validate(_fix_strings_recursive(raw))
                 post_url: str | None = None
                 author: str | None = None
 
                 for lv in item.label_values:
-                    if isinstance(lv, InstagramLabelValue):
-                        if lv.label == "URL":
-                            post_url = lv.value
-                    elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
+                    if lv.label == "URL":
+                        post_url = lv.value
+                    elif lv.title == "Owner" and lv.dict_:
                         author = extract_owner_username(lv)
 
                 yield InstagramPostsViewedRecord(

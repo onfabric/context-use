@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -24,9 +25,9 @@ from context_use.providers.instagram.direct_messages.record import (
     InstagramDirectMessageRecord,
 )
 from context_use.providers.instagram.direct_messages.schemas import (
-    InstagramDirectMessageManifest,
+    Model as InstagramDirectMessageManifest,
 )
-from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.instagram.schemas import PROVIDER, _fix_strings_recursive
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -118,7 +119,8 @@ class _InstagramDMPipe(Pipe[InstagramDirectMessageRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramDirectMessageRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramDirectMessageManifest.model_validate_json(raw)
+        data = _fix_strings_recursive(json.loads(raw))
+        manifest = InstagramDirectMessageManifest.model_validate(data)
 
         for msg in manifest.messages:
             share = msg.share

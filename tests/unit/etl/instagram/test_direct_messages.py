@@ -7,7 +7,7 @@ from context_use.providers.instagram.direct_messages.pipe import (
     InstagramDirectMessagesPipe,
 )
 from context_use.providers.instagram.direct_messages.schemas import (
-    InstagramDirectMessageManifest,
+    Model as InstagramDirectMessageManifest,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit

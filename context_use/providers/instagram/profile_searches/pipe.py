@@ -16,7 +16,7 @@ from context_use.providers.instagram.profile_searches.record import (
     InstagramProfileSearchRecord,
 )
 from context_use.providers.instagram.profile_searches.schemas import (
-    InstagramProfileSearchesManifest,
+    Model as ProfileSearchesManifest,
 )
 from context_use.providers.instagram.schemas import PROVIDER
 from context_use.providers.registry import declare_interaction
@@ -27,14 +27,6 @@ logger = logging.getLogger(__name__)
 
 
 class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
-    """ETL pipe for Instagram profile searches.
-
-    Reads ``searches_user`` from
-    ``logged_information/recent_searches/profile_searches.json``.
-    Each item has ``{string_list_data: [{href, value, timestamp}]}``.
-    Creates ``FibreSearch(object=Profile(...))``.
-    """
-
     provider = PROVIDER
     interaction_type = "instagram_profile_searches"
     archive_version = 1
@@ -47,11 +39,10 @@ class InstagramProfileSearchesPipe(Pipe[InstagramProfileSearchRecord]):
         storage: StorageBackend,
     ) -> Iterator[InstagramProfileSearchRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramProfileSearchesManifest.model_validate_json(raw)
+        manifest = ProfileSearchesManifest.model_validate_json(raw)
         for item in manifest.searches_user:
             for entry in item.string_list_data:
                 username = entry.value or item.title
-                # Skip entries with no username — preview would be unusable
                 if not username:
                     continue
                 yield InstagramProfileSearchRecord(
