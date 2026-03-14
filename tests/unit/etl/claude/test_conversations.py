@@ -12,7 +12,6 @@ from context_use.providers.claude.conversations.pipe import (
     ClaudeRole,
 )
 from context_use.providers.claude.conversations.record import ClaudeConversationRecord
-from context_use.providers.claude.conversations.pipe import ClaudeRole
 from context_use.providers.claude.conversations.schemas import (
     ChatMessage,
     ContentItem,
