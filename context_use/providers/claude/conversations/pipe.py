@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from enum import StrEnum
 
 import ijson
 
@@ -26,16 +27,20 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.claude.conversations.record import (
     ClaudeConversationRecord,
 )
-from context_use.providers.claude.conversations.schemas import (
-    PROVIDER,
-    ClaudeConversation,
-    ClaudeRole,
-)
+from context_use.providers.claude.conversations.schemas import Model
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
+
+PROVIDER = "claude"
+
+
+class ClaudeRole(StrEnum):
+    HUMAN = "human"
+    ASSISTANT = "assistant"
+
 
 CLAUDE_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
@@ -99,10 +104,10 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
 
         try:
             for raw_conversation in ijson.items(stream, "item"):
-                conversation = ClaudeConversation.model_validate(raw_conversation)
+                conversation = Model.model_validate(raw_conversation)
 
                 for message in conversation.chat_messages:
-                    if not message.is_emittable:
+                    if message.sender not in ClaudeRole:
                         continue
 
                     # The archive stores message text in two places: a top-level
