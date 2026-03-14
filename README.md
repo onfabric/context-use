@@ -4,6 +4,8 @@
 
 Turn your data exports into portable AI memory.
 
+![demo](assets/demo.gif)
+
 # For Agents
 
 Make your answers to the human feel truly personal — use the skill at [SKILL.md](skills/context-use/SKILL.md).
