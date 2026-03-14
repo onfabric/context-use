@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+from enum import StrEnum
 
 import ijson
 
@@ -26,16 +27,22 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.chatgpt.conversations.record import (
     ChatGPTConversationRecord,
 )
-from context_use.providers.chatgpt.conversations.schemas import (
-    PROVIDER,
-    ChatGPTConversation,
-    ChatGPTRole,
-)
+from context_use.providers.chatgpt.conversations.schemas import Model
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
+
+PROVIDER = "chatgpt"
+
+_TEXT_CONTENT_TYPE = "text"
+
+
+class ChatGPTRole(StrEnum):
+    USER = "user"
+    ASSISTANT = "assistant"
+
 
 CHATGPT_APPLICATION = Application(name="assistant")  # type: ignore[reportCallIssue]
 
@@ -47,7 +54,6 @@ def _parse_timestamp(ts: float | None) -> datetime | None:
 def _build_payload(
     record: ChatGPTConversationRecord,
 ) -> FibreSendMessage | FibreReceiveMessage | None:
-    """Build an ActivityStreams payload from a conversation record."""
     context = None
     if record.conversation_title or record.conversation_id:
         ctx_kwargs: dict = {"type": "Collection"}
@@ -78,13 +84,6 @@ def _build_payload(
 
 
 class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
-    """ETL pipe for ChatGPT conversations.
-
-    Reads ``conversations.json`` via ijson streaming, yields individual
-    :class:`ChatGPTConversationRecord` instances, and transforms each
-    into a :class:`ThreadRow` with an ActivityStreams payload.
-    """
-
     provider = PROVIDER
     interaction_type = "chatgpt_conversations"
     archive_version = 1
@@ -100,24 +99,26 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
 
         try:
             for raw_conversation in ijson.items(stream, "item"):
-                conversation = ChatGPTConversation.model_validate(
-                    raw_conversation,
-                )
+                conversation = Model.model_validate(raw_conversation)
 
-                for _msg_id, node in conversation.mapping.items():
+                for _node_id, node in conversation.mapping.items():
                     message = node.message
-                    if message is None or not message.is_emittable:
+                    if message is None:
+                        continue
+                    if (
+                        message.content.content_type != _TEXT_CONTENT_TYPE
+                        or message.author.role not in ChatGPTRole
+                    ):
                         continue
                     if not message.content.parts:
                         continue
                     part = message.content.parts[0]
                     if not isinstance(part, str) or not part.strip():
                         continue
-                    text = part
 
                     yield ChatGPTConversationRecord(
                         role=message.author.role,
-                        content=text,
+                        content=part,
                         create_time=message.create_time,
                         conversation_id=conversation.conversation_id,
                         conversation_title=conversation.title,

@@ -6,12 +6,14 @@ import pytest
 from pydantic import ValidationError
 
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
-from context_use.providers.chatgpt.conversations.pipe import ChatGPTConversationsPipe
-from context_use.providers.chatgpt.conversations.schemas import (
-    ChatGPTConversation,
-    ChatGPTMappingNode,
-    ChatGPTMessage,
+from context_use.providers.chatgpt.conversations.pipe import (
+    ChatGPTConversationsPipe,
     ChatGPTRole,
+)
+from context_use.providers.chatgpt.conversations.schemas import (
+    Mapping,
+    Message,
+    Model,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
@@ -57,20 +59,20 @@ class TestChatGPTConversationSchema:
                 }
             },
         }
-        conv = ChatGPTConversation.model_validate(raw)
+        conv = Model.model_validate(raw)
         assert conv.title == "Test"
         assert conv.conversation_id == "conv-1"
         assert len(conv.mapping) == 1
-        assert isinstance(conv.mapping["msg-1"].message, ChatGPTMessage)
+        assert isinstance(conv.mapping["msg-1"].message, Message)
 
     def test_missing_mapping_raises(self) -> None:
         raw = {"title": "Test", "conversation_id": "conv-1"}
         with pytest.raises(ValidationError):
-            ChatGPTConversation.model_validate(raw)
+            Model.model_validate(raw)
 
     def test_optional_fields(self) -> None:
         raw = {"mapping": {"node-1": {}}}
-        conv = ChatGPTConversation.model_validate(raw)
+        conv = Model.model_validate(raw)
         assert conv.title is None
         assert conv.conversation_id is None
         assert conv.mapping["node-1"].message is None
@@ -83,21 +85,21 @@ class TestChatGPTConversationSchema:
             "create_time": 1700000000.0,
             "unknown_field": "ignored",
         }
-        conv = ChatGPTConversation.model_validate(raw)
+        conv = Model.model_validate(raw)
         assert conv.title == "Test"
 
     def test_node_with_null_message(self) -> None:
-        node = ChatGPTMappingNode.model_validate({"message": None})
+        node = Mapping.model_validate({"message": None})
         assert node.message is None
 
     def test_node_with_extra_fields(self) -> None:
-        node = ChatGPTMappingNode.model_validate(
+        node = Mapping.model_validate(
             {"message": None, "id": "node-1", "children": ["node-2"]}
         )
         assert node.message is None
 
     def test_node_with_multimodal_message_parses(self) -> None:
-        node = ChatGPTMappingNode.model_validate(
+        node = Mapping.model_validate(
             {
                 "message": {
                     "author": {"role": "user"},
@@ -110,12 +112,12 @@ class TestChatGPTConversationSchema:
                 }
             }
         )
-        assert isinstance(node.message, ChatGPTMessage)
+        assert isinstance(node.message, Message)
         assert node.message.content.content_type == "multimodal_text"
 
     def test_node_with_malformed_message_raises(self) -> None:
         with pytest.raises(ValidationError):
-            ChatGPTMappingNode.model_validate(
+            Mapping.model_validate(
                 {"message": {"content": {"content_type": "text", "parts": ["hi"]}}}
             )
 
