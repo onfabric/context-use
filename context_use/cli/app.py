@@ -23,6 +23,7 @@ _EPILOG = (
     "  context-use pipeline --quick export.zip      Quick start (real-time API)\n"
     "  context-use pipeline                         Full pipeline (batch API)\n"
     '  context-use memories search "cooking"        Search your memories\n'
+    "  context-use proxy                            Start the context enrichment proxy\n"  # noqa: E501
     '  context-use agent ask "summarise March"      Ask the personal agent\n'
 )
 
