@@ -23,7 +23,7 @@ Issues = "https://github.com/onfabric/context-use/issues"
 
 [project.optional-dependencies]
 gcs = ["google-cloud-storage>=2.10.0,<3"]
-proxy = ["fastapi>=0.115", "uvicorn[standard]>=0.34"]
+proxy = ["fastapi>=0.135.1", "uvicorn[standard]>=0.41"]
 
 [dependency-groups]
 dev = [
