@@ -126,7 +126,7 @@ class AgentAskCommand(ApiCommand):
 
 class AgentGroup(CommandGroup):
     name = "agent"
-    help = "Run the personal memory agent"
+    help = "synthesise · ask · profile — personal memory agent"
     description = (
         "Run the personal memory agent with a built-in skill or a free-form query."
     )
