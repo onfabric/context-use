@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "header": {
+      "type": "string"
+    },
+    "title": {
+      "type": "string"
+    },
+    "titleUrl": {
+      "type": "string"
+    },
+    "time": {
+      "type": "string"
+    },
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "activityControls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "subtitles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      }
+    },
+    "details": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "locationInfos": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  },
+  "required": [
+    "header",
+    "products",
+    "time",
+    "title"
+  ]
+}

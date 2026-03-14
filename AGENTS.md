@@ -31,4 +31,4 @@
 
 # Guides
 
-- [Adding a data provider](docs/add-provider.md)
+- [Adding a data provider](docs/add-provider/AGENTS.md)

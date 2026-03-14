@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import datetime
 
 from context_use.etl.payload.models import (
@@ -19,10 +18,8 @@ from context_use.etl.payload.models import (
 )
 from context_use.providers.google.base import _BaseGooglePipe
 from context_use.providers.google.youtube.record import GoogleYoutubeRecord
-from context_use.providers.google.youtube.schemas import GoogleYoutubeFileItem
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
-from context_use.storage.base import StorageBackend
 
 _SEARCH_PREFIXES = ("Searched for ",)
 _VIEW_PREFIXES = ("Watched ", "Viewed ")
@@ -42,34 +39,10 @@ _RECOGNISED_PREFIXES = (
 
 
 class GoogleYoutubePipe(_BaseGooglePipe):
-    """Google YouTube activity.
-
-    Handles 6 title-prefix families producing different Fibre types:
-
-    - ``Searched for`` → :class:`FibreSearch` (``Page``)
-    - ``Watched`` / ``Viewed`` → :class:`FibreViewObject` (``Video``)
-    - ``Liked`` → :class:`FibreLike` (``Video``)
-    - ``Disliked`` → :class:`FibreDislike` (``Video``)
-    - ``Subscribed to`` → :class:`FibreFollowing` (``Profile``)
-    - ``Saved`` → :class:`FibreAddObjectToCollection` (``Video``)
-
-    Unrecognised prefixes (e.g. ``Shared``) are filtered out in
-    :meth:`extract_file`.
-    """
-
     interaction_type = "google_youtube"
     archive_path_pattern = "Portability/My Activity/YouTube/MyActivity.json"
     record_schema = GoogleYoutubeRecord  # type: ignore[assignment]
-    file_schema = GoogleYoutubeFileItem  # type: ignore[assignment]
-
-    def extract_file(
-        self,
-        source_uri: str,
-        storage: StorageBackend,
-    ) -> Iterator[GoogleYoutubeRecord]:  # type: ignore[override]
-        for record in super().extract_file(source_uri, storage):
-            if any(record.title.startswith(p) for p in _RECOGNISED_PREFIXES):
-                yield record  # type: ignore[misc]
+    _recognised_prefixes = _RECOGNISED_PREFIXES
 
     def _build_payload(  # type: ignore[override]
         self,

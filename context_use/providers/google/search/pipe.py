@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Iterator
-
 from context_use.etl.payload.models import (
     FibreSearch,
     FibreViewObject,
@@ -12,7 +10,6 @@ from context_use.providers.google.base import _BaseGooglePipe
 from context_use.providers.google.record import GoogleRecord
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
-from context_use.storage.base import StorageBackend
 
 _SEARCH_PREFIXES = ("Searched for ", "Defined ")
 _VIEW_PREFIXES = ("Visited ", "Viewed ")
@@ -21,25 +18,7 @@ _RECOGNISED_PREFIXES = _SEARCH_PREFIXES + _VIEW_PREFIXES
 
 
 class _BaseGoogleSearchPipe(_BaseGooglePipe):
-    """Shared logic for Google search-family pipes.
-
-    Overrides :meth:`extract_file` to filter out records with
-    unrecognised title prefixes, and provides :meth:`_build_payload`
-    that dispatches by prefix to :class:`FibreSearch` or
-    :class:`FibreViewObject`.
-
-    Concrete subclasses set ``interaction_type`` and
-    ``archive_path_pattern`` only.
-    """
-
-    def extract_file(
-        self,
-        source_uri: str,
-        storage: StorageBackend,
-    ) -> Iterator[GoogleRecord]:
-        for record in super().extract_file(source_uri, storage):
-            if any(record.title.startswith(p) for p in _RECOGNISED_PREFIXES):
-                yield record
+    _recognised_prefixes = _RECOGNISED_PREFIXES
 
     def _build_payload(self, record: GoogleRecord) -> ThreadPayload:
         url = self.clean_url(record.titleUrl)
