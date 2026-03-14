@@ -6,12 +6,20 @@ from importlib.metadata import version
 
 from context_use.cli.commands import COMMAND_GROUPS, TOP_LEVEL_COMMANDS
 
-DESCRIPTION = """\
-context-use — turn your data exports into portable AI memory
+_BANNER_ART = (
+    "                     __                   __                                      \n"  # noqa: E501
+    "                    /\\ \\__               /\\ \\__                                   \n"  # noqa: E501
+    "  ___    ___     ___\\ \\ ,_\\    __   __  _\\ \\ ,_\\          __  __    ____     __   \n"  # noqa: E501
+    " /'___\\ / __`\\ /' _ `\\ \\ \\/  /'__`\\/\\ \\/'\\\\ \\ \\/  _______/\\ \\/\\ \\  /',__\\  /'__`\\ \n"  # noqa: E501
+    "/\\ \\__//\\ \\L\\ \\/\\ \\/\\ \\ \\ \\_/\\  __/\\/>  </ \\ \\ \\_/\\______\\ \\ \\_\\ \\/\\__, `\\/\\  __/ \n"  # noqa: E501
+    "\\ \\____\\ \\____/\\ \\_\\ \\_\\ \\__\\ \\____\\/\\_/\\_\\ \\ \\__\\/______/\\ \\____/\\/\\____/\\ \\____\\\n"  # noqa: E501
+    " \\/____/\\/___/  \\/_/\\/_/\\/__/\\/____/\\//\\/_/  \\/__/         \\/___/  \\/___/  \\/____/"  # noqa: E501
+)
 
-Turn data exports from ChatGPT, Instagram, and other platforms into personal memories.
-Port your memories to your favorite AI agents so they can understand you more like a
-friend and less like a chatbot.
+
+_HEADLINE = "Turn your data exports into portable AI memory"
+
+DESCRIPTION = """\
 
 Quick start: context-use pipeline --quick <zip-path>"""
 
@@ -52,6 +60,16 @@ _EPILOG = (
     "  context-use config path                      "
     "Print config file location\n"
 )
+
+
+def _print_banner() -> None:
+    try:
+        ver = version("context-use")
+        print(f"{_BANNER_ART}  v{ver}")
+        print()
+        print(f"{_HEADLINE}\n")
+    except UnicodeEncodeError:
+        pass
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -96,6 +114,7 @@ def main() -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     if not hasattr(args, "func") or args.func is None:
+        _print_banner()
         parser.print_help()
         return
 
