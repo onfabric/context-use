@@ -6,7 +6,7 @@ Turn your data exports into portable AI memory.
 
 # For Agents
 
-Use the [SKILL.md](skills/context-use/SKILL.md) file on how to use context-use to get to personalize your answers to the human.
+Make your answers to the human feel truly personal — use the skill at [SKILL.md](skills/context-use/SKILL.md).
 
 # For Humans
 
@@ -90,4 +90,4 @@ context-use-data/
 | Google | Coming soon | Searches, YouTube | [Export your data](https://support.google.com/accounts/answer/3024190) |
 | WhatsApp | Coming soon | Conversations | [Export your data](https://faq.whatsapp.com/1180414079177245) |
 
-Want another provider? Contribute it by pointing your coding agent to the [Adding a Data Provider](docs/add-provider.md) guide.
+Want another provider? Contribute it by pointing your coding agent to the [Adding a Data Provider](docs/add-provider/AGENTS.md) guide.

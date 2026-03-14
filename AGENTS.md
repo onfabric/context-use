@@ -31,7 +31,4 @@
 
 # Guides
 
-- [Adding a data provider](docs/add-provider.md) (checklist and overview)
-  - [ETL pipeline](docs/etl-pipeline.md) (schema generation, extraction, transformation)
-  - [Memory pipeline](docs/memory-pipeline.md) (groupers, prompt builders)
-  - [Testing](docs/testing.md) (PipeTestKit, fixtures)
+- [Adding a data provider](docs/add-provider/AGENTS.md)
