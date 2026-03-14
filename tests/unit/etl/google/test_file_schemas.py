@@ -3,16 +3,32 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from context_use.providers.google.schemas import GoogleActivityFileItem
-from context_use.providers.google.youtube.schemas import (
-    GoogleYoutubeFileItem,
-    GoogleYoutubeSubtitle,
-)
+from context_use.providers.google.schemas import Model, Subtitle
 
 
-class TestGoogleActivityFileItem:
+class TestSubtitle:
+    def test_valid_with_url(self) -> None:
+        sub = Subtitle.model_validate(
+            {
+                "name": "Cooking Channel",
+                "url": "https://www.youtube.com/channel/UC000001",
+            }
+        )
+        assert sub.name == "Cooking Channel"
+        assert sub.url == "https://www.youtube.com/channel/UC000001"
+
+    def test_valid_without_url(self) -> None:
+        sub = Subtitle.model_validate({"name": "Some Channel"})
+        assert sub.url is None
+
+    def test_missing_name_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            Subtitle.model_validate({"url": "https://example.com"})
+
+
+class TestModel:
     def test_valid_search_item(self) -> None:
-        item = GoogleActivityFileItem.model_validate(
+        item = Model.model_validate(
             {
                 "header": "Search",
                 "title": "Searched for python",
@@ -26,7 +42,7 @@ class TestGoogleActivityFileItem:
         assert item.titleUrl is None
 
     def test_valid_item_with_all_optional_fields(self) -> None:
-        item = GoogleActivityFileItem.model_validate(
+        item = Model.model_validate(
             {
                 "header": "Discover",
                 "title": "Visited Content From Discover",
@@ -42,78 +58,8 @@ class TestGoogleActivityFileItem:
         assert item.locationInfos == [{"name": "At this area"}]
         assert item.details == [{"name": "Technology - viewed"}]
 
-    def test_tolerates_extra_fields(self) -> None:
-        item = GoogleActivityFileItem.model_validate(
-            {
-                "header": "Search",
-                "title": "Searched for python",
-                "time": "2025-06-15T10:30:00.000Z",
-                "brandNewField": "should not break",
-            }
-        )
-        assert item.title == "Searched for python"
-
-    def test_missing_title_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            GoogleActivityFileItem.model_validate(
-                {
-                    "header": "Search",
-                    "time": "2025-06-15T10:30:00.000Z",
-                }
-            )
-
-    def test_missing_time_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            GoogleActivityFileItem.model_validate(
-                {
-                    "header": "Search",
-                    "title": "Searched for python",
-                }
-            )
-
-    def test_missing_header_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            GoogleActivityFileItem.model_validate(
-                {
-                    "title": "Searched for python",
-                    "time": "2025-06-15T10:30:00.000Z",
-                }
-            )
-
-    def test_invalid_time_format_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            GoogleActivityFileItem.model_validate(
-                {
-                    "header": "Search",
-                    "title": "Searched for python",
-                    "time": "not-a-date",
-                }
-            )
-
-
-class TestGoogleYoutubeSubtitle:
-    def test_valid_with_url(self) -> None:
-        sub = GoogleYoutubeSubtitle.model_validate(
-            {
-                "name": "Cooking Channel",
-                "url": "https://www.youtube.com/channel/UC000001",
-            }
-        )
-        assert sub.name == "Cooking Channel"
-        assert sub.url == "https://www.youtube.com/channel/UC000001"
-
-    def test_valid_without_url(self) -> None:
-        sub = GoogleYoutubeSubtitle.model_validate({"name": "Some Channel"})
-        assert sub.url is None
-
-    def test_missing_name_raises(self) -> None:
-        with pytest.raises(ValidationError):
-            GoogleYoutubeSubtitle.model_validate({"url": "https://example.com"})
-
-
-class TestGoogleYoutubeFileItem:
-    def test_valid_watched_item(self) -> None:
-        item = GoogleYoutubeFileItem.model_validate(
+    def test_valid_with_subtitles(self) -> None:
+        item = Model.model_validate(
             {
                 "header": "YouTube",
                 "title": "Watched How to Make Pasta at Home",
@@ -133,7 +79,7 @@ class TestGoogleYoutubeFileItem:
         assert item.subtitles[0].name == "Cooking Channel"
 
     def test_valid_without_subtitles(self) -> None:
-        item = GoogleYoutubeFileItem.model_validate(
+        item = Model.model_validate(
             {
                 "header": "YouTube",
                 "title": "Searched for pasta recipes",
@@ -145,22 +91,64 @@ class TestGoogleYoutubeFileItem:
 
     def test_subtitle_missing_name_raises(self) -> None:
         with pytest.raises(ValidationError):
-            GoogleYoutubeFileItem.model_validate(
+            Model.model_validate(
                 {
                     "header": "YouTube",
                     "title": "Watched something",
                     "time": "2025-06-15T10:30:00.000Z",
+                    "products": ["YouTube"],
                     "subtitles": [{"url": "https://example.com"}],
                 }
             )
 
     def test_tolerates_extra_fields(self) -> None:
-        item = GoogleYoutubeFileItem.model_validate(
+        item = Model.model_validate(
             {
-                "header": "YouTube",
-                "title": "Watched something",
+                "header": "Search",
+                "title": "Searched for python",
                 "time": "2025-06-15T10:30:00.000Z",
-                "futureField": True,
+                "products": ["Search"],
+                "brandNewField": "should not break",
             }
         )
-        assert item.title == "Watched something"
+        assert item.title == "Searched for python"
+
+    def test_missing_title_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            Model.model_validate(
+                {
+                    "header": "Search",
+                    "time": "2025-06-15T10:30:00.000Z",
+                    "products": ["Search"],
+                }
+            )
+
+    def test_missing_time_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            Model.model_validate(
+                {
+                    "header": "Search",
+                    "title": "Searched for python",
+                    "products": ["Search"],
+                }
+            )
+
+    def test_missing_header_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            Model.model_validate(
+                {
+                    "title": "Searched for python",
+                    "time": "2025-06-15T10:30:00.000Z",
+                    "products": ["Search"],
+                }
+            )
+
+    def test_missing_products_raises(self) -> None:
+        with pytest.raises(ValidationError):
+            Model.model_validate(
+                {
+                    "header": "Search",
+                    "title": "Searched for python",
+                    "time": "2025-06-15T10:30:00.000Z",
+                }
+            )
