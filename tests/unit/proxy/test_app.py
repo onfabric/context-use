@@ -240,3 +240,47 @@ class TestChatCompletions:
         call_kwargs = mock_litellm.acompletion.call_args.kwargs
         assert call_kwargs["temperature"] == 0.7
         assert call_kwargs["max_tokens"] == 100
+
+    @patch("context_use.proxy.app.litellm")
+    async def test_skips_enrichment_for_low_max_tokens(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        app = create_app(ctx)
+        transport = ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(max_tokens=1),
+            )
+
+        ctx.search_memories.assert_not_awaited()
+        call_kwargs = mock_litellm.acompletion.call_args.kwargs
+        forwarded = call_kwargs["messages"]
+        assert not any("Likes pizza" in str(m.get("content", "")) for m in forwarded)
+        assert "max_tokens" not in call_kwargs
+
+    @patch("context_use.proxy.app.litellm")
+    async def test_enriches_when_max_tokens_sufficient(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        app = create_app(ctx)
+        transport = ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(max_tokens=200),
+            )
+
+        ctx.search_memories.assert_awaited_once()
+        forwarded = mock_litellm.acompletion.call_args.kwargs["messages"]
+        assert any("Likes pizza" in str(m.get("content", "")) for m in forwarded)
