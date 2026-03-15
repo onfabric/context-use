@@ -12,11 +12,6 @@ from context_use.memories.prompt.conversation import (
 )
 
 
-def pytest_collection_modifyitems(items: list, config) -> None:  # noqa: ANN001
-    for item in items:
-        item.add_marker(pytest.mark.llm)
-
-
 @pytest.fixture(scope="session")
 def llm_client() -> LiteLLMSyncClient:
     cfg = load_config()

@@ -10,6 +10,8 @@ from context_use.etl.core.exceptions import (
 from context_use.providers import chatgpt
 from tests.conftest import build_zip
 
+pytestmark = pytest.mark.integration
+
 
 class TestE2EErrors:
     async def test_bad_zip(self, ctx: ContextUse, tmp_path: Path):

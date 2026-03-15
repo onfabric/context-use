@@ -8,6 +8,8 @@ from context_use.llm.base import PromptItem
 from context_use.llm.litellm import LiteLLMSyncClient
 from context_use.memories.prompt.base import MemorySchema
 
+pytestmark = [pytest.mark.integration, pytest.mark.llm]
+
 
 async def test_generates_memories_for_each_conversation(
     llm_client: LiteLLMSyncClient,
