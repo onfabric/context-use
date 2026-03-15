@@ -1,0 +1,243 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "messageThreads": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "messagesAndContents": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "message": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "accountType": {
+                      "type": "string"
+                    },
+                    "accountId": {
+                      "type": "integer"
+                    },
+                    "contentType": {
+                      "type": "string"
+                    },
+                    "isPrivate": {
+                      "type": "boolean"
+                    },
+                    "senderPlatform": {
+                      "type": "string"
+                    },
+                    "userAgent": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["accountType", "contentType", "createdAt", "id", "isPrivate"]
+                },
+                "messageContent": {
+                  "type": "object",
+                  "properties": {
+                    "textContent": {
+                      "type": "object",
+                      "properties": {
+                        "body": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["body"]
+                    },
+                    "messageContentV2": {
+                      "type": "object",
+                      "properties": {
+                        "content": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["content"]
+                    },
+                    "textAndReferenceContent": {
+                      "type": "object",
+                      "properties": {
+                        "text": {
+                          "type": "string"
+                        },
+                        "referenceType": {
+                          "type": "string"
+                        },
+                        "referenceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": ["referenceId", "referenceType"]
+                    },
+                    "multipleChoicePromptContent": {
+                      "type": "object",
+                      "properties": {
+                        "promptText": {
+                          "type": "string"
+                        },
+                        "requireResponse": {
+                          "type": "boolean"
+                        },
+                        "multipleChoiceOptions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "selectedAtMs": {
+                                "type": "integer"
+                              }
+                            },
+                            "required": ["id", "title"]
+                          }
+                        }
+                      },
+                      "required": ["multipleChoiceOptions", "promptText", "requireResponse"]
+                    },
+                    "multipleChoiceResponseContent": {
+                      "type": "object",
+                      "properties": {
+                        "selectedMultipleChoiceOption": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "integer"
+                            },
+                            "title": {
+                              "type": "string"
+                            },
+                            "selectedAtMs": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": ["id", "selectedAtMs", "title"]
+                        }
+                      },
+                      "required": ["selectedMultipleChoiceOption"]
+                    },
+                    "bulletinContent": {
+                      "type": "object"
+                    },
+                    "eventDescriptionContent": {
+                      "type": "object"
+                    },
+                    "msgkitButtonActionStackContent": {
+                      "type": "object"
+                    },
+                    "msgkitActionCardContent": {
+                      "type": "object"
+                    },
+                    "collapsibleActionStackContent": {
+                      "type": "object"
+                    },
+                    "translatedTextContent": {
+                      "type": "object"
+                    }
+                  }
+                }
+              },
+              "required": ["message", "messageContent"]
+            }
+          },
+          "messageThreadParticipants": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "accountId": {
+                  "type": "integer"
+                },
+                "accountType": {
+                  "type": "string"
+                },
+                "statusActive": {
+                  "type": "boolean"
+                },
+                "groupParticipant": {
+                  "type": "boolean"
+                },
+                "createdAt": {
+                  "type": "string"
+                },
+                "updatedAt": {
+                  "type": "string"
+                }
+              },
+              "required": ["accountType", "statusActive"]
+            }
+          },
+          "messageThreadUserTags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tagName": {
+                  "type": "string"
+                },
+                "tagValue": {
+                  "type": "boolean"
+                }
+              },
+              "required": ["tagName", "tagValue"]
+            }
+          },
+          "readReceipts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "messageId": {
+                  "type": "integer"
+                },
+                "messageReadAt": {
+                  "type": "string"
+                }
+              },
+              "required": ["messageId", "messageReadAt"]
+            }
+          },
+          "messageContentHistories": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "messageId": {
+                  "type": "integer"
+                },
+                "messageThreadId": {
+                  "type": "integer"
+                },
+                "previousContent": {
+                  "type": "object"
+                }
+              },
+              "required": ["id", "messageId", "messageThreadId", "previousContent"]
+            }
+          }
+        },
+        "required": ["id", "messageThreadParticipants", "messageThreadUserTags", "messagesAndContents"]
+      }
+    }
+  },
+  "required": ["messageThreads"]
+}
