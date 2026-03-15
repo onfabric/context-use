@@ -1,0 +1,266 @@
+[
+  {
+    "uuid": "a1b2c3d4-e5f6-7890-abcd-ef1234567801",
+    "name": "Prosumer go-to-market strategies and early adoption",
+    "summary": "",
+    "created_at": "2025-11-20T09:15:00.000000Z",
+    "updated_at": "2025-11-20T09:27:30.000000Z",
+    "account": {
+      "uuid": "acct-alice-0000-0000-0000-000000000001"
+    },
+    "chat_messages": [
+      {
+        "uuid": "m1000001-0000-0000-0000-000000000001",
+        "text": "i'm deeply interested in the strategy used by prosumer companies in the early days. recently i've been studying wispr flow and how they found product-market fit through a pivot. can you find other companies with similar prosumer-led growth stories? i'm trying to understand the pattern so i can apply it to what i'm building",
+        "content": [
+          {
+            "start_timestamp": "2025-11-20T09:15:02.000000Z",
+            "stop_timestamp": "2025-11-20T09:15:02.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "i'm deeply interested in the strategy used by prosumer companies in the early days. recently i've been studying wispr flow and how they found product-market fit through a pivot. can you find other companies with similar prosumer-led growth stories? i'm trying to understand the pattern so i can apply it to what i'm building",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-11-20T09:15:02.120000Z",
+        "updated_at": "2025-11-20T09:15:02.120000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m1000001-0000-0000-0000-000000000002",
+        "text": "The prosumer GTM pattern is one of the most fascinating in modern SaaS history. Here are companies with similar stories to Wispr Flow:\n\n**Superhuman** — Required a 30-minute personal onboarding call for every user. Grew a 180,000-person waitlist charging $30/month for email. The bottleneck was intentional: by requiring the call they ensured every user hit their \"wow\" moment and became an evangelist to colleagues.\n\n**Figma** — Started as a designer tool. Designers used it solo, then shared links with developers who needed to inspect assets. Each shared link was a low-friction invite. Engineers adopted it, then advocated for it across their org.\n\n**Loom** — Targeted individual contributors frustrated with long meetings. One person records a Loom, sends it to colleagues, those colleagues can't reply without signing up. Each video was a viral loop built into the core workflow.\n\n**Notion** — Students and individual knowledge workers adopted it first. Their obsessive personal use generated referrals inside companies. Notion added team features once users were already embedded.\n\nThe common thread: find the person inside an organization who feels the most pain, give them a magical individual experience, and design the product so sharing it is the natural next step.",
+        "content": [
+          {
+            "start_timestamp": "2025-11-20T09:15:45.000000Z",
+            "stop_timestamp": "2025-11-20T09:16:20.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "The prosumer GTM pattern is one of the most fascinating in modern SaaS history. Here are companies with similar stories to Wispr Flow:\n\n**Superhuman** — Required a 30-minute personal onboarding call for every user. Grew a 180,000-person waitlist charging $30/month for email. The bottleneck was intentional: by requiring the call they ensured every user hit their \"wow\" moment and became an evangelist to colleagues.\n\n**Figma** — Started as a designer tool. Designers used it solo, then shared links with developers who needed to inspect assets. Each shared link was a low-friction invite. Engineers adopted it, then advocated for it across their org.\n\n**Loom** — Targeted individual contributors frustrated with long meetings. One person records a Loom, sends it to colleagues, those colleagues can't reply without signing up. Each video was a viral loop built into the core workflow.\n\n**Notion** — Students and individual knowledge workers adopted it first. Their obsessive personal use generated referrals inside companies. Notion added team features once users were already embedded.\n\nThe common thread: find the person inside an organization who feels the most pain, give them a magical individual experience, and design the product so sharing it is the natural next step.",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-11-20T09:16:20.350000Z",
+        "updated_at": "2025-11-20T09:16:20.350000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m1000001-0000-0000-0000-000000000003",
+        "text": "what about posthog? i've been following them closely as a potential model for what i'm building — an open-source-first, developer-focused product. i want to understand how they grew the early community",
+        "content": [
+          {
+            "start_timestamp": "2025-11-20T09:24:10.000000Z",
+            "stop_timestamp": "2025-11-20T09:24:10.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "what about posthog? i've been following them closely as a potential model for what i'm building — an open-source-first, developer-focused product. i want to understand how they grew the early community",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-11-20T09:24:10.200000Z",
+        "updated_at": "2025-11-20T09:24:10.200000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m1000001-0000-0000-0000-000000000004",
+        "text": "PostHog is one of the best modern examples of the open-source prosumer playbook.\n\n**How they grew the early community:**\n\nPostHog launched on Hacker News in February 2020 with \"PostHog — open source product analytics you can host yourself.\" The post got 500+ upvotes and generated their first 300 users in a week — all developers who wanted product analytics without sending user data to a third party.\n\nKey choices that compounded:\n- **Self-hosting as the entry point** — Developers could try it with zero commitment: no account, no credit card. This removed all friction for the technically paranoid buyer.\n- **GitHub as the community hub** — All issues, roadmap, and discussions were public. Contributors became advocates. The community felt ownership over the product.\n- **Shipping extremely fast in public** — They published weekly releases prominently. The momentum of visible progress built trust faster than any marketing could.\n\nThe prosumer pattern here: individual engineers deployed PostHog to scratch their own itch. When it worked, they advocated for it internally. The sales motion was bottoms-up from the person who set it up, not top-down from a sales team.\n\nIf your product has a strong self-hosting angle and a developer audience, PostHog's playbook is very directly applicable.",
+        "content": [
+          {
+            "start_timestamp": "2025-11-20T09:25:00.000000Z",
+            "stop_timestamp": "2025-11-20T09:27:30.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "PostHog is one of the best modern examples of the open-source prosumer playbook.\n\n**How they grew the early community:**\n\nPostHog launched on Hacker News in February 2020 with \"PostHog — open source product analytics you can host yourself.\" The post got 500+ upvotes and generated their first 300 users in a week — all developers who wanted product analytics without sending user data to a third party.\n\nKey choices that compounded:\n- **Self-hosting as the entry point** — Developers could try it with zero commitment: no account, no credit card. This removed all friction for the technically paranoid buyer.\n- **GitHub as the community hub** — All issues, roadmap, and discussions were public. Contributors became advocates. The community felt ownership over the product.\n- **Shipping extremely fast in public** — They published weekly releases prominently. The momentum of visible progress built trust faster than any marketing could.\n\nThe prosumer pattern here: individual engineers deployed PostHog to scratch their own itch. When it worked, they advocated for it internally. The sales motion was bottoms-up from the person who set it up, not top-down from a sales team.\n\nIf your product has a strong self-hosting angle and a developer audience, PostHog's playbook is very directly applicable.",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-11-20T09:27:30.580000Z",
+        "updated_at": "2025-11-20T09:27:30.580000Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  },
+  {
+    "uuid": "b2c3d4e5-f6a7-8901-bcde-f01234567802",
+    "name": "Making Python feel more type safe",
+    "summary": "",
+    "created_at": "2025-11-21T16:54:00.000000Z",
+    "updated_at": "2025-11-21T17:02:00.000000Z",
+    "account": {
+      "uuid": "acct-alice-0000-0000-0000-000000000001"
+    },
+    "chat_messages": [
+      {
+        "uuid": "m2000002-0000-0000-0000-000000000001",
+        "text": "i really like type safe languages but the api that i'm working on is in python and it's driving me crazy. the codebase has no type hints and runtime errors keep biting us. can you find some pro tips to make python feel a bit more like rust or typescript? i want to enforce this on my team",
+        "content": [
+          {
+            "start_timestamp": "2025-11-21T16:54:19.000000Z",
+            "stop_timestamp": "2025-11-21T16:54:19.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "i really like type safe languages but the api that i'm working on is in python and it's driving me crazy. the codebase has no type hints and runtime errors keep biting us. can you find some pro tips to make python feel a bit more like rust or typescript? i want to enforce this on my team",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-11-21T16:54:19.480000Z",
+        "updated_at": "2025-11-21T16:54:19.480000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m2000002-0000-0000-0000-000000000002",
+        "text": "Python's dynamic typing can feel like a free-for-all when you're used to the compiler having your back. Here's how to bring real type discipline to a Python API codebase:\n\n**1. Run pyright in strict mode in CI**\nPyright (used by Pylance) is faster and stricter than mypy. Add it to your CI pipeline and set `\"typeCheckingMode\": \"strict\"` in `pyrightconfig.json`. Once it's enforced in CI, it's not optional.\n\n**2. Use Pydantic for all API boundaries**\nPydantic validates types at runtime, not just at type-check time. Define request and response models as `BaseModel` subclasses. A field typed as `int` will actually reject `\"twenty\"` at runtime with a clear error.\n\n```python\nfrom pydantic import BaseModel\n\nclass CreateUserRequest(BaseModel):\n    email: str\n    age: int  # rejects \"twenty\" at runtime, not just at type-check time\n```\n\n**3. Replace dicts with dataclasses or TypedDicts**\nUntyped dicts are where type safety goes to die. Replace `dict` with `@dataclass` for internal domain objects and `TypedDict` for shapes you can't migrate immediately.\n\n**4. Use `Final` and `frozen=True` aggressively**\nImmutability prevents a whole class of bugs. `@dataclass(frozen=True)` gives you something close to Rust's `struct`.\n\n**5. Enable `from __future__ import annotations`**\nPuts all annotations in a lazily-evaluated string form, which avoids circular import issues and lets you use newer type syntax on older Python versions.\n\nThe sequence I'd suggest: get pyright passing on new code first, then gradually annotate the existing codebase. Don't try to fix everything at once.",
+        "content": [
+          {
+            "start_timestamp": "2025-11-21T16:54:39.000000Z",
+            "stop_timestamp": "2025-11-21T16:55:10.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "Python's dynamic typing can feel like a free-for-all when you're used to the compiler having your back. Here's how to bring real type discipline to a Python API codebase:\n\n**1. Run pyright in strict mode in CI**\nPyright (used by Pylance) is faster and stricter than mypy. Add it to your CI pipeline and set `\"typeCheckingMode\": \"strict\"` in `pyrightconfig.json`. Once it's enforced in CI, it's not optional.\n\n**2. Use Pydantic for all API boundaries**\nPydantic validates types at runtime, not just at type-check time. Define request and response models as `BaseModel` subclasses. A field typed as `int` will actually reject `\"twenty\"` at runtime with a clear error.\n\n```python\nfrom pydantic import BaseModel\n\nclass CreateUserRequest(BaseModel):\n    email: str\n    age: int  # rejects \"twenty\" at runtime, not just at type-check time\n```\n\n**3. Replace dicts with dataclasses or TypedDicts**\nUntyped dicts are where type safety goes to die. Replace `dict` with `@dataclass` for internal domain objects and `TypedDict` for shapes you can't migrate immediately.\n\n**4. Use `Final` and `frozen=True` aggressively**\nImmutability prevents a whole class of bugs. `@dataclass(frozen=True)` gives you something close to Rust's `struct`.\n\n**5. Enable `from __future__ import annotations`**\nPuts all annotations in a lazily-evaluated string form, which avoids circular import issues and lets you use newer type syntax on older Python versions.\n\nThe sequence I'd suggest: get pyright passing on new code first, then gradually annotate the existing codebase. Don't try to fix everything at once.",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-11-21T16:55:10.200000Z",
+        "updated_at": "2025-11-21T16:55:10.200000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m2000002-0000-0000-0000-000000000003",
+        "text": "can you write a short message i can send to my team to convince them to adopt this? they're skeptical about adding tooling overhead",
+        "content": [
+          {
+            "start_timestamp": "2025-11-21T16:57:26.000000Z",
+            "stop_timestamp": "2025-11-21T16:57:26.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "can you write a short message i can send to my team to convince them to adopt this? they're skeptical about adding tooling overhead",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-11-21T16:57:26.690000Z",
+        "updated_at": "2025-11-21T16:57:26.690000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m2000002-0000-0000-0000-000000000004",
+        "text": "Here's a message you can send:\n\n---\n\nHey team — I want to propose we tighten up our Python type discipline. I know \"add more tooling\" isn't exciting, but we keep getting bitten by runtime type errors that a type checker would have caught at commit time.\n\nThe three changes I'd like to try:\n\n1. **Pyright in strict mode in CI** — runs in seconds, catches the bugs before they land. One config file, no ongoing maintenance.\n2. **Pydantic for API request/response models** — we're already using it in a few places; let's make it the standard. Runtime validation means bad input fails loudly at the boundary, not silently deep in the stack.\n3. **No untyped `dict` for domain objects** — replace with `@dataclass` or `TypedDict`. This alone would have caught at least three bugs this sprint.\n\nI'm not asking us to rewrite the whole codebase. I'll start with new code and the highest-traffic paths. If it's not worth it after a month, we drop it.\n\n---",
+        "content": [
+          {
+            "start_timestamp": "2025-11-21T16:57:34.000000Z",
+            "stop_timestamp": "2025-11-21T17:02:00.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "Here's a message you can send:\n\n---\n\nHey team — I want to propose we tighten up our Python type discipline. I know \"add more tooling\" isn't exciting, but we keep getting bitten by runtime type errors that a type checker would have caught at commit time.\n\nThe three changes I'd like to try:\n\n1. **Pyright in strict mode in CI** — runs in seconds, catches the bugs before they land. One config file, no ongoing maintenance.\n2. **Pydantic for API request/response models** — we're already using it in a few places; let's make it the standard. Runtime validation means bad input fails loudly at the boundary, not silently deep in the stack.\n3. **No untyped `dict` for domain objects** — replace with `@dataclass` or `TypedDict`. This alone would have caught at least three bugs this sprint.\n\nI'm not asking us to rewrite the whole codebase. I'll start with new code and the highest-traffic paths. If it's not worth it after a month, we drop it.\n\n---",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-11-21T17:02:00.000000Z",
+        "updated_at": "2025-11-21T17:02:00.000000Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  },
+  {
+    "uuid": "c3d4e5f6-a7b8-9012-cdef-012345678903",
+    "name": "Cooking Italian and Japanese food at home",
+    "summary": "",
+    "created_at": "2025-12-05T20:10:00.000000Z",
+    "updated_at": "2025-12-05T20:38:00.000000Z",
+    "account": {
+      "uuid": "acct-alice-0000-0000-0000-000000000001"
+    },
+    "chat_messages": [
+      {
+        "uuid": "m3000003-0000-0000-0000-000000000001",
+        "text": "i eat out a lot but i want to start cooking more seriously at home. my two favourite cuisines are italian and japanese — i make a decent cacio e pepe already but it's basically the only thing i can do. for japanese i love ramen and yakitori but have never tried making either at home. where should i start?",
+        "content": [
+          {
+            "start_timestamp": "2025-12-05T20:10:05.000000Z",
+            "stop_timestamp": "2025-12-05T20:10:05.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "i eat out a lot but i want to start cooking more seriously at home. my two favourite cuisines are italian and japanese — i make a decent cacio e pepe already but it's basically the only thing i can do. for japanese i love ramen and yakitori but have never tried making either at home. where should i start?",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-12-05T20:10:05.190000Z",
+        "updated_at": "2025-12-05T20:10:05.190000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m3000003-0000-0000-0000-000000000002",
+        "text": "Great starting point — cacio e pepe is actually one of the harder Italian dishes to nail because there's nowhere to hide. The fact that yours is decent already means you understand emulsification, which unlocks a lot.\n\n**For Italian: the natural next step from cacio e pepe**\n\nGricia is the move. It's cacio e pepe plus guanciale (cured pork cheek), which adds fat and sweetness. Mastering the fat-rendering step gets you halfway to amatriciana and carbonara. Work through that Roman quartet and you'll have a serious foundation.\n\nFor something outside pasta: try a proper Milanese risotto. The technique — toasting the rice, adding warm stock ladle by ladle, mantecatura at the end — transfers to every risotto you'll ever make.\n\n**For Japanese: yakitori first, then ramen**\n\nStart with yakitori. The barriers are low: good chicken thighs, a basic tare (soy, mirin, sake, sugar simmered down), and very high heat. A cast-iron grill pan works if you don't have a proper konro. You'll learn about basting, caramelisation, and the importance of salt-to-fat balance.\n\nRamen is a bigger project. Don't start with tonkotsu — it needs 12+ hours of rolling boil and a lot of collagen. Start with a shoyu tare + chicken carcass broth (2–3 hours), which is far more forgiving and still excellent. Once you understand the components — broth, tare, noodles, toppings — tonkotsu makes more sense.\n\n**Suggested order:**\n1. Gricia → carbonara\n2. Yakitori with tare\n3. Chicken shoyu ramen\n4. Tonkotsu when you're ready for a weekend project",
+        "content": [
+          {
+            "start_timestamp": "2025-12-05T20:11:00.000000Z",
+            "stop_timestamp": "2025-12-05T20:12:30.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "Great starting point — cacio e pepe is actually one of the harder Italian dishes to nail because there's nowhere to hide. The fact that yours is decent already means you understand emulsification, which unlocks a lot.\n\n**For Italian: the natural next step from cacio e pepe**\n\nGricia is the move. It's cacio e pepe plus guanciale (cured pork cheek), which adds fat and sweetness. Mastering the fat-rendering step gets you halfway to amatriciana and carbonara. Work through that Roman quartet and you'll have a serious foundation.\n\nFor something outside pasta: try a proper Milanese risotto. The technique — toasting the rice, adding warm stock ladle by ladle, mantecatura at the end — transfers to every risotto you'll ever make.\n\n**For Japanese: yakitori first, then ramen**\n\nStart with yakitori. The barriers are low: good chicken thighs, a basic tare (soy, mirin, sake, sugar simmered down), and very high heat. A cast-iron grill pan works if you don't have a proper konro. You'll learn about basting, caramelisation, and the importance of salt-to-fat balance.\n\nRamen is a bigger project. Don't start with tonkotsu — it needs 12+ hours of rolling boil and a lot of collagen. Start with a shoyu tare + chicken carcass broth (2–3 hours), which is far more forgiving and still excellent. Once you understand the components — broth, tare, noodles, toppings — tonkotsu makes more sense.\n\n**Suggested order:**\n1. Gricia → carbonara\n2. Yakitori with tare\n3. Chicken shoyu ramen\n4. Tonkotsu when you're ready for a weekend project",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-12-05T20:12:30.550000Z",
+        "updated_at": "2025-12-05T20:12:30.550000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m3000003-0000-0000-0000-000000000003",
+        "text": "i love the ramen idea. i've only ever had tonkotsu at restaurants so i assumed that was the standard. what makes a really good shoyu ramen — and are there specific brands of soy sauce or noodles i should be looking for?",
+        "content": [
+          {
+            "start_timestamp": "2025-12-05T20:28:00.000000Z",
+            "stop_timestamp": "2025-12-05T20:28:00.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "i love the ramen idea. i've only ever had tonkotsu at restaurants so i assumed that was the standard. what makes a really good shoyu ramen — and are there specific brands of soy sauce or noodles i should be looking for?",
+            "citations": []
+          }
+        ],
+        "sender": "human",
+        "created_at": "2025-12-05T20:28:00.410000Z",
+        "updated_at": "2025-12-05T20:28:00.410000Z",
+        "attachments": [],
+        "files": []
+      },
+      {
+        "uuid": "m3000003-0000-0000-0000-000000000004",
+        "text": "Tonkotsu dominates Western ramen shops because the richness travels well and photos well — but in Japan, shoyu from Tokyo is the original and the benchmark for a lot of ramen chefs.\n\n**What makes a great shoyu ramen:**\n\nThe broth should be clear or lightly amber, not murky. You're layering a clean chicken/dashi stock with a deeply seasoned tare. The magic is in the tare — this is where you build complexity. A basic tare is soy + mirin + sake simmered with aromatics (garlic, ginger, a piece of kombu). Some people age it.\n\nThe toppings matter more than in tonkotsu because the broth is lighter: a properly made chashu (rolled pork belly braised in soy, mirin, sake), a soft-boiled marinated egg (ajitsuke tamago), menma (bamboo shoots), and good nori.\n\n**For soy sauce:**\nKikkoman is fine to start and widely available. For something noticeably better, look for **Yamasa** or **Higashimaru** — both are double-brewed (koikuchi style) and have more depth. If you can find a Japanese supermarket, Marukin or Yugeta are excellent. Avoid \"light\" soy (usukuchi) for a tare — it's saltier and tastes different.\n\n**For noodles:**\nSun Noodle makes the best fresh ramen noodles if you're in a city with a Japanese grocery. Dried: **Myojo** or **Sun Ramen** brands work well. Avoid generic supermarket ramen noodles — the alkaline water content (kansui) in proper ramen noodles gives that springy, slightly yellow chew you want.\n\nIn London, Japan Centre on Piccadilly and Atari-ya carry most of what you'd need.",
+        "content": [
+          {
+            "start_timestamp": "2025-12-05T20:29:00.000000Z",
+            "stop_timestamp": "2025-12-05T20:38:00.000000Z",
+            "flags": null,
+            "type": "text",
+            "text": "Tonkotsu dominates Western ramen shops because the richness travels well and photos well — but in Japan, shoyu from Tokyo is the original and the benchmark for a lot of ramen chefs.\n\n**What makes a great shoyu ramen:**\n\nThe broth should be clear or lightly amber, not murky. You're layering a clean chicken/dashi stock with a deeply seasoned tare. The magic is in the tare — this is where you build complexity. A basic tare is soy + mirin + sake simmered with aromatics (garlic, ginger, a piece of kombu). Some people age it.\n\nThe toppings matter more than in tonkotsu because the broth is lighter: a properly made chashu (rolled pork belly braised in soy, mirin, sake), a soft-boiled marinated egg (ajitsuke tamago), menma (bamboo shoots), and good nori.\n\n**For soy sauce:**\nKikkoman is fine to start and widely available. For something noticeably better, look for **Yamasa** or **Higashimaru** — both are double-brewed (koikuchi style) and have more depth. If you can find a Japanese supermarket, Marukin or Yugeta are excellent. Avoid \"light\" soy (usukuchi) for a tare — it's saltier and tastes different.\n\n**For noodles:**\nSun Noodle makes the best fresh ramen noodles if you're in a city with a Japanese grocery. Dried: **Myojo** or **Sun Ramen** brands work well. Avoid generic supermarket ramen noodles — the alkaline water content (kansui) in proper ramen noodles gives that springy, slightly yellow chew you want.\n\nIn London, Japan Centre on Piccadilly and Atari-ya carry most of what you'd need.",
+            "citations": []
+          }
+        ],
+        "sender": "assistant",
+        "created_at": "2025-12-05T20:38:00.000000Z",
+        "updated_at": "2025-12-05T20:38:00.000000Z",
+        "attachments": [],
+        "files": []
+      }
+    ]
+  }
+]
