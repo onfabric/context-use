@@ -54,6 +54,8 @@ def create_app(ctx: ContextUse, *, top_k: int = 5) -> FastAPI:
         else:
             logger.debug("Skipping enrichment (max_tokens=%s)", max_tokens)
 
+        # Some clients send max_tokens=1 as a connectivity probe; OpenAI
+        # rejects that outright, so drop it and let the model use its default.
         if isinstance(max_tokens, int) and max_tokens < 2:
             body.pop("max_tokens")
 
