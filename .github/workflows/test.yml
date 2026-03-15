@@ -17,4 +17,4 @@ jobs:
       - uses: ./.github/actions/prepare
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest -m "not llm"
