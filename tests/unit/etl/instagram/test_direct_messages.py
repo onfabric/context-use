@@ -7,7 +7,7 @@ from context_use.providers.instagram.direct_messages.pipe import (
     InstagramDirectMessagesPipe,
 )
 from context_use.providers.instagram.direct_messages.schemas import (
-    InstagramDirectMessageManifest,
+    Model as DirectMessageManifest,
 )
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
@@ -79,7 +79,7 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
             "magic_words": [],
             "future_field": "tolerated",
         }
-        manifest = InstagramDirectMessageManifest.model_validate(data)
+        manifest = DirectMessageManifest.model_validate(data)
         assert manifest.thread_path == "inbox/bob_123"
         assert len(manifest.messages) == 1
         assert manifest.messages[0].sender_name == "bob"

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "ig_stories": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "uri": {
+            "type": "string"
+          },
+          "creation_timestamp": {
+            "type": "integer"
+          },
+          "media_metadata": {
+            "type": "object"
+          },
+          "title": {
+            "type": "string"
+          },
+          "cross_post_source": {
+            "type": "object"
+          },
+          "dubbing_info": {
+            "type": "array"
+          },
+          "media_variants": {
+            "type": "array"
+          }
+        },
+        "required": [
+          "creation_timestamp",
+          "cross_post_source",
+          "media_metadata",
+          "title",
+          "uri"
+        ]
+      }
+    }
+  },
+  "required": [
+    "ig_stories"
+  ]
+}

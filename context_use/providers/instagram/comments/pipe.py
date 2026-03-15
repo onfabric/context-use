@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -17,11 +18,19 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.comments.record import InstagramCommentRecord
-from context_use.providers.instagram.comments.schemas import (
-    InstagramCommentFileItem,
-    InstagramReelsCommentsManifest,
+from context_use.providers.instagram.comments.schema_post_comments import (
+    Model as PostCommentItem,
 )
-from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.instagram.comments.schema_post_comments import (
+    StringMapData as PostCommentStringMapData,
+)
+from context_use.providers.instagram.comments.schema_reels_comments import (
+    Model as ReelsCommentsManifest,
+)
+from context_use.providers.instagram.comments.schema_reels_comments import (
+    StringMapData as ReelsCommentStringMapData,
+)
+from context_use.providers.instagram.utils import PROVIDER, fix_strings_recursive
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
@@ -29,32 +38,26 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 
+def _extract_from_smd(
+    smd: PostCommentStringMapData | ReelsCommentStringMapData,
+    source_json: str,
+) -> InstagramCommentRecord | None:
+    comment_val = smd.Comment_1.value
+    if not comment_val:
+        return None
+    media_owner = smd.Media_Owner.value if smd.Media_Owner else None
+    return InstagramCommentRecord(
+        comment=comment_val,
+        media_owner=media_owner,
+        timestamp=smd.Time_1.timestamp,
+        source=source_json,
+    )
+
+
 class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
-    """Shared transform logic for Instagram comment pipes.
-
-    Subclasses set :attr:`interaction_type`, :attr:`archive_path_pattern`,
-    and optionally :attr:`_json_key` for keyed JSON files.
-    """
-
     provider = PROVIDER
     archive_version = 1
     record_schema = InstagramCommentRecord
-
-    @staticmethod
-    def _extract_item(
-        item: InstagramCommentFileItem,
-    ) -> InstagramCommentRecord | None:
-        smd = item.string_map_data
-        comment_val = smd.Comment.value
-        if not comment_val:
-            return None
-        media_owner = smd.Media_Owner.value if smd.Media_Owner else None
-        return InstagramCommentRecord(
-            comment=comment_val,
-            media_owner=media_owner,
-            timestamp=smd.Time.timestamp,
-            source=item.model_dump_json(),
-        )
 
     def transform(
         self,
@@ -101,9 +104,8 @@ class InstagramCommentPostsPipe(_InstagramCommentPipe):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                record = self._extract_item(
-                    InstagramCommentFileItem.model_validate(raw)
-                )
+                item = PostCommentItem.model_validate(fix_strings_recursive(raw))
+                record = _extract_from_smd(item.string_map_data, item.model_dump_json())
                 if record is not None:
                     yield record
         finally:
@@ -120,9 +122,12 @@ class InstagramCommentReelsPipe(_InstagramCommentPipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramCommentRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramReelsCommentsManifest.model_validate_json(raw)
-        for item in manifest.comments_reels_comments:
-            record = self._extract_item(item)
+        data = fix_strings_recursive(json.loads(raw))
+        manifest = ReelsCommentsManifest.model_validate(data)
+        for reel_comment in manifest.comments_reels_comments:
+            record = _extract_from_smd(
+                reel_comment.string_map_data, reel_comment.model_dump_json()
+            )
             if record is not None:
                 yield record
 

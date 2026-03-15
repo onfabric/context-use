@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "saved_saved_media": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "string_map_data": {
+            "type": "object",
+            "properties": {
+              "Saved on": {
+                "type": "object",
+                "properties": {
+                  "href": {
+                    "type": "string"
+                  },
+                  "timestamp": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "href",
+                  "timestamp"
+                ]
+              }
+            },
+            "required": [
+              "Saved on"
+            ]
+          }
+        },
+        "required": [
+          "string_map_data",
+          "title"
+        ]
+      }
+    }
+  },
+  "required": [
+    "saved_saved_media"
+  ]
+}

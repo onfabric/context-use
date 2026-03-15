@@ -14,16 +14,10 @@ INSTAGRAM_POSTS_JSON: list[dict] = load_fixture(
     f"{_BASE}/v1/your_instagram_activity/media/posts_1.json"
 )
 
-INSTAGRAM_VIDEOS_WATCHED_V0_JSON: dict = load_fixture(
-    f"{_BASE}/v0/ads_information/ads_and_topics/videos_watched.json"
-)
 INSTAGRAM_VIDEOS_WATCHED_V1_JSON: list[dict] = load_fixture(
     f"{_BASE}/v1/ads_information/ads_and_topics/videos_watched.json"
 )
 
-INSTAGRAM_POSTS_VIEWED_V0_JSON: dict = load_fixture(
-    f"{_BASE}/v0/ads_information/ads_and_topics/posts_viewed.json"
-)
 INSTAGRAM_POSTS_VIEWED_V1_JSON: list[dict] = load_fixture(
     f"{_BASE}/v1/ads_information/ads_and_topics/posts_viewed.json"
 )

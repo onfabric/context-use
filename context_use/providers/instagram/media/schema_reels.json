@@ -1,0 +1,58 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "ig_reels_media": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "media": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "uri": {
+                  "type": "string"
+                },
+                "creation_timestamp": {
+                  "type": "integer"
+                },
+                "media_metadata": {
+                  "type": "object"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "cross_post_source": {
+                  "type": "object"
+                },
+                "dubbing_info": {
+                  "type": "array"
+                },
+                "media_variants": {
+                  "type": "array"
+                }
+              },
+              "required": [
+                "creation_timestamp",
+                "cross_post_source",
+                "dubbing_info",
+                "media_metadata",
+                "media_variants",
+                "title",
+                "uri"
+              ]
+            }
+          }
+        },
+        "required": [
+          "media"
+        ]
+      }
+    }
+  },
+  "required": [
+    "ig_reels_media"
+  ]
+}
