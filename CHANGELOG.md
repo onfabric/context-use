@@ -1,3 +1,46 @@
+## [0.5.0] - 2026-03-15
+
+### 🚀 Features
+
+- Banner on root and help commands (#199)
+- Context proxy (#193)
+- Claude conversations with autogen schema guidelines (#194)
+- Memories from agent and human conversations (#177)
+
+### 🐛 Bug Fixes
+
+- *(proxy)* Do not enrich request if `max_tokens` is below a threshold (#202)
+- Parse ig story likes with v0 pipe (#185)
+- Update ig etls according to guidelines (#180)
+
+### 🚜 Refactor
+
+- Chatgpt conversations with autogen schema (#198)
+- Google interactions with autogen schema (#195)
+- Split pipes, schemas and records into separate files (#189)
+- Chatgpt etl according to guidelines (#188)
+- Input file items schema validation for google (#181)
+- Input file items schema validation for claude (#186)
+- Input file items schema validation for chatgpt (#183)
+- Input file schema validation for ig (#182)
+- *(test)* Uniform provider etls testing (#175)
+
+### 📚 Documentation
+
+- Add demo to readme (#201)
+- Guidelines for automatic schema generation from exports (#192)
+- Update guidelines for input schema validation (#187)
+- Simplify provider guidelines for new etls (#178)
+- Skill.md ai optimization (#176)
+
+### ⚡ Performance
+
+- Stream ig interactions in etl (#184)
+
+### ⚙️ Miscellaneous Tasks
+
+- Update readme (#191)
+
 ## [0.4.0] - 2026-03-11
 
 ### 🚀 Features
