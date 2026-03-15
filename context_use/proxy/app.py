@@ -41,15 +41,27 @@ def create_app(ctx: ContextUse, *, top_k: int = 5) -> FastAPI:
                 ),
             )
 
+        logger.debug("Received request: %s", body)
+
         messages: list[dict[str, Any]] = body["messages"]
         stream: bool = body.get("stream", False)
+        max_tokens = body.get("max_tokens")
 
         api_key = _extract_api_key(request)
 
-        enriched = await enrich_messages(messages, ctx, top_k=top_k)
-        body["messages"] = enriched
+        if _should_enrich(max_tokens):
+            body["messages"] = await enrich_messages(messages, ctx, top_k=top_k)
+        else:
+            logger.debug("Skipping enrichment (max_tokens=%s)", max_tokens)
 
-        forward_kwargs: dict[str, Any] = {**body}
+        # Some clients send max_tokens=1 as a connectivity probe; OpenAI
+        # rejects that outright, so drop it and let the model use its default.
+        if isinstance(max_tokens, int) and max_tokens < 2:
+            body.pop("max_tokens")
+
+        # litellm's per-provider allowlist may lag behind the actual API
+        # surface, so drop unrecognised params instead of erroring.
+        forward_kwargs: dict[str, Any] = {**body, "drop_params": True}
         if api_key:
             forward_kwargs["api_key"] = api_key
 
@@ -90,6 +102,15 @@ async def _stream_chunks(response: Any) -> AsyncGenerator[str, None]:
     except Exception:
         logger.error("Streaming error", exc_info=True)
     yield "data: [DONE]\n\n"
+
+
+_MIN_MAX_TOKENS_FOR_ENRICHMENT = 50
+
+
+def _should_enrich(max_tokens: int | None) -> bool:
+    if max_tokens is None:
+        return True
+    return max_tokens >= _MIN_MAX_TOKENS_FOR_ENRICHMENT
 
 
 def _error_body(message: str, error_type: str) -> dict[str, Any]:
