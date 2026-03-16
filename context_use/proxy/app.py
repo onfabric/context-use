@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import litellm
 from fastapi import FastAPI, Request
@@ -12,10 +12,18 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from context_use.facade.core import ContextUse
 from context_use.proxy.enrichment import enrich_messages
 
+if TYPE_CHECKING:
+    from context_use.proxy.background import BackgroundMemoryProcessor
+
 logger = logging.getLogger(__name__)
 
+SESSION_ID_HEADER = "ctxuse-session-id"
 
-def create_app(ctx: ContextUse, *, top_k: int = 5) -> FastAPI:
+
+def create_app(
+    ctx: ContextUse,
+    processor: BackgroundMemoryProcessor,
+) -> FastAPI:
     app = FastAPI(title="context-use proxy")
 
     @app.get("/health")
@@ -41,16 +49,24 @@ def create_app(ctx: ContextUse, *, top_k: int = 5) -> FastAPI:
                 ),
             )
 
-        logger.debug("Received request: %s", body)
-
         messages: list[dict[str, Any]] = body["messages"]
         stream: bool = body.get("stream", False)
         max_tokens = body.get("max_tokens")
 
         api_key = _extract_api_key(request)
+        session_id = request.headers.get(SESSION_ID_HEADER)
+        should_process = _should_enrich(max_tokens)
+
+        logger.info(
+            "Request received: model=%s messages=%d session=%s stream=%s",
+            body.get("model"),
+            len(messages),
+            session_id or "-",
+            stream,
+        )
 
         if _should_enrich(max_tokens):
-            body["messages"] = await enrich_messages(messages, ctx, top_k=top_k)
+            body["messages"] = await enrich_messages(messages, ctx)
         else:
             logger.debug("Skipping enrichment (max_tokens=%s)", max_tokens)
 
@@ -66,15 +82,32 @@ def create_app(ctx: ContextUse, *, top_k: int = 5) -> FastAPI:
             forward_kwargs["api_key"] = api_key
 
         try:
+            logger.info("Response started: model=%s", body.get("model"))
             response = await litellm.acompletion(**forward_kwargs)
             if stream:
                 return StreamingResponse(
-                    _stream_chunks(response),
+                    _stream_and_process(
+                        response,
+                        messages=messages,
+                        session_id=session_id,
+                        processor=processor,
+                        should_process=should_process,
+                    ),
                     media_type="text/event-stream",
                     headers={"Cache-Control": "no-cache"},
                 )
             else:
-                return JSONResponse(content=response.model_dump())  # type: ignore[union-attr]
+                data: dict[str, Any] = response.model_dump()  # type: ignore[union-attr]
+                logger.info("Response finished: model=%s", body.get("model"))
+                if should_process:
+                    assistant_text = _extract_assistant_text(data)
+                    _schedule_processing(
+                        processor,
+                        messages,
+                        assistant_text,
+                        session_id=session_id,
+                    )
+                return JSONResponse(content=data)
         except Exception as exc:
             status = int(getattr(exc, "status_code", 500))
             logger.error("LLM forwarding failed: %s", exc)
@@ -94,14 +127,60 @@ def _extract_api_key(request: Request) -> str | None:
     return None
 
 
-async def _stream_chunks(response: Any) -> AsyncGenerator[str, None]:
+async def _stream_and_process(
+    response: Any,
+    *,
+    messages: list[dict[str, Any]],
+    session_id: str | None,
+    processor: BackgroundMemoryProcessor,
+    should_process: bool,
+) -> AsyncGenerator[str, None]:
+    assistant_parts: list[str] = []
+    chunk_count = 0
     try:
         async for chunk in response:
             data = chunk.model_dump()
+            _accumulate_chunk(data, assistant_parts)
+            if chunk_count == 0:
+                logger.info("Response started (streaming)")
+            chunk_count += 1
             yield f"data: {json.dumps(data, default=str)}\n\n"
     except Exception:
         logger.error("Streaming error", exc_info=True)
     yield "data: [DONE]\n\n"
+    logger.info("Response finished (streaming): chunks=%d", chunk_count)
+
+    if should_process:
+        assistant_text = "".join(assistant_parts)
+        _schedule_processing(processor, messages, assistant_text, session_id=session_id)
+
+
+def _accumulate_chunk(data: dict[str, Any], parts: list[str]) -> None:
+    choices = data.get("choices") or []
+    for choice in choices:
+        delta = choice.get("delta") or {}
+        content = delta.get("content")
+        if isinstance(content, str):
+            parts.append(content)
+
+
+def _extract_assistant_text(data: dict[str, Any]) -> str:
+    choices = data.get("choices") or []
+    if choices:
+        message = choices[0].get("message") or {}
+        return message.get("content") or ""
+    return ""
+
+
+def _schedule_processing(
+    processor: BackgroundMemoryProcessor,
+    messages: list[dict[str, Any]],
+    assistant_text: str,
+    *,
+    session_id: str | None,
+) -> None:
+    full_messages = [*messages, {"role": "assistant", "content": assistant_text}]
+    processor.schedule(full_messages, session_id=session_id)
 
 
 _MIN_MAX_TOKENS_FOR_ENRICHMENT = 50

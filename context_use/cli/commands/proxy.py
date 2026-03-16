@@ -11,6 +11,7 @@ from pathlib import Path
 
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, require_api_key
+from context_use.ext.adk.agent.runner import AdkAgentBackend
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
@@ -93,7 +94,16 @@ class ProxyCommand(BaseCommand):
         )
         print()
 
-        app = create_app(ctx)
+        from context_use.proxy.background import BackgroundMemoryProcessor
+
+        agent_backend = AdkAgentBackend(
+            api_key=cfg.openai_api_key,
+            model=cfg.openai_model,
+        )
+        processor = BackgroundMemoryProcessor(ctx, agent_backend)
+        out.kv("Memory processing", "enabled")
+
+        app = create_app(ctx, processor)
         config = uvicorn.Config(
             app,
             host=args.host,
