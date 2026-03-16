@@ -582,8 +582,15 @@ async def _upsert_embedding(
     memory: TapestryMemory,
 ) -> None:
     assert memory.embedding is not None
+    # sqlite-vec virtual tables don't honour INSERT OR REPLACE conflict
+    # resolution, raising a UNIQUE constraint error instead of replacing the
+    # existing row. Use DELETE + INSERT to achieve the same semantics.
     await db.execute(
-        "INSERT OR REPLACE INTO vec_memories (memory_id, embedding) VALUES (?, ?)",
+        "DELETE FROM vec_memories WHERE memory_id = ?",
+        (memory.id,),
+    )
+    await db.execute(
+        "INSERT INTO vec_memories (memory_id, embedding) VALUES (?, ?)",
         (
             memory.id,
             VecMemoryRow.serialize(memory.embedding),
