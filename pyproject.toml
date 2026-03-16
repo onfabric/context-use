@@ -66,8 +66,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
     "integration: integration tests",
-    "llm: tests that call a real LLM and require OPENAI_API_KEY",
-    "eval: evaluation tests for qualitative LLM output inspection",
+    "eval: evaluation tests that call a real LLM and require OPENAI_API_KEY",
 ]
 
 [tool.ruff]

@@ -10,7 +10,7 @@ from context_use.memories.prompt.conversation import (
 
 from .scenarios import EvalScenario
 
-pytestmark = [pytest.mark.eval, pytest.mark.llm]
+pytestmark = [pytest.mark.eval]
 
 
 async def test_context_impact(
