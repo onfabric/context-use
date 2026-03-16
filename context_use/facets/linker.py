@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from context_use.facets.types import VALID_FACET_TYPES
 from context_use.models.facet import Facet, MemoryFacet
 
 if TYPE_CHECKING:
@@ -17,8 +18,14 @@ class SemanticFacetLinker:
         self._threshold = threshold
 
     async def link(self, facets: list[MemoryFacet]) -> None:
-        """Link each facet to a canonical ``Facet``, creating one on miss."""
         for facet in facets:
+            if facet.facet_type not in VALID_FACET_TYPES:
+                logger.warning(
+                    "Skipping facet %s with unknown type %r",
+                    facet.id,
+                    facet.facet_type,
+                )
+                continue
             assert facet.embedding is not None, (
                 f"MemoryFacet {facet.id} has no embedding — embed before linking"
             )
