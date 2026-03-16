@@ -25,13 +25,12 @@ from context_use.memories.prompt.conversation import (
 from context_use.models.etl_task import EtlTask
 from context_use.providers.airbnb.messages.record import AirbnbMessageRecord
 from context_use.providers.airbnb.messages.schemas import MessageContent, Model
+from context_use.providers.airbnb.schemas import PROVIDER
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
-
-PROVIDER = "airbnb"
 
 _AIRBNB_SERVICE = Application(name="Airbnb")  # type: ignore[reportCallIssue]
 _AIRBNB_HOST = Application(name="host")  # type: ignore[reportCallIssue]

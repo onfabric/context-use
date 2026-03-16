@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "wishlistData": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "numberOfInfants": { "type": "integer" },
+          "wishlistUserData": { "type": "array", "items": { "type": "object" } },
+          "numberOfChildren": { "type": "integer" },
+          "numberOfAdults": { "type": "integer" },
+          "numberOfPets": { "type": "integer" },
+          "inviteCode": { "type": "string" },
+          "name": { "type": "string" },
+          "wishlistItemData": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pets": { "type": "integer" },
+                "checkIn": { "type": "string" },
+                "infants": { "type": "integer" },
+                "wishlistItemId": { "type": "integer" },
+                "children": { "type": "integer" },
+                "pdpType": { "type": "string" },
+                "adults": { "type": "integer" },
+                "checkOut": { "type": "string" },
+                "wishlistId": { "type": "integer" },
+                "pdpId": { "type": "string" }
+              },
+              "required": ["pdpId", "pdpType", "wishlistId", "wishlistItemId"]
+            }
+          },
+          "isPrivate": { "type": "boolean" },
+          "wishlistId": { "type": "integer" },
+          "wishlistType": { "type": "string" },
+          "checkOutDate": { "type": "string" },
+          "checkInDate": { "type": "string" }
+        },
+        "required": ["inviteCode", "isPrivate", "name", "numberOfAdults", "wishlistId", "wishlistItemData", "wishlistType", "wishlistUserData"]
+      }
+    }
+  },
+  "required": ["wishlistData"]
+}

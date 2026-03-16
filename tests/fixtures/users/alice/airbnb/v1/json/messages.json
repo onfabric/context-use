@@ -1,0 +1,60 @@
+[
+  {
+    "messageThreads": [
+      {
+        "id": 12345678,
+        "messagesAndContents": [
+          {
+            "message": {
+              "id": 100000001,
+              "createdAt": "2023-04-27T08:15:30.000Z",
+              "accountType": "guest",
+              "accountId": 100000001,
+              "contentType": "TextContent",
+              "isPrivate": false,
+              "senderPlatform": "web"
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Hi, we are arriving around 3pm. Is that okay?"
+              }
+            }
+          },
+          {
+            "message": {
+              "id": 100000002,
+              "createdAt": "2023-04-27T09:00:00.000Z",
+              "accountType": "host",
+              "contentType": "TextContent",
+              "isPrivate": false
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "That works perfectly! I will leave the key under the mat."
+              }
+            }
+          },
+          {
+            "message": {
+              "id": 100000003,
+              "createdAt": "2023-04-27T09:15:00.000Z",
+              "accountType": "service",
+              "contentType": "BulletinContent",
+              "isPrivate": false
+            },
+            "messageContent": {
+              "bulletinContent": {}
+            }
+          }
+        ],
+        "messageThreadParticipants": [
+          { "accountType": "guest", "statusActive": true },
+          { "accountType": "host", "statusActive": true }
+        ],
+        "messageThreadUserTags": [
+          { "tagName": "archived", "tagValue": false }
+        ]
+      }
+    ]
+  }
+]
