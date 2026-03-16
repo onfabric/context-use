@@ -318,7 +318,7 @@ class FibreComment(Create, _BaseFibreMixin):
         if isinstance(self.inReplyTo, FibrePost) and self.inReplyTo.attributedTo:
             parts += f" on {self.inReplyTo.attributedTo.name}'s post"
         elif isinstance(self.inReplyTo, Page):
-            parts += " on listing"
+            parts += " on listing" if provider == "Airbnb" else " on page"
         if provider:
             parts += f" on {provider}"
         return parts

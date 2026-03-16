@@ -14,12 +14,11 @@ class TestAirbnbMessagesPipe(PipeTestKit):
 
     def test_sent_message(self, extracted_records):
         record = extracted_records[0]
-        assert record.sender_platform == "web"
+        assert record.account_type == "guest"
         assert "arriving around 3pm" in record.text
 
     def test_received_message(self, extracted_records):
         record = extracted_records[1]
-        assert record.sender_platform is None
         assert record.account_type == "host"
 
     def test_opaque_content_filtered(self, extracted_records):

@@ -79,7 +79,7 @@ def _build_payload(
     message = FibreTextMessage(content=record.text, context=context)  # type: ignore[reportCallIssue]
     published = _parse_timestamp(record.created_at)
 
-    if record.sender_platform is not None:
+    if record.account_type == "guest":
         return FibreSendMessage(  # type: ignore[reportCallIssue]
             object=message,
             target=_AIRBNB_SERVICE,
