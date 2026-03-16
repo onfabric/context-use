@@ -409,4 +409,3 @@ class TestBackgroundProcessing:
             )
 
         processor.schedule.assert_not_called()
-
