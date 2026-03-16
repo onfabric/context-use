@@ -1,3 +1,23 @@
+## [0.6.0] - 2026-03-16
+
+### 🚀 Features
+
+- Proxy stores threads and generates memories in the background (#206)
+- Add user profile as context to memory generation prompt (#205)
+
+### 🐛 Bug Fixes
+
+- Upsert memory embeddings (#207)
+
+### 💼 Other
+
+- [**breaking**] Downgrade `google-adk` to >=1.22 (#212)
+
+### 🧪 Testing
+
+- Move tests using llm to evals (#208)
+- Basic memory unit and integration tests (#204)
+
 ## [0.5.0] - 2026-03-15
 
 ### 🚀 Features
