@@ -28,9 +28,9 @@ async def store_facet_embeddings(
     batch_id: str,
     store: Store,
 ) -> int:
-    """Write embedding vectors into ``vec_facets`` for each result.
+    """Write embedding vectors for each facet.
 
-    Returns count stored.
+    Returns count of facets stored.
     """
     count = 0
     for facet_id, vector in results.items():

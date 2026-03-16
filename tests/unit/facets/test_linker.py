@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
-import pytest
-
 from context_use.facets.linker import SemanticFacetLinker
 from context_use.models.facet import Facet, MemoryFacet
 
@@ -103,15 +101,17 @@ async def test_link_multiple_facets() -> None:
     assert store.update_memory_facet.await_count == 2
 
 
-async def test_link_raises_if_no_embedding() -> None:
+async def test_link_skips_facet_with_no_embedding() -> None:
     store = _make_store()
     linker = SemanticFacetLinker(store)
 
     facet = MemoryFacet(memory_id="mem-1", facet_type="person", facet_value="Alice")
     assert facet.embedding is None
 
-    with pytest.raises(AssertionError):
-        await linker.link([facet])
+    await linker.link([facet])
+
+    store.find_similar_facet.assert_not_awaited()
+    store.update_memory_facet.assert_not_awaited()
 
 
 async def test_link_empty_list_is_noop() -> None:

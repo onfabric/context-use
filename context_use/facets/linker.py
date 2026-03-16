@@ -26,16 +26,19 @@ class SemanticFacetLinker:
                     facet.facet_type,
                 )
                 continue
-            assert facet.embedding is not None, (
-                f"MemoryFacet {facet.id} has no embedding — embed before linking"
-            )
+            if facet.embedding is None:
+                logger.warning(
+                    "Skipping facet %s with no embedding — embed before linking",
+                    facet.id,
+                )
+                continue
             canonical = await self._store.find_similar_facet(
                 facet_type=facet.facet_type,
                 embedding=facet.embedding,
                 threshold=self._threshold,
             )
             if canonical is None:
-                canonical = await self._create_canonical(facet)
+                canonical = await self._create_canonical(facet, facet.embedding)
             facet.facet_id = canonical.id
             await self._store.update_memory_facet(facet)
             logger.debug(
@@ -46,13 +49,14 @@ class SemanticFacetLinker:
                 canonical.facet_canonical,
             )
 
-    async def _create_canonical(self, facet: MemoryFacet) -> Facet:
-        assert facet.embedding is not None
+    async def _create_canonical(
+        self, facet: MemoryFacet, embedding: list[float]
+    ) -> Facet:
         canonical = await self._store.create_facet(
             Facet(
                 facet_type=facet.facet_type,
                 facet_canonical=facet.facet_value,
             )
         )
-        await self._store.create_facet_embedding(canonical.id, facet.embedding)
+        await self._store.create_facet_embedding(canonical.id, embedding)
         return canonical

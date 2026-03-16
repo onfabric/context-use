@@ -44,7 +44,7 @@ class Store(ABC):
 
     @abstractmethod
     async def init(self) -> None:
-        """Create tables / indices (idempotent)."""
+        """Create tables / indices."""
         ...
 
     @abstractmethod
@@ -54,7 +54,7 @@ class Store(ABC):
 
     @abstractmethod
     async def close(self) -> None:
-        """Release any held resources (connections, file handles)."""
+        """Release any held resources."""
         ...
 
     async def __aenter__(self) -> Store:
@@ -82,7 +82,7 @@ class Store(ABC):
 
     @abstractmethod
     async def create_archive(self, archive: Archive) -> Archive:
-        """Persist a new archive and return it (``id`` is set)."""
+        """Persist a new archive and return it."""
         ...
 
     @abstractmethod
@@ -120,7 +120,7 @@ class Store(ABC):
     ) -> int:
         """Insert threads, deduplicating on ``unique_key``.
 
-        Returns the number of rows actually inserted (after dedup).
+        Returns the number of rows actually inserted.
         """
         ...
 
@@ -167,17 +167,17 @@ class Store(ABC):
 
     @abstractmethod
     async def create_memory(self, memory: TapestryMemory) -> TapestryMemory:
-        """Persist a new memory and return it (``id`` is set)."""
+        """Persist a new memory and return it."""
         ...
 
     @abstractmethod
     async def get_memories(self, ids: list[str]) -> list[TapestryMemory]:
-        """Return memories by ID (missing IDs are silently skipped)."""
+        """Return memories by ID."""
         ...
 
     @abstractmethod
     async def get_unembedded_memories(self, ids: list[str]) -> list[TapestryMemory]:
-        """Return memories from *ids* that have no embedding."""
+        """Return memories that have no embedding."""
         ...
 
     @abstractmethod
@@ -210,12 +210,7 @@ class Store(ABC):
         to_date: date | None = None,
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
-        """Search memories by semantic similarity, date range, or both.
-
-        When *query_embedding* is given, results are ordered by cosine
-        similarity (descending).  Otherwise they are ordered by
-        ``from_date`` descending.
-        """
+        """Search memories by semantic similarity, date range, or both."""
         ...
 
     # ── Memory Facets ────────────────────────────────────────────────
@@ -229,34 +224,31 @@ class Store(ABC):
     async def get_unembedded_memory_facets(
         self, *, batch_id: str | None = None
     ) -> list[MemoryFacet]:
-        """Return memory facets that have no embedding in ``vec_facets``.
-
-        When *batch_id* is given, only facets from that batch are returned.
-        """
+        """Return memory facets that have no embedding."""
         ...
 
     @abstractmethod
     async def update_memory_facet(self, facet: MemoryFacet) -> None:
-        """Persist changes to an existing memory facet (typically sets ``facet_id``)."""
+        """Persist changes to an existing memory facet."""
         ...
 
     @abstractmethod
     async def get_unlinked_memory_facets(self) -> list[MemoryFacet]:
-        """Return memory facets that have an embedding but no ``facet_id``."""
+        """Return memory facets that have an embedding but no canonical facet."""
         ...
 
     # ── Canonical Facets ─────────────────────────────────────────────
 
     @abstractmethod
     async def create_facet(self, facet: Facet) -> Facet:
-        """Persist a new canonical facet and return it (``id`` is set)."""
+        """Persist a new canonical facet and return it."""
         ...
 
     @abstractmethod
     async def create_facet_embedding(
         self, facet_id: str, embedding: list[float]
     ) -> None:
-        """Insert an embedding for a canonical facet into ``vec_facets``."""
+        """Insert an embedding for a canonical facet."""
         ...
 
     @abstractmethod
@@ -268,7 +260,7 @@ class Store(ABC):
     ) -> Facet | None:
         """Return the nearest canonical facet of *facet_type* above *threshold*.
 
-        Uses cosine similarity on ``vec_facets``.  Returns ``None`` when no
-        match exceeds *threshold*.
+        Uses cosine similarity on the canonical facet embedding.  Returns ``None``
+        when no match exceeds *threshold*.
         """
         ...
