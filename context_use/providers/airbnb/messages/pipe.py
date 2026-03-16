@@ -17,6 +17,7 @@ from context_use.etl.payload.models import (
     FibreReceiveMessage,
     FibreSendMessage,
     FibreTextMessage,
+    Person,
 )
 from context_use.memories.config import MemoryConfig
 from context_use.memories.prompt.conversation import (
@@ -33,7 +34,7 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 _AIRBNB_SERVICE = Application(name="Airbnb")  # type: ignore[reportCallIssue]
-_AIRBNB_HOST = Application(name="host")  # type: ignore[reportCallIssue]
+_AIRBNB_HOST = Person(name="host")  # type: ignore[reportCallIssue]
 
 _OPAQUE_CONTENT_TYPES = frozenset(
     {

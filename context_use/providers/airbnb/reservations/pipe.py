@@ -7,7 +7,7 @@ from datetime import datetime
 
 import ijson
 
-from context_use.activitystreams.objects import Page
+from context_use.activitystreams.objects import Event
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.models import (
@@ -69,11 +69,11 @@ class AirbnbReservationsPipe(Pipe[AirbnbReservationRecord]):
         task: EtlTask,
     ) -> ThreadRow:
         name = f"{record.nights}-night stay from {record.start_date}"
-        page = Page(name=name, url=record.hosting_url)  # type: ignore[reportCallIssue]
+        event = Event(name=name, url=record.hosting_url)  # type: ignore[reportCallIssue]
         published = _parse_timestamp(record.created_at)
 
         payload = FibreViewObject(  # type: ignore[reportCallIssue]
-            object=page,
+            object=event,
             published=published,
         )
 

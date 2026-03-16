@@ -3,6 +3,7 @@ import datetime
 import pytest
 from pydantic import ValidationError
 
+from context_use.activitystreams.objects import Event
 from context_use.etl.payload.core import make_thread_payload
 from context_use.etl.payload.models import (
     Application,
@@ -277,6 +278,52 @@ class TestFibreViewObjectWidened:
         preview = view.get_preview()
         assert preview is not None
         assert "Viewed page" in preview
+
+    def test_view_event_preview(self):
+        event = Event(name="3-night stay from 2024-01-15")  # pyright: ignore[reportCallIssue]
+        view = FibreViewObject(object=event)  # pyright: ignore[reportCallIssue]
+        preview = view.get_preview("Airbnb")
+        assert preview is not None
+        assert "Viewed event" in preview
+        assert "3-night stay" in preview
+        assert "Airbnb" in preview
+
+    def test_view_event_roundtrip(self):
+        event = Event(  # pyright: ignore[reportCallIssue]
+            name="3-night stay from 2024-01-15",
+            url="https://www.airbnb.com/rooms/123",
+        )
+        view = FibreViewObject(object=event)  # pyright: ignore[reportCallIssue]
+        d = view.to_dict()
+        result = make_thread_payload(d)
+        assert isinstance(result, FibreViewObject)
+        assert result.unique_key() == view.unique_key()
+
+
+class TestFibreReceiveMessageWithPerson:
+    def test_person_actor_preview(self):
+        msg = FibreTextMessage(content="hello")  # pyright: ignore[reportCallIssue]
+        actor = Person(name="host")  # pyright: ignore[reportCallIssue]
+        recv = FibreReceiveMessage(object=msg, actor=actor)  # pyright: ignore[reportCallIssue]
+        preview = recv.get_preview("Airbnb")
+        assert preview is not None
+        assert "Received" in preview
+        assert "host" in preview
+
+    def test_person_actor_participant_label(self):
+        msg = FibreTextMessage(content="hello")  # pyright: ignore[reportCallIssue]
+        actor = Person(name="host")  # pyright: ignore[reportCallIssue]
+        recv = FibreReceiveMessage(object=msg, actor=actor)  # pyright: ignore[reportCallIssue]
+        assert recv.get_participant_label() == "host"
+
+    def test_person_actor_roundtrip(self):
+        msg = FibreTextMessage(content="hello")  # pyright: ignore[reportCallIssue]
+        actor = Person(name="host")  # pyright: ignore[reportCallIssue]
+        recv = FibreReceiveMessage(object=msg, actor=actor)  # pyright: ignore[reportCallIssue]
+        d = recv.to_dict()
+        result = make_thread_payload(d)
+        assert isinstance(result, FibreReceiveMessage)
+        assert result.unique_key() == recv.unique_key()
 
 
 class TestMakeThreadPayloadRoundTrip:

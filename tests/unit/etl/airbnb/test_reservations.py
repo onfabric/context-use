@@ -37,9 +37,9 @@ class TestAirbnbReservationsPipe(PipeTestKit):
         assert "2023-05-26" in preview
         assert "Airbnb" in preview
 
-    def test_payload_object_is_page(self, transformed_rows):
+    def test_payload_object_is_event(self, transformed_rows):
         for row in transformed_rows:
-            assert row.payload["object"]["type"] == "Page"
+            assert row.payload["object"]["type"] == "Event"
 
     def test_payload_has_hosting_url(self, transformed_rows):
         row = transformed_rows[0]
