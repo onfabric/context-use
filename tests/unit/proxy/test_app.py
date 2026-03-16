@@ -385,7 +385,7 @@ class TestBackgroundProcessing:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={"X-Session-Id": "sess-abc"},
+                headers={"ctxuse-session-id": "sess-abc"},
             )
 
         processor.schedule.assert_called_once()

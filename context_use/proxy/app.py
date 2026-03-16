@@ -17,6 +17,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+SESSION_ID_HEADER = "ctxuse-session-id"
+
 
 def create_app(
     ctx: ContextUse,
@@ -52,7 +54,7 @@ def create_app(
         max_tokens = body.get("max_tokens")
 
         api_key = _extract_api_key(request)
-        session_id = request.headers.get("x-session-id")
+        session_id = request.headers.get(SESSION_ID_HEADER)
         should_process = _should_enrich(max_tokens)
 
         logger.info(
