@@ -13,6 +13,8 @@ from context_use.models import (
     Archive,
     Batch,
     EtlTask,
+    Facet,
+    MemoryFacet,
     TapestryMemory,
     Thread,
 )
@@ -213,5 +215,60 @@ class Store(ABC):
         When *query_embedding* is given, results are ordered by cosine
         similarity (descending).  Otherwise they are ordered by
         ``from_date`` descending.
+        """
+        ...
+
+    # ── Memory Facets ────────────────────────────────────────────────
+
+    @abstractmethod
+    async def create_memory_facet(self, facet: MemoryFacet) -> MemoryFacet:
+        """Persist a new memory facet and return it (``id`` is set)."""
+        ...
+
+    @abstractmethod
+    async def get_unembedded_memory_facets(
+        self, *, batch_id: str | None = None
+    ) -> list[MemoryFacet]:
+        """Return memory facets that have no embedding in ``vec_facets``.
+
+        When *batch_id* is given, only facets from that batch are returned.
+        """
+        ...
+
+    @abstractmethod
+    async def update_memory_facet(self, facet: MemoryFacet) -> None:
+        """Persist changes to an existing memory facet (typically sets ``facet_id``)."""
+        ...
+
+    @abstractmethod
+    async def get_unlinked_memory_facets(self) -> list[MemoryFacet]:
+        """Return memory facets that have an embedding but no ``facet_id``."""
+        ...
+
+    # ── Canonical Facets ─────────────────────────────────────────────
+
+    @abstractmethod
+    async def create_facet(self, facet: Facet) -> Facet:
+        """Persist a new canonical facet and return it (``id`` is set)."""
+        ...
+
+    @abstractmethod
+    async def create_facet_embedding(
+        self, facet_id: str, embedding: list[float]
+    ) -> None:
+        """Insert an embedding for a canonical facet into ``vec_facets``."""
+        ...
+
+    @abstractmethod
+    async def find_similar_facet(
+        self,
+        facet_type: str,
+        embedding: list[float],
+        threshold: float,
+    ) -> Facet | None:
+        """Return the nearest canonical facet of *facet_type* above *threshold*.
+
+        Uses cosine similarity on ``vec_facets``.  Returns ``None`` when no
+        match exceeds *threshold*.
         """
         ...

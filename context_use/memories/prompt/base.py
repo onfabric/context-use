@@ -9,6 +9,22 @@ from context_use.llm.base import PromptItem
 from context_use.models.thread import Thread
 
 
+class MemoryFacetExtract(BaseModel):
+    """A single semantic facet extracted from a memory."""
+
+    facet_type: str = Field(
+        description=(
+            "Category of the facet: "
+            "person, location, organization, technology, or topic"
+        )
+    )
+    facet_value: str = Field(
+        description=(
+            "Extracted value (e.g. 'Alice', 'London', 'React', 'machine learning')"
+        )
+    )
+
+
 class Memory(BaseModel):
     """A single memory produced by the LLM."""
 
@@ -18,6 +34,10 @@ class Memory(BaseModel):
         description=(
             "End date of the memory (YYYY-MM-DD, same as from_date for single-day)"
         )
+    )
+    facets: list[MemoryFacetExtract] = Field(
+        default_factory=list,
+        description="Semantic facets extracted from this memory",
     )
 
 

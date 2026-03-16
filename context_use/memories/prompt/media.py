@@ -82,6 +82,11 @@ Return a JSON object with a ``memories`` array. Each memory has:
 - ``content``: the memory text (1-2 sentences, detail-rich, first-person).
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
+- ``facets``: an array of semantic facets extracted from the memory. Each facet has:
+  - ``facet_type``: one of ``person``, ``location``, ``organization``, \
+``technology``, ``topic``.
+  - ``facet_value``: the specific extracted value \
+(e.g. ``"Alice"``, ``"London"``, ``"React"``).
 """
 )
 
