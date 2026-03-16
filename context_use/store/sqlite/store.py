@@ -247,7 +247,7 @@ class SqliteStore(Store):
     async def insert_threads(
         self,
         rows: list[EtlThreadRow],
-        task_id: str,
+        task_id: str | None = None,
     ) -> int:
         if not rows:
             return 0

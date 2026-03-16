@@ -49,6 +49,11 @@ class ProxyCommand(BaseCommand):
             action="store_true",
             help="Stop the background proxy",
         )
+        parser.add_argument(
+            "--no-memories",
+            action="store_true",
+            help="Disable background memory processing from conversations",
+        )
 
     async def execute(self, args: argparse.Namespace) -> None:
         if args.stop:
@@ -93,7 +98,19 @@ class ProxyCommand(BaseCommand):
         )
         print()
 
-        app = create_app(ctx)
+        agent_backend = None
+        if not args.no_memories:
+            from context_use.ext.adk.agent.runner import AdkAgentBackend
+
+            agent_backend = AdkAgentBackend(
+                api_key=cfg.openai_api_key,
+                model=cfg.openai_model,
+            )
+            out.kv("Memory processing", "enabled")
+        else:
+            out.kv("Memory processing", "disabled")
+
+        app = create_app(ctx, agent_backend=agent_backend)
         config = uvicorn.Config(
             app,
             host=args.host,

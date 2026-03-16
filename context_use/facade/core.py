@@ -398,6 +398,16 @@ class ContextUse:
             top_k=top_k,
         )
 
+    # ── Threads ──────────────────────────────────────────────────────
+
+    async def insert_threads(
+        self,
+        rows: list,
+        task_id: str | None = None,
+    ) -> int:
+        """Insert thread rows into the store, deduplicating on ``unique_key``."""
+        return await self._store.insert_threads(rows, task_id)
+
     # ── Private helpers ──────────────────────────────────────────────
 
     def _batch_context(self) -> BatchContext:

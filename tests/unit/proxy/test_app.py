@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from httpx import ASGITransport
 
+from context_use.agent.backend import AgentBackend, AgentResult
 from context_use.proxy.app import create_app
 from context_use.store.base import MemorySearchResult
 
@@ -18,6 +19,12 @@ def _mock_ctx(
     ctx = AsyncMock()
     ctx.search_memories.return_value = memories or []
     return ctx
+
+
+def _mock_backend() -> AsyncMock:
+    backend = AsyncMock(spec=AgentBackend)
+    backend.run = AsyncMock(return_value=AgentResult(summary="done"))
+    return backend
 
 
 def _make_result() -> MemorySearchResult:
@@ -284,3 +291,160 @@ class TestChatCompletions:
         ctx.search_memories.assert_awaited_once()
         forwarded = mock_litellm.acompletion.call_args.kwargs["messages"]
         assert any("Likes pizza" in str(m.get("content", "")) for m in forwarded)
+
+
+class TestBackgroundProcessing:
+    @patch("context_use.proxy.app.litellm")
+    async def test_non_streaming_schedules_processing(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        ctx = _mock_ctx()
+        backend = _mock_backend()
+        app = create_app(ctx, agent_backend=backend)
+        transport = ASGITransport(app=app)
+
+        with patch(
+            "context_use.proxy.background.BackgroundMemoryProcessor.schedule"
+        ) as mock_schedule:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as client:
+                resp = await client.post(
+                    "/v1/chat/completions",
+                    json=_completion_body(),
+                )
+
+            assert resp.status_code == 200
+            mock_schedule.assert_called_once()
+            call_kwargs = mock_schedule.call_args
+            messages = call_kwargs.args[0]
+            assert any(m["role"] == "assistant" for m in messages)
+            assert any(
+                m.get("content") == "Hi there!"
+                for m in messages
+                if m["role"] == "assistant"
+            )
+
+    @patch("context_use.proxy.app.litellm")
+    async def test_streaming_schedules_processing(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        chunk1 = MagicMock()
+        chunk1.model_dump.return_value = {
+            "id": "chatcmpl-123",
+            "object": "chat.completion.chunk",
+            "created": 1700000000,
+            "model": "gpt-4o",
+            "choices": [
+                {"index": 0, "delta": {"content": "Hi"}, "finish_reason": None}
+            ],
+        }
+        chunk2 = MagicMock()
+        chunk2.model_dump.return_value = {
+            "id": "chatcmpl-123",
+            "object": "chat.completion.chunk",
+            "created": 1700000000,
+            "model": "gpt-4o",
+            "choices": [
+                {"index": 0, "delta": {"content": " there"}, "finish_reason": "stop"}
+            ],
+        }
+
+        async def mock_stream() -> Any:
+            yield chunk1
+            yield chunk2
+
+        mock_litellm.acompletion = AsyncMock(return_value=mock_stream())
+        ctx = _mock_ctx()
+        backend = _mock_backend()
+        app = create_app(ctx, agent_backend=backend)
+        transport = ASGITransport(app=app)
+
+        with patch(
+            "context_use.proxy.background.BackgroundMemoryProcessor.schedule"
+        ) as mock_schedule:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as client:
+                resp = await client.post(
+                    "/v1/chat/completions",
+                    json=_completion_body(stream=True),
+                )
+
+            assert resp.status_code == 200
+            mock_schedule.assert_called_once()
+            messages = mock_schedule.call_args.args[0]
+            assistant_msgs = [m for m in messages if m["role"] == "assistant"]
+            assert len(assistant_msgs) == 1
+            assert assistant_msgs[0]["content"] == "Hi there"
+
+    @patch("context_use.proxy.app.litellm")
+    async def test_session_id_header_passed_through(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        ctx = _mock_ctx()
+        backend = _mock_backend()
+        app = create_app(ctx, agent_backend=backend)
+        transport = ASGITransport(app=app)
+
+        with patch(
+            "context_use.proxy.background.BackgroundMemoryProcessor.schedule"
+        ) as mock_schedule:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as client:
+                await client.post(
+                    "/v1/chat/completions",
+                    json=_completion_body(),
+                    headers={"X-Session-Id": "sess-abc"},
+                )
+
+            mock_schedule.assert_called_once()
+            assert mock_schedule.call_args.kwargs["session_id"] == "sess-abc"
+
+    @patch("context_use.proxy.app.litellm")
+    async def test_skips_processing_for_probe_requests(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        ctx = _mock_ctx()
+        backend = _mock_backend()
+        app = create_app(ctx, agent_backend=backend)
+        transport = ASGITransport(app=app)
+
+        with patch(
+            "context_use.proxy.background.BackgroundMemoryProcessor.schedule"
+        ) as mock_schedule:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as client:
+                await client.post(
+                    "/v1/chat/completions",
+                    json=_completion_body(max_tokens=1),
+                )
+
+            mock_schedule.assert_not_called()
+
+    @patch("context_use.proxy.app.litellm")
+    async def test_no_backend_means_no_processing(
+        self, mock_litellm: MagicMock
+    ) -> None:
+        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        ctx = _mock_ctx()
+        app = create_app(ctx)
+        transport = ASGITransport(app=app)
+
+        with patch(
+            "context_use.proxy.background.BackgroundMemoryProcessor.schedule"
+        ) as mock_schedule:
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://test"
+            ) as client:
+                await client.post(
+                    "/v1/chat/completions",
+                    json=_completion_body(),
+                )
+
+            mock_schedule.assert_not_called()
