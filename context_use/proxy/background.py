@@ -73,6 +73,7 @@ class BackgroundMemoryProcessor:
             return []
 
         await self._ctx.insert_threads(rows)
+        logger.info("Threads created: n=%d session=%s", len(rows), session_id or "-")
 
         return [
             Thread(
@@ -90,5 +91,6 @@ class BackgroundMemoryProcessor:
     async def _run_agent(self, threads: list[Thread]) -> None:
         transcript = format_transcript(threads)
         skill = make_process_thread_skill(transcript)
+        logger.info("Memory generation started: threads=%d", len(threads))
         result = await self._ctx.run_agent(self._backend, skill.prompt)
-        logger.info("Thread memory processing complete: %s", result.summary)
+        logger.info("Memory generation finished: %s", result.summary)

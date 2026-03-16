@@ -56,8 +56,6 @@ def create_app(
                 ),
             )
 
-        logger.debug("Received request: %s", body)
-
         messages: list[dict[str, Any]] = body["messages"]
         stream: bool = body.get("stream", False)
         max_tokens = body.get("max_tokens")
@@ -65,6 +63,14 @@ def create_app(
         api_key = _extract_api_key(request)
         session_id = request.headers.get("x-session-id")
         should_process = _should_enrich(max_tokens) and processor is not None
+
+        logger.info(
+            "Request received: model=%s messages=%d session=%s stream=%s",
+            body.get("model"),
+            len(messages),
+            session_id or "-",
+            stream,
+        )
 
         if _should_enrich(max_tokens):
             body["messages"] = await enrich_messages(messages, ctx, top_k=top_k)
@@ -83,6 +89,7 @@ def create_app(
             forward_kwargs["api_key"] = api_key
 
         try:
+            logger.info("Response started: model=%s", body.get("model"))
             response = await litellm.acompletion(**forward_kwargs)
             if stream:
                 return StreamingResponse(
@@ -97,6 +104,7 @@ def create_app(
                 )
             else:
                 data: dict[str, Any] = response.model_dump()  # type: ignore[union-attr]
+                logger.info("Response finished: model=%s", body.get("model"))
                 if should_process:
                     assert processor is not None
                     assistant_text = _extract_assistant_text(data)
@@ -134,14 +142,19 @@ async def _stream_and_process(
     processor: BackgroundMemoryProcessor | None,
 ) -> AsyncGenerator[str, None]:
     assistant_parts: list[str] = []
+    chunk_count = 0
     try:
         async for chunk in response:
             data = chunk.model_dump()
             _accumulate_chunk(data, assistant_parts)
+            if chunk_count == 0:
+                logger.info("Response started (streaming)")
+            chunk_count += 1
             yield f"data: {json.dumps(data, default=str)}\n\n"
     except Exception:
         logger.error("Streaming error", exc_info=True)
     yield "data: [DONE]\n\n"
+    logger.info("Response finished (streaming): chunks=%d", chunk_count)
 
     if processor is not None:
         assistant_text = "".join(assistant_parts)
