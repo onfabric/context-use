@@ -284,6 +284,8 @@ class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportInc
             parts = "Liked post"
             if self.object.attributedTo:
                 parts += f" by {self.object.attributedTo.name}"
+        elif self.object.name:
+            parts = f'Liked "{self.object.name}"'
         else:
             parts = f"Liked {self.object.type.lower()}"
         if provider:
@@ -299,6 +301,8 @@ class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[rep
             parts = "Disliked post"
             if self.object.attributedTo:
                 parts += f" by {self.object.attributedTo.name}"
+        elif self.object.name:
+            parts = f'Disliked "{self.object.name}"'
         else:
             parts = f"Disliked {self.object.type.lower()}"
         if provider:
@@ -309,14 +313,16 @@ class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[rep
 class FibreComment(Create, _BaseFibreMixin):
     fibreKind: Literal["Comment"] = Field("Comment", alias="fibre_kind")
     object: Note  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
-    inReplyTo: FibrePost | None = None  # type: ignore[reportIncompatibleVariableOverride]
+    inReplyTo: FibrePost | Page | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
         content = self.object.content if isinstance(self.object.content, str) else ""
         truncated = content[:80] + ("..." if len(content) > 80 else "")
         parts = f'Commented "{truncated}"'
-        if self.inReplyTo and self.inReplyTo.attributedTo:
+        if isinstance(self.inReplyTo, FibrePost) and self.inReplyTo.attributedTo:
             parts += f" on {self.inReplyTo.attributedTo.name}'s post"
+        elif isinstance(self.inReplyTo, Page):
+            parts += " on listing"
         if provider:
             parts += f" on {provider}"
         return parts

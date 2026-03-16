@@ -1,0 +1,19 @@
+{
+  "type": "object",
+  "properties": {
+    "Profile Name": {"type": "string"},
+    "Sent Utc Ts": {"type": "string"},
+    "Channel": {"type": "string"},
+    "Title Name": {"type": "string"},
+    "Message Name": {"type": "string"},
+    "Country Iso Code": {"type": "string"},
+    "Device Model": {"type": "string"},
+    "Click Cnt": {"type": "string"},
+    "Click Utc Ts": {"type": "string"},
+    "Link Url": {"type": "string"},
+    "Email Domain Name": {"type": "string"},
+    "Email Locale": {"type": "string"},
+    "Account Locale": {"type": "string"}
+  },
+  "required": ["Profile Name", "Sent Utc Ts", "Channel"]
+}

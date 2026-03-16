@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "properties": {
+    "Profile Name": {"type": "string"},
+    "Show": {"type": "string"},
+    "Has Watched": {"type": "string"},
+    "Is Interested": {"type": "string"},
+    "Event Date": {"type": "string"}
+  },
+  "required": ["Profile Name", "Show", "Is Interested", "Event Date", "Has Watched"]
+}

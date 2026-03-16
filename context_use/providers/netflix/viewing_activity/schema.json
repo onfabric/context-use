@@ -1,0 +1,16 @@
+{
+  "type": "object",
+  "properties": {
+    "Profile Name": {"type": "string"},
+    "Start Time": {"type": "string"},
+    "Duration": {"type": "string"},
+    "Attributes": {"type": "string"},
+    "Title": {"type": "string"},
+    "Supplemental Video Type": {"type": "string"},
+    "Device Type": {"type": "string"},
+    "Bookmark": {"type": "string"},
+    "Latest Bookmark": {"type": "string"},
+    "Country": {"type": "string"}
+  },
+  "required": ["Profile Name", "Start Time", "Duration", "Title", "Device Type", "Country"]
+}
