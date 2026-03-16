@@ -39,6 +39,7 @@ class GroupContext:
     new_threads: list[Thread]
     prior_memories: list[str] = field(default_factory=list)
     recent_threads: list[Thread] = field(default_factory=list)
+    user_profile: str | None = None
 
 
 class BasePromptBuilder(ABC):
@@ -64,15 +65,25 @@ class BasePromptBuilder(ABC):
 
     @staticmethod
     def _format_context(ctx: GroupContext) -> str:
-        """Build an optional context preamble from prior memories / recent threads.
+        """Build an optional context preamble from user profile, prior memories,
+        and recent threads.
 
         Returns an empty string when there is no prior context (initial run),
         keeping the prompt identical to the non-delta path.
         """
-        if not ctx.prior_memories and not ctx.recent_threads:
+        if not ctx.user_profile and not ctx.prior_memories and not ctx.recent_threads:
             return ""
 
         sections: list[str] = []
+
+        if ctx.user_profile:
+            sections.append(
+                "## User profile\n"
+                "High-level context about the user. Use this to frame and "
+                "personalise the memories you extract — do not repeat it as "
+                "a memory itself.\n\n"
+                f"{ctx.user_profile.strip()}"
+            )
 
         if ctx.prior_memories:
             memories_text = "\n".join(f"- {m}" for m in ctx.prior_memories)
