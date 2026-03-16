@@ -1,3 +1,13 @@
+## [0.6.1] - 2026-03-16
+
+### 🐛 Bug Fixes
+
+- *(chatgpt)* Update schema based on different types of archives (#215)
+
+### ⚙️ Miscellaneous Tasks
+
+- Group dependencies changes in changelog (#214)
+
 ## [0.6.0] - 2026-03-16
 
 ### 🚀 Features
