@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -18,6 +19,43 @@ from context_use.providers.chatgpt.conversations.schemas import (
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.chatgpt.conftest import CHATGPT_CONVERSATIONS
+
+
+def _msg(
+    role: str = "user",
+    content_type: str = "text",
+    parts: list[Any] | None = None,
+    **overrides: Any,
+) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": "msg-1",
+        "author": {"role": role, "name": None, "metadata": {}},
+        "create_time": 1700000000.0,
+        "update_time": None,
+        "content": {
+            "content_type": content_type,
+            "parts": parts if parts is not None else ["hello"],
+        },
+        "status": "finished_successfully",
+        "end_turn": None,
+        "weight": 1.0,
+        "metadata": {},
+        "recipient": "all",
+        "channel": None,
+    }
+    base.update(overrides)
+    return base
+
+
+def _node(message: dict[str, Any] | None = None, **overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {
+        "id": "node-1",
+        "parent": None,
+        "children": [],
+        "message": message,
+    }
+    base.update(overrides)
+    return base
 
 
 class TestChatGPTConversationsPipe(PipeTestKit):
@@ -49,29 +87,21 @@ class TestChatGPTConversationSchema:
         raw = {
             "title": "Test",
             "conversation_id": "conv-1",
-            "mapping": {
-                "msg-1": {
-                    "message": {
-                        "author": {"role": "user"},
-                        "content": {"content_type": "text", "parts": ["hello"]},
-                        "create_time": 1700000000.0,
-                    }
-                }
-            },
+            "mapping": {"node-1": _node(_msg())},
         }
         conv = Model.model_validate(raw)
         assert conv.title == "Test"
         assert conv.conversation_id == "conv-1"
         assert len(conv.mapping) == 1
-        assert isinstance(conv.mapping["msg-1"].message, Message)
+        assert isinstance(conv.mapping["node-1"].message, Message)
 
     def test_missing_mapping_raises(self) -> None:
         raw = {"title": "Test", "conversation_id": "conv-1"}
         with pytest.raises(ValidationError):
             Model.model_validate(raw)
 
-    def test_optional_fields(self) -> None:
-        raw = {"mapping": {"node-1": {}}}
+    def test_optional_conversation_fields(self) -> None:
+        raw = {"mapping": {"node-1": _node()}}
         conv = Model.model_validate(raw)
         assert conv.title is None
         assert conv.conversation_id is None
@@ -89,28 +119,21 @@ class TestChatGPTConversationSchema:
         assert conv.title == "Test"
 
     def test_node_with_null_message(self) -> None:
-        node = Mapping.model_validate({"message": None})
+        node = Mapping.model_validate(_node(message=None))
         assert node.message is None
 
     def test_node_with_extra_fields(self) -> None:
-        node = Mapping.model_validate(
-            {"message": None, "id": "node-1", "children": ["node-2"]}
-        )
+        node = Mapping.model_validate(_node(message=None, extra_field="ignored"))
         assert node.message is None
 
     def test_node_with_multimodal_message_parses(self) -> None:
         node = Mapping.model_validate(
-            {
-                "message": {
-                    "author": {"role": "user"},
-                    "content": {
-                        "content_type": "multimodal_text",
-                        "parts": [
-                            {"asset_pointer": "file-abc", "width": 1024, "height": 768}
-                        ],
-                    },
-                }
-            }
+            _node(
+                _msg(
+                    content_type="multimodal_text",
+                    parts=[{"asset_pointer": "file-abc", "width": 1024, "height": 768}],
+                )
+            )
         )
         assert isinstance(node.message, Message)
         assert node.message.content.content_type == "multimodal_text"
@@ -118,7 +141,7 @@ class TestChatGPTConversationSchema:
     def test_node_with_malformed_message_raises(self) -> None:
         with pytest.raises(ValidationError):
             Mapping.model_validate(
-                {"message": {"content": {"content_type": "text", "parts": ["hi"]}}}
+                _node(message={"content": {"content_type": "text", "parts": ["hi"]}})
             )
 
 

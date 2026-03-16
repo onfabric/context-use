@@ -1,72 +1,285 @@
 [
   {
-    "title": "Hello World",
-    "conversation_id": "conv-001",
+    "title": "Test Conversation 1",
+    "create_time": 1764444096.12629,
+    "update_time": 1764444110.960476,
     "mapping": {
-      "msg-1": {
-        "message": {
-          "author": {"role": "user"},
-          "content": {"content_type": "text", "parts": ["Hi there!"]},
-          "create_time": 1700000000.0
-        }
+      "root": {
+        "id": "root",
+        "message": null,
+        "parent": null,
+        "children": [
+          "node-1"
+        ]
       },
-      "msg-2": {
+      "node-1": {
+        "id": "node-1",
         "message": {
-          "author": {"role": "assistant"},
+          "id": "msg-1-1",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
           "content": {
             "content_type": "text",
-            "parts": ["Hello! How can I help you?"]
+            "parts": [
+              "You are a helpful assistant."
+            ]
           },
-          "create_time": 1700000001.0
-        }
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 0.0,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "root",
+        "children": [
+          "node-2"
+        ]
       },
-      "msg-3": {
+      "node-2": {
+        "id": "node-2",
         "message": {
-          "author": {"role": "system"},
+          "id": "msg-1-2",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1764444095.813,
+          "update_time": null,
           "content": {
             "content_type": "text",
-            "parts": ["You are a helpful assistant."]
+            "parts": [
+              "How does Python handle memory management?"
+            ]
           },
-          "create_time": 1700000002.0
-        }
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1.0,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "node-1",
+        "children": [
+          "node-3"
+        ]
+      },
+      "node-3": {
+        "id": "node-3",
+        "message": {
+          "id": "msg-1-3",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1764444096.0105424,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Python uses automatic memory management with a garbage collector."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1.0,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "node-2",
+        "children": [
+          "node-4"
+        ]
+      },
+      "node-4": {
+        "id": "node-4",
+        "message": {
+          "id": "msg-1-4",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1764444098.167236,
+          "update_time": 1764444109.344789,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "Here is a simple example using reference counting."
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1.0,
+          "metadata": {},
+          "recipient": "all",
+          "channel": "final"
+        },
+        "parent": "node-3",
+        "children": []
       }
-    }
+    },
+    "moderation_results": [],
+    "current_node": "node-4",
+    "plugin_ids": null,
+    "conversation_id": "conv-001",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "gizmo_type": null,
+    "is_archived": false,
+    "is_starred": null,
+    "safe_urls": [],
+    "blocked_urls": [],
+    "default_model_slug": "auto",
+    "atlas_mode_enabled": null,
+    "conversation_origin": null,
+    "is_read_only": null,
+    "voice": null,
+    "async_status": null,
+    "disabled_tool_ids": [],
+    "is_do_not_remember": false,
+    "memory_scope": "global_enabled",
+    "context_scopes": null,
+    "sugar_item_id": null,
+    "sugar_item_visible": false,
+    "pinned_time": null,
+    "is_study_mode": false,
+    "owner": null,
+    "id": "conv-001"
   },
   {
-    "title": "Python Help",
+    "async_status": null,
+    "atlas_mode_enabled": null,
+    "blocked_urls": [],
+    "context_scopes": null,
     "conversation_id": "conv-002",
+    "conversation_origin": null,
+    "conversation_template_id": null,
+    "create_time": 1695455176.486643,
+    "current_node": "node-3",
+    "default_model_slug": null,
+    "disabled_tool_ids": [],
+    "gizmo_id": null,
+    "gizmo_type": null,
+    "id": "conv-002",
+    "is_archived": false,
+    "is_do_not_remember": null,
+    "is_read_only": null,
+    "is_starred": null,
+    "is_study_mode": false,
     "mapping": {
-      "msg-4": {
+      "node-0": {
+        "children": [],
+        "id": "node-0",
         "message": {
-          "author": {"role": "user"},
+          "author": {
+            "metadata": {},
+            "name": null,
+            "role": "assistant"
+          },
+          "channel": null,
           "content": {
             "content_type": "text",
-            "parts": ["How do I read a file in Python?"]
+            "parts": [
+              "Python uses automatic memory management with a garbage collector."
+            ]
           },
-          "create_time": 1700001000.0
-        }
+          "create_time": 1695455180.110382,
+          "end_turn": true,
+          "id": "msg-2-1",
+          "metadata": {},
+          "recipient": "all",
+          "status": "finished_successfully",
+          "update_time": null,
+          "weight": 1.0
+        },
+        "parent": "node-2"
       },
-      "msg-5": {
-        "message": {
-          "author": {"role": "assistant"},
-          "content": {
-            "content_type": "text",
-            "parts": ["You can use open() to read a file. For example: with open('file.txt') as f: data = f.read()"]
-          },
-          "create_time": 1700001001.0
-        }
+      "root": {
+        "children": [
+          "node-3"
+        ],
+        "id": "root",
+        "message": null,
+        "parent": null
       },
-      "msg-6": {
+      "node-2": {
+        "children": [
+          "node-0"
+        ],
+        "id": "node-2",
         "message": {
-          "author": {"role": "user"},
+          "author": {
+            "metadata": {},
+            "name": null,
+            "role": "user"
+          },
+          "channel": null,
           "content": {
             "content_type": "text",
-            "parts": ["Thanks!"]
+            "parts": [
+              "How does Python handle memory management?"
+            ]
           },
-          "create_time": 1700001002.0
-        }
+          "create_time": 1695455176.487526,
+          "end_turn": null,
+          "id": "msg-2-2",
+          "metadata": {},
+          "recipient": "all",
+          "status": "finished_successfully",
+          "update_time": null,
+          "weight": 1.0
+        },
+        "parent": "node-3"
+      },
+      "node-3": {
+        "children": [
+          "node-2"
+        ],
+        "id": "node-3",
+        "message": {
+          "author": {
+            "metadata": {},
+            "name": null,
+            "role": "system"
+          },
+          "channel": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "You are a helpful assistant."
+            ]
+          },
+          "create_time": null,
+          "end_turn": true,
+          "id": "msg-2-3",
+          "metadata": {},
+          "recipient": "all",
+          "status": "finished_successfully",
+          "update_time": null,
+          "weight": 0.0
+        },
+        "parent": "root"
       }
-    }
+    },
+    "memory_scope": "global_enabled",
+    "moderation_results": [],
+    "owner": null,
+    "pinned_time": null,
+    "plugin_ids": null,
+    "safe_urls": [],
+    "sugar_item_id": null,
+    "sugar_item_visible": false,
+    "title": "Test Conversation 2",
+    "update_time": 1695455176.486643,
+    "voice": null
   }
 ]
-
