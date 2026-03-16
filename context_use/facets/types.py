@@ -60,17 +60,20 @@ FACET_TYPES: tuple[FacetTypeDef, ...] = (
         ),
     ),
     FacetTypeDef(
+        name="infer",
+        description=("What can be inferred from the context."),
+        examples=["Personal preferences", "Emotional state", "Work", "Relationship"],
+        exclude=("Do not use for super specific details."),
+    ),
+    FacetTypeDef(
         name="topic",
-        description=(
-            "A subject, theme, or area of interest that the memory is about, "
-            "when it does not fit the other types."
-        ),
+        description=("An activity, interest, theme, or area of interest."),
         examples=["machine learning", "nutrition", "personal finance", "travel"],
         exclude=("Do not duplicate what is already captured by the other facet types."),
     ),
 )
 
-FacetType = Literal["person", "location", "organization", "thing", "topic"]
+FacetType = Literal["person", "location", "organization", "thing", "infer", "topic"]
 
 VALID_FACET_TYPES: frozenset[str] = frozenset(t.name for t in FACET_TYPES)
 
