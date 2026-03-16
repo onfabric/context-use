@@ -41,12 +41,11 @@ class SemanticFacetLinker:
 
     async def _create_canonical(self, facet: MemoryFacet) -> Facet:
         assert facet.embedding is not None
-        async with self._store.atomic():
-            canonical = await self._store.create_facet(
-                Facet(
-                    facet_type=facet.facet_type,
-                    facet_canonical=facet.facet_value,
-                )
+        canonical = await self._store.create_facet(
+            Facet(
+                facet_type=facet.facet_type,
+                facet_canonical=facet.facet_value,
             )
-            await self._store.create_facet_embedding(canonical.id, facet.embedding)
+        )
+        await self._store.create_facet_embedding(canonical.id, facet.embedding)
         return canonical

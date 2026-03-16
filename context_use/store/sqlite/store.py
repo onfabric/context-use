@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections import defaultdict
@@ -47,6 +48,7 @@ class SqliteStore(Store):
         self._path = path
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
+        self._atomic_lock = asyncio.Lock()
 
     async def _conn(self) -> aiosqlite.Connection:
         if self._db is None:
@@ -100,17 +102,18 @@ class SqliteStore(Store):
 
     @asynccontextmanager
     async def atomic(self) -> AsyncIterator[None]:
-        db = await self._conn()
-        self._in_atomic = True
-        await db.execute("BEGIN")
-        try:
-            yield
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-        finally:
-            self._in_atomic = False
+        async with self._atomic_lock:
+            db = await self._conn()
+            self._in_atomic = True
+            await db.execute("BEGIN")
+            try:
+                yield
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
+            finally:
+                self._in_atomic = False
 
     async def create_archive(
         self,
