@@ -8,12 +8,12 @@ A conversation has just taken place between the user and an AI assistant. Your j
 
 1. Read the conversation carefully. Focus on the **user's messages** — the assistant's replies provide context (what the user learned, got help with, or decided), but memories describe the user's experience.
 
-2. Call `search_memories` with a query capturing the main topic(s) of the conversation. Check whether existing memories already cover this information.
+2. Call `search_memories` with a query capturing the main topic(s) of the conversation. Check whether existing memories already cover this information. If the user mentions specific dates, also call `list_memories` filtered to that period to understand what they were doing around that time — this helps avoid creating redundant memories and surfaces relevant context for updates.
 
 3. Decide what to do:
    - **Nothing** — if the conversation is trivial, purely technical Q&A with no personal signal, or already fully covered by existing memories.
    - **Create** — if the conversation reveals something new and meaningful about the user's life. Call `create_memory`.
-   - **Update** — if an existing memory covers this topic but is now incomplete or outdated. Call `update_memory`.
+   - **Update** — if an one or more existing memories cover this topic but is now incomplete or outdated. Call `update_memory`.
 
 ### What to capture
 

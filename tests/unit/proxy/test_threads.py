@@ -72,7 +72,7 @@ class TestMessagesToThreadRows:
         assert len(rows) == 1
         context = rows[0].payload["object"].get("context")
         assert context is not None
-        assert context["id"] == "https://context-use/session/session-123"
+        assert context["id"] == "https://unknown/session/session-123"
 
     def test_no_session_id_omits_collection(self) -> None:
         messages = [{"role": "user", "content": "Hello"}]

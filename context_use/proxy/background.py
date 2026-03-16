@@ -17,9 +17,8 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_MAX_CONCURRENT_AGENTS = 3
+_MAX_CONCURRENT_AGENTS = 1
 # TODO: if proxy traffic becomes high-volume, consider a persistent queue
-# or backpressure mechanism instead of unbounded in-memory tasks.
 
 
 class BackgroundMemoryProcessor:

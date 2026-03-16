@@ -42,7 +42,7 @@ def _build_payload(
 ) -> FibreSendMessage | FibreReceiveMessage:
     context = None
     if session_id:
-        context = Collection(id=f"https://context-use/session/{session_id}")  # type: ignore[reportCallIssue]
+        context = Collection(id=f"https://{PROVIDER}/session/{session_id}")  # type: ignore[reportCallIssue]
 
     message = FibreTextMessage(content=text, context=context)  # type: ignore[reportCallIssue]
 

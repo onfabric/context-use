@@ -11,6 +11,7 @@ from pathlib import Path
 
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, require_api_key
+from context_use.ext.adk.agent.runner import AdkAgentBackend
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
@@ -48,11 +49,6 @@ class ProxyCommand(BaseCommand):
             "--stop",
             action="store_true",
             help="Stop the background proxy",
-        )
-        parser.add_argument(
-            "--no-memories",
-            action="store_true",
-            help="Disable background memory processing from conversations",
         )
 
     async def execute(self, args: argparse.Namespace) -> None:
@@ -98,19 +94,16 @@ class ProxyCommand(BaseCommand):
         )
         print()
 
-        agent_backend = None
-        if not args.no_memories:
-            from context_use.ext.adk.agent.runner import AdkAgentBackend
+        from context_use.proxy.background import BackgroundMemoryProcessor
 
-            agent_backend = AdkAgentBackend(
-                api_key=cfg.openai_api_key,
-                model=cfg.openai_model,
-            )
-            out.kv("Memory processing", "enabled")
-        else:
-            out.kv("Memory processing", "disabled")
+        agent_backend = AdkAgentBackend(
+            api_key=cfg.openai_api_key,
+            model=cfg.openai_model,
+        )
+        processor = BackgroundMemoryProcessor(ctx, agent_backend)
+        out.kv("Memory processing", "enabled")
 
-        app = create_app(ctx, agent_backend=agent_backend)
+        app = create_app(ctx, processor)
         config = uvicorn.Config(
             app,
             host=args.host,

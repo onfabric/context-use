@@ -13,7 +13,6 @@ from context_use.facade.core import ContextUse
 from context_use.proxy.enrichment import enrich_messages
 
 if TYPE_CHECKING:
-    from context_use.agent.backend import AgentBackend
     from context_use.proxy.background import BackgroundMemoryProcessor
 
 logger = logging.getLogger(__name__)
@@ -21,17 +20,9 @@ logger = logging.getLogger(__name__)
 
 def create_app(
     ctx: ContextUse,
-    *,
-    top_k: int = 5,
-    agent_backend: AgentBackend | None = None,
+    processor: BackgroundMemoryProcessor,
 ) -> FastAPI:
     app = FastAPI(title="context-use proxy")
-
-    processor: BackgroundMemoryProcessor | None = None
-    if agent_backend is not None:
-        from context_use.proxy.background import BackgroundMemoryProcessor
-
-        processor = BackgroundMemoryProcessor(ctx, agent_backend)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -62,7 +53,7 @@ def create_app(
 
         api_key = _extract_api_key(request)
         session_id = request.headers.get("x-session-id")
-        should_process = _should_enrich(max_tokens) and processor is not None
+        should_process = _should_enrich(max_tokens)
 
         logger.info(
             "Request received: model=%s messages=%d session=%s stream=%s",
@@ -73,7 +64,7 @@ def create_app(
         )
 
         if _should_enrich(max_tokens):
-            body["messages"] = await enrich_messages(messages, ctx, top_k=top_k)
+            body["messages"] = await enrich_messages(messages, ctx)
         else:
             logger.debug("Skipping enrichment (max_tokens=%s)", max_tokens)
 
@@ -97,7 +88,8 @@ def create_app(
                         response,
                         messages=messages,
                         session_id=session_id,
-                        processor=processor if should_process else None,
+                        processor=processor,
+                        should_process=should_process,
                     ),
                     media_type="text/event-stream",
                     headers={"Cache-Control": "no-cache"},
@@ -106,7 +98,6 @@ def create_app(
                 data: dict[str, Any] = response.model_dump()  # type: ignore[union-attr]
                 logger.info("Response finished: model=%s", body.get("model"))
                 if should_process:
-                    assert processor is not None
                     assistant_text = _extract_assistant_text(data)
                     _schedule_processing(
                         processor,
@@ -139,7 +130,8 @@ async def _stream_and_process(
     *,
     messages: list[dict[str, Any]],
     session_id: str | None,
-    processor: BackgroundMemoryProcessor | None,
+    processor: BackgroundMemoryProcessor,
+    should_process: bool,
 ) -> AsyncGenerator[str, None]:
     assistant_parts: list[str] = []
     chunk_count = 0
@@ -156,7 +148,7 @@ async def _stream_and_process(
     yield "data: [DONE]\n\n"
     logger.info("Response finished (streaming): chunks=%d", chunk_count)
 
-    if processor is not None:
+    if should_process:
         assistant_text = "".join(assistant_parts)
         _schedule_processing(processor, messages, assistant_text, session_id=session_id)
 
