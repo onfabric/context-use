@@ -1,6 +1,10 @@
+import pytest
+
 from context_use import ContextUse
 from context_use.models.archive import ArchiveStatus
 from context_use.providers import instagram
+
+pytestmark = pytest.mark.integration
 
 # Interaction types that produce threads with asset_uri
 _MEDIA_TYPES = {"instagram_stories", "instagram_reels"}

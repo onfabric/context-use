@@ -16,13 +16,6 @@ from context_use.storage.disk import DiskStorage
 from context_use.store.sqlite import SqliteStore
 
 
-def pytest_collection_modifyitems(items: list, config) -> None:  # noqa: ANN001
-    """Auto-mark every test in the integration directory."""
-    marker = pytest.mark.integration
-    for item in items:
-        item.add_marker(marker)
-
-
 class _StubLLMClient(BaseLLMClient):
     """Minimal stub for ETL-only integration tests that never call the LLM."""
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from context_use.testing.fixtures import load_fixture
 
-_BASE = "users/alice/google/v1/Portability/My Activity"
+_BASE = "users/alice/google/v1/threads/Portability/My Activity"
 
 GOOGLE_SEARCH_JSON: list[dict] = load_fixture(f"{_BASE}/Search/MyActivity.json")
 GOOGLE_VIDEO_SEARCH_JSON: list[dict] = load_fixture(
