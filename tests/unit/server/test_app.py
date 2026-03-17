@@ -14,6 +14,10 @@ from context_use.server.app import create_app
 from context_use.store.base import MemorySearchResult
 
 
+def _transport(app: Any) -> ASGITransport:
+    return ASGITransport(app=app)  # type: ignore[arg-type]
+
+
 def _mock_ctx(
     memories: list[MemorySearchResult] | None = None,
 ) -> AsyncMock:
@@ -79,7 +83,7 @@ def _mock_model_response() -> MagicMock:
 class TestHealth:
     async def test_health(self) -> None:
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
@@ -91,7 +95,7 @@ class TestHealth:
 class TestRequestValidation:
     async def test_missing_model(self) -> None:
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
@@ -104,7 +108,7 @@ class TestRequestValidation:
 
     async def test_missing_messages(self) -> None:
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
@@ -116,7 +120,7 @@ class TestRequestValidation:
 
     async def test_invalid_json(self) -> None:
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
@@ -137,7 +141,7 @@ class TestNonStreaming:
             _make_handler(memories=[_make_result()]),
             upstream_url="https://api.openai.com",
         )
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -154,7 +158,7 @@ class TestNonStreaming:
     async def test_forwards_api_key(self, mock_litellm: MagicMock) -> None:
         mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -191,7 +195,7 @@ class TestStreaming:
 
         mock_litellm.acompletion = AsyncMock(return_value=mock_stream())
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -218,7 +222,7 @@ class TestErrorHandling:
         exc.status_code = 429  # type: ignore[attr-defined]
         mock_litellm.acompletion = AsyncMock(side_effect=exc)
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -235,7 +239,7 @@ class TestErrorHandling:
     async def test_generic_error_returns_500(self, mock_litellm: MagicMock) -> None:
         mock_litellm.acompletion = AsyncMock(side_effect=RuntimeError("boom"))
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -257,7 +261,7 @@ class TestSessionIdHeader:
         processor = _mock_processor()
         handler = ProxyHandler(_mock_ctx(), processor)
         app = create_app(handler, upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -289,7 +293,7 @@ class TestPassThrough:
         mock_factory.return_value = mock_client
 
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -311,7 +315,7 @@ class TestPassThrough:
         mock_factory.return_value = mock_client
 
         app = create_app(_make_handler(), upstream_url="https://api.openai.com")
-        transport = ASGITransport(app=app)
+        transport = _transport(app)
 
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
