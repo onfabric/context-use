@@ -289,6 +289,27 @@ class SqliteStore(Store):
         await self._commit_unless_atomic()
         return total
 
+    async def list_threads(
+        self,
+        *,
+        interaction_types: list[str] | None = None,
+        limit: int | None = None,
+        random: bool = False,
+    ) -> list[Thread]:
+        db = await self._conn()
+        sql = "SELECT * FROM threads"
+        params: list = []
+        if interaction_types is not None:
+            ph = ",".join("?" for _ in interaction_types)
+            sql += f" WHERE interaction_type IN ({ph})"
+            params.extend(interaction_types)
+        sql += " ORDER BY RANDOM()" if random else " ORDER BY asat, id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        rows = await db.execute_fetchall(sql, params)
+        return [ThreadRow.from_row(r) for r in rows]
+
     async def get_unprocessed_threads(
         self,
         *,

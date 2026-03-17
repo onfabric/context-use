@@ -1,56 +1,73 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from pathlib import Path
 
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import BasePromptBuilder, MemorySchema
 from context_use.models.thread import Thread
 from context_use.prompt_categories import WHAT_TO_CAPTURE
 
-_SHARED_BODY = (
-    WHAT_TO_CAPTURE
-    + """
-
-### Granularity
-
-Let the content guide you:
-- A focused single-topic conversation → one memory.
-- A conversation spanning multiple distinct topics → one memory per topic.
-- A deep dive → memory capturing the key problem and outcome.
-- A conversation revealing personal context → memory capturing the \
-personal facts, not just the topic discussed.
-
-Generate as many memories as the content warrants.
-
-### Detail level
-
-Each memory should be **information-dense**:
-- Use specific names: people, places, technologies, brands — not vague \
-categories.
-- Describe the user's specific situation, not just the general topic.
-- Include concrete details that distinguish this from a generic summary.
-- Capture the user's reasoning when they explained why they chose \
-something or how they felt about it.
-- When the user learned something or got an answer, capture what they \
-learned — that's now part of their knowledge.
-
-### What to avoid
-
-- Do not fabricate details not present in the conversation.
-- Do not write filler ("had a productive session", "explored some ideas").
-- Do not ignore non-technical content — a conversation about planning a \
-birthday party is just as important as one about debugging code.
-
-{{CONTEXT}}\
-{{TRANSCRIPT}}
-
+OUTPUT_FORMAT = """\
 ## Output format
 Return a JSON object with a ``memories`` array. Each memory has:
 - ``content``: the memory text (1-2 sentences, detail-rich, first-person).
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
 """
+
+_SHARED_BODY = (
+    WHAT_TO_CAPTURE
+    + """
+
+### Level of abstraction
+
+Ask yourself: **what does this conversation reveal about who this person \
+is?** Write at that level — not at the level of individual steps, \
+commands, or messages.
+
+- If they used Docker, the memory is "I work with Docker" — not \
+"I ran docker ps and got an error."
+- If they debugged a Node.js app, the memory is "I'm building a \
+Node.js app with MySQL" — not "I hit a Knex connection error."
+- If they asked about travel logistics, the memory is "I'm planning \
+a trip from Milan to Sestri Levante" — not "I looked up train \
+schedules."
+- If several messages are just quick Q&A with no personal revelation \
+(e.g. "what does this error mean?"), they may not warrant a memory \
+at all.
+
+### What makes a good memory
+
+- **Identity facts**: where the person lives, what they do for work, \
+what languages they speak, what tools they use regularly.
+- **Feelings and motivations**: why they care, how they feel, what \
+they're uncertain or excited about. These are more valuable than \
+technical steps.
+- **Relationships and social context**: people mentioned, social \
+dynamics, plans with others.
+- **Patterns over episodes**: "I use Docker often" is better than \
+"I ran a Docker command once." Prefer the durable fact over the \
+transient event.
+
+### What to avoid
+
+- Do not fabricate details not present in the conversation.
+- Do not write filler ("had a productive session", "explored some ideas").
+- Do not capture procedural steps (specific commands, error messages, \
+API calls). Capture what the person was *trying to do* and *why*, \
+not how.
+- Do not ignore non-technical content — a conversation about planning a \
+birthday party is just as important as one about debugging code.
+
+{{CONTEXT}}\
+{{TRANSCRIPT}}
+
+"""
+    + OUTPUT_FORMAT
 )
+
+AGENT_PROMPT_OVERRIDE = Path(__file__).with_name("overrides") / "agent_conversation.txt"
 
 AGENT_CONVERSATION_MEMORIES_PROMPT = (
     """\
@@ -161,6 +178,11 @@ class AgentConversationMemoryPromptBuilder(ConversationMemoryPromptBuilder):
 
     @property
     def _prompt_template(self) -> str:
+        try:
+            if AGENT_PROMPT_OVERRIDE.is_file():
+                return AGENT_PROMPT_OVERRIDE.read_text()
+        except OSError:
+            pass
         return AGENT_CONVERSATION_MEMORIES_PROMPT
 
     def _format_content(self, thread: Thread) -> str:

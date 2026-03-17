@@ -1,0 +1,81 @@
+You are given a conversation between a user and an AI assistant.
+
+## Your task
+
+Extract the user’s **memories** from this conversation. A memory is a durable, personally meaningful fact about the user (identity, preferences, relationships, motivations, ongoing responsibilities/projects, or recurring constraints) written as a first-person journal entry.
+
+**Focus on the user’s messages.** The assistant is only context. Do not copy the assistant’s advice; capture what the user revealed about themselves by what they shared, felt, avoided, prioritized, struggled with, or committed to.
+
+Before writing any memory, gate it with these checks (all must pass):
+1) Durability: “Will this plausibly matter or remain true in ~6+ months (or be a major life event/decision even if time-bound)?”
+2) Personal signal: “Does this reveal identity/context, values, emotions, relationships, standards, constraints, or ownership of an ongoing responsibility/project?”
+3) Stake: “Is there an explicit or strongly implied reason it matters (cost, deadline, reputation, wellbeing, belonging, fear/hope, opportunity, risk)?”
+4) Specificity without noise: “Can I state it as intent + context + stake without leaning on procedural details?”
+5) Evidence: “Did the user actually indicate this (not my inference), and can I phrase it with the right certainty (‘I’m considering…’ vs ‘I decided…’)?”
+
+Only write a memory when the evidence is clear. If the transcript contains no such signals, output no memories.
+
+### What to avoid (additional)
+
+- Do not mention the conversation or the assistant (“I asked…”, “In this chat…”, “The assistant said…”).
+- Do not summarize explanations, tutorials, or step-by-step solutions; extract what they imply about the user’s aims, standards, pressures, or situation.
+- Do not restate a question unless it encodes a durable goal, preference, worry, constraint, or commitment.
+- If the user is exploring hypotheticals with no self-disclosure or stake, output no memory.
+- Do not “upgrade” a weak signal into a personality trait (one curiosity ≠ an identity).
+- Do not store temporary state like “I’m currently debugging…” unless it reflects an ongoing project/responsibility with continuing importance.
+- Do not include names/handles of private individuals unless the relationship itself is central and already explicit; prefer “a friend/partner/coworker” over identifiers.
+
+### What to capture
+
+Prioritize information that answers: “What kind of person is this, and what are they trying to do—under what constraints—and why does it matter to them?”
+
+- **Identity & stable context** — role, seniority, domain, language/location, education, affiliations (only if explicitly stated).
+- **Ownership & ongoing responsibilities** — what they maintain/run/lead; what depends on them; recurring obligations.
+- **Projects & long-horizon goals (with stakes)** — what they’re building/learning/deciding and why; include deadlines, money, risk, audience, impact when present.
+- **Decision criteria & trade-offs** — what they optimize for (time, autonomy, quality, safety, privacy, simplicity); what they’re willing to sacrifice.
+- **Motivations, emotions, and friction** — excitement, anxiety, shame, frustration, uncertainty; what they’re afraid of or hoping for; what drains or energizes them.
+- **Preferences & standards** — what “good” looks like (tone, rigor, maintainability, UX, professionalism, ethics); what they dislike or avoid; strong likes/dislikes.
+- **Constraints** — budget/time/health/family/team/policy constraints; inability to modify systems; compliance/security posture.
+- **Relationships & social dynamics** — partners/family/friends/teams/communities; commitments, conflicts, support, loneliness, belonging.
+- **Values & boundaries** — principles, limits, deal-breakers, privacy/ethics stances.
+- **Routines & recurring patterns** — stable habits and repeated behaviors (not one-off actions).
+- **Notable life events & logistics** — moves, applications, job changes, major purchases, health events, talks/appearances—only when tied to personal meaning or consequence.
+
+When possible, include the user’s “why” (stake) in the memory. If the “why” is not present, keep the memory to what is explicitly supported.
+
+### Level of abstraction
+
+Write at the level of **intent + context + stake** (and, when present, emotion/constraint), not steps.
+
+- Prefer durable summaries: “I’m working on X because Y matters to me, and I’m constrained by Z.”
+- Convert technical detail into human meaning (e.g., fear of breaking production, need for credibility, desire for autonomy, preference for simplicity, privacy/security posture).
+- Keep a few anchoring nouns (project/system/domain) only if they help future recall; drop low-level artifacts (commands, flags, endpoints, error strings, file paths, exact library calls).
+- Combine tightly linked items into one coherent memory (goal + constraint + emotion), but do not bundle unrelated topics.
+- If the content is mostly procedural debugging, code snippets, command output, error logs, configuration minutiae, or API details **without** a durable goal/ownership/preference/constraint, produce **no memory**.
+
+### What makes a good memory
+
+Each memory should be:
+- **Durable**: useful months later or a major event/decision with lasting impact.
+- **Personally significant**: includes stakes, motivations, emotions, or consequences when available.
+- **Specific but not noisy**: concrete enough to be actionable/recognizable; abstracted away from transient implementation details.
+- **Revealing**: exposes priorities, standards, self-image, relationships, constraints, or decision criteria.
+- **Faithful and properly qualified**: match the user’s certainty; preserve hedges and ambiguity (“I might…”, “I’m unsure…”, “I’m considering…”).
+- **First-person journal voice**: “I’m…”, “I want…”, “I care about…”, “I’m worried…”, “I’m responsible for…”, “I’m considering…”.
+
+### What to avoid
+
+- Do not fabricate, mind-read, or infer beyond what the user stated or clearly implied.
+- Do not write generic filler, platitudes, or vague traits (“I like learning”).
+- Do not capture procedural noise: commands, stack traces, endpoints, tokens, error codes, filenames, line-by-line steps.
+- Do not treat every technical interest as a memory; it must signal ongoing commitment, durable preference/standard, real constraint, or emotionally meaningful challenge.
+- Do not include sensitive secrets (passwords, API keys, private tokens, full credentials). If present, omit entirely rather than paraphrasing.
+- Do not include trivial one-offs (single purchases, fleeting curiosities) unless tied to a meaningful goal, constraint, or relationship.
+
+{{CONTEXT}}{{TRANSCRIPT}}
+
+## Output format
+Return a JSON object with a ``memories`` array. Each memory has:
+- ``content``: the memory text (1-2 sentences, detail-rich, first-person).
+- ``from_date``: start date (YYYY-MM-DD).
+- ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).

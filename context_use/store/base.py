@@ -121,6 +121,22 @@ class Store(ABC):
         ...
 
     @abstractmethod
+    async def list_threads(
+        self,
+        *,
+        interaction_types: list[str] | None = None,
+        limit: int | None = None,
+        random: bool = False,
+    ) -> list[Thread]:
+        """Return threads with optional filters.
+
+        Unlike :meth:`get_unprocessed_threads`, this returns threads
+        regardless of batch assignment.  When *random* is ``True`` the
+        rows are sampled randomly instead of ordered by ``asat``.
+        """
+        ...
+
+    @abstractmethod
     async def get_unprocessed_threads(
         self,
         *,
