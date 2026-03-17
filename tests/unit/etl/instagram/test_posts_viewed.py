@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.posts_viewed.pipe import (
@@ -23,6 +24,65 @@ class TestInstagramPostsViewedV0Pipe(
     fixture_data = INSTAGRAM_POSTS_VIEWED_V0_JSON
     fixture_key = "archive/ads_information/ads_and_topics/posts_viewed.json"
     expected_fibre_kind = "View"
+    expected_rows = [
+        {
+            "unique_key": "f2a8ea8e8cd10028",
+            "preview": "Viewed post by synthetic_foodie on instagram",
+            "asat": datetime(2025, 4, 5, 8, 1, 31, tzinfo=UTC),
+            "payload": {
+                "type": "View",
+                "published": "2025-04-05T08:01:31Z",
+                "object": {
+                    "type": "Note",
+                    "attributedTo": {
+                        "type": "Profile",
+                        "name": "synthetic_foodie",
+                        "url": "https://www.instagram.com/synthetic_foodie",
+                    },
+                    "fibreKind": "Post",
+                },
+                "fibreKind": "View",
+            },
+        },
+        {
+            "unique_key": "b1ee36e5fe7e2364",
+            "preview": "Viewed post by synthetic_traveler on instagram",
+            "asat": datetime(2025, 4, 5, 8, 6, 19, tzinfo=UTC),
+            "payload": {
+                "type": "View",
+                "published": "2025-04-05T08:06:19Z",
+                "object": {
+                    "type": "Note",
+                    "attributedTo": {
+                        "type": "Profile",
+                        "name": "synthetic_traveler",
+                        "url": "https://www.instagram.com/synthetic_traveler",
+                    },
+                    "fibreKind": "Post",
+                },
+                "fibreKind": "View",
+            },
+        },
+        {
+            "unique_key": "5e8e43950ddfa0a5",
+            "preview": "Viewed post by synthetic_foodie on instagram",
+            "asat": datetime(2025, 4, 5, 8, 8, 26, tzinfo=UTC),
+            "payload": {
+                "type": "View",
+                "published": "2025-04-05T08:08:26Z",
+                "object": {
+                    "type": "Note",
+                    "attributedTo": {
+                        "type": "Profile",
+                        "name": "synthetic_foodie",
+                        "url": "https://www.instagram.com/synthetic_foodie",
+                    },
+                    "fibreKind": "Post",
+                },
+                "fibreKind": "View",
+            },
+        },
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
@@ -62,6 +122,45 @@ class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
     fixture_data = INSTAGRAM_POSTS_VIEWED_V1_JSON
     fixture_key = "archive/ads_information/ads_and_topics/posts_viewed.json"
     expected_fibre_kind = "View"
+    expected_rows = [
+        {
+            "unique_key": "c07e119b4679385c",
+            "preview": "Viewed post https://www.instagram.com/p/SYNTHETIC_POST_1/"
+            " by synthetic_artist on instagram",
+            "asat": datetime(2026, 2, 23, 12, 6, 56, tzinfo=UTC),
+            "payload": {
+                "type": "View",
+                "published": "2026-02-23T12:06:56Z",
+                "object": {
+                    "type": "Note",
+                    "attributedTo": {
+                        "type": "Profile",
+                        "name": "synthetic_artist",
+                        "url": "https://www.instagram.com/synthetic_artist",
+                    },
+                    "url": "https://www.instagram.com/p/SYNTHETIC_POST_1/",
+                    "fibreKind": "Post",
+                },
+                "fibreKind": "View",
+            },
+        },
+        {
+            "unique_key": "835351bc2837ba93111",
+            "preview": "Viewed post https://www.instagram.com/p/SYNTHETIC_POST_2/"
+            " on instagram",
+            "asat": datetime(2026, 2, 22, 12, 8, 20, tzinfo=UTC),
+            "payload": {
+                "type": "View",
+                "published": "2026-02-22T12:08:20Z",
+                "object": {
+                    "type": "Note",
+                    "url": "https://www.instagram.com/p/SYNTHETIC_POST_2/",
+                    "fibreKind": "Post",
+                },
+                "fibreKind": "View",
+            },
+        },
+    ]
 
     def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))

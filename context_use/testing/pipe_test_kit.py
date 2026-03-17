@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
+from context_use.etl.payload.core import make_thread_payload
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.storage.base import StorageBackend
 from context_use.storage.disk import DiskStorage
@@ -86,6 +87,12 @@ class TransformConformanceTests:
         for row in transformed_rows:
             assert row.payload["fibreKind"] == self.expected_fibre_kind
 
+    def test_payload_round_trips(self, transformed_rows: list[ThreadRow]) -> None:
+        for row in transformed_rows:
+            parsed = make_thread_payload(row.payload)
+            assert parsed is not None
+            assert parsed.to_dict() == row.payload
+
 
 class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
     """Full Pipe conformance suite covering both extract and transform stages.
@@ -112,6 +119,8 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
     fixture_key: ClassVar[str | None] = None
 
     expected_fibre_kind: ClassVar[str | None] = None
+
+    expected_rows: ClassVar[list[dict] | None] = None
 
     @pytest.fixture()
     def pipe_fixture(self, tmp_path) -> tuple[StorageBackend, str]:
@@ -173,6 +182,32 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
         first = [r.unique_key for r in self.pipe_class().run(task, storage)]
         second = [r.unique_key for r in self.pipe_class().run(task, storage)]
         assert first == second, "unique_keys must be deterministic across runs"
+
+    def test_row_snapshots(self, transformed_rows: list[ThreadRow]) -> None:
+        if self.expected_rows is None:
+            pytest.skip("expected_rows not set")
+        assert len(transformed_rows) == len(self.expected_rows), (
+            f"row count {len(transformed_rows)} != expected {len(self.expected_rows)}"
+        )
+        for i, (row, expected) in enumerate(
+            zip(transformed_rows, self.expected_rows, strict=True)
+        ):
+            label = f"row[{i}]"
+            if "unique_key" in expected:
+                assert row.unique_key == expected["unique_key"], (
+                    f"{label} unique_key: "
+                    f"{row.unique_key!r} != {expected['unique_key']!r}"
+                )
+            if "preview" in expected:
+                assert row.preview == expected["preview"], (
+                    f"{label} preview: {row.preview!r} != {expected['preview']!r}"
+                )
+            if "payload" in expected:
+                assert row.payload == expected["payload"], f"{label} payload mismatch"
+            if "asat" in expected:
+                assert row.asat == expected["asat"], (
+                    f"{label} asat: {row.asat} != {expected['asat']}"
+                )
 
     def test_class_vars_set(self) -> None:
         cls = self.pipe_class
