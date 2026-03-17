@@ -16,15 +16,15 @@ _BANNER_ART = (
 )
 
 
-_HEADLINE = "Turn your data exports into portable AI memory"
+_HEADLINE = "Portable AI memory from your conversations and data exports"
 
 _EPILOG = (
     "examples:\n"
-    "  context-use pipeline --quick export.zip      Quick start (real-time API)\n"
-    "  context-use pipeline                         Full pipeline (batch API)\n"
+    "  context-use proxy                            Start the memory proxy\n"
     '  context-use memories search "cooking"        Search your memories\n'
-    "  context-use proxy                            Start the context enrichment proxy\n"  # noqa: E501
     '  context-use agent ask "summarise March"      Ask the personal agent\n'
+    "  context-use pipeline --quick export.zip      Import a data export\n"
+    "  context-use pipeline                         Full pipeline (batch API)\n"
 )
 
 

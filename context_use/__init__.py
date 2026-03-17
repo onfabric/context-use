@@ -14,15 +14,25 @@ if TYPE_CHECKING:
         ScheduleInstruction,
         TaskBreakdown,
     )
+    from context_use.proxy.app import create_proxy_app
+    from context_use.proxy.handler import (
+        ContextProxy,
+        ContextProxyResult,
+        ContextProxyStreamResult,
+    )
     from context_use.store import SqliteStore, Store
 
 __all__ = [
+    "ContextProxy",
+    "ContextProxyResult",
+    "ContextProxyStreamResult",
     "ContextUse",
     "PipelineResult",
     "ScheduleInstruction",
     "SqliteStore",
     "Store",
     "TaskBreakdown",
+    "create_proxy_app",
 ]
 
 
@@ -36,16 +46,27 @@ def __getattr__(name: str) -> Any:
         ScheduleInstruction,
         TaskBreakdown,
     )
+    from context_use.proxy.app import create_proxy_app
+    from context_use.proxy.handler import (
+        ContextProxy,
+        ContextProxyResult,
+        ContextProxyStreamResult,
+    )
     from context_use.store import SqliteStore, Store
 
-    exports = {
+    exports: dict[str, Any] = {
+        "ContextProxy": ContextProxy,
+        "ContextProxyResult": ContextProxyResult,
+        "ContextProxyStreamResult": ContextProxyStreamResult,
         "ContextUse": ContextUse,
         "PipelineResult": PipelineResult,
         "ScheduleInstruction": ScheduleInstruction,
         "SqliteStore": SqliteStore,
         "Store": Store,
         "TaskBreakdown": TaskBreakdown,
+        "create_proxy_app": create_proxy_app,
     }
+
     value = exports[name]
     globals()[name] = value
     return value

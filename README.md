@@ -2,7 +2,7 @@
 
 ![PyPI - Version](https://img.shields.io/pypi/v/context-use)
 
-Turn your data exports into portable AI memory.
+Portable AI memory from your conversations and data exports.
 
 ![demo](assets/demo.gif)
 
@@ -22,7 +22,61 @@ uv tool install context-use
 
 ## Quick start
 
-Quickly extract memories (last 30 days) from your data export:
+Start the proxy and point any OpenAI-compatible client at it. Every conversation is automatically turned into memories.
+
+```bash
+context-use proxy
+```
+
+The proxy routes each request to the provider specified in the `Host` header, so you set it to the API you actually want to call. For example, to target OpenAI:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="<your-openai-key>",
+    default_headers={"Host": "api.openai.com"},
+)
+client.chat.completions.create(model="gpt-4o", messages=[...])
+```
+
+To target Anthropic's OpenAI-compatible endpoint instead, change the `Host` header and key:
+
+```python
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="<your-anthropic-key>",
+    default_headers={"Host": "api.anthropic.com"},
+)
+```
+
+> [!NOTE]
+> Only `POST /v1/chat/completions` requests are enriched with memories. All other paths are forwarded transparently without modification.
+
+Memories are generated in the background from each conversation and are used to automatically enrich future requests that flow through the proxy.
+
+## Headless / bring your own API
+
+If you already have your own ASGI server (FastAPI, Starlette, etc.), you can
+simply mount `create_proxy_app`:
+
+```python
+from context_use import ContextUse, ContextProxy, create_proxy_app
+from context_use.proxy import BackgroundMemoryProcessor
+
+ctx = ContextUse(storage=..., store=..., llm_client=...)
+await ctx.init()
+
+processor = BackgroundMemoryProcessor(ctx, agent_backend)
+handler = ContextProxy(ctx, processor)
+
+asgi_app = create_proxy_app(handler)
+```
+
+## Data exports
+
+Bulk-import memories from your data exports. Use this to bootstrap your memory store with historical data.
 
 ```bash
 context-use pipeline --quick <your-zipped-data-export>
@@ -33,7 +87,7 @@ context-use pipeline --quick <your-zipped-data-export>
 
 The quickstart mode uses the **real-time API** of the LLM provider — fast for small slices but susceptible to rate limits on large exports. Use the [Full pipeline](#full-pipeline) to process the complete data export without incurring in rate limits.
 
-## Full pipeline
+### Full pipeline
 
 For full data export and cost-efficient batch processing.
 
@@ -43,7 +97,7 @@ context-use pipeline
 
 Ingests the export and generates memories via the **batch API** of the LLM provider — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search and the [Personal agent](#personal-agent).
 
-**Explore your memories**
+## Explore your memories
 
 ```bash
 context-use memories list
@@ -62,8 +116,6 @@ context-use agent ask "What topics do I keep coming back to across all my conver
 ```
 
 ## Configuration
-
-There are a bunch of options you can configure:
 
 ```bash
 context-use config --help

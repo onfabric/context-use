@@ -9,9 +9,15 @@ import sys
 import time
 from pathlib import Path
 
+import uvicorn
+
 from context_use.cli import output as out
-from context_use.cli.base import BaseCommand, require_api_key
+from context_use.cli.base import BaseCommand, prompt_api_key
+from context_use.config import build_ctx, load_config
 from context_use.ext.adk.agent.runner import AdkAgentBackend
+from context_use.proxy.app import create_proxy_app
+from context_use.proxy.background import BackgroundMemoryProcessor
+from context_use.proxy.handler import ContextProxy
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
@@ -21,10 +27,12 @@ class ProxyCommand(BaseCommand):
     name = "proxy"
     help = "Start the context enrichment proxy server"
     description = (
-        "Start an OpenAI-compatible proxy that enriches requests with "
-        "user context from your local memory store. Point any OpenAI "
-        "SDK at http://localhost:<port>/v1 to get context-enriched "
-        "completions via any LLM provider supported by LiteLLM."
+        "Start a transparent proxy that enriches requests with user context "
+        "from your local memory store. The proxy forwards each request to "
+        "the host specified in the client's Host header, so you can relay "
+        "to any provider while memories are generated using your OpenAI key. "
+        "Only POST /v1/chat/completions requests are enriched; all other "
+        "paths are forwarded transparently without modification."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -56,25 +64,14 @@ class ProxyCommand(BaseCommand):
             self._stop()
             return
 
+        cfg = load_config()
+        if not cfg.openai_api_key:
+            cfg = prompt_api_key(cfg)
+        cfg.ensure_dirs()
+
         if args.background:
             self._start_background(args)
             return
-
-        try:
-            import uvicorn
-
-            from context_use.proxy.app import create_app
-        except ImportError:
-            out.error(
-                "Proxy dependencies not installed. Run: pip install context-use[proxy]"
-            )
-            sys.exit(1)
-
-        from context_use.config import build_ctx, load_config
-
-        cfg = load_config()
-        require_api_key(cfg)
-        cfg.ensure_dirs()
 
         ctx = build_ctx(cfg, llm_mode="sync")
         await ctx.init()
@@ -85,8 +82,11 @@ class ProxyCommand(BaseCommand):
         out.header("context-use proxy")
         out.kv("Memories loaded", f"{count:,}")
         out.kv("Endpoint", f"http://localhost:{args.port}/v1/chat/completions")
+        out.kv(
+            "Enriched route", "POST /v1/chat/completions (all other paths pass through)"
+        )
         print()
-        out.info("Point your OpenAI client at this proxy:")
+        out.info("Point your client at this proxy (set Host to your target provider):")
         out.info("")
         out.info(
             '  client = OpenAI(base_url="http://localhost:'
@@ -94,16 +94,15 @@ class ProxyCommand(BaseCommand):
         )
         print()
 
-        from context_use.proxy.background import BackgroundMemoryProcessor
-
         agent_backend = AdkAgentBackend(
             api_key=cfg.openai_api_key,
             model=cfg.openai_model,
         )
         processor = BackgroundMemoryProcessor(ctx, agent_backend)
+        handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        app = create_app(ctx, processor)
+        app = create_proxy_app(handler)
         config = uvicorn.Config(
             app,
             host=args.host,
@@ -127,7 +126,14 @@ class ProxyCommand(BaseCommand):
             out.error("Could not find the context-use executable in PATH.")
             sys.exit(1)
 
-        cmd: list[str] = [cu, "proxy", "--port", str(args.port), "--host", args.host]
+        cmd: list[str] = [
+            cu,
+            "proxy",
+            "--port",
+            str(args.port),
+            "--host",
+            args.host,
+        ]
 
         _PID_PATH.parent.mkdir(parents=True, exist_ok=True)
 
