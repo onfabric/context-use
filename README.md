@@ -2,7 +2,7 @@
 
 ![PyPI - Version](https://img.shields.io/pypi/v/context-use)
 
-Portable AI memory.
+Portable AI memory from your conversations and data exports.
 
 ![demo](assets/demo.gif)
 

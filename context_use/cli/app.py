@@ -16,7 +16,7 @@ _BANNER_ART = (
 )
 
 
-_HEADLINE = "Portable AI memory"
+_HEADLINE = "Portable AI memory from your conversations and data exports"
 
 _EPILOG = (
     "examples:\n"
