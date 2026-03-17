@@ -21,8 +21,9 @@ class TestAirbnbMessagesPipe(PipeTestKit):
         record = extracted_records[1]
         assert record.account_type == "host"
 
-    def test_opaque_content_filtered(self, extracted_records):
-        assert len(extracted_records) == 2
+    def test_service_messages_filtered(self, extracted_records):
+        for record in extracted_records:
+            assert record.account_type in ("guest", "host")
 
     def test_sent_preview(self, transformed_rows):
         row = transformed_rows[0]

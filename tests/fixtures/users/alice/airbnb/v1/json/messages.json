@@ -45,6 +45,20 @@
             "messageContent": {
               "bulletinContent": {}
             }
+          },
+          {
+            "message": {
+              "id": 100000004,
+              "createdAt": "2023-04-27T09:20:00.000Z",
+              "accountType": "service",
+              "contentType": "TextContent",
+              "isPrivate": false
+            },
+            "messageContent": {
+              "textContent": {
+                "body": "Your reservation is confirmed."
+              }
+            }
           }
         ],
         "messageThreadParticipants": [

@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 _AIRBNB_SERVICE = Application(name="Airbnb")  # type: ignore[reportCallIssue]
 _AIRBNB_HOST = Person(name="host")  # type: ignore[reportCallIssue]
 
+_KNOWN_ACCOUNT_TYPES = frozenset({"guest", "host"})
+
 _OPAQUE_CONTENT_TYPES = frozenset(
     {
         "BulletinContent",
@@ -86,17 +88,12 @@ def _build_payload(
             target=_AIRBNB_SERVICE,
             published=published,
         )
-    if record.account_type == "service":
+    else:
         return FibreReceiveMessage(  # type: ignore[reportCallIssue]
             object=message,
-            actor=_AIRBNB_SERVICE,
+            actor=_AIRBNB_HOST,
             published=published,
         )
-    return FibreReceiveMessage(  # type: ignore[reportCallIssue]
-        object=message,
-        actor=_AIRBNB_HOST,
-        published=published,
-    )
 
 
 class AirbnbMessagesPipe(Pipe[AirbnbMessageRecord]):
@@ -118,6 +115,8 @@ class AirbnbMessagesPipe(Pipe[AirbnbMessageRecord]):
                 for thread in item.messageThreads:
                     for mac in thread.messagesAndContents:
                         msg = mac.message
+                        if msg.accountType not in _KNOWN_ACCOUNT_TYPES:
+                            continue
                         if msg.contentType in _OPAQUE_CONTENT_TYPES:
                             continue
                         text = _extract_text(mac.messageContent)
