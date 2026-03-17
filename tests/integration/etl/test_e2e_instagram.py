@@ -44,5 +44,5 @@ class TestE2EInstagram:
         for thread in threads:
             if thread.interaction_type in _MEDIA_TYPES:
                 assert thread.asset_uri is not None
-                assert thread.asset_uri.startswith(result.archive_id)
+                assert result.archive_id in thread.asset_uri
                 assert "media/" in thread.asset_uri

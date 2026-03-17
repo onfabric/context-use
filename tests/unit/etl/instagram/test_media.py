@@ -52,7 +52,8 @@ class TestInstagramStoriesPipe(PipeTestKit):
         task = self._make_task(key)
         for row in transformed_rows:
             assert row.asset_uri is not None
-            assert row.asset_uri.startswith(f"{task.archive_id}/")
+            assert Path(row.asset_uri).is_absolute()
+            assert task.archive_id in row.asset_uri
             assert "media/stories/" in row.asset_uri
 
 
@@ -85,7 +86,8 @@ class TestInstagramReelsPipe(PipeTestKit):
         task = self._make_task(key)
         row = transformed_rows[0]
         assert row.asset_uri is not None
-        assert row.asset_uri.startswith(f"{task.archive_id}/")
+        assert Path(row.asset_uri).is_absolute()
+        assert task.archive_id in row.asset_uri
         assert "media/reels/" in row.asset_uri
 
 
@@ -120,5 +122,6 @@ class TestInstagramPostsPipe(PipeTestKit):
         task = self._make_task(key)
         row = transformed_rows[0]
         assert row.asset_uri is not None
-        assert row.asset_uri.startswith(f"{task.archive_id}/")
+        assert Path(row.asset_uri).is_absolute()
+        assert task.archive_id in row.asset_uri
         assert "media/posts/" in row.asset_uri
