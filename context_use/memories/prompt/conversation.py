@@ -3,10 +3,13 @@ from __future__ import annotations
 from abc import abstractmethod
 from collections.abc import Callable
 
+from context_use.facets.types import render_facet_types_section
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import BasePromptBuilder, MemorySchema
 from context_use.models.thread import Thread
 from context_use.prompt_categories import WHAT_TO_CAPTURE
+
+_FACETS_SECTION = render_facet_types_section()
 
 _SHARED_BODY = (
     WHAT_TO_CAPTURE
@@ -50,7 +53,11 @@ Return a JSON object with a ``memories`` array. Each memory has:
 - ``content``: the memory text (1-2 sentences, detail-rich, first-person).
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
+- ``facets``: an array of semantic facets extracted from the memory. Each facet has:
+  - ``facet_type``: one of the types defined below.
+  - ``facet_value``: the specific extracted value.
 """
+    + _FACETS_SECTION
 )
 
 AGENT_CONVERSATION_MEMORIES_PROMPT = (

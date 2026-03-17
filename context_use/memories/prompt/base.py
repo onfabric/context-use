@@ -5,8 +5,16 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
+from context_use.facets.types import FacetType
 from context_use.llm.base import PromptItem
 from context_use.models.thread import Thread
+
+
+class MemoryFacetExtract(BaseModel):
+    facet_type: FacetType = Field(
+        description="Category of the facet — must be one of the defined facet types"
+    )
+    facet_value: str = Field(description=("Extracted facet value"))
 
 
 class Memory(BaseModel):
@@ -18,6 +26,10 @@ class Memory(BaseModel):
         description=(
             "End date of the memory (YYYY-MM-DD, same as from_date for single-day)"
         )
+    )
+    facets: list[MemoryFacetExtract] = Field(
+        default_factory=list,
+        description="Semantic facets extracted from this memory",
     )
 
 

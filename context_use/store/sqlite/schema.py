@@ -10,6 +10,8 @@ from context_use.models import (
     Archive,
     Batch,
     EtlTask,
+    Facet,
+    MemoryFacet,
     TapestryMemory,
     Thread,
 )
@@ -307,6 +309,93 @@ class VecMemoryRow:
         return list(struct.unpack(f"<{n}f", blob))
 
 
+class FacetRow(BaseSqliteModel):
+    table = "facets"
+
+    @classmethod
+    def ddl(cls) -> str:
+        return """\
+CREATE TABLE IF NOT EXISTS facets (
+    id              TEXT PRIMARY KEY,
+    facet_type      TEXT NOT NULL,
+    facet_canonical TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+)"""
+
+    @classmethod
+    def indices(cls) -> list[str]:
+        return [
+            "CREATE INDEX IF NOT EXISTS idx_facet_type ON facets(facet_type)",
+        ]
+
+    @staticmethod
+    def from_row(row: Row) -> Facet:
+        return Facet(
+            id=row["id"],
+            facet_type=row["facet_type"],
+            facet_canonical=row["facet_canonical"],
+            created_at=parse_dt(row["created_at"]),
+        )
+
+
+class MemoryFacetRow(BaseSqliteModel):
+    table = "memory_facets"
+
+    @classmethod
+    def ddl(cls) -> str:
+        return """\
+CREATE TABLE IF NOT EXISTS memory_facets (
+    id          TEXT PRIMARY KEY,
+    memory_id   TEXT NOT NULL REFERENCES tapestry_memories(id),
+    batch_id    TEXT REFERENCES batches(id),
+    facet_type  TEXT NOT NULL,
+    facet_value TEXT NOT NULL,
+    facet_id    TEXT REFERENCES facets(id),
+    created_at  TEXT NOT NULL
+)"""
+
+    @classmethod
+    def indices(cls) -> list[str]:
+        return [
+            "CREATE INDEX IF NOT EXISTS idx_mfacet_memory ON memory_facets(memory_id)",
+            "CREATE INDEX IF NOT EXISTS idx_mfacet_batch ON memory_facets(batch_id)",
+            "CREATE INDEX IF NOT EXISTS idx_mfacet_linked ON memory_facets(facet_id)",
+        ]
+
+    @staticmethod
+    def from_row(row: Row) -> MemoryFacet:
+        return MemoryFacet(
+            id=row["id"],
+            memory_id=row["memory_id"],
+            batch_id=row["batch_id"],
+            facet_type=row["facet_type"],
+            facet_value=row["facet_value"],
+            facet_id=row["facet_id"],
+            created_at=parse_dt(row["created_at"]),
+        )
+
+
+class VecFacetRow:
+    table = "vec_facets"
+
+    @classmethod
+    def ddl(cls) -> str:
+        return (
+            "CREATE VIRTUAL TABLE IF NOT EXISTS vec_facets "
+            f"USING vec0(\n"
+            f"    facet_id TEXT PRIMARY KEY,\n"
+            f"    embedding float[{EMBEDDING_DIMENSIONS}] "
+            f"distance_metric=cosine\n"
+            f")"
+        )
+
+    @staticmethod
+    def serialize(embedding: list[float]) -> bytes:
+        from sqlite_vec import serialize_float32
+
+        return serialize_float32(embedding)
+
+
 _ALL_MODELS: list[type[BaseSqliteModel]] = [
     ArchiveRow,
     EtlTaskRow,
@@ -314,6 +403,8 @@ _ALL_MODELS: list[type[BaseSqliteModel]] = [
     BatchRow,
     BatchThreadRow,
     MemoryRow,
+    FacetRow,
+    MemoryFacetRow,
 ]
 
 
@@ -323,4 +414,5 @@ def all_ddl_statements() -> list[str]:
         stmts.append(model.ddl())
         stmts.extend(model.indices())
     stmts.append(VecMemoryRow.ddl())
+    stmts.append(VecFacetRow.ddl())
     return stmts
