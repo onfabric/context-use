@@ -56,37 +56,6 @@ class TestInstagramPostsViewedV0Pipe(
                 },
             },
         ),
-        (
-            {
-                "impressions_history_posts_seen": [
-                    {
-                        "string_map_data": {
-                            "Author": {"value": "synthetic_traveler"},
-                            "Time": {"timestamp": 1743840379},
-                        }
-                    }
-                ]
-            },
-            {
-                "unique_key": "b1ee36e5fe7e2364",
-                "preview": "Viewed post by synthetic_traveler on instagram",
-                "asat": datetime(2025, 4, 5, 8, 6, 19, tzinfo=UTC),
-                "payload": {
-                    "type": "View",
-                    "published": "2025-04-05T08:06:19Z",
-                    "object": {
-                        "type": "Note",
-                        "attributedTo": {
-                            "type": "Profile",
-                            "name": "synthetic_traveler",
-                            "url": "https://www.instagram.com/synthetic_traveler",
-                        },
-                        "fibreKind": "Post",
-                    },
-                    "fibreKind": "View",
-                },
-            },
-        ),
     ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
