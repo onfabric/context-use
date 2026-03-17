@@ -284,6 +284,8 @@ class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportInc
             parts = "Liked post"
             if self.object.attributedTo:
                 parts += f" by {self.object.attributedTo.name}"
+        elif self.object.name:
+            parts = f'Liked "{self.object.name}"'
         else:
             parts = f"Liked {self.object.type.lower()}"
         if provider:
@@ -299,6 +301,8 @@ class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[rep
             parts = "Disliked post"
             if self.object.attributedTo:
                 parts += f" by {self.object.attributedTo.name}"
+        elif self.object.name:
+            parts = f'Disliked "{self.object.name}"'
         else:
             parts = f"Disliked {self.object.type.lower()}"
         if provider:

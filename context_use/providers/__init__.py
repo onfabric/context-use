@@ -4,6 +4,7 @@ from context_use.providers import (  # noqa: F401 — triggers provider registra
     claude,
     google,
     instagram,
+    netflix,
 )
 from context_use.providers.registry import (
     get_memory_config,
