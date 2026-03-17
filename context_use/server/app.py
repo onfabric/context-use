@@ -16,6 +16,7 @@ SESSION_ID_HEADER = "ctxuse-session-id"
 _HOP_BY_HOP = frozenset(
     [
         b"connection",
+        b"host",
         b"keep-alive",
         b"proxy-authenticate",
         b"proxy-authorization",
