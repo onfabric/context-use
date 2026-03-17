@@ -145,7 +145,7 @@ class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
             },
         },
         {
-            "unique_key": "835351bc2837ba93111",
+            "unique_key": "835351bc2837ba93",
             "preview": "Viewed post https://www.instagram.com/p/SYNTHETIC_POST_2/"
             " on instagram",
             "asat": datetime(2026, 2, 22, 12, 8, 20, tzinfo=UTC),
