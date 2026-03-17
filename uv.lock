@@ -438,12 +438,16 @@ proxy = [
     { name = "fastapi" },
     { name = "uvicorn", extra = ["standard"] },
 ]
+server = [
+    { name = "fastapi" },
+    { name = "uvicorn", extra = ["standard"] },
+]
 
 [package.dev-dependencies]
 dev = [
     { name = "check-wheel-contents" },
     { name = "commitlint" },
-    { name = "context-use", extra = ["gcs", "proxy"] },
+    { name = "context-use", extra = ["gcs", "server"] },
     { name = "datamodel-code-generator" },
     { name = "genson" },
     { name = "git-cliff" },
@@ -458,7 +462,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", marker = "extra == 'proxy'", specifier = ">=0.135.1" },
+    { name = "context-use", extras = ["server"], marker = "extra == 'proxy'" },
+    { name = "fastapi", marker = "extra == 'server'", specifier = ">=0.135.1" },
     { name = "google-adk", specifier = ">=1.22" },
     { name = "google-cloud-storage", marker = "extra == 'gcs'", specifier = ">=2.10.0,<3" },
     { name = "ijson", specifier = ">=3.0" },
@@ -466,15 +471,15 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.0" },
     { name = "sqlite-vec", specifier = ">=0.1.6" },
     { name = "tenacity", specifier = ">=9.1.4" },
-    { name = "uvicorn", extras = ["standard"], marker = "extra == 'proxy'", specifier = ">=0.41" },
+    { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.41" },
 ]
-provides-extras = ["gcs", "proxy"]
+provides-extras = ["gcs", "server", "proxy"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "check-wheel-contents", specifier = ">=0.6.3" },
     { name = "commitlint", specifier = ">=1.13.3" },
-    { name = "context-use", extras = ["gcs", "proxy"] },
+    { name = "context-use", extras = ["gcs", "server"] },
     { name = "datamodel-code-generator", specifier = ">=0.55.0" },
     { name = "genson", specifier = ">=1.3.0" },
     { name = "git-cliff", specifier = ">=2.12.0" },

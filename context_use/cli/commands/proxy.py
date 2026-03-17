@@ -63,14 +63,17 @@ class ProxyCommand(BaseCommand):
         try:
             import uvicorn
 
-            from context_use.proxy.app import create_app
+            from context_use.server.app import create_app
         except ImportError:
             out.error(
-                "Proxy dependencies not installed. Run: pip install context-use[proxy]"
+                "Server dependencies not installed. "
+                "Run: pip install context-use[server]"
             )
             sys.exit(1)
 
         from context_use.config import build_ctx, load_config
+        from context_use.proxy.background import BackgroundMemoryProcessor
+        from context_use.proxy.handler import ProxyHandler
 
         cfg = load_config()
         require_api_key(cfg)
@@ -94,16 +97,15 @@ class ProxyCommand(BaseCommand):
         )
         print()
 
-        from context_use.proxy.background import BackgroundMemoryProcessor
-
         agent_backend = AdkAgentBackend(
             api_key=cfg.openai_api_key,
             model=cfg.openai_model,
         )
         processor = BackgroundMemoryProcessor(ctx, agent_backend)
+        handler = ProxyHandler(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        app = create_app(ctx, processor)
+        app = create_app(handler)
         config = uvicorn.Config(
             app,
             host=args.host,

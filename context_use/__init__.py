@@ -14,11 +14,13 @@ if TYPE_CHECKING:
         ScheduleInstruction,
         TaskBreakdown,
     )
+    from context_use.proxy.handler import ProxyHandler
     from context_use.store import SqliteStore, Store
 
 __all__ = [
     "ContextUse",
     "PipelineResult",
+    "ProxyHandler",
     "ScheduleInstruction",
     "SqliteStore",
     "Store",
@@ -36,11 +38,13 @@ def __getattr__(name: str) -> Any:
         ScheduleInstruction,
         TaskBreakdown,
     )
+    from context_use.proxy.handler import ProxyHandler
     from context_use.store import SqliteStore, Store
 
     exports = {
         "ContextUse": ContextUse,
         "PipelineResult": PipelineResult,
+        "ProxyHandler": ProxyHandler,
         "ScheduleInstruction": ScheduleInstruction,
         "SqliteStore": SqliteStore,
         "Store": Store,

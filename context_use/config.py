@@ -40,7 +40,7 @@ _FIELDS: list[_FieldSpec] = [
         "openai_embedding_model", "openai", "embedding_model", "OPENAI_EMBEDDING_MODEL"
     ),
     _FieldSpec("database_path", "store", "path", "CONTEXT_USE_DB_PATH"),
-    _FieldSpec("data_dir", "data", "dir", None, Path),
+    _FieldSpec("data_dir", "data", "dir", "CONTEXT_USE_DATA_DIR", Path),
 ]
 
 

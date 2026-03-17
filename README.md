@@ -2,7 +2,7 @@
 
 ![PyPI - Version](https://img.shields.io/pypi/v/context-use)
 
-Turn your data exports into portable AI memory.
+Portable AI memory.
 
 ![demo](assets/demo.gif)
 
@@ -22,7 +22,45 @@ uv tool install context-use
 
 ## Quick start
 
-Quickly extract memories (last 30 days) from your data export:
+Start the proxy and point any OpenAI-compatible client at it. Every conversation is automatically turned into memories.
+
+```bash
+pip install context-use[server]
+context-use proxy
+```
+
+Then, in your code:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="http://localhost:8080/v1", api_key="<provider-key>")
+client.chat.completions.create(model="openai/gpt-4o", messages=[...])
+```
+
+No data exports, no setup — memories are generated in the background from every conversation that flows through the proxy.
+
+## Headless / bring your own API
+
+If you already have a FastAPI server (or any other framework), use `ProxyHandler` directly without running the built-in server:
+
+```python
+from context_use import ContextUse, ProxyHandler
+from context_use.proxy import BackgroundMemoryProcessor
+
+ctx = ContextUse(storage=..., store=..., llm_client=...)
+await ctx.init()
+
+processor = BackgroundMemoryProcessor(ctx, agent_backend)
+handler = ProxyHandler(ctx, processor)
+
+# In your own route handler:
+result = await handler.chat_completion(body, api_key=key, session_id=sid)
+```
+
+## Data exports
+
+Bulk-import memories from your data exports. Use this to bootstrap your memory store with historical data.
 
 ```bash
 context-use pipeline --quick <your-zipped-data-export>
@@ -33,7 +71,7 @@ context-use pipeline --quick <your-zipped-data-export>
 
 The quickstart mode uses the **real-time API** of the LLM provider — fast for small slices but susceptible to rate limits on large exports. Use the [Full pipeline](#full-pipeline) to process the complete data export without incurring in rate limits.
 
-## Full pipeline
+### Full pipeline
 
 For full data export and cost-efficient batch processing.
 
@@ -43,7 +81,7 @@ context-use pipeline
 
 Ingests the export and generates memories via the **batch API** of the LLM provider — significantly cheaper and more rate-limit-friendly than the real-time API used by quickstart. Typical runtime: 2–10 minutes. Memories are stored in SQLite and persist across sessions, enabling semantic search and the [Personal agent](#personal-agent).
 
-**Explore your memories**
+## Explore your memories
 
 ```bash
 context-use memories list
@@ -63,13 +101,21 @@ context-use agent ask "What topics do I keep coming back to across all my conver
 
 ## Configuration
 
-There are a bunch of options you can configure:
-
 ```bash
 context-use config --help
 ```
 
 The configuration is saved in a config file at `<your-home-directory>/.config/context-use/config.toml`.
+
+Environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `OPENAI_API_KEY` | OpenAI (or compatible) API key |
+| `OPENAI_MODEL` | LLM model string (default: `gpt-5-2`) |
+| `OPENAI_EMBEDDING_MODEL` | Embedding model (default: `text-embedding-3-large`) |
+| `CONTEXT_USE_DB_PATH` | SQLite database filename |
+| `CONTEXT_USE_DATA_DIR` | Root data directory (default: `./context-use-data`) |
 
 ## Getting your export
 
