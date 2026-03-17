@@ -4,7 +4,7 @@ import logging
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 
 import aiosqlite
 import sqlite_vec
@@ -301,6 +301,8 @@ class SqliteStore(Store):
         self,
         *,
         interaction_types: list[str] | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
     ) -> list[Thread]:
         db = await self._conn()
         sql = (
@@ -314,6 +316,12 @@ class SqliteStore(Store):
             ph = ",".join("?" for _ in interaction_types)
             sql += f" AND t.interaction_type IN ({ph})"
             params.extend(interaction_types)
+        if since is not None:
+            sql += " AND t.asat >= ?"
+            params.append(since.isoformat())
+        if before is not None:
+            sql += " AND t.asat < ?"
+            params.append(before.isoformat())
         sql += " ORDER BY t.asat, t.id"
 
         rows = await db.execute_fetchall(sql, params)

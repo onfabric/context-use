@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from types import TracebackType
 
 from context_use.batch.grouper import ThreadGroup
@@ -129,6 +129,8 @@ class Store(ABC):
         self,
         *,
         interaction_types: list[str] | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
     ) -> list[Thread]:
         """Return threads not yet assigned to any batch.
 
