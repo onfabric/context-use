@@ -185,6 +185,8 @@ class ContextUse:
         self,
         *,
         since: datetime | None = None,
+        before: datetime | None = None,
+        interaction_types: list[str] | None = None,
     ) -> list[Batch]:
         """Group all unprocessed threads and create memory batches.
 
@@ -208,12 +210,13 @@ class ContextUse:
         )
 
         supported = get_memory_interaction_types()
+        if interaction_types is not None:
+            supported = [t for t in supported if t in interaction_types]
         threads = await self._store.get_unprocessed_threads(
             interaction_types=supported,
+            since=since,
+            before=before,
         )
-
-        if since is not None:
-            threads = [t for t in threads if t.asat >= since]
 
         if not threads:
             return []
