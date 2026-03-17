@@ -189,6 +189,89 @@ class TestMissingHostHeader:
         assert responses[0]["status"] != 400
 
 
+class TestConfiguredUpstreamUrl:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_allows_requests_without_host_header_when_upstream_url_is_configured(
+        self, MockClient: MagicMock
+    ) -> None:
+        upstream_response = MagicMock()
+        upstream_response.status_code = 200
+        upstream_response.headers.raw = [(b"content-type", b"application/json")]
+        upstream_response.content = json.dumps({"object": "list", "data": []}).encode()
+
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=upstream_response)
+        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        app = create_proxy_app(_make_handler(), upstream_url="https://api.openai.com")
+        responses: list[dict[str, Any]] = []
+
+        async def mock_receive() -> dict[str, Any]:
+            return {"body": b"", "more_body": False}
+
+        async def mock_send(message: dict[str, Any]) -> None:
+            responses.append(message)
+
+        await app(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/v1/models",
+                "headers": [],
+                "query_string": b"",
+            },
+            mock_receive,
+            mock_send,
+        )
+
+        assert responses[0]["status"] == 200
+        assert (
+            mock_client.request.call_args.kwargs["url"]
+            == "https://api.openai.com/v1/models"
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_ignores_request_host_when_upstream_url_is_configured(
+        self, MockClient: MagicMock
+    ) -> None:
+        upstream_response = MagicMock()
+        upstream_response.status_code = 200
+        upstream_response.headers.raw = [(b"content-type", b"application/json")]
+        upstream_response.content = json.dumps({"object": "list", "data": []}).encode()
+
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=upstream_response)
+        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        app = create_proxy_app(_make_handler(), upstream_url="https://api.openai.com")
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://localhost:8080"
+        ) as client:
+            resp = await client.get("/v1/models")
+
+        assert resp.status_code == 200
+        assert (
+            mock_client.request.call_args.kwargs["url"]
+            == "https://api.openai.com/v1/models"
+        )
+
+    async def test_returns_400_for_invalid_upstream_url_scheme(self) -> None:
+        app = create_proxy_app(_make_handler(), upstream_url="api.openai.com")
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://localhost:8080"
+        ) as client:
+            resp = await client.get("/v1/models")
+
+        assert resp.status_code == 400
+        assert "Invalid upstream URL" in resp.json()["error"]["message"]
+
+
 class TestRequestValidation:
     async def test_missing_model(self) -> None:
         app = create_proxy_app(_make_handler())

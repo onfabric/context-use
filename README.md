@@ -25,10 +25,10 @@ uv tool install context-use
 Start the proxy and point any OpenAI-compatible client at it. Every conversation is automatically turned into memories.
 
 ```bash
-context-use proxy
+context-use proxy --upstream-url https://api.openai.com
 ```
 
-The proxy routes each request to the provider specified in the `Host` header, so you set it to the API you actually want to call. For example, to target OpenAI:
+With `--upstream-url`, the proxy always forwards requests to that upstream URL, so your client only needs to talk to the local proxy:
 
 ```python
 from openai import OpenAI
@@ -36,20 +36,11 @@ from openai import OpenAI
 client = OpenAI(
     base_url="http://localhost:8080/v1",
     api_key="<your-openai-key>",
-    default_headers={"Host": "api.openai.com"},
 )
 client.chat.completions.create(model="gpt-4o", messages=[...])
 ```
 
-To target Anthropic's OpenAI-compatible endpoint instead, change the `Host` header and key:
-
-```python
-client = OpenAI(
-    base_url="http://localhost:8080/v1",
-    api_key="<your-anthropic-key>",
-    default_headers={"Host": "api.anthropic.com"},
-)
-```
+If you omit `--upstream-url`, the proxy uses the request `Host` header instead.
 
 > [!NOTE]
 > Only `POST /v1/chat/completions` requests are enriched with memories. All other paths are forwarded transparently without modification.
