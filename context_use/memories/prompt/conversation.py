@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from pathlib import Path
+from collections.abc import Callable
 
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import BasePromptBuilder, MemorySchema
@@ -117,6 +118,25 @@ the user's life.
 _MAX_INBOUND_CHARS = 2000
 
 
+def format_transcript(
+    threads: list[Thread],
+    *,
+    content_fn: Callable[[Thread], str] | None = None,
+) -> str:
+    _content = content_fn or (lambda t: t.get_message_content() or "")
+    lines: list[str] = []
+    prev_was_inbound: bool | None = None
+    for t in threads:
+        role = t.get_participant_label().upper()
+        ts = t.asat.strftime("%Y-%m-%d %H:%M")
+        content = _content(t)
+        if prev_was_inbound is not None and prev_was_inbound and not t.is_inbound:
+            lines.append("")
+        lines.append(f"[{role} {ts}] {content}")
+        prev_was_inbound = t.is_inbound
+    return "## Transcript\n\n" + "\n".join(lines)
+
+
 class ConversationMemoryPromptBuilder(BasePromptBuilder):
     """Abstract base for conversation-based memory prompt builders.
 
@@ -140,7 +160,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
                 continue
 
             threads = sorted(ctx.new_threads, key=lambda t: t.asat)
-            transcript = self._format_transcript(threads)
+            transcript = format_transcript(threads, content_fn=self._format_content)
             context_block = self._format_context(ctx)
 
             prompt = self._prompt_template.replace(
@@ -158,19 +178,6 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
 
     def _format_content(self, thread: Thread) -> str:
         return thread.get_message_content() or ""
-
-    def _format_transcript(self, threads: list[Thread]) -> str:
-        lines: list[str] = []
-        prev_was_inbound: bool | None = None
-        for t in threads:
-            role = t.get_participant_label().upper()
-            ts = t.asat.strftime("%Y-%m-%d %H:%M")
-            content = self._format_content(t)
-            if prev_was_inbound is not None and prev_was_inbound and not t.is_inbound:
-                lines.append("")
-            lines.append(f"[{role} {ts}] {content}")
-            prev_was_inbound = t.is_inbound
-        return "## Transcript\n\n" + "\n".join(lines)
 
 
 class AgentConversationMemoryPromptBuilder(ConversationMemoryPromptBuilder):

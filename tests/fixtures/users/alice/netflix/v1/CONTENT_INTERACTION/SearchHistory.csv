@@ -1,0 +1,3 @@
+Profile Name,Country Iso Code,Device,Is Kids,Query Typed,Displayed Name,Action,Section,Utc Timestamp
+Alice,US,iPad,0,comedy,Comedy Hour: Special Edition,select,title_results,2025-12-01 16:40:00
+Alice,US,iPad,0,,The Great Adventure: Season 1,play,prequery_results,2025-12-02 10:00:00

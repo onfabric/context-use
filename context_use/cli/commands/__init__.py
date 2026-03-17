@@ -6,11 +6,13 @@ from context_use.cli.commands.config import ConfigGroup
 from context_use.cli.commands.ingest import IngestCommand
 from context_use.cli.commands.memories import MemoriesGroup
 from context_use.cli.commands.pipeline import PipelineCommand
+from context_use.cli.commands.proxy import ProxyCommand
 from context_use.cli.commands.reset import ResetCommand
 
 TOP_LEVEL_COMMANDS: list[type[BaseCommand]] = [
     PipelineCommand,
     IngestCommand,
+    ProxyCommand,
     ResetCommand,
 ]
 

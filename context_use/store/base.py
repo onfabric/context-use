@@ -113,7 +113,9 @@ class Store(ABC):
     # ── Threads ──────────────────────────────────────────────────────
 
     @abstractmethod
-    async def insert_threads(self, rows: list[ThreadRow], task_id: str) -> int:
+    async def insert_threads(
+        self, rows: list[ThreadRow], task_id: str | None = None
+    ) -> int:
         """Insert threads, deduplicating on ``unique_key``.
 
         Returns the number of rows actually inserted (after dedup).

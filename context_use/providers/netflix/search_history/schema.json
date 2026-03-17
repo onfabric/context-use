@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "Profile Name": {"type": "string"},
+    "Country Iso Code": {"type": "string"},
+    "Device": {"type": "string"},
+    "Is Kids": {"type": "string"},
+    "Query Typed": {"type": "string"},
+    "Displayed Name": {"type": "string"},
+    "Action": {"type": "string"},
+    "Section": {"type": "string"},
+    "Utc Timestamp": {"type": "string"}
+  },
+  "required": ["Profile Name", "Utc Timestamp", "Action"]
+}

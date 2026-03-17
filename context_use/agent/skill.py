@@ -39,6 +39,8 @@ BUILT_IN_SKILLS: dict[str, AgentSkill] = {
     ),
 }
 
+_PROCESS_THREAD_TEMPLATE = _load("process_thread.md")
+
 
 def get_skill(name: str) -> AgentSkill:
     """Return a built-in skill by name, or raise :exc:`KeyError`."""
@@ -53,3 +55,12 @@ def list_skills() -> list[AgentSkill]:
 def make_adhoc_skill(prompt: str) -> AgentSkill:
     """Wrap a free-form user query as a one-off skill."""
     return AgentSkill(name="adhoc", description="User-supplied query", prompt=prompt)
+
+
+def make_process_thread_skill(transcript: str) -> AgentSkill:
+    """Build a skill that asks the agent to process a conversation thread."""
+    return AgentSkill(
+        name="process_thread",
+        description="Process a conversation thread and extract memories",
+        prompt=_PROCESS_THREAD_TEMPLATE.replace("{transcript}", transcript),
+    )

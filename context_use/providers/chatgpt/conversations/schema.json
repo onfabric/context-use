@@ -1,0 +1,330 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "create_time": {
+      "type": "number"
+    },
+    "update_time": {
+      "type": "number"
+    },
+    "moderation_results": {
+      "type": "array"
+    },
+    "current_node": {
+      "type": "string"
+    },
+    "plugin_ids": {},
+    "conversation_id": {
+      "type": "string"
+    },
+    "conversation_template_id": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "gizmo_id": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "gizmo_type": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "is_archived": {
+      "type": "boolean"
+    },
+    "is_starred": {},
+    "safe_urls": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "blocked_urls": {
+      "type": "array"
+    },
+    "default_model_slug": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "atlas_mode_enabled": {},
+    "conversation_origin": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "is_read_only": {},
+    "voice": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "async_status": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "disabled_tool_ids": {
+      "type": "array"
+    },
+    "is_do_not_remember": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "memory_scope": {
+      "type": "string"
+    },
+    "context_scopes": {},
+    "sugar_item_id": {},
+    "sugar_item_visible": {
+      "type": "boolean"
+    },
+    "pinned_time": {},
+    "is_study_mode": {
+      "type": "boolean"
+    },
+    "owner": {},
+    "id": {
+      "type": "string"
+    },
+    "mapping": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "author": {
+                    "type": "object",
+                    "properties": {
+                      "role": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "metadata": {
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "metadata",
+                      "name",
+                      "role"
+                    ]
+                  },
+                  "create_time": {
+                    "type": [
+                      "null",
+                      "number"
+                    ]
+                  },
+                  "update_time": {
+                    "type": [
+                      "null",
+                      "number"
+                    ]
+                  },
+                  "content": {
+                    "type": "object",
+                    "properties": {
+                      "content_type": {
+                        "type": "string"
+                      },
+                      "parts": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "string"
+                            },
+                            {
+                              "type": "object"
+                            }
+                          ]
+                        }
+                      },
+                      "language": {
+                        "type": "string"
+                      },
+                      "response_format_name": {},
+                      "text": {
+                        "type": "string"
+                      },
+                      "assets": {
+                        "type": [
+                          "array",
+                          "null"
+                        ]
+                      },
+                      "result": {
+                        "type": "string"
+                      },
+                      "summary": {
+                        "type": [
+                          "null",
+                          "string"
+                        ]
+                      },
+                      "tether_id": {},
+                      "domain": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "url": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "crawl_date": {},
+                      "crawl_timestamp": {},
+                      "pub_date": {},
+                      "pub_timestamp": {
+                        "type": [
+                          "null",
+                          "number"
+                        ]
+                      },
+                      "ref_id": {
+                        "type": "string"
+                      },
+                      "snippet": {
+                        "type": "string"
+                      },
+                      "source_analysis_msg_id": {
+                        "type": "string"
+                      },
+                      "thoughts": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "chunks": {
+                              "type": "array"
+                            },
+                            "content": {
+                              "type": "string"
+                            },
+                            "finished": {
+                              "type": "boolean"
+                            },
+                            "summary": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "chunks",
+                            "content",
+                            "finished",
+                            "summary"
+                          ]
+                        }
+                      },
+                      "content": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "content_type"
+                    ]
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "end_turn": {
+                    "type": [
+                      "boolean",
+                      "null"
+                    ]
+                  },
+                  "weight": {
+                    "type": "number"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  },
+                  "recipient": {
+                    "type": "string"
+                  },
+                  "channel": {
+                    "type": [
+                      "null",
+                      "string"
+                    ]
+                  }
+                },
+                "required": [
+                  "author",
+                  "channel",
+                  "content",
+                  "create_time",
+                  "end_turn",
+                  "id",
+                  "metadata",
+                  "recipient",
+                  "status",
+                  "update_time",
+                  "weight"
+                ]
+              }
+            ]
+          },
+          "parent": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "children",
+          "id",
+          "parent"
+        ]
+      }
+    }
+  },
+  "required": [
+    "mapping"
+  ]
+}
