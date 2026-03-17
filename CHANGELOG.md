@@ -1,3 +1,45 @@
+## [0.7.0] - 2026-03-17
+
+### 🚀 Features
+
+- Add Netflix provider with 6 interaction types (#209)
+- Add Airbnb provider including additional scopes (#210)
+- Resolve asset_uri in pipe.run (#217)
+
+### 🐛 Bug Fixes
+
+- Use InstagramBaseModel in media pipe (#219)
+
+## [0.6.1] - 2026-03-16
+
+### 🐛 Bug Fixes
+
+- *(chatgpt)* Update schema based on different types of archives (#215)
+
+### ⚙️ Miscellaneous Tasks
+
+- Group dependencies changes in changelog (#214)
+
+## [0.6.0] - 2026-03-16
+
+### 🚀 Features
+
+- Proxy stores threads and generates memories in the background (#206)
+- Add user profile as context to memory generation prompt (#205)
+
+### 🐛 Bug Fixes
+
+- Upsert memory embeddings (#207)
+
+### 💼 Other
+
+- [**breaking**] Downgrade `google-adk` to >=1.22 (#212)
+
+### 🧪 Testing
+
+- Move tests using llm to evals (#208)
+- Basic memory unit and integration tests (#204)
+
 ## [0.5.0] - 2026-03-15
 
 ### 🚀 Features

@@ -1,0 +1,49 @@
+[
+  {
+    "wishlistData": [
+      {
+        "numberOfInfants": 0,
+        "wishlistUserData": [{ "userId": "100000001", "wishlistId": 1882687561 }],
+        "numberOfChildren": 0,
+        "numberOfAdults": 4,
+        "numberOfPets": 0,
+        "inviteCode": "ABCD1234",
+        "name": "Bangalore",
+        "wishlistItemData": [
+          {
+            "pets": 0, "checkIn": "2024-02-28", "infants": 0,
+            "wishlistItemId": 11005706663380, "children": 0,
+            "pdpType": "HOME", "adults": 4, "checkOut": "2024-03-06",
+            "wishlistId": 1882687561, "pdpId": "1109956002377193237"
+          },
+          {
+            "wishlistItemId": 11005703532042,
+            "pdpType": "HOME",
+            "wishlistId": 1882687561,
+            "pdpId": "1542067315200077846"
+          }
+        ],
+        "isPrivate": true,
+        "wishlistId": 1882687561,
+        "wishlistType": "WISHLIST"
+      },
+      {
+        "numberOfAdults": 2,
+        "wishlistUserData": [{ "userId": "100000001", "wishlistId": 2000000001 }],
+        "inviteCode": "EFGH5678",
+        "name": "Paris",
+        "wishlistItemData": [
+          {
+            "wishlistItemId": 11005610920210,
+            "pdpType": "HOME",
+            "wishlistId": 2000000001,
+            "pdpId": "622344808739076433"
+          }
+        ],
+        "isPrivate": false,
+        "wishlistId": 2000000001,
+        "wishlistType": "WISHLIST"
+      }
+    ]
+  }
+]

@@ -1,0 +1,37 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "bookingSessions": { "type": "array", "items": { "type": "object" } },
+    "reservations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "guestCurrency": { "type": "string" },
+          "confirmationCode": { "type": "string" },
+          "isBringingPets": { "type": "boolean" },
+          "guestProfileUrl": { "type": "string" },
+          "numberOfGuests": { "type": "integer" },
+          "hostRespondeAt": { "type": "string" },
+          "numberOfInfants": { "type": "integer" },
+          "createdAt": { "type": "string" },
+          "hostingUrl": { "type": "string" },
+          "guestVatCountry": { "type": "string" },
+          "numberOfChildren": { "type": "integer" },
+          "numberOfAdults": { "type": "integer" },
+          "numberOfPets": { "type": "integer" },
+          "nights": { "type": "integer" },
+          "hostProfileUrl": { "type": "string" },
+          "startDate": { "type": "string" },
+          "status": { "type": "string" },
+          "updatedAt": { "type": "string" },
+          "message": { "type": "string" },
+          "canceledAt": { "type": "string" }
+        },
+        "required": ["confirmationCode", "createdAt", "guestCurrency", "guestProfileUrl", "guestVatCountry", "hostProfileUrl", "hostingUrl", "isBringingPets", "nights", "numberOfAdults", "numberOfChildren", "numberOfGuests", "numberOfInfants", "numberOfPets", "startDate", "status", "updatedAt"]
+      }
+    }
+  },
+  "required": ["bookingSessions", "reservations"]
+}

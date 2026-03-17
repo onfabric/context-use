@@ -18,7 +18,7 @@ from context_use.activitystreams.activities import (
 )
 from context_use.activitystreams.actors import Application, Person
 from context_use.activitystreams.core import Collection, Object
-from context_use.activitystreams.objects import Image, Note, Page, Profile, Video
+from context_use.activitystreams.objects import Event, Image, Note, Page, Profile, Video
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ class FibreSendMessage(Create, _BaseFibreMixin):
 class FibreReceiveMessage(Create, _BaseFibreMixin):
     fibreKind: Literal["ReceiveMessage"] = Field("ReceiveMessage", alias="fibre_kind")
     object: FibreTextMessage | FibreImage | FibreVideo  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
-    actor: Profile | Application  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: Profile | Application | Person  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     target: None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def is_inbound(self) -> bool:
@@ -250,7 +250,7 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
 
 class FibreViewObject(View, _BaseFibreMixin):
     fibreKind: Literal["View"] = Field("View", alias="fibre_kind")
-    object: Page | Video | FibrePost  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    object: Page | Video | FibrePost | Event  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, FibrePost):
@@ -284,6 +284,8 @@ class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportInc
             parts = "Liked post"
             if self.object.attributedTo:
                 parts += f" by {self.object.attributedTo.name}"
+        elif self.object.name:
+            parts = f'Liked "{self.object.name}"'
         else:
             parts = f"Liked {self.object.type.lower()}"
         if provider:
@@ -299,6 +301,8 @@ class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[rep
             parts = "Disliked post"
             if self.object.attributedTo:
                 parts += f" by {self.object.attributedTo.name}"
+        elif self.object.name:
+            parts = f'Disliked "{self.object.name}"'
         else:
             parts = f"Disliked {self.object.type.lower()}"
         if provider:
@@ -309,14 +313,16 @@ class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[rep
 class FibreComment(Create, _BaseFibreMixin):
     fibreKind: Literal["Comment"] = Field("Comment", alias="fibre_kind")
     object: Note  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
-    inReplyTo: FibrePost | None = None  # type: ignore[reportIncompatibleVariableOverride]
+    inReplyTo: FibrePost | Page | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def _get_preview(self, provider: str | None) -> str | None:
         content = self.object.content if isinstance(self.object.content, str) else ""
         truncated = content[:80] + ("..." if len(content) > 80 else "")
         parts = f'Commented "{truncated}"'
-        if self.inReplyTo and self.inReplyTo.attributedTo:
+        if isinstance(self.inReplyTo, FibrePost) and self.inReplyTo.attributedTo:
             parts += f" on {self.inReplyTo.attributedTo.name}'s post"
+        elif isinstance(self.inReplyTo, Page):
+            parts += " on listing" if provider == "Airbnb" else " on page"
         if provider:
             parts += f" on {provider}"
         return parts
@@ -356,6 +362,8 @@ class FibreAddObjectToCollection(Add, _BaseFibreMixin):
                 parts += f" post by {self.object.attributedTo.name}"
             else:
                 parts += " post"
+        elif isinstance(self.object, Page):
+            parts += " page"
         elif isinstance(self.object, (Image, Video)):
             parts += f" {self.object.type.lower()}"
         if provider:

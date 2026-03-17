@@ -1,6 +1,6 @@
 [project]
 name = "context-use"
-version = "0.5.0"
+version = "0.7.0"
 description = "Turn your data exports into portable AI memory."
 readme = "README.md"
 license = "MIT"
@@ -12,7 +12,7 @@ dependencies = [
     "tenacity>=9.1.4",
     "litellm>=1.81.13",
     "sqlite-vec>=0.1.6",
-    "google-adk>=1.26",
+    "google-adk>=1.22",
 ]
 
 [project.urls]
@@ -172,14 +172,15 @@ commit_parsers = [
     { message = "^refactor", group = "<!-- 2 -->🚜 Refactor" },
     { message = "^style", group = "<!-- 5 -->🎨 Styling" },
     { message = "^test", group = "<!-- 6 -->🧪 Testing" },
+    { message = "^build", group = "<!-- 7 -->📦 Build & Dependencies" },
     { message = "^chore\\(release\\): prepare for", skip = true },
     { message = "^chore\\(deps.*\\)", skip = true },
     { message = "^chore\\(pr\\)", skip = true },
     { message = "^chore\\(pull\\)", skip = true },
-    { message = "^chore|^ci", group = "<!-- 7 -->⚙️ Miscellaneous Tasks" },
-    { body = ".*security", group = "<!-- 8 -->🛡️ Security" },
-    { message = "^revert", group = "<!-- 9 -->◀️ Revert" },
-    { message = ".*", group = "<!-- 10 -->💼 Other" },
+    { message = "^chore|^ci", group = "<!-- 8 -->⚙️ Miscellaneous Tasks" },
+    { body = ".*security", group = "<!-- 9 -->🛡️ Security" },
+    { message = "^revert", group = "<!-- 10 -->◀️ Revert" },
+    { message = ".*", group = "<!-- 11 -->💼 Other" },
 ]
 filter_commits = false
 fail_on_unmatched_commit = false

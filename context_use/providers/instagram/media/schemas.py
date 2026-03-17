@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from context_use.providers.instagram.schemas import InstagramBaseModel
 
 
-class InstagramMediaItem(BaseModel):
+class InstagramMediaItem(InstagramBaseModel):
     uri: str
     creation_timestamp: int
     title: str = ""
     media_metadata: dict | None = None
 
 
-class InstagramStoriesManifest(BaseModel):
+class InstagramStoriesManifest(InstagramBaseModel):
     ig_stories: list[InstagramMediaItem]
 
 
-class InstagramReelsEntry(BaseModel):
+class InstagramReelsEntry(InstagramBaseModel):
     media: list[InstagramMediaItem]
 
 
-class InstagramReelsManifest(BaseModel):
+class InstagramReelsManifest(InstagramBaseModel):
     ig_reels_media: list[InstagramReelsEntry]
 
 
-class InstagramPostsEntry(BaseModel):
+class InstagramPostsEntry(InstagramBaseModel):
     media: list[InstagramMediaItem]

@@ -138,5 +138,7 @@ class Pipe[Record: BaseModel](ABC):
             # Today transform() always returns a ThreadRow, but when it
             # evolves to -> ThreadRow | None (Phase A5), this guard is ready.
             if row is not None:
+                if row.asset_uri:
+                    row.asset_uri = storage.resolve_uri(row.asset_uri)
                 self.transformed_count += 1
                 yield row
