@@ -508,7 +508,10 @@ class TestBackgroundScheduling:
         chunk1 = (
             b'data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}\n\n'
         )
-        chunk2 = b'data: {"choices":[{"delta":{"content":" there"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        chunk2 = (
+            b'data: {"choices":[{"delta":{"content":" there"},"finish_reason":"stop"}]}'
+            b"\n\ndata: [DONE]\n\n"
+        )
         _setup_streaming_client(
             MockClient, _mock_streaming_response(chunks=[chunk1, chunk2])
         )

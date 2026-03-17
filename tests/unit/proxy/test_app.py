@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from httpx import ASGITransport
 
-from context_use.proxy.background import BackgroundMemoryProcessor
-from context_use.proxy.handler import ContextProxy
 from context_use.proxy.app import (
     _ALLOWED_UPSTREAM_HOSTS,
     SESSION_ID_HEADER,
     create_proxy_app,
 )
+from context_use.proxy.background import BackgroundMemoryProcessor
+from context_use.proxy.handler import ContextProxy
 from context_use.store.base import MemorySearchResult
 
 
