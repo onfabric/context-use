@@ -120,7 +120,7 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
 
     expected_fibre_kind: ClassVar[str | None] = None
 
-    expected_rows: ClassVar[list[dict] | None] = None
+    snapshot_cases: ClassVar[list[tuple[dict | list, dict]] | None] = None
 
     @pytest.fixture()
     def pipe_fixture(self, tmp_path) -> tuple[StorageBackend, str]:
@@ -183,16 +183,18 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
         second = [r.unique_key for r in self.pipe_class().run(task, storage)]
         assert first == second, "unique_keys must be deterministic across runs"
 
-    def test_row_snapshots(self, transformed_rows: list[ThreadRow]) -> None:
-        if self.expected_rows is None:
-            pytest.skip("expected_rows not set")
-        assert len(transformed_rows) == len(self.expected_rows), (
-            f"row count {len(transformed_rows)} != expected {len(self.expected_rows)}"
-        )
-        for i, (row, expected) in enumerate(
-            zip(transformed_rows, self.expected_rows, strict=True)
-        ):
-            label = f"row[{i}]"
+    def test_snapshots(self, tmp_path) -> None:
+        if self.snapshot_cases is None:
+            pytest.skip("snapshot_cases not set")
+        assert self.fixture_key is not None
+        for i, (raw_input, expected) in enumerate(self.snapshot_cases):
+            storage = DiskStorage(str(tmp_path / f"snap_{i}"))
+            storage.write(self.fixture_key, json.dumps(raw_input).encode())
+            task = self._make_task(self.fixture_key)
+            rows = list(self.pipe_class().run(task, storage))
+            assert len(rows) >= 1, f"case[{i}]: no rows produced"
+            row = rows[0]
+            label = f"case[{i}]"
             if "unique_key" in expected:
                 assert row.unique_key == expected["unique_key"], (
                     f"{label} unique_key: "
