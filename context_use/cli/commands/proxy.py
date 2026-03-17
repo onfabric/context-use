@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import uvicorn
 
@@ -23,13 +24,22 @@ _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
 
 
+def _parse_upstream_url(value: str) -> str:
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise argparse.ArgumentTypeError(
+            "Expected a full upstream URL starting with http:// or https://"
+        )
+    return value.rstrip("/")
+
+
 class ProxyCommand(BaseCommand):
     name = "proxy"
     help = "Start the context enrichment proxy server"
     description = (
         "Start a transparent proxy that enriches requests with user context "
         "from your local memory store. The proxy forwards each request to "
-        "either a fixed upstream host from --target or the client's Host "
+        "either a fixed upstream URL from --upstream-url or the client's Host "
         "header, while memories are generated using your OpenAI key. "
         "Only POST /v1/chat/completions requests are enriched; all other "
         "paths are forwarded transparently without modification."
@@ -48,8 +58,9 @@ class ProxyCommand(BaseCommand):
             help="Host to bind to (default: 0.0.0.0)",
         )
         parser.add_argument(
-            "--target",
-            help="Fixed upstream host (skips the need for a Host header)",
+            "--upstream-url",
+            type=_parse_upstream_url,
+            help="Fixed upstream URL (skips the need for a Host header)",
         )
         parser.add_argument(
             "--background",
@@ -89,11 +100,11 @@ class ProxyCommand(BaseCommand):
         out.kv(
             "Enriched route", "POST /v1/chat/completions (all other paths pass through)"
         )
-        out.kv("Upstream target", args.target or "request Host header")
+        out.kv("Upstream URL", args.upstream_url or "request Host header")
         print()
         out.info("Point your client at this proxy:")
         out.info("")
-        if args.target:
+        if args.upstream_url:
             out.info(
                 '  client = OpenAI(base_url="http://localhost:'
                 f'{args.port}/v1", api_key="<provider-key>")'
@@ -114,7 +125,7 @@ class ProxyCommand(BaseCommand):
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        app = create_proxy_app(handler, target_host=args.target)
+        app = create_proxy_app(handler, upstream_url=args.upstream_url)
         config = uvicorn.Config(
             app,
             host=args.host,
@@ -146,8 +157,8 @@ class ProxyCommand(BaseCommand):
             "--host",
             args.host,
         ]
-        if args.target:
-            cmd.extend(["--target", args.target])
+        if args.upstream_url:
+            cmd.extend(["--upstream-url", args.upstream_url])
 
         _PID_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -168,10 +179,11 @@ class ProxyCommand(BaseCommand):
             sys.exit(1)
 
         print()
-        if args.target:
+        if args.upstream_url:
             out.success(
                 "Proxy started - "
-                f"http://localhost:{args.port}/v1/chat/completions -> {args.target}"
+                "http://localhost:"
+                f"{args.port}/v1/chat/completions -> {args.upstream_url}"
             )
         else:
             out.success(

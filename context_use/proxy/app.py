@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit
 
 from context_use.proxy.handler import (
     ContextProxy,
@@ -42,7 +43,7 @@ ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 def create_proxy_app(
     handler: ContextProxy,
     *,
-    target_host: str | None = None,
+    upstream_url: str | None = None,
 ) -> ASGIApp:
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -51,17 +52,15 @@ def create_proxy_app(
         raw = await _read_body(receive)
         headers_dict = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
 
-        host_error = _invalid_upstream_host_message(
-            headers_dict, target_host=target_host
+        resolved_upstream_url, upstream_error = _resolve_upstream_url(
+            headers_dict, upstream_url=upstream_url
         )
-        if host_error is not None:
+        if upstream_error is not None:
             await _send_json(
-                send, 400, _error_body(host_error, "invalid_request_error")
+                send, 400, _error_body(upstream_error, "invalid_request_error")
             )
             return
 
-        host = target_host or headers_dict["host"]
-        upstream_url = f"https://{host}"
         session_id = headers_dict.get(SESSION_ID_HEADER)
 
         # Hop-by-hop headers and the session-id header are connection-scoped or internal
@@ -81,7 +80,7 @@ def create_proxy_app(
                 scope["path"],
                 forward_headers,
                 raw,
-                upstream_url=upstream_url,
+                upstream_url=resolved_upstream_url,
                 session_id=session_id,
             )
         except ValueError as exc:
@@ -101,25 +100,49 @@ def create_proxy_app(
     return app
 
 
-def _invalid_upstream_host_message(
+def _resolve_upstream_url(
     headers: dict[str, str],
     *,
-    target_host: str | None,
-) -> str | None:
-    host = target_host or headers.get("host")
+    upstream_url: str | None,
+) -> tuple[str, str | None]:
+    if upstream_url is not None:
+        parsed = urlsplit(upstream_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return "", (
+                "Invalid upstream URL. Use a full http:// or https:// URL, for "
+                "example https://api.openai.com"
+            )
+
+        host = parsed.hostname
+        if host is None:
+            return "", (
+                "Invalid upstream URL. Use a full http:// or https:// URL, for "
+                "example https://api.openai.com"
+            )
+
+        allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
+        if host.lower() not in _ALLOWED_UPSTREAM_HOSTS:
+            return "", (
+                f"Unknown upstream host {host!r} from --upstream-url. "
+                f"Allowed hosts: {allowed}"
+            )
+        return upstream_url.rstrip("/"), None
+
+    host = headers.get("host")
     allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
     if not host:
-        return (
+        return "", (
             "Missing Host header. Set it to your upstream provider, or start the "
-            f"proxy with --target. Allowed hosts: {allowed}"
+            f"proxy with --upstream-url. Allowed hosts: {allowed}"
         )
 
     hostname = host.lower().split(":")[0]
     if hostname in _ALLOWED_UPSTREAM_HOSTS:
-        return None
+        return f"https://{host}", None
 
-    source = "--target" if target_host else "Host header"
-    return f"Unknown upstream host {host!r} from {source}. Allowed hosts: {allowed}"
+    return "", (
+        f"Unknown upstream host {host!r} from Host header. Allowed hosts: {allowed}"
+    )
 
 
 async def _read_body(receive: Receive) -> bytes:

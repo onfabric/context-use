@@ -189,9 +189,9 @@ class TestMissingHostHeader:
         assert responses[0]["status"] != 400
 
 
-class TestConfiguredTargetHost:
+class TestConfiguredUpstreamUrl:
     @patch("context_use.proxy.handler.AsyncClient")
-    async def test_allows_requests_without_host_header(
+    async def test_allows_requests_without_host_header_when_upstream_url_is_configured(
         self, MockClient: MagicMock
     ) -> None:
         upstream_response = MagicMock()
@@ -204,7 +204,7 @@ class TestConfiguredTargetHost:
         MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        app = create_proxy_app(_make_handler(), target_host="api.openai.com")
+        app = create_proxy_app(_make_handler(), upstream_url="https://api.openai.com")
         responses: list[dict[str, Any]] = []
 
         async def mock_receive() -> dict[str, Any]:
@@ -232,7 +232,7 @@ class TestConfiguredTargetHost:
         )
 
     @patch("context_use.proxy.handler.AsyncClient")
-    async def test_ignores_request_host_when_target_host_is_configured(
+    async def test_ignores_request_host_when_upstream_url_is_configured(
         self, MockClient: MagicMock
     ) -> None:
         upstream_response = MagicMock()
@@ -245,7 +245,7 @@ class TestConfiguredTargetHost:
         MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
         MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
 
-        app = create_proxy_app(_make_handler(), target_host="api.openai.com")
+        app = create_proxy_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = _transport(app)
 
         async with httpx.AsyncClient(
@@ -258,6 +258,18 @@ class TestConfiguredTargetHost:
             mock_client.request.call_args.kwargs["url"]
             == "https://api.openai.com/v1/models"
         )
+
+    async def test_returns_400_for_invalid_upstream_url_scheme(self) -> None:
+        app = create_proxy_app(_make_handler(), upstream_url="api.openai.com")
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://localhost:8080"
+        ) as client:
+            resp = await client.get("/v1/models")
+
+        assert resp.status_code == 400
+        assert "Invalid upstream URL" in resp.json()["error"]["message"]
 
 
 class TestRequestValidation:
