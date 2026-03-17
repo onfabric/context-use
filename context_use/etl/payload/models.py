@@ -18,7 +18,7 @@ from context_use.activitystreams.activities import (
 )
 from context_use.activitystreams.actors import Application, Person
 from context_use.activitystreams.core import Collection, Object
-from context_use.activitystreams.objects import Image, Note, Page, Profile, Video
+from context_use.activitystreams.objects import Event, Image, Note, Page, Profile, Video
 
 logger = logging.getLogger(__name__)
 
@@ -223,7 +223,7 @@ class FibreSendMessage(Create, _BaseFibreMixin):
 class FibreReceiveMessage(Create, _BaseFibreMixin):
     fibreKind: Literal["ReceiveMessage"] = Field("ReceiveMessage", alias="fibre_kind")
     object: FibreTextMessage | FibreImage | FibreVideo  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
-    actor: Profile | Application  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: Profile | Application | Person  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     target: None = None  # type: ignore[reportIncompatibleVariableOverride]
 
     def is_inbound(self) -> bool:
@@ -250,7 +250,7 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
 
 class FibreViewObject(View, _BaseFibreMixin):
     fibreKind: Literal["View"] = Field("View", alias="fibre_kind")
-    object: Page | Video | FibrePost  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    object: Page | Video | FibrePost | Event  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, FibrePost):
@@ -322,7 +322,7 @@ class FibreComment(Create, _BaseFibreMixin):
         if isinstance(self.inReplyTo, FibrePost) and self.inReplyTo.attributedTo:
             parts += f" on {self.inReplyTo.attributedTo.name}'s post"
         elif isinstance(self.inReplyTo, Page):
-            parts += " on listing"
+            parts += " on listing" if provider == "Airbnb" else " on page"
         if provider:
             parts += f" on {provider}"
         return parts
