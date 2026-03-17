@@ -25,7 +25,6 @@ uv tool install context-use
 Start the proxy and point any OpenAI-compatible client at it. Every conversation is automatically turned into memories.
 
 ```bash
-pip install context-use[server]
 context-use proxy
 ```
 
@@ -38,11 +37,11 @@ client = OpenAI(base_url="http://localhost:8080/v1", api_key="<provider-key>")
 client.chat.completions.create(model="openai/gpt-4o", messages=[...])
 ```
 
-No data exports, no setup — memories are generated in the background from every conversation that flows through the proxy.
+Memories are generated in the background and are used to automatically enrich every conversation that flows through the proxy.
 
 ## Headless / bring your own API
 
-If you already have a FastAPI server (or any other framework), use `ProxyHandler` directly without running the built-in server:
+If you already have your own HTTP server (FastAPI, Starlette, aiohttp, etc.), use `ProxyHandler` directly without running the built-in server:
 
 ```python
 from context_use import ContextUse, ProxyHandler

@@ -78,7 +78,7 @@ def _mock_model_response() -> MagicMock:
 
 class TestHealth:
     async def test_health(self) -> None:
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -90,7 +90,7 @@ class TestHealth:
 
 class TestRequestValidation:
     async def test_missing_model(self) -> None:
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -103,7 +103,7 @@ class TestRequestValidation:
         assert "required" in resp.json()["error"]["message"]
 
     async def test_missing_messages(self) -> None:
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -115,7 +115,7 @@ class TestRequestValidation:
         assert resp.status_code == 400
 
     async def test_invalid_json(self) -> None:
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
@@ -133,7 +133,10 @@ class TestNonStreaming:
     @patch("context_use.proxy.handler.litellm")
     async def test_returns_completion(self, mock_litellm: MagicMock) -> None:
         mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
-        app = create_app(_make_handler(memories=[_make_result()]))
+        app = create_app(
+            _make_handler(memories=[_make_result()]),
+            upstream_url="https://api.openai.com",
+        )
         transport = ASGITransport(app=app)
 
         async with httpx.AsyncClient(
@@ -150,7 +153,7 @@ class TestNonStreaming:
     @patch("context_use.proxy.handler.litellm")
     async def test_forwards_api_key(self, mock_litellm: MagicMock) -> None:
         mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
 
         async with httpx.AsyncClient(
@@ -187,7 +190,7 @@ class TestStreaming:
             yield chunk
 
         mock_litellm.acompletion = AsyncMock(return_value=mock_stream())
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
 
         async with httpx.AsyncClient(
@@ -214,7 +217,7 @@ class TestErrorHandling:
         exc = Exception("Rate limit exceeded")
         exc.status_code = 429  # type: ignore[attr-defined]
         mock_litellm.acompletion = AsyncMock(side_effect=exc)
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
 
         async with httpx.AsyncClient(
@@ -231,7 +234,7 @@ class TestErrorHandling:
     @patch("context_use.proxy.handler.litellm")
     async def test_generic_error_returns_500(self, mock_litellm: MagicMock) -> None:
         mock_litellm.acompletion = AsyncMock(side_effect=RuntimeError("boom"))
-        app = create_app(_make_handler())
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
 
         async with httpx.AsyncClient(
@@ -253,7 +256,7 @@ class TestSessionIdHeader:
         mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
         processor = _mock_processor()
         handler = ProxyHandler(_mock_ctx(), processor)
-        app = create_app(handler)
+        app = create_app(handler, upstream_url="https://api.openai.com")
         transport = ASGITransport(app=app)
 
         async with httpx.AsyncClient(
@@ -267,3 +270,52 @@ class TestSessionIdHeader:
 
         processor.schedule.assert_called_once()
         assert processor.schedule.call_args.kwargs["session_id"] == "sess-abc"
+
+
+class TestPassThrough:
+    @patch("context_use.server.app._make_http_client")
+    async def test_unknown_path_forwarded_to_upstream(
+        self, mock_factory: MagicMock
+    ) -> None:
+        upstream_response = MagicMock()
+        upstream_response.status_code = 200
+        upstream_response.headers.raw = [(b"content-type", b"application/json")]
+        upstream_response.content = json.dumps({"object": "list", "data": []}).encode()
+
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.request = AsyncMock(return_value=upstream_response)
+        mock_factory.return_value = mock_client
+
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
+        transport = ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            resp = await client.get("/v1/models")
+
+        assert resp.status_code == 200
+        mock_client.request.assert_called_once()
+        call = mock_client.request.call_args
+        assert call.kwargs["url"] == "https://api.openai.com/v1/models"
+        assert call.kwargs["method"] == "GET"
+
+    @patch("context_use.server.app._make_http_client")
+    async def test_upstream_error_returns_502(self, mock_factory: MagicMock) -> None:
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        mock_client.request = AsyncMock(side_effect=httpx.ConnectError("refused"))
+        mock_factory.return_value = mock_client
+
+        app = create_app(_make_handler(), upstream_url="https://api.openai.com")
+        transport = ASGITransport(app=app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://test"
+        ) as client:
+            resp = await client.get("/v1/models")
+
+        assert resp.status_code == 502

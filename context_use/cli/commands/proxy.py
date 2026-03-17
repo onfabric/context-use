@@ -9,12 +9,39 @@ import sys
 import time
 from pathlib import Path
 
+import uvicorn
+
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, require_api_key
+from context_use.config import build_ctx, load_config
 from context_use.ext.adk.agent.runner import AdkAgentBackend
+from context_use.proxy.background import BackgroundMemoryProcessor
+from context_use.proxy.handler import ProxyHandler
+from context_use.server.app import create_app
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
+
+_PROVIDER_BASE_URLS: dict[str, str] = {
+    "openai": "https://api.openai.com",
+    "anthropic": "https://api.anthropic.com",
+}
+
+
+def _upstream_url_for_model(model: str) -> str:
+    import litellm
+
+    url = litellm.get_api_base(model, optional_params={})
+    if url:
+        return url.rstrip("/")
+    _, provider, _, _ = litellm.get_llm_provider(model)
+    base = _PROVIDER_BASE_URLS.get(provider)
+    if base:
+        return base
+    raise ValueError(
+        f"Cannot determine upstream URL for model '{model}'. "
+        "Set a fully-qualified model prefix, e.g. 'openai/gpt-4o'."
+    )
 
 
 class ProxyCommand(BaseCommand):
@@ -60,21 +87,6 @@ class ProxyCommand(BaseCommand):
             self._start_background(args)
             return
 
-        try:
-            import uvicorn
-
-            from context_use.server.app import create_app
-        except ImportError:
-            out.error(
-                "Server dependencies not installed. "
-                "Run: pip install context-use[server]"
-            )
-            sys.exit(1)
-
-        from context_use.config import build_ctx, load_config
-        from context_use.proxy.background import BackgroundMemoryProcessor
-        from context_use.proxy.handler import ProxyHandler
-
         cfg = load_config()
         require_api_key(cfg)
         cfg.ensure_dirs()
@@ -105,7 +117,8 @@ class ProxyCommand(BaseCommand):
         handler = ProxyHandler(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        app = create_app(handler)
+        upstream_url = _upstream_url_for_model(cfg.openai_model)
+        app = create_app(handler, upstream_url=upstream_url)
         config = uvicorn.Config(
             app,
             host=args.host,
@@ -129,7 +142,14 @@ class ProxyCommand(BaseCommand):
             out.error("Could not find the context-use executable in PATH.")
             sys.exit(1)
 
-        cmd: list[str] = [cu, "proxy", "--port", str(args.port), "--host", args.host]
+        cmd: list[str] = [
+            cu,
+            "proxy",
+            "--port",
+            str(args.port),
+            "--host",
+            args.host,
+        ]
 
         _PID_PATH.parent.mkdir(parents=True, exist_ok=True)
 

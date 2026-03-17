@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+import httpx
 
 from context_use.proxy.handler import ProxyHandler, ProxyStreamResult
 
@@ -14,73 +13,190 @@ logger = logging.getLogger(__name__)
 
 SESSION_ID_HEADER = "ctxuse-session-id"
 
+_HOP_BY_HOP = frozenset(
+    [
+        b"connection",
+        b"keep-alive",
+        b"proxy-authenticate",
+        b"proxy-authorization",
+        b"te",
+        b"trailers",
+        b"transfer-encoding",
+        b"upgrade",
+    ]
+)
 
-def create_app(handler: ProxyHandler) -> FastAPI:
-    app = FastAPI(title="context-use proxy")
+Message = dict[str, Any]
+Scope = dict[str, Any]
+Receive = Callable[[], Awaitable[Message]]
+Send = Callable[[Message], Awaitable[None]]
+ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
-    @app.get("/health")
-    async def health() -> dict[str, str]:
-        return {"status": "ok"}
 
-    @app.post("/v1/chat/completions", response_model=None)
-    async def chat_completions(request: Request) -> Response:
-        try:
-            body: dict[str, Any] = await request.json()
-        except Exception:
-            return JSONResponse(
-                status_code=400,
-                content=_error_body("Invalid JSON body", "invalid_request_error"),
-            )
+def create_app(handler: ProxyHandler, upstream_url: str) -> ASGIApp:
+    upstream = upstream_url.rstrip("/")
 
-        if "model" not in body or "messages" not in body:
-            return JSONResponse(
-                status_code=400,
-                content=_error_body(
-                    "'model' and 'messages' are required",
-                    "invalid_request_error",
-                ),
-            )
+    async def app(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return
 
-        api_key = _extract_api_key(request)
-        session_id = request.headers.get(SESSION_ID_HEADER)
+        method: str = scope["method"]
+        path: str = scope["path"]
 
-        try:
-            result = await handler.chat_completion(
-                body, api_key=api_key, session_id=session_id
-            )
-        except Exception as exc:
-            status = int(getattr(exc, "status_code", 500))
-            logger.error("LLM forwarding failed: %s", exc)
-            return JSONResponse(
-                status_code=status,
-                content=_error_body(str(exc), type(exc).__name__),
-            )
+        if method == "GET" and path == "/health":
+            await _send_json(send, 200, {"status": "ok"})
+            return
 
-        if isinstance(result, ProxyStreamResult):
-            return StreamingResponse(
-                _sse_format(result.chunks),
-                media_type="text/event-stream",
-                headers={"Cache-Control": "no-cache"},
-            )
-        return JSONResponse(content=result.data)
+        if method == "POST" and path == "/v1/chat/completions":
+            await _handle_completions(scope, receive, send, handler)
+            return
+
+        await _proxy_request(scope, receive, send, upstream)
 
     return app
 
 
-def _extract_api_key(request: Request) -> str | None:
-    auth = request.headers.get("authorization", "")
-    if auth.startswith("Bearer "):
-        key = auth[7:].strip()
+async def _handle_completions(
+    scope: Scope,
+    receive: Receive,
+    send: Send,
+    handler: ProxyHandler,
+) -> None:
+    raw = await _read_body(receive)
+
+    try:
+        body: dict[str, Any] = json.loads(raw)
+    except Exception:
+        await _send_json(
+            send, 400, _error_body("Invalid JSON body", "invalid_request_error")
+        )
+        return
+
+    if "model" not in body or "messages" not in body:
+        await _send_json(
+            send,
+            400,
+            _error_body("'model' and 'messages' are required", "invalid_request_error"),
+        )
+        return
+
+    headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
+    api_key = _extract_api_key(headers.get("authorization", ""))
+    session_id = headers.get(SESSION_ID_HEADER)
+
+    try:
+        result = await handler.chat_completion(
+            body, api_key=api_key, session_id=session_id
+        )
+    except Exception as exc:
+        status = int(getattr(exc, "status_code", 500))
+        logger.error("LLM forwarding failed: %s", exc)
+        await _send_json(send, status, _error_body(str(exc), type(exc).__name__))
+        return
+
+    if isinstance(result, ProxyStreamResult):
+        await _send_sse(send, result.chunks)
+        return
+
+    await _send_json(send, 200, result.data)
+
+
+async def _read_body(receive: Receive) -> bytes:
+    body = b""
+    while True:
+        message = await receive()
+        body += message.get("body", b"")
+        if not message.get("more_body", False):
+            break
+    return body
+
+
+async def _send_json(send: Send, status: int, data: dict[str, Any]) -> None:
+    encoded = json.dumps(data).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                [b"content-type", b"application/json"],
+                [b"content-length", str(len(encoded)).encode()],
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": encoded})
+
+
+async def _send_sse(
+    send: Send,
+    chunks: AsyncGenerator[dict[str, Any], None],
+) -> None:
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                [b"content-type", b"text/event-stream"],
+                [b"cache-control", b"no-cache"],
+            ],
+        }
+    )
+    async for chunk in chunks:
+        line = f"data: {json.dumps(chunk, default=str)}\n\n".encode()
+        await send({"type": "http.response.body", "body": line, "more_body": True})
+    await send({"type": "http.response.body", "body": b"data: [DONE]\n\n"})
+
+
+def _make_http_client() -> httpx.AsyncClient:
+    return httpx.AsyncClient()
+
+
+async def _proxy_request(
+    scope: Scope,
+    receive: Receive,
+    send: Send,
+    upstream: str,
+) -> None:
+    method: str = scope["method"]
+    path: str = scope["path"]
+    query: bytes = scope.get("query_string", b"")
+    url = upstream + path + (f"?{query.decode()}" if query else "")
+
+    forward_headers = [
+        (k, v) for k, v in scope["headers"] if k.lower() not in _HOP_BY_HOP
+    ]
+    body = await _read_body(receive)
+
+    try:
+        async with _make_http_client() as client:
+            upstream_resp = await client.request(
+                method=method,
+                url=url,
+                headers=forward_headers,
+                content=body,
+            )
+    except Exception as exc:
+        logger.error("Upstream proxy failed: %s", exc)
+        await _send_json(send, 502, _error_body(str(exc), "upstream_error"))
+        return
+
+    resp_headers = [
+        [k, v] for k, v in upstream_resp.headers.raw if k.lower() not in _HOP_BY_HOP
+    ]
+    await send(
+        {
+            "type": "http.response.start",
+            "status": upstream_resp.status_code,
+            "headers": resp_headers,
+        }
+    )
+    await send({"type": "http.response.body", "body": upstream_resp.content})
+
+
+def _extract_api_key(authorization: str) -> str | None:
+    if authorization.startswith("Bearer "):
+        key = authorization[7:].strip()
         return key or None
     return None
-
-
-async def _sse_format(
-    chunks: AsyncGenerator[dict[str, Any], None],
-) -> AsyncGenerator[str, None]:
-    async for chunk in chunks:
-        yield f"data: {json.dumps(chunk, default=str)}\n\n"
-    yield "data: [DONE]\n\n"
 
 
 def _error_body(message: str, error_type: str) -> dict[str, Any]:
