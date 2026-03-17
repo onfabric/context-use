@@ -114,10 +114,12 @@ class TestInstagramPostsViewedV1Pipe(PostObjectMixin, PipeTestKit):
                                     "dict": [
                                         {
                                             "label": "URL",
+                                            # TODO: parse URL
                                             "value": "https://linktr.ee/synthetic_artist",
                                         },
                                         {
                                             "label": "Name",
+                                            # TODO: parse Name
                                             "value": "Synthetic Artist",
                                         },
                                         {
