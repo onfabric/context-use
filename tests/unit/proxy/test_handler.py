@@ -12,7 +12,10 @@ from context_use.proxy.handler import (
     ContextProxy,
     ContextProxyResult,
     ContextProxyStreamResult,
+    _accumulate_response_sse_bytes,
     _accumulate_sse_bytes,
+    _extract_response_output_text,
+    _input_to_messages,
     _should_enrich,
 )
 from context_use.store.base import MemorySearchResult
@@ -576,6 +579,600 @@ class TestBackgroundScheduling:
 
         await handler._chat_completion(
             _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        processor.schedule.assert_not_called()
+
+
+def _response_body(**overrides: Any) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "model": "gpt-4o",
+        "input": "Hello",
+    }
+    body.update(overrides)
+    return body
+
+
+def _response_bytes(**overrides: Any) -> bytes:
+    return json.dumps(_response_body(**overrides)).encode()
+
+
+def _mock_response_api_http_response(
+    status: int = 200,
+    headers: list[tuple[bytes, bytes]] | None = None,
+    content: bytes | None = None,
+) -> MagicMock:
+    if content is None:
+        content = json.dumps(
+            {
+                "id": "resp_123",
+                "object": "response",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [
+                            {
+                                "type": "output_text",
+                                "text": "Hi there!",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ).encode()
+    resp = MagicMock()
+    resp.status_code = status
+    resp.headers.raw = headers or [(b"content-type", b"application/json")]
+    resp.content = content
+    resp.json = MagicMock(return_value=json.loads(content))
+    return resp
+
+
+class TestExtractResponseOutputText:
+    def test_extracts_output_text(self) -> None:
+        data = {
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "Hello!"}],
+                }
+            ]
+        }
+        assert _extract_response_output_text(data) == "Hello!"
+
+    def test_extracts_multiple_output_texts(self) -> None:
+        data = {
+            "output": [
+                {
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [
+                        {"type": "output_text", "text": "Part 1"},
+                        {"type": "output_text", "text": "Part 2"},
+                    ],
+                }
+            ]
+        }
+        assert _extract_response_output_text(data) == "Part 1 Part 2"
+
+    def test_skips_non_message_items(self) -> None:
+        data = {
+            "output": [
+                {"type": "function_call", "name": "search"},
+                {
+                    "type": "message",
+                    "content": [{"type": "output_text", "text": "Result"}],
+                },
+            ]
+        }
+        assert _extract_response_output_text(data) == "Result"
+
+    def test_empty_output(self) -> None:
+        assert _extract_response_output_text({"output": []}) == ""
+
+    def test_no_output_key(self) -> None:
+        assert _extract_response_output_text({}) == ""
+
+    def test_skips_non_text_content(self) -> None:
+        data = {
+            "output": [
+                {
+                    "type": "message",
+                    "content": [{"type": "refusal", "refusal": "Cannot do that"}],
+                }
+            ]
+        }
+        assert _extract_response_output_text(data) == ""
+
+
+class TestInputToMessages:
+    def test_string_input(self) -> None:
+        result = _input_to_messages("Hello")
+        assert result == [{"role": "user", "content": "Hello"}]
+
+    def test_string_input_with_instructions(self) -> None:
+        result = _input_to_messages("Hello", "Be helpful")
+        assert result == [
+            {"role": "system", "content": "Be helpful"},
+            {"role": "user", "content": "Hello"},
+        ]
+
+    def test_empty_string(self) -> None:
+        result = _input_to_messages("")
+        assert result == []
+
+    def test_empty_string_with_instructions(self) -> None:
+        result = _input_to_messages("", "Be helpful")
+        assert result == [{"role": "system", "content": "Be helpful"}]
+
+    def test_array_with_string_content(self) -> None:
+        items: list[dict[str, Any]] = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi"},
+        ]
+        result = _input_to_messages(items)
+        assert result == [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi"},
+        ]
+
+    def test_array_with_input_text_content(self) -> None:
+        items: list[dict[str, Any]] = [
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": "Hello"}],
+            }
+        ]
+        result = _input_to_messages(items)
+        assert result == [{"role": "user", "content": "Hello"}]
+
+    def test_developer_role_mapped_to_system(self) -> None:
+        items: list[dict[str, Any]] = [{"role": "developer", "content": "Instructions"}]
+        result = _input_to_messages(items)
+        assert result == [{"role": "system", "content": "Instructions"}]
+
+    def test_skips_unknown_roles(self) -> None:
+        items: list[dict[str, Any]] = [
+            {"role": "tool", "content": "result"},
+            {"role": "user", "content": "Hello"},
+        ]
+        result = _input_to_messages(items)
+        assert result == [{"role": "user", "content": "Hello"}]
+
+    def test_empty_array(self) -> None:
+        assert _input_to_messages([]) == []
+
+    def test_skips_empty_content(self) -> None:
+        items: list[dict[str, Any]] = [{"role": "user", "content": ""}]
+        result = _input_to_messages(items)
+        assert result == []
+
+
+class TestAccumulateResponseSseBytes:
+    def test_extracts_text_delta(self) -> None:
+        parts: list[str] = []
+        raw = (
+            b"event: response.output_text.delta\n"
+            b'data: {"type":"response.output_text.delta",'
+            b'"delta":"Hello"}\n\n'
+        )
+        _accumulate_response_sse_bytes(raw, parts)
+        assert parts == ["Hello"]
+
+    def test_ignores_non_delta_events(self) -> None:
+        parts: list[str] = []
+        raw = (
+            b"event: response.created\n"
+            b'data: {"type":"response.created","response":{}}\n\n'
+        )
+        _accumulate_response_sse_bytes(raw, parts)
+        assert parts == []
+
+    def test_ignores_done_sentinel(self) -> None:
+        parts: list[str] = []
+        raw = b"data: [DONE]\n\n"
+        _accumulate_response_sse_bytes(raw, parts)
+        assert parts == []
+
+    def test_ignores_invalid_json(self) -> None:
+        parts: list[str] = []
+        raw = b"data: not json\n\n"
+        _accumulate_response_sse_bytes(raw, parts)
+        assert parts == []
+
+    def test_handles_multiple_deltas(self) -> None:
+        parts: list[str] = []
+        raw = (
+            b'data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'
+            b'data: {"type":"response.output_text.delta","delta":" there"}\n\n'
+        )
+        _accumulate_response_sse_bytes(raw, parts)
+        assert parts == ["Hi", " there"]
+
+    def test_ignores_completed_event(self) -> None:
+        parts: list[str] = []
+        raw = b'data: {"type":"response.completed","response":{"id":"resp_123"}}\n\n'
+        _accumulate_response_sse_bytes(raw, parts)
+        assert parts == []
+
+
+class TestResponseHandler:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_non_streaming_returns_proxy_result(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        result = await handler._response(
+            _response_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+        assert result.status == 200
+        assert b"Hi there!" in result.body
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_streaming_returns_stream_result(self, MockClient: MagicMock) -> None:
+        chunk = (
+            b"event: response.output_text.delta\n"
+            b'data: {"type":"response.output_text.delta",'
+            b'"delta":"Hi"}\n\n'
+        )
+        _setup_streaming_client(MockClient, _mock_streaming_response(chunks=[chunk]))
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        result = await handler._response(
+            _response_body(stream=True),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyStreamResult)
+        assert result.status == 200
+        chunks = [c async for c in result.chunks]
+        assert len(chunks) == 1
+        assert chunks[0] == chunk
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enriches_with_memories(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(
+            MockClient, _mock_response_api_http_response()
+        )
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx, _mock_processor())
+
+        await handler._response(
+            _response_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        ctx.search_memories.assert_awaited_once_with(query="Hello", top_k=5)
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert "Likes pizza" in sent_body["instructions"]
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enriches_appends_to_existing_instructions(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(
+            MockClient, _mock_response_api_http_response()
+        )
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx, _mock_processor())
+
+        await handler._response(
+            _response_body(instructions="Be helpful"),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert sent_body["instructions"].startswith("Be helpful\n\n")
+        assert "Likes pizza" in sent_body["instructions"]
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_skips_enrichment_for_low_max_output_tokens(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx, _mock_processor())
+
+        await handler._response(
+            _response_body(max_output_tokens=1),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        ctx.search_memories.assert_not_awaited()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_strips_max_output_tokens_below_two(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(
+            MockClient, _mock_response_api_http_response()
+        )
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        await handler._response(
+            _response_body(max_output_tokens=1),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert "max_output_tokens" not in sent_body
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_posts_to_correct_url(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(
+            MockClient, _mock_response_api_http_response()
+        )
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        await handler._response(
+            _response_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert (
+            mock_client.post.call_args.args[0] == "https://api.openai.com/v1/responses"
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_forwards_headers_to_upstream(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(
+            MockClient, _mock_response_api_http_response()
+        )
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        headers = [(b"authorization", b"Bearer sk-provider-key")]
+        await handler._response(
+            _response_body(),
+            headers=headers,
+            upstream_url="https://api.openai.com",
+        )
+
+        assert mock_client.post.call_args.kwargs["headers"] == headers
+
+    async def test_raises_value_error_on_missing_model(self) -> None:
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        with pytest.raises(ValueError, match="required"):
+            await handler._response(
+                {"input": "Hello"},
+                headers=_default_headers(),
+                upstream_url="https://api.openai.com",
+            )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_handles_array_input(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx, _mock_processor())
+
+        await handler._response(
+            _response_body(
+                input=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": "What food do I like?"}
+                        ],
+                    }
+                ]
+            ),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        ctx.search_memories.assert_awaited_once_with(
+            query="What food do I like?", top_k=5
+        )
+
+
+class TestResponseHandleRouting:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_routes_post_responses(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        result = await handler.handle(
+            "POST",
+            "/v1/responses",
+            _default_headers(),
+            _response_bytes(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_handle_is_case_insensitive_on_method(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        result = await handler.handle(
+            "post",
+            "/v1/responses",
+            _default_headers(),
+            _response_bytes(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+
+    async def test_raises_value_error_on_invalid_json(self) -> None:
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        with pytest.raises(ValueError, match="Invalid JSON"):
+            await handler.handle(
+                "POST",
+                "/v1/responses",
+                _default_headers(),
+                b"not json",
+                upstream_url="https://api.openai.com",
+            )
+
+    async def test_raises_value_error_on_missing_model(self) -> None:
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        body = json.dumps({"input": "Hello"}).encode()
+
+        with pytest.raises(ValueError, match="required"):
+            await handler.handle(
+                "POST",
+                "/v1/responses",
+                _default_headers(),
+                body,
+                upstream_url="https://api.openai.com",
+            )
+
+
+class TestResponseBackgroundScheduling:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_non_streaming_schedules_processing(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._response(
+            _response_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        processor.schedule.assert_called_once()
+        messages = processor.schedule.call_args.args[0]
+        assert any(m["role"] == "assistant" for m in messages)
+        assert any(
+            m.get("content") == "Hi there!"
+            for m in messages
+            if m["role"] == "assistant"
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_non_streaming_includes_input_in_messages(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._response(
+            _response_body(input="What is AI?"),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        messages = processor.schedule.call_args.args[0]
+        assert any(
+            m["role"] == "user" and m["content"] == "What is AI?" for m in messages
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_non_streaming_includes_instructions_as_system(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._response(
+            _response_body(instructions="Be helpful"),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        messages = processor.schedule.call_args.args[0]
+        assert messages[0] == {"role": "system", "content": "Be helpful"}
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_streaming_schedules_processing(self, MockClient: MagicMock) -> None:
+        chunk1 = b'data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'
+        chunk2 = (
+            b'data: {"type":"response.output_text.delta",'
+            b'"delta":" there"}\n\n'
+            b'data: {"type":"response.completed",'
+            b'"response":{}}\n\n'
+        )
+        _setup_streaming_client(
+            MockClient, _mock_streaming_response(chunks=[chunk1, chunk2])
+        )
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        result = await handler._response(
+            _response_body(stream=True),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+        assert isinstance(result, ContextProxyStreamResult)
+        async for _ in result.chunks:
+            pass
+
+        processor.schedule.assert_called_once()
+        messages = processor.schedule.call_args.args[0]
+        assistant_msgs = [m for m in messages if m["role"] == "assistant"]
+        assert len(assistant_msgs) == 1
+        assert assistant_msgs[0]["content"] == "Hi there"
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_session_id_forwarded(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._response(
+            _response_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+            session_id="sess-abc",
+        )
+
+        assert processor.schedule.call_args.kwargs["session_id"] == "sess-abc"
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_skips_processing_for_probe(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._response(
+            _response_body(max_output_tokens=1),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        processor.schedule.assert_not_called()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_skips_scheduling_when_output_text_empty(
+        self, MockClient: MagicMock
+    ) -> None:
+        error_content = json.dumps({"error": {"message": "Invalid API key"}}).encode()
+        _setup_non_streaming_client(
+            MockClient,
+            _mock_response_api_http_response(status=401, content=error_content),
+        )
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._response(
+            _response_body(),
             headers=_default_headers(),
             upstream_url="https://api.openai.com",
         )
