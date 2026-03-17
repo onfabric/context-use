@@ -11,7 +11,7 @@ from httpx import ASGITransport
 
 from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
-from context_use.server.app import (
+from context_use.proxy.app import (
     _ALLOWED_UPSTREAM_HOSTS,
     SESSION_ID_HEADER,
     create_proxy_app,

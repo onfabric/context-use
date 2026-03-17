@@ -15,9 +15,9 @@ from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, prompt_api_key
 from context_use.config import build_ctx, load_config
 from context_use.ext.adk.agent.runner import AdkAgentBackend
+from context_use.proxy.app import create_proxy_app
 from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
-from context_use.server.app import create_proxy_app
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
