@@ -29,8 +29,8 @@ class ProxyCommand(BaseCommand):
     description = (
         "Start a transparent proxy that enriches requests with user context "
         "from your local memory store. The proxy forwards each request to "
-        "the host specified in the client's Host header, so you can relay "
-        "to any provider while memories are generated using your OpenAI key. "
+        "either a fixed upstream host from --target or the client's Host "
+        "header, while memories are generated using your OpenAI key. "
         "Only POST /v1/chat/completions requests are enriched; all other "
         "paths are forwarded transparently without modification."
     )
@@ -46,6 +46,10 @@ class ProxyCommand(BaseCommand):
             "--host",
             default="0.0.0.0",
             help="Host to bind to (default: 0.0.0.0)",
+        )
+        parser.add_argument(
+            "--target",
+            help="Fixed upstream host (skips the need for a Host header)",
         )
         parser.add_argument(
             "--background",
@@ -85,13 +89,21 @@ class ProxyCommand(BaseCommand):
         out.kv(
             "Enriched route", "POST /v1/chat/completions (all other paths pass through)"
         )
+        out.kv("Upstream target", args.target or "request Host header")
         print()
-        out.info("Point your client at this proxy (set Host to your target provider):")
+        out.info("Point your client at this proxy:")
         out.info("")
-        out.info(
-            '  client = OpenAI(base_url="http://localhost:'
-            f'{args.port}/v1", api_key="<provider-key>")'
-        )
+        if args.target:
+            out.info(
+                '  client = OpenAI(base_url="http://localhost:'
+                f'{args.port}/v1", api_key="<provider-key>")'
+            )
+        else:
+            out.info(
+                '  client = OpenAI(base_url="http://localhost:'
+                f'{args.port}/v1", api_key="<provider-key>", '
+                'default_headers={"Host": "api.openai.com"})'
+            )
         print()
 
         agent_backend = AdkAgentBackend(
@@ -102,7 +114,7 @@ class ProxyCommand(BaseCommand):
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        app = create_proxy_app(handler)
+        app = create_proxy_app(handler, target_host=args.target)
         config = uvicorn.Config(
             app,
             host=args.host,
@@ -134,6 +146,8 @@ class ProxyCommand(BaseCommand):
             "--host",
             args.host,
         ]
+        if args.target:
+            cmd.extend(["--target", args.target])
 
         _PID_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -154,7 +168,15 @@ class ProxyCommand(BaseCommand):
             sys.exit(1)
 
         print()
-        out.success(f"Proxy started — http://localhost:{args.port}/v1/chat/completions")
+        if args.target:
+            out.success(
+                "Proxy started - "
+                f"http://localhost:{args.port}/v1/chat/completions -> {args.target}"
+            )
+        else:
+            out.success(
+                f"Proxy started - http://localhost:{args.port}/v1/chat/completions"
+            )
         print()
 
     def _stop(self) -> None:

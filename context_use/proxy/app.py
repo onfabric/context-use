@@ -39,7 +39,11 @@ Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 
-def create_proxy_app(handler: ContextProxy) -> ASGIApp:
+def create_proxy_app(
+    handler: ContextProxy,
+    *,
+    target_host: str | None = None,
+) -> ASGIApp:
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return
@@ -47,34 +51,16 @@ def create_proxy_app(handler: ContextProxy) -> ASGIApp:
         raw = await _read_body(receive)
         headers_dict = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
 
-        host = headers_dict.get("host")
-        if not host:
-            allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
+        host_error = _invalid_upstream_host_message(
+            headers_dict, target_host=target_host
+        )
+        if host_error is not None:
             await _send_json(
-                send,
-                400,
-                _error_body(
-                    "Missing Host header. Set it to your upstream provider, "
-                    f"Set the Host header to one of: {allowed}",
-                    "invalid_request_error",
-                ),
+                send, 400, _error_body(host_error, "invalid_request_error")
             )
             return
 
-        hostname = host.lower().split(":")[0]
-        if hostname not in _ALLOWED_UPSTREAM_HOSTS:
-            allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
-            await _send_json(
-                send,
-                400,
-                _error_body(
-                    f"Unknown upstream host {host!r}. "
-                    f"Set the Host header to one of: {allowed}",
-                    "invalid_request_error",
-                ),
-            )
-            return
-
+        host = target_host or headers_dict["host"]
         upstream_url = f"https://{host}"
         session_id = headers_dict.get(SESSION_ID_HEADER)
 
@@ -113,6 +99,27 @@ def create_proxy_app(handler: ContextProxy) -> ASGIApp:
         await _send_upstream_response(send, result)
 
     return app
+
+
+def _invalid_upstream_host_message(
+    headers: dict[str, str],
+    *,
+    target_host: str | None,
+) -> str | None:
+    host = target_host or headers.get("host")
+    allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
+    if not host:
+        return (
+            "Missing Host header. Set it to your upstream provider, or start the "
+            f"proxy with --target. Allowed hosts: {allowed}"
+        )
+
+    hostname = host.lower().split(":")[0]
+    if hostname in _ALLOWED_UPSTREAM_HOSTS:
+        return None
+
+    source = "--target" if target_host else "Host header"
+    return f"Unknown upstream host {host!r} from {source}. Allowed hosts: {allowed}"
 
 
 async def _read_body(receive: Receive) -> bytes:
