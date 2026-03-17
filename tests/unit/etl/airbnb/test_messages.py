@@ -32,4 +32,5 @@ class TestAirbnbMessagesPipe(PipeTestKit):
     def test_received_preview(self, transformed_rows):
         row = transformed_rows[1]
         assert row.payload["fibreKind"] == "ReceiveMessage"
+        assert row.payload["actor"]["type"] == "Person"
         assert "Received" in row.preview
