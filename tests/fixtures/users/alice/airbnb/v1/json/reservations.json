@@ -1,0 +1,62 @@
+[
+  {
+    "bookingSessions": [
+      {
+        "listingOwnerProfileUrl": "https://www.airbnb.com/users/show/200000001",
+        "createdAt": "2023-04-26T06:51:21.000Z",
+        "primaryGuestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "updatedAt": "2023-04-26T06:51:21.000Z"
+      }
+    ],
+    "reservations": [
+      {
+        "guestCurrency": "EUR", "confirmationCode": "HM4KR5KA2J",
+        "isBringingPets": false,
+        "guestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "numberOfGuests": 2,
+        "hostRespondeAt": "2023-04-26T06:51:21.000Z",
+        "numberOfInfants": 0,
+        "createdAt": "2023-04-26T06:50:43.000Z",
+        "hostingUrl": "https://www.airbnb.com/rooms/807739697744802257",
+        "guestVatCountry": "GB",
+        "numberOfChildren": 0, "numberOfAdults": 2, "numberOfPets": 0,
+        "nights": 3,
+        "hostProfileUrl": "https://www.airbnb.com/users/show/200000001",
+        "startDate": "2023-05-26", "status": "accepted",
+        "updatedAt": "2023-05-29T10:53:58.000Z"
+      },
+      {
+        "guestCurrency": "EUR", "confirmationCode": "HM9E2EDEXK",
+        "isBringingPets": false,
+        "guestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "numberOfGuests": 6,
+        "message": "Hi, my family and I are visiting to spend some quiet time together.",
+        "hostRespondeAt": "2023-12-23T10:26:10.527Z",
+        "numberOfInfants": 1,
+        "createdAt": "2023-12-23T10:11:24.440Z",
+        "hostingUrl": "https://www.airbnb.com/rooms/1131000621786217934",
+        "guestVatCountry": "GB",
+        "numberOfChildren": 0, "numberOfAdults": 6, "numberOfPets": 0,
+        "nights": 6,
+        "hostProfileUrl": "https://www.airbnb.com/users/show/300000001",
+        "startDate": "2024-02-28", "status": "accepted",
+        "updatedAt": "2023-12-24T14:02:41.513Z"
+      },
+      {
+        "guestCurrency": "GBP", "confirmationCode": "HMCANCELED",
+        "isBringingPets": false,
+        "guestProfileUrl": "https://www.airbnb.com/users/show/100000001",
+        "numberOfGuests": 2, "numberOfInfants": 0,
+        "createdAt": "2023-06-12T04:45:13.359Z",
+        "hostingUrl": "https://www.airbnb.com/rooms/999999999",
+        "guestVatCountry": "GB",
+        "numberOfChildren": 0, "numberOfAdults": 2, "numberOfPets": 0,
+        "nights": 2,
+        "hostProfileUrl": "https://www.airbnb.com/users/show/400000001",
+        "startDate": "2023-06-16", "status": "cancelled",
+        "updatedAt": "2023-06-13T10:00:00.000Z",
+        "canceledAt": "2023-06-12T04:45:13.359Z"
+      }
+    ]
+  }
+]

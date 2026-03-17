@@ -1,4 +1,5 @@
 from context_use.providers import (  # noqa: F401 — triggers provider registration
+    airbnb,
     chatgpt,
     claude,
     google,
