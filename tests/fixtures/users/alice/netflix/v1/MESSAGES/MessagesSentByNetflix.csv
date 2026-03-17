@@ -1,0 +1,4 @@
+Profile Name,Sent Utc Ts,Channel,Title Name,Message Name,Country Iso Code,Device Model,Click Cnt,Click Utc Ts,Link Url,Email Domain Name,Email Locale,Account Locale
+Alice,2025-12-01 09:00:00,NOTIFICATIONS,The Great Adventure,New Episode Alert,US,--,0,,,EXAMPLE.COM,,
+Alice,2025-12-02 10:00:00,ALERTS,,,,--,0,,,EXAMPLE.COM,,
+Bob,2025-12-03 14:00:00,NOTIFICATIONS,,Weekly Recap,GB,--,1,2025-12-03 15:00:00,,EXAMPLE.COM,,

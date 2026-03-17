@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "properties": {
+    "Profile Name": {"type": "string"},
+    "Title Name": {"type": "string"},
+    "Country": {"type": "string"},
+    "Utc Title Add Date": {"type": "string"}
+  },
+  "required": ["Profile Name", "Title Name", "Utc Title Add Date", "Country"]
+}

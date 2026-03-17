@@ -1,3 +1,15 @@
+## [0.7.0] - 2026-03-17
+
+### 🚀 Features
+
+- Add Netflix provider with 6 interaction types (#209)
+- Add Airbnb provider including additional scopes (#210)
+- Resolve asset_uri in pipe.run (#217)
+
+### 🐛 Bug Fixes
+
+- Use InstagramBaseModel in media pipe (#219)
+
 ## [0.6.1] - 2026-03-16
 
 ### 🐛 Bug Fixes

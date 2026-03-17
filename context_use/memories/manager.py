@@ -50,9 +50,6 @@ class MemoryBatchManager(BaseBatchManager):
         groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
         contexts: list[GroupContext] = []
         for group in groups:
-            for t in group.threads:
-                if t.asset_uri:
-                    t.asset_uri = self.ctx.storage.resolve_uri(t.asset_uri)
             contexts.append(
                 GroupContext(
                     group_id=group.group_id,

@@ -1,0 +1,37 @@
+[
+  {
+    "servicedata": [
+      {
+        "searchlocationlatitude": 48.856614,
+        "country": "France",
+        "checkoutdate": "2023-05-29",
+        "checkindate": "2023-05-26",
+        "timeofsearch": "2023-04-25 20:36:16",
+        "city": "Paris",
+        "numberofnights": 3,
+        "rawlocation": "Paris",
+        "numberofguests": 2,
+        "searchlocationlongitude": 2.3522219,
+        "state": "Île-de-France"
+      },
+      {
+        "searchlocationlatitude": 12.956924,
+        "country": "India",
+        "checkoutdate": "2024-03-15",
+        "checkindate": "2024-02-28",
+        "timeofsearch": "2023-12-23 09:33:34",
+        "city": "Bengaluru",
+        "numberofnights": 15,
+        "rawlocation": "Marathahalli, Bengaluru, Karnataka, India",
+        "numberofguests": 6,
+        "searchlocationlongitude": 77.701127,
+        "state": "Karnataka"
+      },
+      {
+        "timeofsearch": "2023-11-01 14:22:00",
+        "numberofnights": 7,
+        "numberofguests": 4
+      }
+    ]
+  }
+]
