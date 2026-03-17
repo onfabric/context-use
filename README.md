@@ -41,19 +41,27 @@ Memories are generated in the background and are used to automatically enrich ev
 
 ## Headless / bring your own API
 
-If you already have your own HTTP server (FastAPI, Starlette, aiohttp, etc.), use `ProxyHandler` directly without running the built-in server:
+If you already have your own HTTP server (FastAPI, Starlette, aiohttp, etc.), use `ContextProxy` directly without running the built-in server.
+
+`ContextProxy` intercepts a single endpoint. Wire it up alongside a pass-through for everything else:
+
+| Method | Path | What to do |
+|--------|------|------------|
+| `GET` | `/health` | return `{"status": "ok"}` |
+| `POST` | `/v1/chat/completions` | call `handler.chat_completion()` |
+| `*` | `*` | forward to the upstream provider |
 
 ```python
-from context_use import ContextUse, ProxyHandler
+from context_use import ContextUse, ContextProxy
 from context_use.proxy import BackgroundMemoryProcessor
 
 ctx = ContextUse(storage=..., store=..., llm_client=...)
 await ctx.init()
 
 processor = BackgroundMemoryProcessor(ctx, agent_backend)
-handler = ProxyHandler(ctx, processor)
+handler = ContextProxy(ctx, processor)
 
-# In your own route handler:
+# POST /v1/chat/completions
 result = await handler.chat_completion(body, api_key=key, session_id=sid)
 ```
 
@@ -105,16 +113,6 @@ context-use config --help
 ```
 
 The configuration is saved in a config file at `<your-home-directory>/.config/context-use/config.toml`.
-
-Environment variables:
-
-| Variable | Description |
-|----------|-------------|
-| `OPENAI_API_KEY` | OpenAI (or compatible) API key |
-| `OPENAI_MODEL` | LLM model string (default: `gpt-5-2`) |
-| `OPENAI_EMBEDDING_MODEL` | Embedding model (default: `text-embedding-3-large`) |
-| `CONTEXT_USE_DB_PATH` | SQLite database filename |
-| `CONTEXT_USE_DATA_DIR` | Root data directory (default: `./context-use-data`) |
 
 ## Getting your export
 

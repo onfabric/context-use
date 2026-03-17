@@ -7,7 +7,11 @@ from typing import Any
 
 import httpx
 
-from context_use.proxy.handler import ProxyHandler, ProxyStreamResult
+from context_use.proxy.handler import (
+    ContextProxy,
+    ContextProxyStreamResult,
+    RouteNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,72 +38,45 @@ Send = Callable[[Message], Awaitable[None]]
 ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 
-def create_app(handler: ProxyHandler, upstream_url: str) -> ASGIApp:
+def create_app(handler: ContextProxy, upstream_url: str) -> ASGIApp:
     upstream = upstream_url.rstrip("/")
 
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return
-
-        method: str = scope["method"]
-        path: str = scope["path"]
-
-        if method == "GET" and path == "/health":
+        if scope["method"] == "GET" and scope["path"] == "/health":
             await _send_json(send, 200, {"status": "ok"})
             return
-
-        if method == "POST" and path == "/v1/chat/completions":
-            await _handle_completions(scope, receive, send, handler)
+        raw = await _read_body(receive)
+        headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
+        api_key = _extract_api_key(headers.get("authorization", ""))
+        session_id = headers.get(SESSION_ID_HEADER)
+        try:
+            result = await handler.handle(
+                scope["method"],
+                scope["path"],
+                raw,
+                api_key=api_key,
+                session_id=session_id,
+            )
+        except RouteNotFoundError:
+            # If a route is not found in ContextProxy, simply forward the request
+            await _proxy_request(scope, send, upstream, raw)
             return
-
-        await _proxy_request(scope, receive, send, upstream)
+        except ValueError as exc:
+            await _send_json(send, 400, _error_body(str(exc), "invalid_request_error"))
+            return
+        except Exception as exc:
+            status = int(getattr(exc, "status_code", 500))
+            logger.error("LLM forwarding failed: %s", exc)
+            await _send_json(send, status, _error_body(str(exc), type(exc).__name__))
+            return
+        if isinstance(result, ContextProxyStreamResult):
+            await _send_sse(send, result.chunks)
+            return
+        await _send_json(send, 200, result.data)
 
     return app
-
-
-async def _handle_completions(
-    scope: Scope,
-    receive: Receive,
-    send: Send,
-    handler: ProxyHandler,
-) -> None:
-    raw = await _read_body(receive)
-
-    try:
-        body: dict[str, Any] = json.loads(raw)
-    except Exception:
-        await _send_json(
-            send, 400, _error_body("Invalid JSON body", "invalid_request_error")
-        )
-        return
-
-    if "model" not in body or "messages" not in body:
-        await _send_json(
-            send,
-            400,
-            _error_body("'model' and 'messages' are required", "invalid_request_error"),
-        )
-        return
-
-    headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
-    api_key = _extract_api_key(headers.get("authorization", ""))
-    session_id = headers.get(SESSION_ID_HEADER)
-
-    try:
-        result = await handler.chat_completion(
-            body, api_key=api_key, session_id=session_id
-        )
-    except Exception as exc:
-        status = int(getattr(exc, "status_code", 500))
-        logger.error("LLM forwarding failed: %s", exc)
-        await _send_json(send, status, _error_body(str(exc), type(exc).__name__))
-        return
-
-    if isinstance(result, ProxyStreamResult):
-        await _send_sse(send, result.chunks)
-        return
-
-    await _send_json(send, 200, result.data)
 
 
 async def _read_body(receive: Receive) -> bytes:
@@ -153,9 +130,9 @@ def _make_http_client() -> httpx.AsyncClient:
 
 async def _proxy_request(
     scope: Scope,
-    receive: Receive,
     send: Send,
     upstream: str,
+    body: bytes,
 ) -> None:
     method: str = scope["method"]
     path: str = scope["path"]
@@ -165,7 +142,6 @@ async def _proxy_request(
     forward_headers = [
         (k, v) for k, v in scope["headers"] if k.lower() not in _HOP_BY_HOP
     ]
-    body = await _read_body(receive)
 
     try:
         async with _make_http_client() as client:

@@ -16,7 +16,7 @@ from context_use.cli.base import BaseCommand, require_api_key
 from context_use.config import build_ctx, load_config
 from context_use.ext.adk.agent.runner import AdkAgentBackend
 from context_use.proxy.background import BackgroundMemoryProcessor
-from context_use.proxy.handler import ProxyHandler
+from context_use.proxy.handler import ContextProxy
 from context_use.server.app import create_app
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
@@ -114,7 +114,7 @@ class ProxyCommand(BaseCommand):
             model=cfg.openai_model,
         )
         processor = BackgroundMemoryProcessor(ctx, agent_backend)
-        handler = ProxyHandler(ctx, processor)
+        handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
         upstream_url = _upstream_url_for_model(cfg.openai_model)

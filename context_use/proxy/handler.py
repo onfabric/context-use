@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass
@@ -18,17 +19,21 @@ logger = logging.getLogger(__name__)
 _MIN_MAX_TOKENS_FOR_ENRICHMENT = 50
 
 
+class RouteNotFoundError(Exception):
+    pass
+
+
 @dataclass(frozen=True, slots=True)
-class ProxyResult:
+class ContextProxyResult:
     data: dict[str, Any]
 
 
 @dataclass(frozen=True, slots=True)
-class ProxyStreamResult:
+class ContextProxyStreamResult:
     chunks: AsyncGenerator[dict[str, Any], None]
 
 
-class ProxyHandler:
+class ContextProxy:
     def __init__(
         self,
         ctx: ContextUse,
@@ -37,13 +42,37 @@ class ProxyHandler:
         self._ctx = ctx
         self._processor = processor
 
-    async def chat_completion(
+    async def handle(
+        self,
+        method: str,
+        path: str,
+        body: bytes,
+        *,
+        api_key: str | None = None,
+        session_id: str | None = None,
+    ) -> ContextProxyResult | ContextProxyStreamResult:
+        routes = {
+            ("POST", "/v1/chat/completions"): self._chat_completion,
+        }
+        handler = routes.get((method.upper(), path))
+        if handler is None:
+            raise RouteNotFoundError(f"{method.upper()} {path}")
+        try:
+            # HP: all routes expect JSON body
+            parsed: dict[str, Any] = json.loads(body)
+        except Exception:
+            raise ValueError("Invalid JSON body") from None
+        return await handler(parsed, api_key=api_key, session_id=session_id)
+
+    async def _chat_completion(
         self,
         body: dict[str, Any],
         *,
         api_key: str | None = None,
         session_id: str | None = None,
-    ) -> ProxyResult | ProxyStreamResult:
+    ) -> ContextProxyResult | ContextProxyStreamResult:
+        if "model" not in body or "messages" not in body:
+            raise ValueError("'model' and 'messages' are required")
         messages: list[dict[str, Any]] = body["messages"]
         stream: bool = body.get("stream", False)
         max_tokens = body.get("max_tokens")
@@ -73,7 +102,7 @@ class ProxyHandler:
         response = await litellm.acompletion(**forward_kwargs)
 
         if stream:
-            return ProxyStreamResult(
+            return ContextProxyStreamResult(
                 chunks=self._stream_chunks(
                     response,
                     messages=messages,
@@ -87,7 +116,7 @@ class ProxyHandler:
         if should_process:
             assistant_text = _extract_assistant_text(data)
             self._schedule(messages, assistant_text, session_id=session_id)
-        return ProxyResult(data=data)
+        return ContextProxyResult(data=data)
 
     async def _stream_chunks(
         self,

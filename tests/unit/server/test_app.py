@@ -9,7 +9,7 @@ import httpx
 from httpx import ASGITransport
 
 from context_use.proxy.background import BackgroundMemoryProcessor
-from context_use.proxy.handler import ProxyHandler
+from context_use.proxy.handler import ContextProxy
 from context_use.server.app import create_app
 from context_use.store.base import MemorySearchResult
 
@@ -34,8 +34,8 @@ def _mock_processor() -> MagicMock:
 
 def _make_handler(
     memories: list[MemorySearchResult] | None = None,
-) -> ProxyHandler:
-    return ProxyHandler(_mock_ctx(memories), _mock_processor())
+) -> ContextProxy:
+    return ContextProxy(_mock_ctx(memories), _mock_processor())
 
 
 def _make_result() -> MemorySearchResult:
@@ -259,7 +259,7 @@ class TestSessionIdHeader:
     ) -> None:
         mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
         processor = _mock_processor()
-        handler = ProxyHandler(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx(), processor)
         app = create_app(handler, upstream_url="https://api.openai.com")
         transport = _transport(app)
 
