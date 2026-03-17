@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "servicedata": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "searchlocationlatitude": { "type": "number" },
+          "country": { "type": "string" },
+          "checkoutdate": { "type": "string" },
+          "checkindate": { "type": "string" },
+          "timeofsearch": { "type": "string" },
+          "city": { "type": "string" },
+          "numberofnights": { "type": "integer" },
+          "rawlocation": { "type": "string" },
+          "numberofguests": { "type": "integer" },
+          "searchlocationlongitude": { "type": "number" },
+          "state": { "type": "string" }
+        },
+        "required": ["numberofguests", "numberofnights", "timeofsearch"]
+      }
+    }
+  },
+  "required": ["servicedata"]
+}

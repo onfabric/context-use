@@ -1,7 +1,11 @@
+import pytest
+
 from context_use import ContextUse
 from context_use.models.archive import ArchiveStatus
 from context_use.models.etl_task import EtlTaskStatus
 from context_use.providers import chatgpt
+
+pytestmark = pytest.mark.integration
 
 
 class TestE2EChatGPT:

@@ -365,7 +365,7 @@ class MemoriesExportCommand(ContextCommand):
 
 class MemoriesGroup(CommandGroup):
     name = "memories"
-    help = "Manage memories"
+    help = "generate · list · search · export — manage memories"
     subcommands = [
         MemoriesGenerateCommand,
         MemoriesListCommand,

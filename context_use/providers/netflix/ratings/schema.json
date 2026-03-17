@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "Profile Name": {"type": "string"},
+    "Title Name": {"type": "string"},
+    "Thumbs Value": {"type": "string"},
+    "Rating Type": {"type": "string"},
+    "Star Value": {"type": "string"},
+    "Event Utc Ts": {"type": "string"},
+    "Region View Date": {"type": "string"},
+    "Device Model": {"type": "string"}
+  },
+  "required": ["Profile Name", "Title Name", "Thumbs Value", "Rating Type", "Event Utc Ts"]
+}
