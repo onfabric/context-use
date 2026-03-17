@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from collections import defaultdict
@@ -14,6 +15,8 @@ from context_use.models import (
     Archive,
     Batch,
     EtlTask,
+    Facet,
+    MemoryFacet,
     MemoryStatus,
     TapestryMemory,
     Thread,
@@ -24,8 +27,11 @@ from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
     EtlTaskRow,
+    FacetRow,
+    MemoryFacetRow,
     MemoryRow,
     ThreadRow,
+    VecFacetRow,
     VecMemoryRow,
     all_ddl_statements,
     now_utc_iso,
@@ -42,6 +48,7 @@ class SqliteStore(Store):
         self._path = path
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
+        self._atomic_lock = asyncio.Lock()
 
     async def _conn(self) -> aiosqlite.Connection:
         if self._db is None:
@@ -95,17 +102,18 @@ class SqliteStore(Store):
 
     @asynccontextmanager
     async def atomic(self) -> AsyncIterator[None]:
-        db = await self._conn()
-        self._in_atomic = True
-        await db.execute("BEGIN")
-        try:
-            yield
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-        finally:
-            self._in_atomic = False
+        async with self._atomic_lock:
+            db = await self._conn()
+            self._in_atomic = True
+            await db.execute("BEGIN")
+            try:
+                yield
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
+            finally:
+                self._in_atomic = False
 
     async def create_archive(
         self,
@@ -564,6 +572,122 @@ class SqliteStore(Store):
             top_k=top_k,
         )
 
+    async def create_memory_facet(self, facet: MemoryFacet) -> MemoryFacet:
+        db = await self._conn()
+        await db.execute(
+            "INSERT INTO memory_facets "
+            "(id, memory_id, batch_id, facet_type, facet_value, facet_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                facet.id,
+                facet.memory_id,
+                facet.batch_id,
+                facet.facet_type,
+                facet.facet_value,
+                facet.facet_id,
+                facet.created_at.isoformat(),
+            ),
+        )
+        await self._commit_unless_atomic()
+        return facet
+
+    async def get_unembedded_memory_facets(
+        self, *, batch_id: str | None = None
+    ) -> list[MemoryFacet]:
+        db = await self._conn()
+        sql = (
+            "SELECT mf.* FROM memory_facets mf "
+            "LEFT JOIN vec_facets vf ON vf.facet_id = mf.id "
+            "WHERE vf.facet_id IS NULL"
+        )
+        params: list = []
+        if batch_id is not None:
+            sql += " AND mf.batch_id = ?"
+            params.append(batch_id)
+        rows = await db.execute_fetchall(sql, params)
+        return [MemoryFacetRow.from_row(r) for r in rows]
+
+    async def update_memory_facet(self, facet: MemoryFacet) -> None:
+        db = await self._conn()
+        await db.execute(
+            "UPDATE memory_facets SET facet_id = ? WHERE id = ?",
+            (facet.facet_id, facet.id),
+        )
+        await self._commit_unless_atomic()
+
+    async def get_unlinked_memory_facets(self) -> list[MemoryFacet]:
+        db = await self._conn()
+        rows = await db.execute_fetchall(
+            "SELECT mf.* FROM memory_facets mf "
+            "JOIN vec_facets vf ON vf.facet_id = mf.id "
+            "WHERE mf.facet_id IS NULL"
+        )
+        facets = [MemoryFacetRow.from_row(r) for r in rows]
+        await _load_facet_embeddings(db, facets)
+        return facets
+
+    async def create_facet(self, facet: Facet) -> Facet:
+        db = await self._conn()
+        await db.execute(
+            "INSERT INTO facets (id, facet_type, facet_canonical, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (
+                facet.id,
+                facet.facet_type,
+                facet.facet_canonical,
+                facet.created_at.isoformat(),
+            ),
+        )
+        await self._commit_unless_atomic()
+        return facet
+
+    async def create_facet_embedding(
+        self, facet_id: str, embedding: list[float]
+    ) -> None:
+        db = await self._conn()
+        await db.execute(
+            "DELETE FROM vec_facets WHERE facet_id = ?",
+            (facet_id,),
+        )
+        await db.execute(
+            "INSERT INTO vec_facets (facet_id, embedding) VALUES (?, ?)",
+            (facet_id, VecFacetRow.serialize(embedding)),
+        )
+        await self._commit_unless_atomic()
+
+    async def find_similar_facet(
+        self,
+        facet_type: str,
+        embedding: list[float],
+        threshold: float,
+    ) -> Facet | None:
+        db = await self._conn()
+        vec_rows = await db.execute_fetchall(
+            "SELECT facet_id, distance FROM vec_facets "
+            "WHERE embedding MATCH ? AND k = ?",
+            (VecFacetRow.serialize(embedding), 10),
+        )
+        if not vec_rows:
+            return None
+
+        max_distance = 1.0 - threshold
+        candidate_ids = [r[0] for r in vec_rows if r[1] <= max_distance]
+        if not candidate_ids:
+            return None
+
+        distances: dict[str, float] = {r[0]: r[1] for r in vec_rows}
+
+        ph = ",".join("?" for _ in candidate_ids)
+        rows = await db.execute_fetchall(
+            f"SELECT * FROM facets WHERE id IN ({ph}) AND facet_type = ?",
+            [*candidate_ids, facet_type],
+        )
+        if not rows:
+            return None
+
+        best = min(rows, key=lambda r: distances.get(r["id"], 1.0))
+        return FacetRow.from_row(best)
+
     @classmethod
     async def _flush_thread_batch(
         cls,
@@ -692,3 +816,22 @@ async def _search_by_date(
 
     rows = await db.execute_fetchall(sql, params)
     return [MemoryRow.to_search_result(r, None) for r in rows]
+
+
+async def _load_facet_embeddings(
+    db: aiosqlite.Connection,
+    facets: list[MemoryFacet],
+) -> None:
+    if not facets:
+        return
+    ids = [f.id for f in facets]
+    ph = ",".join("?" for _ in ids)
+    rows = await db.execute_fetchall(
+        f"SELECT facet_id, embedding FROM vec_facets WHERE facet_id IN ({ph})",
+        ids,
+    )
+    emb_map: dict[str, list[float]] = {
+        r[0]: VecMemoryRow.deserialize(r[1]) for r in rows
+    }
+    for f in facets:
+        f.embedding = emb_map.get(f.id)
