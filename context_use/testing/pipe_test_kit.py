@@ -102,8 +102,11 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
     - ``pipe_class``: the :class:`Pipe` subclass under test
     - ``expected_extract_count``: expected number of extracted records
     - ``expected_transform_count``: expected number of transformed rows
-    - ``fixture_data``: JSON-serialisable fixture data
+    - ``fixture_data``: JSON-serialisable fixture data (multi-record)
     - ``fixture_key``: storage key (e.g. ``"archive/path/data.json"``)
+    - ``snapshot_cases``: optional list of ``(raw_input, expected_output)``
+      tuples for ``test_snapshots``; each case runs the pipe on a single
+      input and checks the first row against the expected dict
 
     If ``fixture_data`` and ``fixture_key`` are set, ``pipe_fixture`` is
     auto-generated.  Otherwise, override the ``pipe_fixture`` fixture manually.
