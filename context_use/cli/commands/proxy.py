@@ -12,46 +12,27 @@ from pathlib import Path
 import uvicorn
 
 from context_use.cli import output as out
-from context_use.cli.base import BaseCommand, require_api_key
+from context_use.cli.base import BaseCommand, prompt_api_key
 from context_use.config import build_ctx, load_config
 from context_use.ext.adk.agent.runner import AdkAgentBackend
 from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
-from context_use.server.app import create_app
+from context_use.server.app import create_proxy_app
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
-
-_PROVIDER_BASE_URLS: dict[str, str] = {
-    "openai": "https://api.openai.com",
-    "anthropic": "https://api.anthropic.com",
-}
-
-
-def _upstream_url_for_model(model: str) -> str:
-    import litellm
-
-    url = litellm.get_api_base(model, optional_params={})
-    if url:
-        return url.rstrip("/")
-    _, provider, _, _ = litellm.get_llm_provider(model)
-    base = _PROVIDER_BASE_URLS.get(provider)
-    if base:
-        return base
-    raise ValueError(
-        f"Cannot determine upstream URL for model '{model}'. "
-        "Set a fully-qualified model prefix, e.g. 'openai/gpt-4o'."
-    )
 
 
 class ProxyCommand(BaseCommand):
     name = "proxy"
     help = "Start the context enrichment proxy server"
     description = (
-        "Start an OpenAI-compatible proxy that enriches requests with "
-        "user context from your local memory store. Point any OpenAI "
-        "SDK at http://localhost:<port>/v1 to get context-enriched "
-        "completions via any LLM provider supported by LiteLLM."
+        "Start a transparent proxy that enriches requests with user context "
+        "from your local memory store. The proxy forwards each request to "
+        "the host specified in the client's Host header, so you can relay "
+        "to any provider while memories are generated using your OpenAI key. "
+        "Only POST /v1/chat/completions requests are enriched; all other "
+        "paths are forwarded transparently without modification."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -83,13 +64,14 @@ class ProxyCommand(BaseCommand):
             self._stop()
             return
 
+        cfg = load_config()
+        if not cfg.openai_api_key:
+            cfg = prompt_api_key(cfg)
+        cfg.ensure_dirs()
+
         if args.background:
             self._start_background(args)
             return
-
-        cfg = load_config()
-        require_api_key(cfg)
-        cfg.ensure_dirs()
 
         ctx = build_ctx(cfg, llm_mode="sync")
         await ctx.init()
@@ -100,8 +82,11 @@ class ProxyCommand(BaseCommand):
         out.header("context-use proxy")
         out.kv("Memories loaded", f"{count:,}")
         out.kv("Endpoint", f"http://localhost:{args.port}/v1/chat/completions")
+        out.kv(
+            "Enriched route", "POST /v1/chat/completions (all other paths pass through)"
+        )
         print()
-        out.info("Point your OpenAI client at this proxy:")
+        out.info("Point your client at this proxy (set Host to your target provider):")
         out.info("")
         out.info(
             '  client = OpenAI(base_url="http://localhost:'
@@ -117,8 +102,7 @@ class ProxyCommand(BaseCommand):
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        upstream_url = _upstream_url_for_model(cfg.openai_model)
-        app = create_app(handler, upstream_url=upstream_url)
+        app = create_proxy_app(handler)
         config = uvicorn.Config(
             app,
             host=args.host,

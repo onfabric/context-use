@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import AsyncGenerator
 from datetime import date
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -11,10 +12,15 @@ from context_use.proxy.handler import (
     ContextProxy,
     ContextProxyResult,
     ContextProxyStreamResult,
-    RouteNotFoundError,
+    _accumulate_sse_bytes,
     _should_enrich,
 )
 from context_use.store.base import MemorySearchResult
+
+
+async def _aiter(*items: bytes) -> AsyncGenerator[bytes, None]:
+    for item in items:
+        yield item
 
 
 def _mock_ctx(
@@ -45,34 +51,70 @@ def _make_result() -> MemorySearchResult:
 
 def _completion_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "model": "openai/gpt-4o",
+        "model": "gpt-4o",
         "messages": [{"role": "user", "content": "Hello"}],
     }
     body.update(overrides)
     return body
 
 
-def _mock_model_response() -> MagicMock:
+def _completion_bytes(**overrides: Any) -> bytes:
+    return json.dumps(_completion_body(**overrides)).encode()
+
+
+def _default_headers() -> list[tuple[bytes, bytes]]:
+    return [
+        (b"authorization", b"Bearer sk-test"),
+        (b"content-type", b"application/json"),
+    ]
+
+
+def _mock_http_response(
+    status: int = 200,
+    headers: list[tuple[bytes, bytes]] | None = None,
+    content: bytes | None = None,
+) -> MagicMock:
+    if content is None:
+        content = json.dumps(
+            {"choices": [{"message": {"role": "assistant", "content": "Hi there!"}}]}
+        ).encode()
     resp = MagicMock()
-    resp.model_dump.return_value = {
-        "id": "chatcmpl-123",
-        "object": "chat.completion",
-        "created": 1700000000,
-        "model": "gpt-4o",
-        "choices": [
-            {
-                "index": 0,
-                "message": {"role": "assistant", "content": "Hi there!"},
-                "finish_reason": "stop",
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 10,
-            "completion_tokens": 5,
-            "total_tokens": 15,
-        },
-    }
+    resp.status_code = status
+    resp.headers.raw = headers or [(b"content-type", b"application/json")]
+    resp.content = content
+    resp.json = MagicMock(return_value=json.loads(content))
     return resp
+
+
+def _setup_non_streaming_client(mock_cls: MagicMock, response: MagicMock) -> AsyncMock:
+    mock_client = AsyncMock()
+    mock_client.post = AsyncMock(return_value=response)
+    mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+    return mock_client
+
+
+def _mock_streaming_response(
+    status: int = 200,
+    headers: list[tuple[bytes, bytes]] | None = None,
+    chunks: list[bytes] | None = None,
+) -> AsyncMock:
+    resp = AsyncMock()
+    resp.__aenter__.return_value = resp
+    resp.__aexit__.return_value = None
+    resp.status_code = status
+    resp.headers.raw = headers or [(b"content-type", b"text/event-stream")]
+    _chunks = chunks or []
+    resp.aiter_bytes = MagicMock(return_value=_aiter(*_chunks))
+    return resp
+
+
+def _setup_streaming_client(mock_cls: MagicMock, response: AsyncMock) -> AsyncMock:
+    mock_client = AsyncMock()
+    mock_client.stream = MagicMock(return_value=response)
+    mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+    return mock_client
 
 
 class TestShouldEnrich:
@@ -92,213 +134,365 @@ class TestShouldEnrich:
         assert _should_enrich(49) is False
 
 
+class TestAccumulateSseBytes:
+    def test_extracts_content_delta(self) -> None:
+        parts: list[str] = []
+        raw = b'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n'
+        _accumulate_sse_bytes(raw, parts)
+        assert parts == ["Hello"]
+
+    def test_ignores_done_sentinel(self) -> None:
+        parts: list[str] = []
+        raw = b"data: [DONE]\n\n"
+        _accumulate_sse_bytes(raw, parts)
+        assert parts == []
+
+    def test_ignores_non_data_lines(self) -> None:
+        parts: list[str] = []
+        raw = b'event: message\ndata: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        _accumulate_sse_bytes(raw, parts)
+        assert parts == ["Hi"]
+
+    def test_ignores_invalid_json(self) -> None:
+        parts: list[str] = []
+        raw = b"data: not json\n\n"
+        _accumulate_sse_bytes(raw, parts)
+        assert parts == []
+
+    def test_handles_multiple_chunks_in_one_raw(self) -> None:
+        parts: list[str] = []
+        raw = (
+            b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+            b'data: {"choices":[{"delta":{"content":" there"}}]}\n\n'
+        )
+        _accumulate_sse_bytes(raw, parts)
+        assert parts == ["Hi", " there"]
+
+    def test_skips_delta_without_content(self) -> None:
+        parts: list[str] = []
+        raw = b'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n'
+        _accumulate_sse_bytes(raw, parts)
+        assert parts == []
+
+
 class TestChatCompletion:
-    @patch("context_use.proxy.handler.litellm")
+    @patch("context_use.proxy.handler.AsyncClient")
     async def test_non_streaming_returns_proxy_result(
-        self, mock_litellm: MagicMock
+        self, MockClient: MagicMock
     ) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        result = await handler._chat_completion(_completion_body())
+        result = await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
         assert isinstance(result, ContextProxyResult)
-        assert result.data["choices"][0]["message"]["content"] == "Hi there!"
+        assert result.status == 200
+        assert b"Hi there!" in result.body
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_streaming_returns_stream_result(
-        self, mock_litellm: MagicMock
-    ) -> None:
-        chunk = MagicMock()
-        chunk.model_dump.return_value = {
-            "id": "chatcmpl-123",
-            "object": "chat.completion.chunk",
-            "choices": [
-                {"index": 0, "delta": {"content": "Hi"}, "finish_reason": None}
-            ],
-        }
-
-        async def mock_stream() -> Any:
-            yield chunk
-
-        mock_litellm.acompletion = AsyncMock(return_value=mock_stream())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_streaming_returns_stream_result(self, MockClient: MagicMock) -> None:
+        chunk = b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        _setup_streaming_client(MockClient, _mock_streaming_response(chunks=[chunk]))
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        result = await handler._chat_completion(_completion_body(stream=True))
+        result = await handler._chat_completion(
+            _completion_body(stream=True),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
         assert isinstance(result, ContextProxyStreamResult)
+        assert result.status == 200
         chunks = [c async for c in result.chunks]
         assert len(chunks) == 1
-        assert chunks[0]["choices"][0]["delta"]["content"] == "Hi"
+        assert chunks[0] == chunk
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_enriches_messages(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enriches_messages(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
         handler = ContextProxy(ctx, _mock_processor())
 
-        await handler._chat_completion(_completion_body())
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
         ctx.search_memories.assert_awaited_once_with(query="Hello", top_k=5)
-        forwarded = mock_litellm.acompletion.call_args.kwargs["messages"]
-        assert any("Likes pizza" in str(m.get("content", "")) for m in forwarded)
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert any(
+            "Likes pizza" in str(m.get("content", "")) for m in sent_body["messages"]
+        )
 
-    @patch("context_use.proxy.handler.litellm")
+    @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_enrichment_for_low_max_tokens(
-        self, mock_litellm: MagicMock
+        self, MockClient: MagicMock
     ) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
         handler = ContextProxy(ctx, _mock_processor())
 
-        await handler._chat_completion(_completion_body(max_tokens=1))
+        await handler._chat_completion(
+            _completion_body(max_tokens=1),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
         ctx.search_memories.assert_not_awaited()
-        assert "max_tokens" not in mock_litellm.acompletion.call_args.kwargs
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_enriches_when_max_tokens_sufficient(
-        self, mock_litellm: MagicMock
-    ) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
-        ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
-
-        await handler._chat_completion(_completion_body(max_tokens=200))
-
-        ctx.search_memories.assert_awaited_once()
-        forwarded = mock_litellm.acompletion.call_args.kwargs["messages"]
-        assert any("Likes pizza" in str(m.get("content", "")) for m in forwarded)
-
-    @patch("context_use.proxy.handler.litellm")
-    async def test_forwards_api_key(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
-
-        await handler._chat_completion(_completion_body(), api_key="sk-test-123")
-
-        assert mock_litellm.acompletion.call_args.kwargs["api_key"] == "sk-test-123"
-
-    @patch("context_use.proxy.handler.litellm")
-    async def test_passes_extra_params(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_strips_max_tokens_below_two(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
         await handler._chat_completion(
-            _completion_body(temperature=0.7, max_tokens=100)
+            _completion_body(max_tokens=1),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
         )
 
-        call_kwargs = mock_litellm.acompletion.call_args.kwargs
-        assert call_kwargs["temperature"] == 0.7
-        assert call_kwargs["max_tokens"] == 100
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert "max_tokens" not in sent_body
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_sets_drop_params(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enriches_when_max_tokens_sufficient(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx, _mock_processor())
+
+        await handler._chat_completion(
+            _completion_body(max_tokens=200),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        ctx.search_memories.assert_awaited_once()
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert any(
+            "Likes pizza" in str(m.get("content", "")) for m in sent_body["messages"]
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_forwards_extra_params_in_body(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        await handler._chat_completion(_completion_body())
+        await handler._chat_completion(
+            _completion_body(temperature=0.7, max_tokens=100),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
-        assert mock_litellm.acompletion.call_args.kwargs["drop_params"] is True
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert sent_body["temperature"] == 0.7
+        assert sent_body["max_tokens"] == 100
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_propagates_litellm_exceptions(self, mock_litellm: MagicMock) -> None:
-        exc = Exception("Rate limit exceeded")
-        exc.status_code = 429  # type: ignore[attr-defined]
-        mock_litellm.acompletion = AsyncMock(side_effect=exc)
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_forwards_headers_to_upstream(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        with pytest.raises(Exception, match="Rate limit exceeded"):
-            await handler._chat_completion(_completion_body())
+        headers = [(b"authorization", b"Bearer sk-provider-key")]
+        await handler._chat_completion(
+            _completion_body(),
+            headers=headers,
+            upstream_url="https://api.openai.com",
+        )
 
+        assert mock_client.post.call_args.kwargs["headers"] == headers
 
-def _completion_bytes(**overrides: Any) -> bytes:
-    return json.dumps(_completion_body(**overrides)).encode()
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_posts_to_correct_url(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.anthropic.com",
+        )
+
+        assert (
+            mock_client.post.call_args.args[0]
+            == "https://api.anthropic.com/v1/chat/completions"
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_propagates_upstream_exceptions(self, MockClient: MagicMock) -> None:
+        mock_client = AsyncMock()
+        mock_client.post = AsyncMock(side_effect=Exception("connection refused"))
+        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
+        handler = ContextProxy(_mock_ctx(), _mock_processor())
+
+        with pytest.raises(Exception, match="connection refused"):
+            await handler._chat_completion(
+                _completion_body(),
+                headers=_default_headers(),
+                upstream_url="https://api.openai.com",
+            )
 
 
 class TestHandle:
-    @patch("context_use.proxy.handler.litellm")
-    async def test_routes_post_chat_completions(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_routes_post_chat_completions(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        result = await handler.handle("POST", "/v1/chat/completions", _completion_bytes())
+        result = await handler.handle(
+            "POST",
+            "/v1/chat/completions",
+            _default_headers(),
+            _completion_bytes(),
+            upstream_url="https://api.openai.com",
+        )
 
         assert isinstance(result, ContextProxyResult)
 
-    @patch("context_use.proxy.handler.litellm")
+    @patch("context_use.proxy.handler.AsyncClient")
     async def test_handle_is_case_insensitive_on_method(
-        self, mock_litellm: MagicMock
+        self, MockClient: MagicMock
     ) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        result = await handler.handle("post", "/v1/chat/completions", _completion_bytes())
+        result = await handler.handle(
+            "post",
+            "/v1/chat/completions",
+            _default_headers(),
+            _completion_bytes(),
+            upstream_url="https://api.openai.com",
+        )
 
         assert isinstance(result, ContextProxyResult)
 
-    async def test_raises_route_not_found_for_unknown_path(self) -> None:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_unknown_path_forwarded_transparently(
+        self, MockClient: MagicMock
+    ) -> None:
+        upstream_response = _mock_http_response(content=b'{"object":"list","data":[]}')
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=upstream_response)
+        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        with pytest.raises(RouteNotFoundError):
-            await handler.handle("POST", "/v1/unknown", _completion_bytes())
+        result = await handler.handle(
+            "GET",
+            "/v1/models",
+            _default_headers(),
+            b"",
+            upstream_url="https://api.openai.com",
+        )
 
-    async def test_raises_route_not_found_for_wrong_method(self) -> None:
+        assert isinstance(result, ContextProxyResult)
+        assert result.status == 200
+        call = mock_client.request.call_args
+        assert call.kwargs["method"] == "GET"
+        assert call.kwargs["url"] == "https://api.openai.com/v1/models"
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_wrong_method_for_known_path_forwarded_transparently(
+        self, MockClient: MagicMock
+    ) -> None:
+        upstream_response = _mock_http_response(content=b"{}")
+        mock_client = AsyncMock()
+        mock_client.request = AsyncMock(return_value=upstream_response)
+        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
-        with pytest.raises(RouteNotFoundError):
-            await handler.handle("GET", "/v1/chat/completions", _completion_bytes())
+        result = await handler.handle(
+            "GET",
+            "/v1/chat/completions",
+            _default_headers(),
+            b"",
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+        call = mock_client.request.call_args
+        assert call.kwargs["method"] == "GET"
 
     async def test_raises_value_error_on_invalid_json(self) -> None:
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
         with pytest.raises(ValueError, match="Invalid JSON"):
-            await handler.handle("POST", "/v1/chat/completions", b"not json")
+            await handler.handle(
+                "POST",
+                "/v1/chat/completions",
+                _default_headers(),
+                b"not json",
+                upstream_url="https://api.openai.com",
+            )
 
     async def test_raises_value_error_on_missing_model(self) -> None:
         handler = ContextProxy(_mock_ctx(), _mock_processor())
         body = json.dumps({"messages": [{"role": "user", "content": "Hi"}]}).encode()
 
         with pytest.raises(ValueError, match="required"):
-            await handler.handle("POST", "/v1/chat/completions", body)
+            await handler.handle(
+                "POST",
+                "/v1/chat/completions",
+                _default_headers(),
+                body,
+                upstream_url="https://api.openai.com",
+            )
 
     async def test_raises_value_error_on_missing_messages(self) -> None:
         handler = ContextProxy(_mock_ctx(), _mock_processor())
         body = json.dumps({"model": "gpt-4o"}).encode()
 
         with pytest.raises(ValueError, match="required"):
-            await handler.handle("POST", "/v1/chat/completions", body)
+            await handler.handle(
+                "POST",
+                "/v1/chat/completions",
+                _default_headers(),
+                body,
+                upstream_url="https://api.openai.com",
+            )
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_forwards_api_key_and_session_id(
-        self, mock_litellm: MagicMock
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_session_id_forwarded_to_scheduler(
+        self, MockClient: MagicMock
     ) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         processor = _mock_processor()
         handler = ContextProxy(_mock_ctx(), processor)
 
         await handler.handle(
             "POST",
             "/v1/chat/completions",
+            _default_headers(),
             _completion_bytes(),
-            api_key="sk-test",
+            upstream_url="https://api.openai.com",
             session_id="sess-xyz",
         )
 
-        assert mock_litellm.acompletion.call_args.kwargs["api_key"] == "sk-test"
         assert processor.schedule.call_args.kwargs["session_id"] == "sess-xyz"
 
 
 class TestBackgroundScheduling:
-    @patch("context_use.proxy.handler.litellm")
+    @patch("context_use.proxy.handler.AsyncClient")
     async def test_non_streaming_schedules_processing(
-        self, mock_litellm: MagicMock
+        self, MockClient: MagicMock
     ) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         processor = _mock_processor()
         handler = ContextProxy(_mock_ctx(), processor)
 
-        await handler._chat_completion(_completion_body())
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
         processor.schedule.assert_called_once()
         messages = processor.schedule.call_args.args[0]
@@ -309,32 +503,23 @@ class TestBackgroundScheduling:
             if m["role"] == "assistant"
         )
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_streaming_schedules_processing(
-        self, mock_litellm: MagicMock
-    ) -> None:
-        chunk1 = MagicMock()
-        chunk1.model_dump.return_value = {
-            "choices": [
-                {"index": 0, "delta": {"content": "Hi"}, "finish_reason": None}
-            ],
-        }
-        chunk2 = MagicMock()
-        chunk2.model_dump.return_value = {
-            "choices": [
-                {"index": 0, "delta": {"content": " there"}, "finish_reason": "stop"}
-            ],
-        }
-
-        async def mock_stream() -> Any:
-            yield chunk1
-            yield chunk2
-
-        mock_litellm.acompletion = AsyncMock(return_value=mock_stream())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_streaming_schedules_processing(self, MockClient: MagicMock) -> None:
+        chunk1 = (
+            b'data: {"choices":[{"delta":{"content":"Hi"},"finish_reason":null}]}\n\n'
+        )
+        chunk2 = b'data: {"choices":[{"delta":{"content":" there"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        _setup_streaming_client(
+            MockClient, _mock_streaming_response(chunks=[chunk1, chunk2])
+        )
         processor = _mock_processor()
         handler = ContextProxy(_mock_ctx(), processor)
 
-        result = await handler._chat_completion(_completion_body(stream=True))
+        result = await handler._chat_completion(
+            _completion_body(stream=True),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
         assert isinstance(result, ContextProxyStreamResult)
         async for _ in result.chunks:
             pass
@@ -345,22 +530,51 @@ class TestBackgroundScheduling:
         assert len(assistant_msgs) == 1
         assert assistant_msgs[0]["content"] == "Hi there"
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_session_id_forwarded(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_session_id_forwarded(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         processor = _mock_processor()
         handler = ContextProxy(_mock_ctx(), processor)
 
-        await handler._chat_completion(_completion_body(), session_id="sess-abc")
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+            session_id="sess-abc",
+        )
 
         assert processor.schedule.call_args.kwargs["session_id"] == "sess-abc"
 
-    @patch("context_use.proxy.handler.litellm")
-    async def test_skips_processing_for_probe(self, mock_litellm: MagicMock) -> None:
-        mock_litellm.acompletion = AsyncMock(return_value=_mock_model_response())
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_skips_processing_for_probe(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
         processor = _mock_processor()
         handler = ContextProxy(_mock_ctx(), processor)
 
-        await handler._chat_completion(_completion_body(max_tokens=1))
+        await handler._chat_completion(
+            _completion_body(max_tokens=1),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        processor.schedule.assert_not_called()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_skips_scheduling_when_assistant_text_empty(
+        self, MockClient: MagicMock
+    ) -> None:
+        error_content = json.dumps({"error": {"message": "Invalid API key"}}).encode()
+        _setup_non_streaming_client(
+            MockClient,
+            _mock_http_response(status=401, content=error_content),
+        )
+        processor = _mock_processor()
+        handler = ContextProxy(_mock_ctx(), processor)
+
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
 
         processor.schedule.assert_not_called()

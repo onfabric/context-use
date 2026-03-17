@@ -18,8 +18,8 @@ if TYPE_CHECKING:
         ContextProxy,
         ContextProxyResult,
         ContextProxyStreamResult,
-        RouteNotFoundError,
     )
+    from context_use.server.app import create_proxy_app
     from context_use.store import SqliteStore, Store
 
 __all__ = [
@@ -28,11 +28,11 @@ __all__ = [
     "ContextProxyStreamResult",
     "ContextUse",
     "PipelineResult",
-    "RouteNotFoundError",
     "ScheduleInstruction",
     "SqliteStore",
     "Store",
     "TaskBreakdown",
+    "create_proxy_app",
 ]
 
 
@@ -50,8 +50,8 @@ def __getattr__(name: str) -> Any:
         ContextProxy,
         ContextProxyResult,
         ContextProxyStreamResult,
-        RouteNotFoundError,
     )
+    from context_use.server.app import create_proxy_app
     from context_use.store import SqliteStore, Store
 
     exports: dict[str, Any] = {
@@ -60,11 +60,11 @@ def __getattr__(name: str) -> Any:
         "ContextProxyStreamResult": ContextProxyStreamResult,
         "ContextUse": ContextUse,
         "PipelineResult": PipelineResult,
-        "RouteNotFoundError": RouteNotFoundError,
         "ScheduleInstruction": ScheduleInstruction,
         "SqliteStore": SqliteStore,
         "Store": Store,
         "TaskBreakdown": TaskBreakdown,
+        "create_proxy_app": create_proxy_app,
     }
 
     value = exports[name]

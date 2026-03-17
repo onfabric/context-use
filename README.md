@@ -28,31 +28,41 @@ Start the proxy and point any OpenAI-compatible client at it. Every conversation
 context-use proxy
 ```
 
-Then, in your code:
+The proxy routes each request to the provider specified in the `Host` header, so you set it to the API you actually want to call. For example, to target OpenAI:
 
 ```python
 from openai import OpenAI
 
-client = OpenAI(base_url="http://localhost:8080/v1", api_key="<provider-key>")
-client.chat.completions.create(model="openai/gpt-4o", messages=[...])
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="<your-openai-key>",
+    default_headers={"Host": "api.openai.com"},
+)
+client.chat.completions.create(model="gpt-4o", messages=[...])
 ```
 
-Memories are generated in the background and are used to automatically enrich every conversation that flows through the proxy.
+To target Anthropic's OpenAI-compatible endpoint instead, change the `Host` header and key:
+
+```python
+client = OpenAI(
+    base_url="http://localhost:8080/v1",
+    api_key="<your-anthropic-key>",
+    default_headers={"Host": "api.anthropic.com"},
+)
+```
+
+> [!NOTE]
+> Only `POST /v1/chat/completions` requests are enriched with memories. All other paths are forwarded transparently without modification.
+
+Memories are generated in the background from each conversation and are used to automatically enrich future requests that flow through the proxy.
 
 ## Headless / bring your own API
 
-If you already have your own HTTP server (FastAPI, Starlette, aiohttp, etc.), use `ContextProxy` directly without running the built-in server.
-
-`ContextProxy` intercepts a single endpoint. Wire it up alongside a pass-through for everything else:
-
-| Method | Path | What to do |
-|--------|------|------------|
-| `GET` | `/health` | return `{"status": "ok"}` |
-| `POST` | `/v1/chat/completions` | call `handler.chat_completion()` |
-| `*` | `*` | forward to the upstream provider |
+If you already have your own ASGI server (FastAPI, Starlette, etc.), you can
+simply mount `create_proxy_app`:
 
 ```python
-from context_use import ContextUse, ContextProxy
+from context_use import ContextUse, ContextProxy, create_proxy_app
 from context_use.proxy import BackgroundMemoryProcessor
 
 ctx = ContextUse(storage=..., store=..., llm_client=...)
@@ -61,8 +71,7 @@ await ctx.init()
 processor = BackgroundMemoryProcessor(ctx, agent_backend)
 handler = ContextProxy(ctx, processor)
 
-# POST /v1/chat/completions
-result = await handler.chat_completion(body, api_key=key, session_id=sid)
+asgi_app = create_proxy_app(handler)
 ```
 
 ## Data exports

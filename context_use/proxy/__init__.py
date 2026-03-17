@@ -4,7 +4,6 @@ from context_use.proxy.handler import (
     ContextProxy,
     ContextProxyResult,
     ContextProxyStreamResult,
-    RouteNotFoundError,
 )
 
 __all__ = [
@@ -12,6 +11,5 @@ __all__ = [
     "ContextProxy",
     "ContextProxyResult",
     "ContextProxyStreamResult",
-    "RouteNotFoundError",
     "enrich_messages",
 ]
