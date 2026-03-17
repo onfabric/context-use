@@ -14,12 +14,12 @@ if TYPE_CHECKING:
         ScheduleInstruction,
         TaskBreakdown,
     )
+    from context_use.proxy.app import create_proxy_app
     from context_use.proxy.handler import (
         ContextProxy,
         ContextProxyResult,
         ContextProxyStreamResult,
     )
-    from context_use.proxy.app import create_proxy_app
     from context_use.store import SqliteStore, Store
 
 __all__ = [
@@ -46,12 +46,12 @@ def __getattr__(name: str) -> Any:
         ScheduleInstruction,
         TaskBreakdown,
     )
+    from context_use.proxy.app import create_proxy_app
     from context_use.proxy.handler import (
         ContextProxy,
         ContextProxyResult,
         ContextProxyStreamResult,
     )
-    from context_use.proxy.app import create_proxy_app
     from context_use.store import SqliteStore, Store
 
     exports: dict[str, Any] = {
