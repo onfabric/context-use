@@ -14,24 +14,31 @@ logger = logging.getLogger(__name__)
 
 type Message = dict[str, Any]
 
+_TEXT_CONTENT_TYPES = ("text", "input_text")
+
 CONTEXT_PREAMBLE = (
     "The following are relevant memories about the user. "
     "Use them to personalise your response when appropriate."
 )
 
 
-def extract_last_user_message(messages: list[Message]) -> str | None:
-    for msg in reversed(messages):
-        if msg.get("role") != "user":
+def extract_last_user_query(
+    input_data: str | list[dict[str, Any]],
+) -> str | None:
+    if isinstance(input_data, str):
+        return input_data or None
+
+    for item in reversed(input_data):
+        if item.get("role") != "user":
             continue
-        content = msg.get("content")
+        content = item.get("content")
         if isinstance(content, str):
-            return content
+            return content or None
         if isinstance(content, list):
             texts = [
                 part["text"]
                 for part in content
-                if isinstance(part, dict) and part.get("type") == "text"
+                if isinstance(part, dict) and part.get("type") in _TEXT_CONTENT_TYPES
             ]
             return " ".join(texts) if texts else None
     return None
@@ -58,15 +65,15 @@ def inject_context(messages: list[Message], context: str) -> list[Message]:
     return result
 
 
-async def enrich_messages(
-    messages: list[Message],
+async def enrich_body(
+    body: dict[str, Any],
     ctx: ContextUse,
     *,
     top_k: int = 5,
-) -> list[Message]:
-    query = extract_last_user_message(messages)
+) -> dict[str, Any]:
+    query_source, query = _extract_query(body)
     if query is None:
-        return messages
+        return body
 
     try:
         results = await ctx.search_memories(query=query, top_k=top_k)
@@ -74,12 +81,29 @@ async def enrich_messages(
         logger.warning(
             "Memory search failed, forwarding without enrichment", exc_info=True
         )
-        return messages
+        return body
 
     if not results:
         logger.debug("No memories found for query")
-        return messages
+        return body
 
     log_enrichment(results)
     context = format_memory_context(results)
-    return inject_context(messages, context)
+
+    if query_source == "messages":
+        return {**body, "messages": inject_context(body["messages"], context)}
+
+    instructions = body.get("instructions")
+    return {
+        **body,
+        "instructions": (f"{instructions}\n\n{context}" if instructions else context),
+    }
+
+
+def _extract_query(body: dict[str, Any]) -> tuple[str, str | None]:
+    if "messages" in body:
+        return "messages", extract_last_user_query(body["messages"])
+    input_data = body.get("input")
+    if input_data is None:
+        return "input", None
+    return "input", extract_last_user_query(input_data)

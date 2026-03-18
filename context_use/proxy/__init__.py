@@ -1,5 +1,5 @@
 from context_use.proxy.background import BackgroundMemoryProcessor
-from context_use.proxy.enrichment import enrich_messages
+from context_use.proxy.enrichment import enrich_body
 from context_use.proxy.handler import (
     ContextProxy,
     ContextProxyResult,
@@ -11,5 +11,5 @@ __all__ = [
     "ContextProxy",
     "ContextProxyResult",
     "ContextProxyStreamResult",
-    "enrich_messages",
+    "enrich_body",
 ]
