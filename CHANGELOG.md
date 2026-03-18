@@ -1,3 +1,18 @@
+## [0.8.0] - 2026-03-18
+
+### 🚀 Features
+
+- Generate session id if not set in the header (#229)
+- Add `--upstream-url` to the proxy command (#225)
+- Filters for memory generation (#226)
+- Context proxy as first class citizen (#221)
+- Semantic facets for memories (#222)
+- *(test)* Add payload test to pipe test kit (#223)
+
+### 🐛 Bug Fixes
+
+- Debug log request and more details on memories ops (#227)
+
 ## [0.7.0] - 2026-03-17
 
 ### 🚀 Features
