@@ -4,6 +4,8 @@ import copy
 import logging
 from typing import TYPE_CHECKING, Any
 
+from context_use.proxy.log import log_enrichment
+
 if TYPE_CHECKING:
     from context_use.facade.core import ContextUse
     from context_use.store.base import MemorySearchResult
@@ -77,8 +79,6 @@ async def enrich_messages(
     if not results:
         logger.debug("No memories found for query")
         return messages
-
-    from context_use.proxy.log import log_enrichment
 
     log_enrichment(results)
     context = format_memory_context(results)

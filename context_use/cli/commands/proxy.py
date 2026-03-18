@@ -20,6 +20,7 @@ from context_use.ext.adk.agent.runner import AdkAgentBackend
 from context_use.proxy.app import create_proxy_app
 from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
+from context_use.proxy.log import setup_proxy_logging
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
@@ -127,8 +128,6 @@ class ProxyCommand(BaseCommand):
         processor = BackgroundMemoryProcessor(ctx, agent_backend)
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
-
-        from context_use.proxy.log import setup_proxy_logging
 
         setup_proxy_logging()
 

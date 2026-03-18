@@ -6,6 +6,7 @@ from typing import Annotated
 from pydantic import Field
 
 from context_use.agent.protocol import MemoryOperations
+from context_use.proxy.log import log_tool_action
 
 
 def make_agent_tools(ops: MemoryOperations) -> list:
@@ -176,8 +177,6 @@ def make_agent_tools(ops: MemoryOperations) -> list:
             )
         except ValueError as exc:
             return {"error": str(exc)}
-        from context_use.proxy.log import log_tool_action
-
         log_tool_action("Updated", memory_id)
         return {"updated": memory_id}
 
@@ -219,8 +218,6 @@ def make_agent_tools(ops: MemoryOperations) -> list:
             to_date=date.fromisoformat(to_date),
             source_memory_ids=source_memory_ids,
         )
-        from context_use.proxy.log import log_tool_action
-
         log_tool_action("Created", created.id)
         return {"created_id": created.id}
 
@@ -249,8 +246,6 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         """
         archived = await ops.archive_memories(memory_ids, superseded_by=superseded_by)
         not_found = [mid for mid in memory_ids if mid not in set(archived)]
-
-        from context_use.proxy.log import log_tool_action
 
         log_tool_action("Archived", count=len(archived))
         result: dict = {"archived": archived}

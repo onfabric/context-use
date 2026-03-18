@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from context_use.agent.skill import make_process_thread_skill
 from context_use.memories.prompt.conversation import format_transcript
 from context_use.models.thread import Thread
+from context_use.proxy.log import log_generation_done, log_processing
 from context_use.proxy.threads import messages_to_thread_rows
 
 if TYPE_CHECKING:
@@ -88,8 +89,6 @@ class BackgroundMemoryProcessor:
         ]
 
     async def _run_agent(self, threads: list[Thread]) -> None:
-        from context_use.proxy.log import log_generation_done, log_processing
-
         transcript = format_transcript(threads)
         skill = make_process_thread_skill(transcript)
         log_processing(len(threads))
