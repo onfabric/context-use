@@ -13,7 +13,6 @@ from context_use.proxy.threads import messages_to_thread_rows
 if TYPE_CHECKING:
     from typing import Any
 
-    from context_use.agent.backend import AgentBackend
     from context_use.facade.core import ContextUse
 
 logger = logging.getLogger(__name__)
@@ -26,12 +25,10 @@ class BackgroundMemoryProcessor:
     def __init__(
         self,
         ctx: ContextUse,
-        backend: AgentBackend,
         *,
         max_concurrent: int = _MAX_CONCURRENT_AGENTS,
     ) -> None:
         self._ctx = ctx
-        self._backend = backend
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._tasks: set[asyncio.Task[None]] = set()
 
@@ -93,6 +90,6 @@ class BackgroundMemoryProcessor:
         skill = make_process_thread_skill(transcript)
         log_processing(len(threads))
         count_before = await self._ctx.count_memories()
-        result = await self._ctx.run_agent(self._backend, skill.prompt)
+        result = await self._ctx.run_agent(skill.prompt)
         count_after = await self._ctx.count_memories()
         log_generation_done(count_after - count_before, count_after, result.summary)

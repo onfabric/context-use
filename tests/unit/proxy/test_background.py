@@ -3,26 +3,25 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from context_use.agent.backend import AgentResult
+from context_use.agent.runner import AgentResult
 from context_use.proxy.background import BackgroundMemoryProcessor
 
 
 def _make_processor(
     *,
     max_concurrent: int = 3,
-) -> tuple[BackgroundMemoryProcessor, AsyncMock, AsyncMock]:
+) -> tuple[BackgroundMemoryProcessor, AsyncMock]:
     ctx = AsyncMock()
     ctx.run_agent = AsyncMock(return_value=AgentResult(summary="done"))
     ctx.insert_threads = AsyncMock(return_value=1)
-    backend = AsyncMock()
 
-    processor = BackgroundMemoryProcessor(ctx, backend, max_concurrent=max_concurrent)
-    return processor, ctx, backend
+    processor = BackgroundMemoryProcessor(ctx, max_concurrent=max_concurrent)
+    return processor, ctx
 
 
 class TestBackgroundMemoryProcessor:
     async def test_schedule_stores_threads_and_runs_agent(self) -> None:
-        processor, ctx, _backend = _make_processor()
+        processor, ctx = _make_processor()
 
         messages = [
             {"role": "user", "content": "Hello"},
@@ -38,12 +37,12 @@ class TestBackgroundMemoryProcessor:
         ctx.run_agent.assert_awaited_once()
 
         call_args = ctx.run_agent.call_args
-        prompt = call_args.args[1]
+        prompt = call_args.args[0]
         assert "Hello" in prompt
         assert "Hi there" in prompt
 
     async def test_schedule_with_empty_messages_skips_agent(self) -> None:
-        processor, ctx, _backend = _make_processor()
+        processor, ctx = _make_processor()
 
         messages = [{"role": "system", "content": "Be helpful"}]
         processor.schedule(messages)
@@ -56,7 +55,7 @@ class TestBackgroundMemoryProcessor:
         ctx.run_agent.assert_not_awaited()
 
     async def test_agent_error_is_logged_not_raised(self) -> None:
-        processor, ctx, _backend = _make_processor()
+        processor, ctx = _make_processor()
         ctx.run_agent.side_effect = RuntimeError("LLM down")
 
         messages = [{"role": "user", "content": "Hi"}]
@@ -69,7 +68,7 @@ class TestBackgroundMemoryProcessor:
         ctx.insert_threads.assert_awaited_once()
 
     async def test_semaphore_limits_concurrency(self) -> None:
-        processor, ctx, _backend = _make_processor(max_concurrent=1)
+        processor, ctx = _make_processor(max_concurrent=1)
 
         call_count = 0
         max_concurrent_seen = 0
@@ -97,7 +96,7 @@ class TestBackgroundMemoryProcessor:
         assert max_concurrent_seen == 1
 
     async def test_task_cleanup(self) -> None:
-        processor, ctx, _backend = _make_processor()
+        processor, ctx = _make_processor()
 
         processor.schedule([{"role": "user", "content": "Hi"}])
         assert len(processor._tasks) >= 0
@@ -109,7 +108,7 @@ class TestBackgroundMemoryProcessor:
         assert len(processor._tasks) == 0
 
     async def test_session_id_passed_to_thread_builder(self) -> None:
-        processor, ctx, _backend = _make_processor()
+        processor, ctx = _make_processor()
 
         with patch(
             "context_use.proxy.background.messages_to_thread_rows"
