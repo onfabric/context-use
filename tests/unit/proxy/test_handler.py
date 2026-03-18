@@ -12,10 +12,12 @@ from context_use.proxy.handler import (
     ContextProxy,
     ContextProxyResult,
     ContextProxyStreamResult,
-    _accumulate_response_sse_bytes,
-    _accumulate_sse_bytes,
+    _accumulate_sse_text,
+    _body_to_messages,
+    _completion_sse_deltas,
     _extract_response_output_text,
     _input_to_messages,
+    _response_sse_deltas,
     _should_enrich,
 )
 from context_use.store.base import MemorySearchResult
@@ -134,29 +136,29 @@ class TestShouldEnrich:
         assert _should_enrich(49) is False
 
 
-class TestAccumulateSseBytes:
+class TestAccumulateSseText:
     def test_extracts_content_delta(self) -> None:
         parts: list[str] = []
         raw = b'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n'
-        _accumulate_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _completion_sse_deltas)
         assert parts == ["Hello"]
 
     def test_ignores_done_sentinel(self) -> None:
         parts: list[str] = []
         raw = b"data: [DONE]\n\n"
-        _accumulate_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _completion_sse_deltas)
         assert parts == []
 
     def test_ignores_non_data_lines(self) -> None:
         parts: list[str] = []
         raw = b'event: message\ndata: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
-        _accumulate_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _completion_sse_deltas)
         assert parts == ["Hi"]
 
     def test_ignores_invalid_json(self) -> None:
         parts: list[str] = []
         raw = b"data: not json\n\n"
-        _accumulate_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _completion_sse_deltas)
         assert parts == []
 
     def test_handles_multiple_chunks_in_one_raw(self) -> None:
@@ -165,13 +167,13 @@ class TestAccumulateSseBytes:
             b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
             b'data: {"choices":[{"delta":{"content":" there"}}]}\n\n'
         )
-        _accumulate_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _completion_sse_deltas)
         assert parts == ["Hi", " there"]
 
     def test_skips_delta_without_content(self) -> None:
         parts: list[str] = []
         raw = b'data: {"choices":[{"delta":{"role":"assistant"}}]}\n\n'
-        _accumulate_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _completion_sse_deltas)
         assert parts == []
 
 
@@ -746,7 +748,28 @@ class TestInputToMessages:
         assert result == []
 
 
-class TestAccumulateResponseSseBytes:
+class TestBodyToMessages:
+    def test_completions_body(self) -> None:
+        body = {"messages": [{"role": "user", "content": "Hi"}], "model": "gpt-4o"}
+        assert _body_to_messages(body) == [{"role": "user", "content": "Hi"}]
+
+    def test_responses_body_string_input(self) -> None:
+        body = {"input": "Hello", "model": "gpt-4o"}
+        assert _body_to_messages(body) == [{"role": "user", "content": "Hello"}]
+
+    def test_responses_body_with_instructions(self) -> None:
+        body = {"input": "Hello", "instructions": "Be helpful", "model": "gpt-4o"}
+        assert _body_to_messages(body) == [
+            {"role": "system", "content": "Be helpful"},
+            {"role": "user", "content": "Hello"},
+        ]
+
+    def test_responses_body_no_input(self) -> None:
+        body = {"model": "gpt-4o"}
+        assert _body_to_messages(body) == []
+
+
+class TestAccumulateSseTextResponses:
     def test_extracts_text_delta(self) -> None:
         parts: list[str] = []
         raw = (
@@ -754,7 +777,7 @@ class TestAccumulateResponseSseBytes:
             b'data: {"type":"response.output_text.delta",'
             b'"delta":"Hello"}\n\n'
         )
-        _accumulate_response_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _response_sse_deltas)
         assert parts == ["Hello"]
 
     def test_ignores_non_delta_events(self) -> None:
@@ -763,19 +786,19 @@ class TestAccumulateResponseSseBytes:
             b"event: response.created\n"
             b'data: {"type":"response.created","response":{}}\n\n'
         )
-        _accumulate_response_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _response_sse_deltas)
         assert parts == []
 
     def test_ignores_done_sentinel(self) -> None:
         parts: list[str] = []
         raw = b"data: [DONE]\n\n"
-        _accumulate_response_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _response_sse_deltas)
         assert parts == []
 
     def test_ignores_invalid_json(self) -> None:
         parts: list[str] = []
         raw = b"data: not json\n\n"
-        _accumulate_response_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _response_sse_deltas)
         assert parts == []
 
     def test_handles_multiple_deltas(self) -> None:
@@ -784,13 +807,13 @@ class TestAccumulateResponseSseBytes:
             b'data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'
             b'data: {"type":"response.output_text.delta","delta":" there"}\n\n'
         )
-        _accumulate_response_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _response_sse_deltas)
         assert parts == ["Hi", " there"]
 
     def test_ignores_completed_event(self) -> None:
         parts: list[str] = []
         raw = b'data: {"type":"response.completed","response":{"id":"resp_123"}}\n\n'
-        _accumulate_response_sse_bytes(raw, parts)
+        _accumulate_sse_text(raw, parts, _response_sse_deltas)
         assert parts == []
 
 

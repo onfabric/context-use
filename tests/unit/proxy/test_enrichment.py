@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 
 from context_use.proxy.enrichment import (
     CONTEXT_PREAMBLE,
+    enrich_completion_body,
     enrich_messages,
     enrich_response_body,
     extract_last_user_message,
@@ -194,6 +195,51 @@ class TestEnrichMessages:
         result = await enrich_messages(messages, ctx)
 
         assert result is messages
+
+
+class TestEnrichCompletionBody:
+    async def test_enriches_messages_in_body(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        body = {
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "What food do I like?"}],
+        }
+
+        result = await enrich_completion_body(body, ctx)
+
+        assert result is not body
+        assert "Likes pizza" in str(result["messages"][0].get("content", ""))
+
+    async def test_returns_original_when_no_messages(self) -> None:
+        ctx = AsyncMock()
+        body = {"model": "gpt-4o"}
+
+        result = await enrich_completion_body(body, ctx)
+
+        assert result is body
+
+    async def test_returns_original_when_no_results(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = []
+        body = {
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        result = await enrich_completion_body(body, ctx)
+
+        assert result is body
+
+    async def test_does_not_mutate_original(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        messages = [{"role": "user", "content": "Hello"}]
+        body = {"model": "gpt-4o", "messages": messages}
+
+        await enrich_completion_body(body, ctx)
+
+        assert body["messages"] is messages
 
 
 class TestExtractLastUserTextFromInput:

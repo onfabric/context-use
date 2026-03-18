@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from httpx import AsyncClient, Timeout
 
-from context_use.proxy.enrichment import enrich_messages, enrich_response_body
+from context_use.proxy.enrichment import enrich_completion_body, enrich_response_body
 
 if TYPE_CHECKING:
     from context_use.facade.core import ContextUse
@@ -85,64 +85,16 @@ class ContextProxy:
     ) -> ContextProxyResult | ContextProxyStreamResult:
         if "model" not in body or "messages" not in body:
             raise ValueError("'model' and 'messages' are required")
-
-        messages: list[dict[str, Any]] = body["messages"]
-        stream: bool = body.get("stream", False)
-        max_tokens = body.get("max_tokens")
-        should_process = _should_enrich(max_tokens)
-
-        logger.info(
-            "Request received: model=%s messages=%d session=%s stream=%s",
-            body.get("model"),
-            len(messages),
-            session_id or "-",
-            stream,
-        )
-
-        if should_process:
-            body = {**body, "messages": await enrich_messages(messages, self._ctx)}
-        else:
-            logger.debug("Skipping enrichment (max_tokens=%s)", max_tokens)
-
-        if isinstance(max_tokens, int) and max_tokens < 2:
-            body = {k: v for k, v in body.items() if k != "max_tokens"}
-
-        enriched_body = json.dumps(body).encode()
-        url = upstream_url.rstrip("/") + "/v1/chat/completions"
-
-        if stream:
-            status, resp_headers, chunks = await _start_upstream_stream(
-                self._client, url, headers, enriched_body
-            )
-            return ContextProxyStreamResult(
-                status=status,
-                headers=resp_headers,
-                chunks=self._accumulate_and_schedule(
-                    chunks,
-                    messages=messages,
-                    session_id=session_id,
-                    should_process=should_process,
-                ),
-            )
-
-        resp = await self._client.post(url, headers=headers, content=enriched_body)
-
-        logger.info(
-            "Response finished: model=%s status=%d", body.get("model"), resp.status_code
-        )
-
-        if should_process:
-            try:
-                assistant_text = _extract_assistant_text(resp.json())
-            except Exception:
-                assistant_text = ""
-            if assistant_text:
-                self._schedule(messages, assistant_text, session_id=session_id)
-
-        return ContextProxyResult(
-            status=resp.status_code,
-            headers=list(resp.headers.raw),
-            body=resp.content,
+        return await self._proxy_request(
+            body,
+            headers=headers,
+            upstream_url=upstream_url,
+            session_id=session_id,
+            path="/v1/chat/completions",
+            max_tokens_key="max_tokens",
+            enrich=enrich_completion_body,
+            extract_text=_extract_assistant_text,
+            sse_extract=_completion_sse_deltas,
         )
 
     async def _response(
@@ -155,31 +107,54 @@ class ContextProxy:
     ) -> ContextProxyResult | ContextProxyStreamResult:
         if "model" not in body:
             raise ValueError("'model' is required")
+        return await self._proxy_request(
+            body,
+            headers=headers,
+            upstream_url=upstream_url,
+            session_id=session_id,
+            path="/v1/responses",
+            max_tokens_key="max_output_tokens",
+            enrich=enrich_response_body,
+            extract_text=_extract_response_output_text,
+            sse_extract=_response_sse_deltas,
+        )
 
-        input_data: str | list[dict[str, Any]] = body.get("input", "")
+    async def _proxy_request(
+        self,
+        body: dict[str, Any],
+        *,
+        headers: list[tuple[bytes, bytes]],
+        upstream_url: str,
+        session_id: str | None,
+        path: str,
+        max_tokens_key: str,
+        enrich: Callable[[dict[str, Any], ContextUse], Awaitable[dict[str, Any]]],
+        extract_text: Callable[[dict[str, Any]], str],
+        sse_extract: Callable[[dict[str, Any]], list[str]],
+    ) -> ContextProxyResult | ContextProxyStreamResult:
         stream: bool = body.get("stream", False)
-        max_output_tokens = body.get("max_output_tokens")
-        should_process = _should_enrich(max_output_tokens)
+        max_tokens = body.get(max_tokens_key)
+        should_process = _should_enrich(max_tokens)
+        scheduling_messages = _body_to_messages(body)
 
         logger.info(
-            "Response API request: model=%s session=%s stream=%s",
+            "Proxy request: path=%s model=%s session=%s stream=%s",
+            path,
             body.get("model"),
             session_id or "-",
             stream,
         )
 
         if should_process:
-            body = await enrich_response_body(body, self._ctx)
+            body = await enrich(body, self._ctx)
         else:
-            logger.debug(
-                "Skipping enrichment (max_output_tokens=%s)", max_output_tokens
-            )
+            logger.debug("Skipping enrichment (%s=%s)", max_tokens_key, max_tokens)
 
-        if isinstance(max_output_tokens, int) and max_output_tokens < 2:
-            body = {k: v for k, v in body.items() if k != "max_output_tokens"}
+        if isinstance(max_tokens, int) and max_tokens < 2:
+            body = {k: v for k, v in body.items() if k != max_tokens_key}
 
         enriched_body = json.dumps(body).encode()
-        url = upstream_url.rstrip("/") + "/v1/responses"
+        url = upstream_url.rstrip("/") + path
 
         if stream:
             status, resp_headers, chunks = await _start_upstream_stream(
@@ -188,10 +163,10 @@ class ContextProxy:
             return ContextProxyStreamResult(
                 status=status,
                 headers=resp_headers,
-                chunks=self._accumulate_response_and_schedule(
+                chunks=self._stream_and_schedule(
                     chunks,
-                    input_data=input_data,
-                    instructions=body.get("instructions"),
+                    sse_extract=sse_extract,
+                    messages=scheduling_messages,
                     session_id=session_id,
                     should_process=should_process,
                 ),
@@ -199,20 +174,19 @@ class ContextProxy:
 
         resp = await self._client.post(url, headers=headers, content=enriched_body)
 
-        logger.info(
-            "Response API finished: model=%s status=%d",
-            body.get("model"),
-            resp.status_code,
-        )
+        logger.info("Proxy response: path=%s status=%d", path, resp.status_code)
 
         if should_process:
             try:
-                assistant_text = _extract_response_output_text(resp.json())
+                assistant_text = extract_text(resp.json())
             except Exception:
                 assistant_text = ""
             if assistant_text:
-                messages = _input_to_messages(input_data, body.get("instructions"))
-                self._schedule(messages, assistant_text, session_id=session_id)
+                self._schedule(
+                    scheduling_messages,
+                    assistant_text,
+                    session_id=session_id,
+                )
 
         return ContextProxyResult(
             status=resp.status_code,
@@ -220,10 +194,11 @@ class ContextProxy:
             body=resp.content,
         )
 
-    async def _accumulate_and_schedule(
+    async def _stream_and_schedule(
         self,
         chunks: AsyncGenerator[bytes, None],
         *,
+        sse_extract: Callable[[dict[str, Any]], list[str]],
         messages: list[dict[str, Any]],
         session_id: str | None,
         should_process: bool,
@@ -233,47 +208,18 @@ class ContextProxy:
         try:
             async for chunk in chunks:
                 if chunk_count == 0:
-                    logger.info("Response started (streaming)")
+                    logger.info("Streaming started")
                 if should_process:
-                    _accumulate_sse_bytes(chunk, assistant_parts)
+                    _accumulate_sse_text(chunk, assistant_parts, sse_extract)
                 chunk_count += 1
                 yield chunk
         except Exception:
             logger.error("Streaming error", exc_info=True)
-        logger.info("Response finished (streaming): chunks=%d", chunk_count)
+        logger.info("Streaming finished: chunks=%d", chunk_count)
 
         if should_process:
             assistant_text = "".join(assistant_parts)
             if assistant_text:
-                self._schedule(messages, assistant_text, session_id=session_id)
-
-    async def _accumulate_response_and_schedule(
-        self,
-        chunks: AsyncGenerator[bytes, None],
-        *,
-        input_data: str | list[dict[str, Any]],
-        instructions: str | None,
-        session_id: str | None,
-        should_process: bool,
-    ) -> AsyncGenerator[bytes, None]:
-        assistant_parts: list[str] = []
-        chunk_count = 0
-        try:
-            async for chunk in chunks:
-                if chunk_count == 0:
-                    logger.info("Response API started (streaming)")
-                if should_process:
-                    _accumulate_response_sse_bytes(chunk, assistant_parts)
-                chunk_count += 1
-                yield chunk
-        except Exception:
-            logger.error("Response API streaming error", exc_info=True)
-        logger.info("Response API finished (streaming): chunks=%d", chunk_count)
-
-        if should_process:
-            assistant_text = "".join(assistant_parts)
-            if assistant_text:
-                messages = _input_to_messages(input_data, instructions)
                 self._schedule(messages, assistant_text, session_id=session_id)
 
     def _schedule(
@@ -329,6 +275,12 @@ def _should_enrich(max_tokens: int | None) -> bool:
     if max_tokens is None:
         return True
     return max_tokens >= _MIN_MAX_TOKENS_FOR_ENRICHMENT
+
+
+def _body_to_messages(body: dict[str, Any]) -> list[dict[str, Any]]:
+    if "messages" in body:
+        return body["messages"]
+    return _input_to_messages(body.get("input", ""), body.get("instructions"))
 
 
 def _extract_assistant_text(data: dict[str, Any]) -> str:
@@ -391,39 +343,37 @@ def _input_to_messages(
     return messages
 
 
-def _accumulate_sse_bytes(raw: bytes, parts: list[str]) -> None:
+def _accumulate_sse_text(
+    raw: bytes,
+    parts: list[str],
+    extract: Callable[[dict[str, Any]], list[str]],
+) -> None:
     for line in raw.split(b"\n"):
         stripped = line.strip()
         if not stripped.startswith(b"data: "):
             continue
-        data = stripped[6:]
-        if data == b"[DONE]":
+        payload = stripped[6:]
+        if payload == b"[DONE]":
             continue
         try:
-            parsed: dict[str, Any] = json.loads(data)
+            parsed: dict[str, Any] = json.loads(payload)
         except Exception:
             continue
-        choices = parsed.get("choices") or []
-        for choice in choices:
-            delta = choice.get("delta") or {}
-            content = delta.get("content")
-            if isinstance(content, str):
-                parts.append(content)
+        parts.extend(extract(parsed))
 
 
-def _accumulate_response_sse_bytes(raw: bytes, parts: list[str]) -> None:
-    for line in raw.split(b"\n"):
-        stripped = line.strip()
-        if not stripped.startswith(b"data: "):
-            continue
-        data = stripped[6:]
-        if data == b"[DONE]":
-            continue
-        try:
-            parsed: dict[str, Any] = json.loads(data)
-        except Exception:
-            continue
-        if parsed.get("type") == "response.output_text.delta":
-            delta = parsed.get("delta")
-            if isinstance(delta, str):
-                parts.append(delta)
+def _completion_sse_deltas(parsed: dict[str, Any]) -> list[str]:
+    deltas: list[str] = []
+    for choice in parsed.get("choices") or []:
+        content = (choice.get("delta") or {}).get("content")
+        if isinstance(content, str):
+            deltas.append(content)
+    return deltas
+
+
+def _response_sse_deltas(parsed: dict[str, Any]) -> list[str]:
+    if parsed.get("type") == "response.output_text.delta":
+        delta = parsed.get("delta")
+        if isinstance(delta, str):
+            return [delta]
+    return []

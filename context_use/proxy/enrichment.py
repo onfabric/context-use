@@ -114,6 +114,21 @@ async def enrich_messages(
     return inject_context(messages, context)
 
 
+async def enrich_completion_body(
+    body: dict[str, Any],
+    ctx: ContextUse,
+    *,
+    top_k: int = 5,
+) -> dict[str, Any]:
+    messages = body.get("messages")
+    if messages is None:
+        return body
+    enriched = await enrich_messages(messages, ctx, top_k=top_k)
+    if enriched is messages:
+        return body
+    return {**body, "messages": enriched}
+
+
 async def enrich_response_body(
     body: dict[str, Any],
     ctx: ContextUse,
