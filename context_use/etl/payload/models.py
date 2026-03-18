@@ -148,6 +148,19 @@ class FibrePost(Note, _BaseFibreMixin):
     attributedTo: Profile | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
 
+class FibreAd(Object, _BaseFibreMixin):
+    fibreKind: Literal["Ad"] = Field("Ad", alias="fibre_kind")
+    attributedTo: Profile | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        parts = ["ad"]
+        if self.name:
+            parts.append(str(self.name))
+        if self.attributedTo and self.attributedTo.name:
+            parts.append(f"by {self.attributedTo.name}")
+        return " ".join(parts)
+
+
 class FibreCollectionFavourites(FibreCollection):
     """Favourites collection — nested-only, not in FibreByType."""
 
@@ -274,6 +287,17 @@ class FibreViewObject(View, _BaseFibreMixin):
             else:
                 parts.append(f"on {provider}")
         return " ".join(parts)
+
+
+class FibreViewAdObject(FibreViewObject):
+    fibreKind: Literal["ViewAd"] = Field("ViewAd", alias="fibre_kind")  # type: ignore[reportIncompatibleVariableOverride]
+    object: FibreAd  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        parts = f"Viewed {self.object.get_preview(provider)}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
 
 
 class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
@@ -408,7 +432,8 @@ FibreReactionByType = Annotated[
 ]
 
 FibreByType = Annotated[
-    FibreViewObject
+    FibreViewAdObject
+    | FibreViewObject
     | FibreCreateObject
     | FibreAddObjectToCollection
     | FibreSearch
@@ -435,10 +460,12 @@ FibreCollection.model_rebuild()
 FibrePost.model_rebuild()
 FibreCollectionFavourites.model_rebuild()
 FibreReaction.model_rebuild()
+FibreAd.model_rebuild()
 FibreCreateObject.model_rebuild()
 FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
 FibreViewObject.model_rebuild()
+FibreViewAdObject.model_rebuild()
 FibreLike.model_rebuild()
 FibreDislike.model_rebuild()
 FibreComment.model_rebuild()

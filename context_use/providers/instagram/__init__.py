@@ -1,4 +1,5 @@
 from context_use.providers.instagram import (
+    ads_viewed,
     comments,
     connections,
     direct_messages,
@@ -15,6 +16,7 @@ from context_use.providers.registry import register_provider
 register_provider(
     PROVIDER,
     modules=[
+        ads_viewed,
         comments,
         connections,
         direct_messages,
