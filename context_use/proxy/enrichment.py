@@ -36,8 +36,7 @@ def extract_last_user_query(
             texts = [
                 part["text"]
                 for part in content
-                if isinstance(part, dict)
-                and part.get("type") in _TEXT_CONTENT_TYPES
+                if isinstance(part, dict) and part.get("type") in _TEXT_CONTENT_TYPES
             ]
             return " ".join(texts) if texts else None
     return None
@@ -140,7 +139,5 @@ async def _enrich_responses(
     instructions = body.get("instructions")
     return {
         **body,
-        "instructions": (
-            f"{instructions}\n\n{context}" if instructions else context
-        ),
+        "instructions": (f"{instructions}\n\n{context}" if instructions else context),
     }
