@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from httpx import AsyncClient
+from httpx import AsyncClient, Timeout
 
 from context_use.proxy.enrichment import enrich_messages, enrich_response_body
 
@@ -18,6 +18,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _MIN_MAX_TOKENS_FOR_ENRICHMENT = 50
+
+_UPSTREAM_TIMEOUT = Timeout(None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,7 +120,7 @@ class ContextProxy:
                 ),
             )
 
-        async with AsyncClient() as client:
+        async with AsyncClient(timeout=_UPSTREAM_TIMEOUT) as client:
             resp = await client.post(url, headers=headers, content=enriched_body)
 
         logger.info(
@@ -191,7 +193,7 @@ class ContextProxy:
                 ),
             )
 
-        async with AsyncClient() as client:
+        async with AsyncClient(timeout=_UPSTREAM_TIMEOUT) as client:
             resp = await client.post(url, headers=headers, content=enriched_body)
 
         logger.info(
@@ -290,7 +292,7 @@ async def _forward_request(
     upstream_url: str,
 ) -> ContextProxyResult:
     url = upstream_url.rstrip("/") + path
-    async with AsyncClient() as client:
+    async with AsyncClient(timeout=_UPSTREAM_TIMEOUT) as client:
         resp = await client.request(
             method=method, url=url, headers=headers, content=body
         )
@@ -307,7 +309,7 @@ async def _start_upstream_stream(
     body: bytes,
 ) -> tuple[int, list[tuple[bytes, bytes]], AsyncGenerator[bytes, None]]:
     stack = contextlib.AsyncExitStack()
-    client = await stack.enter_async_context(AsyncClient())
+    client = await stack.enter_async_context(AsyncClient(timeout=_UPSTREAM_TIMEOUT))
     response = await stack.enter_async_context(
         client.stream("POST", url, headers=headers, content=body)
     )
