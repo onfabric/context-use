@@ -36,7 +36,7 @@ async def _run_agent(
         user_id="agent",
         session_id=session_id,
     )
-    logger.info("Personal agent started (session=%s)", session_id)
+    logger.debug("Personal agent started (session=%s)", session_id)
 
     final_text = ""
     async for event in runner.run_async(
@@ -54,7 +54,7 @@ async def _run_agent(
                 )
             break
 
-    logger.info("Personal agent complete (session=%s)", session_id)
+    logger.debug("Personal agent complete (session=%s)", session_id)
     return final_text
 
 

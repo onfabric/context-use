@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import os
 import shutil
 import socket
@@ -21,6 +20,7 @@ from context_use.ext.adk.agent.runner import AdkAgentBackend
 from context_use.proxy.app import create_proxy_app
 from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
+from context_use.proxy.log import setup_proxy_logging
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
@@ -126,8 +126,7 @@ class ProxyCommand(BaseCommand):
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        logging.getLogger("context_use").setLevel(logging.INFO)
-        logging.getLogger("context_use").addHandler(logging.StreamHandler())
+        setup_proxy_logging()
 
         app = create_proxy_app(
             handler,
@@ -140,6 +139,7 @@ class ProxyCommand(BaseCommand):
             host=args.host,
             port=args.port,
             log_level="info",
+            access_log=False,
         )
         server = uvicorn.Server(config)
         await server.serve()
