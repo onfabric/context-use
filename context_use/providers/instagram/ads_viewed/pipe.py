@@ -17,16 +17,21 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.ads_viewed.record import (
     InstagramAdsViewedRecord,
 )
-from context_use.providers.instagram.schemas import (
-    PROVIDER,
-    InstagramLabelValue,
-    InstagramV1ActivityItem,
-    InstagramV1OwnerEntry,
-    extract_owner_username,
-)
+from context_use.providers.instagram.ads_viewed.schemas import LabelValue, Model
+from context_use.providers.instagram.schemas import PROVIDER, _fix_strings_recursive
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
+
+
+def _extract_owner_username(lv: LabelValue) -> str | None:
+    if lv.dict_ is None:
+        return None
+    for group in lv.dict_:
+        for entry in group.dict_:
+            if entry.label == "Username":
+                return entry.value
+    return None
 
 
 class InstagramAdsViewedPipe(Pipe[InstagramAdsViewedRecord]):
@@ -44,22 +49,21 @@ class InstagramAdsViewedPipe(Pipe[InstagramAdsViewedRecord]):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                item = InstagramV1ActivityItem.model_validate(raw)
+                item = Model.model_validate(_fix_strings_recursive(raw))
                 ad_url: str | None = None
                 author: str | None = None
 
                 for lv in item.label_values:
-                    if isinstance(lv, InstagramLabelValue):
-                        if lv.label == "URL":
-                            ad_url = lv.value
-                    elif isinstance(lv, InstagramV1OwnerEntry) and lv.title == "Owner":
-                        author = extract_owner_username(lv)
+                    if lv.label == "URL":
+                        ad_url = lv.value
+                    elif lv.dict_ is not None and lv.title == "Owner":
+                        author = _extract_owner_username(lv)
 
                 yield InstagramAdsViewedRecord(
                     author=author,
                     ad_url=ad_url,
                     timestamp=item.timestamp,
-                    source=item.model_dump_json(),
+                    source=item.model_dump_json(by_alias=True),
                 )
         finally:
             stream.close()
