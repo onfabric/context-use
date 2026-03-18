@@ -43,8 +43,8 @@ class ProxyCommand(BaseCommand):
         "from your local memory store. The proxy forwards each request to "
         "either a fixed upstream URL from --upstream-url or the client's Host "
         "header, while memories are generated using your OpenAI key. "
-        "Only POST /v1/chat/completions requests are enriched; all other "
-        "paths are forwarded transparently without modification."
+        "POST /v1/chat/completions and POST /v1/responses are enriched; "
+        "all other paths are forwarded transparently without modification."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -99,10 +99,7 @@ class ProxyCommand(BaseCommand):
         print()
         out.header("context-use proxy")
         out.kv("Memories loaded", f"{count:,}")
-        out.kv("Endpoint", f"http://localhost:{args.port}/v1/chat/completions")
-        out.kv(
-            "Enriched route", "POST /v1/chat/completions (all other paths pass through)"
-        )
+        out.kv("Endpoint", f"http://localhost:{args.port}/v1")
         out.kv("Upstream URL", args.upstream_url or "request Host header")
         out.kv("Default session ID", default_session_id)
         print()
@@ -193,14 +190,11 @@ class ProxyCommand(BaseCommand):
         print()
         if args.upstream_url:
             out.success(
-                "Proxy started - "
-                "http://localhost:"
-                f"{args.port}/v1/chat/completions -> {args.upstream_url}"
+                f"Proxy started - http://localhost:{args.port}/v1"
+                f" -> {args.upstream_url}"
             )
         else:
-            out.success(
-                f"Proxy started - http://localhost:{args.port}/v1/chat/completions"
-            )
+            out.success(f"Proxy started - http://localhost:{args.port}/v1")
         print()
 
     def _stop(self) -> None:
