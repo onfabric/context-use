@@ -44,6 +44,7 @@ def create_proxy_app(
     handler: ContextProxy,
     *,
     upstream_url: str | None = None,
+    session_id: str | None = None,
 ) -> ASGIApp:
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -61,7 +62,7 @@ def create_proxy_app(
             )
             return
 
-        session_id = headers_dict.get(SESSION_ID_HEADER)
+        resolved_session_id = headers_dict.get(SESSION_ID_HEADER) or session_id
 
         # Hop-by-hop headers and the session-id header are connection-scoped or internal
         # and are not meant for the upstream provider.
@@ -81,7 +82,7 @@ def create_proxy_app(
                 forward_headers,
                 raw,
                 upstream_url=resolved_upstream_url,
-                session_id=session_id,
+                session_id=resolved_session_id,
             )
         except ValueError as exc:
             await _send_json(send, 400, _error_body(str(exc), "invalid_request_error"))

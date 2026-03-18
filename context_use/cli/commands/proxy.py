@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -88,6 +89,7 @@ class ProxyCommand(BaseCommand):
             self._start_background(args)
             return
 
+        default_session_id = str(uuid.uuid4())
         ctx = build_ctx(cfg, llm_mode="sync")
         await ctx.init()
 
@@ -101,6 +103,7 @@ class ProxyCommand(BaseCommand):
             "Enriched route", "POST /v1/chat/completions (all other paths pass through)"
         )
         out.kv("Upstream URL", args.upstream_url or "request Host header")
+        out.kv("Default session ID", default_session_id)
         print()
         out.info("Point your client at this proxy:")
         out.info("")
@@ -125,7 +128,11 @@ class ProxyCommand(BaseCommand):
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        app = create_proxy_app(handler, upstream_url=args.upstream_url)
+        app = create_proxy_app(
+            handler,
+            upstream_url=args.upstream_url,
+            session_id=default_session_id,
+        )
         config = uvicorn.Config(
             app,
             host=args.host,
