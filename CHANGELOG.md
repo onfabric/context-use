@@ -1,3 +1,17 @@
+## [0.9.0] - 2026-03-18
+
+### 🚀 Features
+
+- Add /v1/responses API proxy support alongside /v1/chat/completions (#228)
+
+### 🐛 Bug Fixes
+
+- Proxy rich logging (#231)
+
+### ⚙️ Miscellaneous Tasks
+
+- Skip release commits in changelog (#232)
+
 ## [0.8.0] - 2026-03-18
 
 ### 🚀 Features
