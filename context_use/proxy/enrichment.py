@@ -69,19 +69,9 @@ async def enrich_body(
     *,
     top_k: int = 5,
 ) -> dict[str, Any]:
-    if "messages" in body:
-        return await _enrich_completions(body, ctx, top_k=top_k)
-    return await _enrich_responses(body, ctx, top_k=top_k)
-
-
-async def _search_memories(
-    query: str | None,
-    ctx: ContextUse,
-    *,
-    top_k: int,
-) -> list[MemorySearchResult] | None:
+    query_source, query = _extract_query(body)
     if query is None:
-        return None
+        return body
 
     try:
         results = await ctx.search_memories(query=query, top_k=top_k)
@@ -89,11 +79,11 @@ async def _search_memories(
         logger.warning(
             "Memory search failed, forwarding without enrichment", exc_info=True
         )
-        return None
+        return body
 
     if not results:
         logger.debug("No memories found for query")
-        return None
+        return body
 
     previews = ", ".join(
         f"{r.id} ({r.content[:40]}…)"
@@ -102,42 +92,22 @@ async def _search_memories(
         for r in results
     )
     logger.info("Enriching with %d memories: %s", len(results), previews)
-    return results
-
-
-async def _enrich_completions(
-    body: dict[str, Any],
-    ctx: ContextUse,
-    *,
-    top_k: int,
-) -> dict[str, Any]:
-    results = await _search_memories(
-        extract_last_user_query(body["messages"]), ctx, top_k=top_k
-    )
-    if results is None:
-        return body
     context = format_memory_context(results)
-    return {**body, "messages": inject_context(body["messages"], context)}
 
+    if query_source == "messages":
+        return {**body, "messages": inject_context(body["messages"], context)}
 
-async def _enrich_responses(
-    body: dict[str, Any],
-    ctx: ContextUse,
-    *,
-    top_k: int,
-) -> dict[str, Any]:
-    input_data = body.get("input")
-    if input_data is None:
-        return body
-
-    results = await _search_memories(
-        extract_last_user_query(input_data), ctx, top_k=top_k
-    )
-    if results is None:
-        return body
-    context = format_memory_context(results)
     instructions = body.get("instructions")
     return {
         **body,
         "instructions": (f"{instructions}\n\n{context}" if instructions else context),
     }
+
+
+def _extract_query(body: dict[str, Any]) -> tuple[str, str | None]:
+    if "messages" in body:
+        return "messages", extract_last_user_query(body["messages"])
+    input_data = body.get("input")
+    if input_data is None:
+        return "input", None
+    return "input", extract_last_user_query(input_data)
