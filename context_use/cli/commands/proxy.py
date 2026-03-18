@@ -16,7 +16,6 @@ import uvicorn
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, prompt_api_key
 from context_use.config import build_ctx, load_config
-from context_use.ext.adk.agent.runner import AdkAgentBackend
 from context_use.proxy.app import create_proxy_app
 from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
@@ -118,11 +117,7 @@ class ProxyCommand(BaseCommand):
             )
         print()
 
-        agent_backend = AdkAgentBackend(
-            api_key=cfg.openai_api_key,
-            model=cfg.openai_model,
-        )
-        processor = BackgroundMemoryProcessor(ctx, agent_backend)
+        processor = BackgroundMemoryProcessor(ctx)
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 

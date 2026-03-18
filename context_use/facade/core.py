@@ -7,8 +7,7 @@ import zipfile
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
-from context_use.agent.backend import AgentBackend, AgentResult
-from context_use.agent.tools import make_agent_tools
+from context_use.agent.runner import AgentResult, AgentRunner
 from context_use.batch.manager import (
     BatchContext,
     ScheduleInstruction,
@@ -64,6 +63,7 @@ class ContextUse:
         self._storage = storage
         self._store = store
         self._llm_client = llm_client
+        self._agent: AgentRunner | None = None
 
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
@@ -257,25 +257,16 @@ class ContextUse:
 
     def make_tools(self) -> list:
         """Return the full memory tool set as plain async functions."""
+        from context_use.agent.tools import make_agent_tools
+
         return make_agent_tools(self)
 
     # ── Personal agent ───────────────────────────────────────────────
 
-    async def run_agent(
-        self,
-        backend: AgentBackend,
-        message: str,
-    ) -> AgentResult:
-        """Run the personal agent with *message* as the user task.
-
-        The facade injects its internal store and LLM client so backends
-        only carry configuration::
-
-            from context_use.agent.skill import get_skill
-            backend = AdkAgentBackend(api_key=key, model=cfg.openai_model)
-            result = await ctx.run_agent(backend, get_skill("synthesise").prompt)
-        """
-        return await backend.run(self, message)
+    async def run_agent(self, message: str) -> AgentResult:
+        if self._agent is None:
+            self._agent = AgentRunner(self, self._llm_client)
+        return await self._agent.run(message)
 
     # ── Queries ──────────────────────────────────────────────────────
 
