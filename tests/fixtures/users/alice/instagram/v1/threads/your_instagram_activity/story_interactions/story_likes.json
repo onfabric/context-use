@@ -1,0 +1,104 @@
+[
+  {
+    "timestamp": 1771028852,
+    "media": [],
+    "label_values": [
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/stories/synthetic_photographer/3800000000000000001",
+        "href": "https://www.instagram.com/stories/synthetic_photographer/3800000000000000001"
+      },
+      {
+        "dict": [
+          {
+            "dict": [
+              {
+                "label": "URL",
+                "value": ""
+              },
+              {
+                "label": "Name",
+                "value": "Synthetic Photographer"
+              },
+              {
+                "label": "Username",
+                "value": "synthetic_photographer"
+              }
+            ],
+            "title": ""
+          }
+        ],
+        "title": "Owner"
+      }
+    ],
+    "fbid": "18000000000000001"
+  },
+  {
+    "timestamp": 1771115252,
+    "media": [],
+    "label_values": [
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/stories/synthetic_traveler/3800000000000000002",
+        "href": "https://www.instagram.com/stories/synthetic_traveler/3800000000000000002"
+      },
+      {
+        "dict": [
+          {
+            "dict": [
+              {
+                "label": "URL",
+                "value": ""
+              },
+              {
+                "label": "Name",
+                "value": "Synthetic Traveler"
+              },
+              {
+                "label": "Username",
+                "value": "synthetic_traveler"
+              }
+            ],
+            "title": ""
+          }
+        ],
+        "title": "Owner"
+      }
+    ],
+    "fbid": "18000000000000002"
+  },
+  {
+    "timestamp": 1771201652,
+    "media": [],
+    "label_values": [
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/stories/synthetic_artist/3800000000000000003",
+        "href": "https://www.instagram.com/stories/synthetic_artist/3800000000000000003"
+      },
+      {
+        "dict": [
+          {
+            "dict": [
+              {
+                "label": "URL",
+                "value": ""
+              },
+              {
+                "label": "Name",
+                "value": "Synthetic Artist"
+              },
+              {
+                "label": "Username",
+                "value": "synthetic_artist"
+              }
+            ],
+            "title": ""
+          }
+        ],
+        "title": "Owner"
+      }
+    ],
+    "fbid": "18000000000000003"
+  }
+]

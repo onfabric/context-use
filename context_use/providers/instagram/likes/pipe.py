@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
@@ -18,13 +19,16 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.instagram.likes.record import InstagramLikedPostRecord
 from context_use.providers.instagram.likes.schemas import (
     InstagramLikedPostsV0Manifest,
-    InstagramStoryLikesV0Manifest,
+)
+from context_use.providers.instagram.likes.story_likes_schemas import (
+    Model as StoryLikesV0Manifest,
 )
 from context_use.providers.instagram.schemas import (
     PROVIDER,
     InstagramLabelValue,
     InstagramV1ActivityItem,
     InstagramV1OwnerEntry,
+    _fix_strings_recursive,
     extract_owner_username,
 )
 from context_use.providers.registry import declare_interaction
@@ -119,12 +123,13 @@ class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramLikedPostRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramStoryLikesV0Manifest.model_validate_json(raw)
+        fixed = _fix_strings_recursive(json.loads(raw))
+        manifest = StoryLikesV0Manifest.model_validate(fixed)
         for item in manifest.story_activities_story_likes:
             for entry in item.string_list_data:
                 yield InstagramLikedPostRecord(
                     title=item.title,
-                    href=entry.href,
+                    href=None,
                     timestamp=entry.timestamp,
                     source=item.model_dump_json(),
                 )
@@ -173,5 +178,23 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
             stream.close()
 
 
+class InstagramStoryLikesPipe(_InstagramLikePipe):
+    interaction_type = "instagram_story_likes"
+    archive_version = 1
+    archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramLikedPostRecord]:
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                yield _extract_like_item(InstagramV1ActivityItem.model_validate(raw))
+        finally:
+            stream.close()
+
+
 declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
+declare_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))

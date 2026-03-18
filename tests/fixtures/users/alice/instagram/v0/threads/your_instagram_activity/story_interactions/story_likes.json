@@ -7,7 +7,22 @@
           "timestamp": 1771028852
         }
       ]
+    },
+    {
+      "title": "synthetic_traveler",
+      "string_list_data": [
+        {
+          "timestamp": 1771115252
+        }
+      ]
+    },
+    {
+      "title": "synthetic_artist",
+      "string_list_data": [
+        {
+          "timestamp": 1771201652
+        }
+      ]
     }
   ]
 }
-

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "story_activities_story_likes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "string_list_data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "timestamp": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "timestamp"
+              ]
+            }
+          }
+        },
+        "required": [
+          "title",
+          "string_list_data"
+        ]
+      }
+    }
+  },
+  "required": [
+    "story_activities_story_likes"
+  ]
+}
