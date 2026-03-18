@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import logging
 import os
 import shutil
 import socket
@@ -129,8 +128,9 @@ class ProxyCommand(BaseCommand):
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
 
-        logging.getLogger("context_use").setLevel(logging.INFO)
-        logging.getLogger("context_use").addHandler(logging.StreamHandler())
+        from context_use.proxy.log import setup_proxy_logging
+
+        setup_proxy_logging()
 
         app = create_proxy_app(
             handler,

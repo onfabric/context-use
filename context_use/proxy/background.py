@@ -72,7 +72,7 @@ class BackgroundMemoryProcessor:
             return []
 
         await self._ctx.insert_threads(rows)
-        logger.info("Threads created: n=%d session=%s", len(rows), session_id or "-")
+        logger.debug("Threads created: n=%d session=%s", len(rows), session_id or "-")
 
         return [
             Thread(
@@ -88,16 +88,12 @@ class BackgroundMemoryProcessor:
         ]
 
     async def _run_agent(self, threads: list[Thread]) -> None:
+        from context_use.proxy.log import log_generation_done, log_processing
+
         transcript = format_transcript(threads)
         skill = make_process_thread_skill(transcript)
-        logger.info("Memory generation started: threads=%d", len(threads))
+        log_processing(len(threads))
         count_before = await self._ctx.count_memories()
         result = await self._ctx.run_agent(self._backend, skill.prompt)
         count_after = await self._ctx.count_memories()
-        new_count = count_after - count_before
-        logger.info(
-            "Memory generation finished: %+d memories (total %d), %s",
-            new_count,
-            count_after,
-            result.summary,
-        )
+        log_generation_done(count_after - count_before, count_after, result.summary)

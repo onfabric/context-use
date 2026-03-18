@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import logging
 from datetime import date
 from typing import Annotated
 
 from pydantic import Field
 
 from context_use.agent.protocol import MemoryOperations
-
-logger = logging.getLogger(__name__)
 
 
 def make_agent_tools(ops: MemoryOperations) -> list:
@@ -179,7 +176,9 @@ def make_agent_tools(ops: MemoryOperations) -> list:
             )
         except ValueError as exc:
             return {"error": str(exc)}
-        logger.info("Updated memory %s", memory_id)
+        from context_use.proxy.log import log_tool_action
+
+        log_tool_action("Updated", memory_id)
         return {"updated": memory_id}
 
     async def create_memory(
@@ -220,7 +219,9 @@ def make_agent_tools(ops: MemoryOperations) -> list:
             to_date=date.fromisoformat(to_date),
             source_memory_ids=source_memory_ids,
         )
-        logger.info("Created memory %s (sources=%s)", created.id, source_memory_ids)
+        from context_use.proxy.log import log_tool_action
+
+        log_tool_action("Created", created.id)
         return {"created_id": created.id}
 
     async def archive_memories(
@@ -248,9 +249,10 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         """
         archived = await ops.archive_memories(memory_ids, superseded_by=superseded_by)
         not_found = [mid for mid in memory_ids if mid not in set(archived)]
-        logger.info(
-            "Archived %d memories (superseded_by=%s)", len(archived), superseded_by
-        )
+
+        from context_use.proxy.log import log_tool_action
+
+        log_tool_action("Archived", count=len(archived))
         result: dict = {"archived": archived}
         if not_found:
             result["not_found"] = not_found

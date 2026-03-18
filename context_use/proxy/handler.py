@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 from httpx import AsyncClient
 
 from context_use.proxy.enrichment import enrich_messages
+from context_use.proxy.log import log_request, log_response
 
 if TYPE_CHECKING:
     from context_use.facade.core import ContextUse
@@ -83,12 +84,12 @@ class ContextProxy:
         max_tokens = body.get("max_tokens")
         should_process = _should_enrich(max_tokens)
 
-        logger.info(
-            "Request received: model=%s messages=%d session=%s stream=%s",
-            body.get("model"),
-            len(messages),
-            session_id or "-",
-            stream,
+        log_request(
+            "POST",
+            "/v1/chat/completions",
+            model=body.get("model"),
+            session_id=session_id,
+            stream=stream,
         )
 
         if should_process:
@@ -111,6 +112,7 @@ class ContextProxy:
                 headers=resp_headers,
                 chunks=self._accumulate_and_schedule(
                     chunks,
+                    status=status,
                     messages=messages,
                     session_id=session_id,
                     should_process=should_process,
@@ -120,9 +122,7 @@ class ContextProxy:
         async with AsyncClient() as client:
             resp = await client.post(url, headers=headers, content=enriched_body)
 
-        logger.info(
-            "Response finished: model=%s status=%d", body.get("model"), resp.status_code
-        )
+        log_response(resp.status_code)
 
         if should_process:
             try:
@@ -142,6 +142,7 @@ class ContextProxy:
         self,
         chunks: AsyncGenerator[bytes, None],
         *,
+        status: int,
         messages: list[dict[str, Any]],
         session_id: str | None,
         should_process: bool,
@@ -150,15 +151,13 @@ class ContextProxy:
         chunk_count = 0
         try:
             async for chunk in chunks:
-                if chunk_count == 0:
-                    logger.info("Response started (streaming)")
                 if should_process:
                     _accumulate_sse_bytes(chunk, assistant_parts)
                 chunk_count += 1
                 yield chunk
         except Exception:
             logger.error("Streaming error", exc_info=True)
-        logger.info("Response finished (streaming): chunks=%d", chunk_count)
+        log_response(status, chunks=chunk_count)
 
         if should_process:
             assistant_text = "".join(assistant_parts)
