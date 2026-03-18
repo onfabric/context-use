@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import contextlib
 import json
 import logging
 from collections.abc import AsyncGenerator
@@ -44,6 +43,10 @@ class ContextProxy:
     ) -> None:
         self._ctx = ctx
         self._processor = processor
+        self._client = AsyncClient(timeout=_UPSTREAM_TIMEOUT)
+
+    async def aclose(self) -> None:
+        await self._client.aclose()
 
     async def handle(
         self,
@@ -61,7 +64,9 @@ class ContextProxy:
         }
         handler = routes.get((method.upper(), path))
         if handler is None:
-            return await _forward_request(method, path, headers, body, upstream_url)
+            return await _forward_request(
+                self._client, method, path, headers, body, upstream_url
+            )
         try:
             parsed: dict[str, Any] = json.loads(body)
         except Exception:
@@ -107,7 +112,7 @@ class ContextProxy:
 
         if stream:
             status, resp_headers, chunks = await _start_upstream_stream(
-                url, headers, enriched_body
+                self._client, url, headers, enriched_body
             )
             return ContextProxyStreamResult(
                 status=status,
@@ -120,8 +125,7 @@ class ContextProxy:
                 ),
             )
 
-        async with AsyncClient(timeout=_UPSTREAM_TIMEOUT) as client:
-            resp = await client.post(url, headers=headers, content=enriched_body)
+        resp = await self._client.post(url, headers=headers, content=enriched_body)
 
         logger.info(
             "Response finished: model=%s status=%d", body.get("model"), resp.status_code
@@ -179,7 +183,7 @@ class ContextProxy:
 
         if stream:
             status, resp_headers, chunks = await _start_upstream_stream(
-                url, headers, enriched_body
+                self._client, url, headers, enriched_body
             )
             return ContextProxyStreamResult(
                 status=status,
@@ -193,8 +197,7 @@ class ContextProxy:
                 ),
             )
 
-        async with AsyncClient(timeout=_UPSTREAM_TIMEOUT) as client:
-            resp = await client.post(url, headers=headers, content=enriched_body)
+        resp = await self._client.post(url, headers=headers, content=enriched_body)
 
         logger.info(
             "Response API finished: model=%s status=%d",
@@ -285,6 +288,7 @@ class ContextProxy:
 
 
 async def _forward_request(
+    client: AsyncClient,
     method: str,
     path: str,
     headers: list[tuple[bytes, bytes]],
@@ -292,10 +296,7 @@ async def _forward_request(
     upstream_url: str,
 ) -> ContextProxyResult:
     url = upstream_url.rstrip("/") + path
-    async with AsyncClient(timeout=_UPSTREAM_TIMEOUT) as client:
-        resp = await client.request(
-            method=method, url=url, headers=headers, content=body
-        )
+    resp = await client.request(method=method, url=url, headers=headers, content=body)
     return ContextProxyResult(
         status=resp.status_code,
         headers=list(resp.headers.raw),
@@ -304,14 +305,14 @@ async def _forward_request(
 
 
 async def _start_upstream_stream(
+    client: AsyncClient,
     url: str,
     headers: list[tuple[bytes, bytes]],
     body: bytes,
 ) -> tuple[int, list[tuple[bytes, bytes]], AsyncGenerator[bytes, None]]:
-    stack = contextlib.AsyncExitStack()
-    client = await stack.enter_async_context(AsyncClient(timeout=_UPSTREAM_TIMEOUT))
-    response = await stack.enter_async_context(
-        client.stream("POST", url, headers=headers, content=body)
+    response = await client.send(
+        client.build_request("POST", url, headers=headers, content=body),
+        stream=True,
     )
 
     async def _iter_body() -> AsyncGenerator[bytes, None]:
@@ -319,7 +320,7 @@ async def _start_upstream_stream(
             async for chunk in response.aiter_bytes():
                 yield chunk
         finally:
-            await stack.aclose()
+            await response.aclose()
 
     return response.status_code, list(response.headers.raw), _iter_body()
 

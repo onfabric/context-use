@@ -92,8 +92,7 @@ def _mock_http_response(
 def _setup_non_streaming_client(mock_cls: MagicMock, response: MagicMock) -> AsyncMock:
     mock_client = AsyncMock()
     mock_client.post = AsyncMock(return_value=response)
-    mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_cls.return_value = mock_client
     return mock_client
 
 
@@ -103,8 +102,6 @@ def _mock_streaming_response(
     chunks: list[bytes] | None = None,
 ) -> AsyncMock:
     resp = AsyncMock()
-    resp.__aenter__.return_value = resp
-    resp.__aexit__.return_value = None
     resp.status_code = status
     resp.headers.raw = headers or [(b"content-type", b"text/event-stream")]
     _chunks = chunks or []
@@ -114,9 +111,9 @@ def _mock_streaming_response(
 
 def _setup_streaming_client(mock_cls: MagicMock, response: AsyncMock) -> AsyncMock:
     mock_client = AsyncMock()
-    mock_client.stream = MagicMock(return_value=response)
-    mock_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-    mock_cls.return_value.__aexit__ = AsyncMock(return_value=None)
+    mock_client.build_request = MagicMock(return_value=MagicMock())
+    mock_client.send = AsyncMock(return_value=response)
+    mock_cls.return_value = mock_client
     return mock_client
 
 
@@ -331,8 +328,7 @@ class TestChatCompletion:
     async def test_propagates_upstream_exceptions(self, MockClient: MagicMock) -> None:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(side_effect=Exception("connection refused"))
-        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
+        MockClient.return_value = mock_client
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
         with pytest.raises(Exception, match="connection refused"):
@@ -383,8 +379,7 @@ class TestHandle:
         upstream_response = _mock_http_response(content=b'{"object":"list","data":[]}')
         mock_client = AsyncMock()
         mock_client.request = AsyncMock(return_value=upstream_response)
-        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
+        MockClient.return_value = mock_client
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
         result = await handler.handle(
@@ -408,8 +403,7 @@ class TestHandle:
         upstream_response = _mock_http_response(content=b"{}")
         mock_client = AsyncMock()
         mock_client.request = AsyncMock(return_value=upstream_response)
-        MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        MockClient.return_value.__aexit__ = AsyncMock(return_value=None)
+        MockClient.return_value = mock_client
         handler = ContextProxy(_mock_ctx(), _mock_processor())
 
         result = await handler.handle(
