@@ -12,30 +12,15 @@ logger = logging.getLogger(__name__)
 
 type Message = dict[str, Any]
 
+_TEXT_CONTENT_TYPES = ("text", "input_text")
+
 CONTEXT_PREAMBLE = (
     "The following are relevant memories about the user. "
     "Use them to personalise your response when appropriate."
 )
 
 
-def extract_last_user_message(messages: list[Message]) -> str | None:
-    for msg in reversed(messages):
-        if msg.get("role") != "user":
-            continue
-        content = msg.get("content")
-        if isinstance(content, str):
-            return content
-        if isinstance(content, list):
-            texts = [
-                part["text"]
-                for part in content
-                if isinstance(part, dict) and part.get("type") == "text"
-            ]
-            return " ".join(texts) if texts else None
-    return None
-
-
-def extract_last_user_text_from_input(
+def extract_last_user_query(
     input_data: str | list[dict[str, Any]],
 ) -> str | None:
     if isinstance(input_data, str):
@@ -51,7 +36,8 @@ def extract_last_user_text_from_input(
             texts = [
                 part["text"]
                 for part in content
-                if isinstance(part, dict) and part.get("type") in ("input_text", "text")
+                if isinstance(part, dict)
+                and part.get("type") in _TEXT_CONTENT_TYPES
             ]
             return " ".join(texts) if texts else None
     return None
@@ -78,24 +64,25 @@ def inject_context(messages: list[Message], context: str) -> list[Message]:
     return result
 
 
-def inject_context_into_instructions(
-    instructions: str | None,
-    context: str,
-) -> str:
-    if instructions:
-        return f"{instructions}\n\n{context}"
-    return context
-
-
-async def enrich_messages(
-    messages: list[Message],
+async def enrich_body(
+    body: dict[str, Any],
     ctx: ContextUse,
     *,
     top_k: int = 5,
-) -> list[Message]:
-    query = extract_last_user_message(messages)
+) -> dict[str, Any]:
+    if "messages" in body:
+        return await _enrich_completions(body, ctx, top_k=top_k)
+    return await _enrich_responses(body, ctx, top_k=top_k)
+
+
+async def _search_memories(
+    query: str | None,
+    ctx: ContextUse,
+    *,
+    top_k: int,
+) -> list[MemorySearchResult] | None:
     if query is None:
-        return messages
+        return None
 
     try:
         results = await ctx.search_memories(query=query, top_k=top_k)
@@ -103,11 +90,11 @@ async def enrich_messages(
         logger.warning(
             "Memory search failed, forwarding without enrichment", exc_info=True
         )
-        return messages
+        return None
 
     if not results:
         logger.debug("No memories found for query")
-        return messages
+        return None
 
     previews = ", ".join(
         f"{r.id} ({r.content[:40]}…)"
@@ -116,56 +103,44 @@ async def enrich_messages(
         for r in results
     )
     logger.info("Enriching with %d memories: %s", len(results), previews)
-    context = format_memory_context(results)
-    return inject_context(messages, context)
+    return results
 
 
-async def enrich_completion_body(
+async def _enrich_completions(
     body: dict[str, Any],
     ctx: ContextUse,
     *,
-    top_k: int = 5,
+    top_k: int,
 ) -> dict[str, Any]:
-    messages = body.get("messages")
-    if messages is None:
+    results = await _search_memories(
+        extract_last_user_query(body["messages"]), ctx, top_k=top_k
+    )
+    if results is None:
         return body
-    enriched = await enrich_messages(messages, ctx, top_k=top_k)
-    if enriched is messages:
-        return body
-    return {**body, "messages": enriched}
+    context = format_memory_context(results)
+    return {**body, "messages": inject_context(body["messages"], context)}
 
 
-async def enrich_response_body(
+async def _enrich_responses(
     body: dict[str, Any],
     ctx: ContextUse,
     *,
-    top_k: int = 5,
+    top_k: int,
 ) -> dict[str, Any]:
     input_data = body.get("input")
     if input_data is None:
         return body
 
-    query = extract_last_user_text_from_input(input_data)
-    if query is None:
+    results = await _search_memories(
+        extract_last_user_query(input_data), ctx, top_k=top_k
+    )
+    if results is None:
         return body
-
-    try:
-        results = await ctx.search_memories(query=query, top_k=top_k)
-    except Exception:
-        logger.warning(
-            "Memory search failed, forwarding without enrichment", exc_info=True
-        )
-        return body
-
-    if not results:
-        logger.debug("No memories found for query")
-        return body
-
-    logger.info("Enriching response request with %d memories", len(results))
     context = format_memory_context(results)
+    instructions = body.get("instructions")
     return {
         **body,
-        "instructions": inject_context_into_instructions(
-            body.get("instructions"), context
+        "instructions": (
+            f"{instructions}\n\n{context}" if instructions else context
         ),
     }

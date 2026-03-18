@@ -5,14 +5,10 @@ from unittest.mock import AsyncMock
 
 from context_use.proxy.enrichment import (
     CONTEXT_PREAMBLE,
-    enrich_completion_body,
-    enrich_messages,
-    enrich_response_body,
-    extract_last_user_message,
-    extract_last_user_text_from_input,
+    enrich_body,
+    extract_last_user_query,
     format_memory_context,
     inject_context,
-    inject_context_into_instructions,
 )
 from context_use.store.base import MemorySearchResult
 
@@ -32,15 +28,21 @@ def _make_result(
     )
 
 
-class TestExtractLastUserMessage:
-    def test_string_content(self) -> None:
+class TestExtractLastUserQuery:
+    def test_string_input(self) -> None:
+        assert extract_last_user_query("Hello") == "Hello"
+
+    def test_empty_string_returns_none(self) -> None:
+        assert extract_last_user_query("") is None
+
+    def test_messages_with_string_content(self) -> None:
         messages = [
             {"role": "system", "content": "Be helpful"},
             {"role": "user", "content": "What food do I like?"},
         ]
-        assert extract_last_user_message(messages) == "What food do I like?"
+        assert extract_last_user_query(messages) == "What food do I like?"
 
-    def test_list_content_with_text(self) -> None:
+    def test_list_content_with_text_type(self) -> None:
         messages = [
             {
                 "role": "user",
@@ -50,7 +52,16 @@ class TestExtractLastUserMessage:
                 ],
             },
         ]
-        assert extract_last_user_message(messages) == "Describe this image"
+        assert extract_last_user_query(messages) == "Describe this image"
+
+    def test_list_content_with_input_text_type(self) -> None:
+        items = [
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": "Describe this"}],
+            },
+        ]
+        assert extract_last_user_query(items) == "Describe this"
 
     def test_list_content_multiple_text_parts(self) -> None:
         messages = [
@@ -62,7 +73,7 @@ class TestExtractLastUserMessage:
                 ],
             },
         ]
-        assert extract_last_user_message(messages) == "Hello world"
+        assert extract_last_user_query(messages) == "Hello world"
 
     def test_list_content_no_text_parts(self) -> None:
         messages = [
@@ -73,17 +84,17 @@ class TestExtractLastUserMessage:
                 ],
             },
         ]
-        assert extract_last_user_message(messages) is None
+        assert extract_last_user_query(messages) is None
 
     def test_no_user_message(self) -> None:
         messages = [
             {"role": "system", "content": "Be helpful"},
             {"role": "assistant", "content": "Hi!"},
         ]
-        assert extract_last_user_message(messages) is None
+        assert extract_last_user_query(messages) is None
 
-    def test_empty_messages(self) -> None:
-        assert extract_last_user_message([]) is None
+    def test_empty_list(self) -> None:
+        assert extract_last_user_query([]) is None
 
     def test_picks_last_user_message(self) -> None:
         messages = [
@@ -91,7 +102,11 @@ class TestExtractLastUserMessage:
             {"role": "assistant", "content": "Answer"},
             {"role": "user", "content": "Follow up"},
         ]
-        assert extract_last_user_message(messages) == "Follow up"
+        assert extract_last_user_query(messages) == "Follow up"
+
+    def test_empty_string_content_returns_none(self) -> None:
+        items = [{"role": "user", "content": ""}]
+        assert extract_last_user_query(items) is None
 
 
 class TestFormatMemoryContext:
@@ -153,52 +168,8 @@ class TestInjectContext:
         assert messages[0]["content"] == "Original"
 
 
-class TestEnrichMessages:
-    async def test_enriches_with_results(self) -> None:
-        ctx = AsyncMock()
-        ctx.search_memories.return_value = [_make_result()]
-        messages = [{"role": "user", "content": "What food do I like?"}]
-
-        result = await enrich_messages(messages, ctx, top_k=3)
-
-        ctx.search_memories.assert_awaited_once_with(
-            query="What food do I like?", top_k=3
-        )
-        assert result[0]["role"] == "system"
-        assert "Likes pizza" in result[0]["content"]
-        assert result[1]["role"] == "user"
-
-    async def test_returns_original_when_no_user_message(self) -> None:
-        ctx = AsyncMock()
-        messages = [{"role": "system", "content": "Hi"}]
-
-        result = await enrich_messages(messages, ctx)
-
-        ctx.search_memories.assert_not_awaited()
-        assert result is messages
-
-    async def test_returns_original_when_no_results(self) -> None:
-        ctx = AsyncMock()
-        ctx.search_memories.return_value = []
-        messages = [{"role": "user", "content": "Hello"}]
-
-        result = await enrich_messages(messages, ctx)
-
-        assert len(result) == 1
-        assert result[0]["role"] == "user"
-
-    async def test_returns_original_on_search_error(self) -> None:
-        ctx = AsyncMock()
-        ctx.search_memories.side_effect = RuntimeError("DB error")
-        messages = [{"role": "user", "content": "Hello"}]
-
-        result = await enrich_messages(messages, ctx)
-
-        assert result is messages
-
-
-class TestEnrichCompletionBody:
-    async def test_enriches_messages_in_body(self) -> None:
+class TestEnrichBody:
+    async def test_enriches_completions_body(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {
@@ -206,143 +177,27 @@ class TestEnrichCompletionBody:
             "messages": [{"role": "user", "content": "What food do I like?"}],
         }
 
-        result = await enrich_completion_body(body, ctx)
+        result = await enrich_body(body, ctx, top_k=3)
 
+        ctx.search_memories.assert_awaited_once_with(
+            query="What food do I like?", top_k=3
+        )
         assert result is not body
         assert "Likes pizza" in str(result["messages"][0].get("content", ""))
 
-    async def test_returns_original_when_no_messages(self) -> None:
-        ctx = AsyncMock()
-        body = {"model": "gpt-4o"}
-
-        result = await enrich_completion_body(body, ctx)
-
-        assert result is body
-
-    async def test_returns_original_when_no_results(self) -> None:
-        ctx = AsyncMock()
-        ctx.search_memories.return_value = []
-        body = {
-            "model": "gpt-4o",
-            "messages": [{"role": "user", "content": "Hello"}],
-        }
-
-        result = await enrich_completion_body(body, ctx)
-
-        assert result is body
-
-    async def test_does_not_mutate_original(self) -> None:
-        ctx = AsyncMock()
-        ctx.search_memories.return_value = [_make_result()]
-        messages = [{"role": "user", "content": "Hello"}]
-        body = {"model": "gpt-4o", "messages": messages}
-
-        await enrich_completion_body(body, ctx)
-
-        assert body["messages"] is messages
-
-
-class TestExtractLastUserTextFromInput:
-    def test_string_input(self) -> None:
-        assert extract_last_user_text_from_input("Hello") == "Hello"
-
-    def test_empty_string_returns_none(self) -> None:
-        assert extract_last_user_text_from_input("") is None
-
-    def test_array_with_string_content(self) -> None:
-        items = [{"role": "user", "content": "What food do I like?"}]
-        assert extract_last_user_text_from_input(items) == "What food do I like?"
-
-    def test_array_with_input_text_content(self) -> None:
-        items = [
-            {
-                "role": "user",
-                "content": [{"type": "input_text", "text": "Describe this"}],
-            },
-        ]
-        assert extract_last_user_text_from_input(items) == "Describe this"
-
-    def test_array_with_text_type_content(self) -> None:
-        items = [
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": "Hello there"}],
-            },
-        ]
-        assert extract_last_user_text_from_input(items) == "Hello there"
-
-    def test_picks_last_user_item(self) -> None:
-        items = [
-            {"role": "user", "content": "First"},
-            {"role": "assistant", "content": "Reply"},
-            {"role": "user", "content": "Second"},
-        ]
-        assert extract_last_user_text_from_input(items) == "Second"
-
-    def test_skips_non_user_roles(self) -> None:
-        items = [
-            {"role": "system", "content": "Be helpful"},
-            {"role": "developer", "content": "Instructions"},
-        ]
-        assert extract_last_user_text_from_input(items) is None
-
-    def test_empty_list_returns_none(self) -> None:
-        assert extract_last_user_text_from_input([]) is None
-
-    def test_multiple_text_parts(self) -> None:
-        items = [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "input_text", "text": "Hello"},
-                    {"type": "input_text", "text": "world"},
-                ],
-            },
-        ]
-        assert extract_last_user_text_from_input(items) == "Hello world"
-
-    def test_content_list_no_text_parts(self) -> None:
-        items = [
-            {
-                "role": "user",
-                "content": [{"type": "input_image", "image_url": "https://..."}],
-            },
-        ]
-        assert extract_last_user_text_from_input(items) is None
-
-    def test_empty_string_content_returns_none(self) -> None:
-        items = [{"role": "user", "content": ""}]
-        assert extract_last_user_text_from_input(items) is None
-
-
-class TestInjectContextIntoInstructions:
-    def test_appends_to_existing_instructions(self) -> None:
-        result = inject_context_into_instructions("Be helpful", "CONTEXT")
-        assert result == "Be helpful\n\nCONTEXT"
-
-    def test_returns_context_when_no_instructions(self) -> None:
-        result = inject_context_into_instructions(None, "CONTEXT")
-        assert result == "CONTEXT"
-
-    def test_returns_context_when_empty_instructions(self) -> None:
-        result = inject_context_into_instructions("", "CONTEXT")
-        assert result == "CONTEXT"
-
-
-class TestEnrichResponseBody:
-    async def test_enriches_with_string_input(self) -> None:
+    async def test_enriches_responses_body_string_input(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {"model": "gpt-4o", "input": "What food do I like?"}
 
-        result = await enrich_response_body(body, ctx, top_k=3)
+        result = await enrich_body(body, ctx, top_k=3)
 
         ctx.search_memories.assert_awaited_once_with(
             query="What food do I like?", top_k=3
         )
         assert "Likes pizza" in result["instructions"]
 
-    async def test_enriches_with_array_input(self) -> None:
+    async def test_enriches_responses_body_array_input(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {
@@ -350,7 +205,7 @@ class TestEnrichResponseBody:
             "input": [{"role": "user", "content": "What food do I like?"}],
         }
 
-        result = await enrich_response_body(body, ctx)
+        result = await enrich_body(body, ctx)
 
         assert "Likes pizza" in result["instructions"]
 
@@ -363,28 +218,26 @@ class TestEnrichResponseBody:
             "instructions": "Be helpful",
         }
 
-        result = await enrich_response_body(body, ctx)
+        result = await enrich_body(body, ctx)
 
         assert result["instructions"].startswith("Be helpful\n\n")
         assert "Likes pizza" in result["instructions"]
+
+    async def test_returns_original_when_no_user_message(self) -> None:
+        ctx = AsyncMock()
+        messages = [{"role": "system", "content": "Hi"}]
+        body = {"model": "gpt-4o", "messages": messages}
+
+        result = await enrich_body(body, ctx)
+
+        ctx.search_memories.assert_not_awaited()
+        assert result is body
 
     async def test_returns_original_when_no_input(self) -> None:
         ctx = AsyncMock()
         body = {"model": "gpt-4o"}
 
-        result = await enrich_response_body(body, ctx)
-
-        ctx.search_memories.assert_not_awaited()
-        assert result is body
-
-    async def test_returns_original_when_no_user_text(self) -> None:
-        ctx = AsyncMock()
-        body = {
-            "model": "gpt-4o",
-            "input": [{"role": "system", "content": "Setup"}],
-        }
-
-        result = await enrich_response_body(body, ctx)
+        result = await enrich_body(body, ctx)
 
         ctx.search_memories.assert_not_awaited()
         assert result is body
@@ -394,25 +247,38 @@ class TestEnrichResponseBody:
         ctx.search_memories.return_value = []
         body = {"model": "gpt-4o", "input": "Hello"}
 
-        result = await enrich_response_body(body, ctx)
+        result = await enrich_body(body, ctx)
 
-        assert "instructions" not in result
+        assert result is body
 
     async def test_returns_original_on_search_error(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.side_effect = RuntimeError("DB error")
-        body = {"model": "gpt-4o", "input": "Hello"}
+        body = {
+            "model": "gpt-4o",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
 
-        result = await enrich_response_body(body, ctx)
+        result = await enrich_body(body, ctx)
 
         assert result is body
 
-    async def test_does_not_mutate_original(self) -> None:
+    async def test_does_not_mutate_completions_body(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        messages = [{"role": "user", "content": "Hello"}]
+        body = {"model": "gpt-4o", "messages": messages}
+
+        await enrich_body(body, ctx)
+
+        assert body["messages"] is messages
+
+    async def test_does_not_mutate_responses_body(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {"model": "gpt-4o", "input": "Hello"}
 
-        result = await enrich_response_body(body, ctx)
+        result = await enrich_body(body, ctx)
 
         assert "instructions" not in body
         assert "instructions" in result

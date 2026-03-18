@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncGenerator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from httpx import AsyncClient, Timeout
 
-from context_use.proxy.enrichment import enrich_completion_body, enrich_response_body
+from context_use.proxy.enrichment import enrich_body
 
 if TYPE_CHECKING:
     from context_use.facade.core import ContextUse
@@ -92,7 +92,6 @@ class ContextProxy:
             session_id=session_id,
             path="/v1/chat/completions",
             max_tokens_key="max_tokens",
-            enrich=enrich_completion_body,
             extract_text=_extract_assistant_text,
             sse_extract=_completion_sse_deltas,
         )
@@ -114,7 +113,6 @@ class ContextProxy:
             session_id=session_id,
             path="/v1/responses",
             max_tokens_key="max_output_tokens",
-            enrich=enrich_response_body,
             extract_text=_extract_response_output_text,
             sse_extract=_response_sse_deltas,
         )
@@ -128,7 +126,6 @@ class ContextProxy:
         session_id: str | None,
         path: str,
         max_tokens_key: str,
-        enrich: Callable[[dict[str, Any], ContextUse], Awaitable[dict[str, Any]]],
         extract_text: Callable[[dict[str, Any]], str],
         sse_extract: Callable[[dict[str, Any]], list[str]],
     ) -> ContextProxyResult | ContextProxyStreamResult:
@@ -146,7 +143,7 @@ class ContextProxy:
         )
 
         if should_process:
-            body = await enrich(body, self._ctx)
+            body = await enrich_body(body, self._ctx)
         else:
             logger.debug("Skipping enrichment (%s=%s)", max_tokens_key, max_tokens)
 
