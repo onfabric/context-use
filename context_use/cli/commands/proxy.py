@@ -139,6 +139,7 @@ class ProxyCommand(BaseCommand):
             host=args.host,
             port=args.port,
             log_level="info",
+            access_log=False,
         )
         server = uvicorn.Server(config)
         await server.serve()

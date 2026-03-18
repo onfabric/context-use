@@ -36,6 +36,7 @@ def log_request(
         parts.append(f"[dim]session={_short_id(session_id)}[/dim]")
     if stream:
         parts.append("stream")
+    _console.print()
     _console.print("  ".join(parts), highlight=False)
 
 
