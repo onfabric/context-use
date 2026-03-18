@@ -49,6 +49,17 @@ def create_proxy_app(
         if scope["type"] != "http":
             return
 
+        client = scope.get("client")
+        client_addr = f"{client[0]}:{client[1]}" if client else "-"
+        http_version = scope.get("http_version", "1.1")
+        logger.debug(
+            '%s - "%s %s HTTP/%s"',
+            client_addr,
+            scope["method"],
+            scope["path"],
+            http_version,
+        )
+
         raw = await _read_body(receive)
         headers_dict = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
 

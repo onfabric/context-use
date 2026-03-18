@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import shutil
 import socket
@@ -124,6 +125,9 @@ class ProxyCommand(BaseCommand):
         processor = BackgroundMemoryProcessor(ctx, agent_backend)
         handler = ContextProxy(ctx, processor)
         out.kv("Memory processing", "enabled")
+
+        logging.getLogger("context_use").setLevel(logging.INFO)
+        logging.getLogger("context_use").addHandler(logging.StreamHandler())
 
         app = create_proxy_app(handler, upstream_url=args.upstream_url)
         config = uvicorn.Config(
