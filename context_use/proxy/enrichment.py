@@ -78,6 +78,12 @@ async def enrich_messages(
         logger.debug("No memories found for query")
         return messages
 
-    logger.info("Enriching request with %d memories", len(results))
+    previews = ", ".join(
+        f"{r.id} ({r.content[:40]}…)"
+        if len(r.content) > 40
+        else f"{r.id} ({r.content})"
+        for r in results
+    )
+    logger.info("Enriching with %d memories: %s", len(results), previews)
     context = format_memory_context(results)
     return inject_context(messages, context)

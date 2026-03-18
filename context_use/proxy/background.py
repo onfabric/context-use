@@ -91,5 +91,13 @@ class BackgroundMemoryProcessor:
         transcript = format_transcript(threads)
         skill = make_process_thread_skill(transcript)
         logger.info("Memory generation started: threads=%d", len(threads))
+        count_before = await self._ctx.count_memories()
         result = await self._ctx.run_agent(self._backend, skill.prompt)
-        logger.info("Memory generation finished: %s", result.summary)
+        count_after = await self._ctx.count_memories()
+        new_count = count_after - count_before
+        logger.info(
+            "Memory generation finished: %+d memories (total %d), %s",
+            new_count,
+            count_after,
+            result.summary,
+        )
