@@ -269,7 +269,7 @@ class ContextUse:
             self._agent = AgentRunner(self, self._llm_client)
         return await self._agent.run(message)
 
-    async def process_messages(
+    async def generate_memories_from_messages(
         self,
         messages: list[dict[str, Any]],
         *,

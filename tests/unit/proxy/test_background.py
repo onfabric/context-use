@@ -20,7 +20,7 @@ def _make_test_callback() -> tuple[MagicMock, MagicMock]:
         ctx: object, messages: list[dict[str, Any]], session_id: str | None
     ) -> None:
         async def _run() -> None:
-            await ctx.process_messages(messages, session_id=session_id)  # type: ignore[union-attr]
+            await ctx.generate_memories_from_messages(messages, session_id=session_id)  # type: ignore[union-attr]
             process_called()
 
         asyncio.create_task(_run())
@@ -55,7 +55,7 @@ class TestScheduleEndToEnd:
         )
 
         await asyncio.sleep(0.1)
-        ctx.process_messages.assert_not_awaited()
+        ctx.generate_memories_from_messages.assert_not_awaited()
 
     async def test_callback_receives_ctx_messages_and_session(self) -> None:
         ctx = _mock_ctx()

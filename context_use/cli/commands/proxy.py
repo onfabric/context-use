@@ -46,7 +46,9 @@ async def _post_response_process(
     try:
         log_processing_start()
         count_before = await ctx.count_memories()
-        result = await ctx.process_messages(messages, session_id=session_id)
+        result = await ctx.generate_memories_from_messages(
+            messages, session_id=session_id
+        )
         if result is None:
             return
         count_after = await ctx.count_memories()
