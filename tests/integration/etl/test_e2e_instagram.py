@@ -14,7 +14,7 @@ class TestE2EInstagram:
     async def test_full_flow(self, ctx: ContextUse, instagram_zip):
         result = await ctx.process_archive(instagram.PROVIDER, str(instagram_zip))
 
-        assert result.tasks_completed == 16
+        assert result.tasks_completed == 17
         assert result.tasks_failed == 0
         assert result.threads_created > 0
         assert len(result.errors) == 0
