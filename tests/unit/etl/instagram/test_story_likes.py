@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.story_likes.pipe import (
@@ -23,6 +24,36 @@ class TestInstagramStoryLikesV0Pipe(
     fixture_data = INSTAGRAM_STORY_LIKES_V0_JSON
     fixture_key = "archive/your_instagram_activity/story_interactions/story_likes.json"
     expected_fibre_kind = "Reaction"
+    snapshot_cases = [
+        (
+            {
+                "story_activities_story_likes": [
+                    {
+                        "title": "snapshot_user",
+                        "string_list_data": [{"timestamp": 1771028852}],
+                    }
+                ]
+            },
+            {
+                "unique_key": "45547f41730aba7c",
+                "preview": "Liked post by snapshot_user on instagram",
+                "asat": datetime(2026, 2, 14, 0, 27, 32, tzinfo=UTC),
+                "payload": {
+                    "type": "Like",
+                    "published": "2026-02-14T00:27:32Z",
+                    "object": {
+                        "type": "Note",
+                        "attributedTo": {
+                            "type": "Profile",
+                            "name": "snapshot_user",
+                        },
+                        "fibreKind": "Post",
+                    },
+                    "fibreKind": "Reaction",
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path) -> None:
         storage = DiskStorage(str(tmp_path / "store"))
@@ -72,6 +103,59 @@ class TestInstagramStoryLikesV1Pipe(
     fixture_data = INSTAGRAM_STORY_LIKES_V1_JSON
     fixture_key = "archive/your_instagram_activity/story_interactions/story_likes.json"
     expected_fibre_kind = "Reaction"
+    snapshot_cases = [
+        (
+            [
+                {
+                    "timestamp": 1771028852,
+                    "media": [],
+                    "label_values": [
+                        {
+                            "label": "URL",
+                            "value": "https://www.instagram.com/stories/snapshot_user/1234567890123456789",
+                            "href": "https://www.instagram.com/stories/snapshot_user/1234567890123456789",
+                        },
+                        {
+                            "dict": [
+                                {
+                                    "dict": [
+                                        {"label": "URL", "value": ""},
+                                        {"label": "Name", "value": "Snapshot User"},
+                                        {
+                                            "label": "Username",
+                                            "value": "snapshot_user",
+                                        },
+                                    ],
+                                    "title": "",
+                                }
+                            ],
+                            "title": "Owner",
+                        },
+                    ],
+                    "fbid": "18079916561048999",
+                }
+            ],
+            {
+                "unique_key": "750ef1e77f6a5361",
+                "preview": "Liked post by snapshot_user on instagram",
+                "asat": datetime(2026, 2, 14, 0, 27, 32, tzinfo=UTC),
+                "payload": {
+                    "type": "Like",
+                    "published": "2026-02-14T00:27:32Z",
+                    "object": {
+                        "type": "Note",
+                        "attributedTo": {
+                            "type": "Profile",
+                            "name": "snapshot_user",
+                        },
+                        "url": "https://www.instagram.com/stories/snapshot_user/1234567890123456789",
+                        "fibreKind": "Post",
+                    },
+                    "fibreKind": "Reaction",
+                },
+            },
+        ),
+    ]
 
     def test_non_array_produces_no_rows(self, tmp_path: Path) -> None:
         storage = DiskStorage(str(tmp_path / "store"))
