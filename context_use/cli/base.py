@@ -14,8 +14,8 @@ if TYPE_CHECKING:
     from context_use import ContextUse
     from context_use.batch.manager import ScheduleInstruction
     from context_use.batch.states import State
-    from context_use.config import Config
-    from context_use.facade.types import PipelineResult
+    from context_use.cli.config import Config, build_ctx, load_config, save_config
+    from context_use.types import PipelineResult
     from context_use.models.batch import Batch
 
 
@@ -187,8 +187,6 @@ def prompt_api_key(cfg: Config) -> Config:
 
     Calls ``sys.exit(1)`` if the user does not enter a key.
     """
-    from context_use.config import save_config
-
     out.warn("OpenAI API key not configured.")
     out.info("Get an API key at https://platform.openai.com/api-keys")
     print()
@@ -471,8 +469,6 @@ class ContextCommand(BaseCommand, ABC):
     llm_mode: ClassVar[str] = "batch"
 
     async def execute(self, args: argparse.Namespace) -> None:
-        from context_use.config import build_ctx, load_config
-
         cfg = load_config()
         cfg = self._prepare(cfg, args)
         try:

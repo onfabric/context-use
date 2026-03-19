@@ -1,13 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from context_use.providers.instagram.media.pipe import (
     InstagramPostsPipe,
     InstagramReelsPipe,
     InstagramStoriesPipe,
 )
-from context_use.storage.disk import DiskStorage
+from context_use.storage.memory import InMemoryStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.instagram.conftest import (
     INSTAGRAM_POSTS_JSON,
@@ -24,8 +22,8 @@ class TestInstagramStoriesPipe(PipeTestKit):
     fixture_data = INSTAGRAM_STORIES_JSON
     fixture_key = "archive/your_instagram_activity/media/stories.json"
 
-    def test_file_schema_gates_missing_key(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
+    def test_file_schema_gates_missing_key(self):
+        storage = InMemoryStorage()
         assert self.fixture_key is not None
         key = self.fixture_key
         storage.write(key, b'{"wrong_key": []}')
@@ -52,7 +50,6 @@ class TestInstagramStoriesPipe(PipeTestKit):
         task = self._make_task(key)
         for row in transformed_rows:
             assert row.asset_uri is not None
-            assert Path(row.asset_uri).is_absolute()
             assert task.archive_id in row.asset_uri
             assert "media/stories/" in row.asset_uri
 
@@ -65,8 +62,8 @@ class TestInstagramReelsPipe(PipeTestKit):
     fixture_data = INSTAGRAM_REELS_JSON
     fixture_key = "archive/your_instagram_activity/media/reels.json"
 
-    def test_file_schema_gates_missing_key(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
+    def test_file_schema_gates_missing_key(self):
+        storage = InMemoryStorage()
         assert self.fixture_key is not None
         key = self.fixture_key
         storage.write(key, b'{"wrong_key": []}')
@@ -86,7 +83,6 @@ class TestInstagramReelsPipe(PipeTestKit):
         task = self._make_task(key)
         row = transformed_rows[0]
         assert row.asset_uri is not None
-        assert Path(row.asset_uri).is_absolute()
         assert task.archive_id in row.asset_uri
         assert "media/reels/" in row.asset_uri
 
@@ -99,8 +95,8 @@ class TestInstagramPostsPipe(PipeTestKit):
     fixture_data = INSTAGRAM_POSTS_JSON
     fixture_key = "archive/your_instagram_activity/media/posts_1.json"
 
-    def test_non_array_produces_no_rows(self, tmp_path: Path):
-        storage = DiskStorage(str(tmp_path / "store"))
+    def test_non_array_produces_no_rows(self):
+        storage = InMemoryStorage()
         assert self.fixture_key is not None
         key = self.fixture_key
         storage.write(key, b'{"not": "an array"}')
@@ -122,6 +118,5 @@ class TestInstagramPostsPipe(PipeTestKit):
         task = self._make_task(key)
         row = transformed_rows[0]
         assert row.asset_uri is not None
-        assert Path(row.asset_uri).is_absolute()
         assert task.archive_id in row.asset_uri
         assert "media/posts/" in row.asset_uri

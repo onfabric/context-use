@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from context_use.config import load_config
+from context_use.cli.config import load_config
 
 
 class TestDataDirEnvVar:

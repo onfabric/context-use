@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
 from context_use.cli.base import ApiCommand, CommandGroup
-from context_use.config import Config
+from context_use.cli.config import Config
 
 if TYPE_CHECKING:
     from context_use import ContextUse

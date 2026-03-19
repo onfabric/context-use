@@ -12,7 +12,7 @@ from context_use.proxy.enrichment import enrich_body
 from context_use.proxy.log import log_request, log_response
 
 if TYPE_CHECKING:
-    from context_use.facade.core import ContextUse
+    from context_use.core import ContextUse
 
 logger = logging.getLogger(__name__)
 
