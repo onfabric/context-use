@@ -54,14 +54,11 @@ simply mount `create_proxy_app`:
 
 ```python
 from context_use import ContextUse, ContextProxy, create_proxy_app
-from context_use.proxy import BackgroundMemoryProcessor
 
 ctx = ContextUse(storage=..., store=..., llm_client=...)
 await ctx.init()
 
-processor = BackgroundMemoryProcessor(ctx, agent_backend)
-handler = ContextProxy(ctx, processor)
-
+handler = ContextProxy(ctx)
 asgi_app = create_proxy_app(handler)
 ```
 

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import logging
 import os
 import shutil
 import socket
@@ -9,6 +11,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 import uvicorn
@@ -17,12 +20,59 @@ from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, prompt_api_key
 from context_use.config import build_ctx, load_config
 from context_use.proxy.app import create_proxy_app
-from context_use.proxy.background import BackgroundMemoryProcessor
-from context_use.proxy.handler import ContextProxy
-from context_use.proxy.log import setup_proxy_logging
+from context_use.proxy.handler import ContextProxy, PostResponseCallback
+from context_use.proxy.log import (
+    log_generation_done,
+    log_processing_start,
+    setup_proxy_logging,
+)
+
+if TYPE_CHECKING:
+    from context_use.facade.core import ContextUse
+
+logger = logging.getLogger(__name__)
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
+
+_MAX_CONCURRENT_POST_RESPONSE_PROCESSING = 1
+
+
+async def _post_response_process(
+    ctx: ContextUse,
+    messages: list[dict[str, Any]],
+    session_id: str | None = None,
+) -> None:
+    try:
+        log_processing_start()
+        count_before = await ctx.count_memories()
+        result = await ctx.generate_memories_from_messages(
+            messages, session_id=session_id
+        )
+        if result is None:
+            return
+        count_after = await ctx.count_memories()
+        log_generation_done(count_after - count_before, count_after, result.summary)
+    except Exception:
+        logger.error("Background memory processing failed", exc_info=True)
+
+
+def make_asyncio_post_response_callback() -> PostResponseCallback:
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENT_POST_RESPONSE_PROCESSING)
+    tasks: set[asyncio.Task[None]] = set()
+
+    def callback(
+        ctx: ContextUse, messages: list[dict[str, Any]], session_id: str | None
+    ) -> None:
+        async def _guarded() -> None:
+            async with semaphore:
+                await _post_response_process(ctx, messages, session_id)
+
+        task = asyncio.create_task(_guarded())
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
+    return callback
 
 
 def _parse_upstream_url(value: str) -> str:
@@ -117,8 +167,9 @@ class ProxyCommand(BaseCommand):
             )
         print()
 
-        processor = BackgroundMemoryProcessor(ctx)
-        handler = ContextProxy(ctx, processor)
+        handler = ContextProxy(
+            ctx, post_response_callback=make_asyncio_post_response_callback()
+        )
         out.kv("Memory processing", "enabled")
 
         setup_proxy_logging()

@@ -36,14 +36,6 @@ def _mock_ctx(
     return ctx
 
 
-def _mock_processor() -> MagicMock:
-    from context_use.proxy.background import BackgroundMemoryProcessor
-
-    processor = MagicMock(spec=BackgroundMemoryProcessor)
-    processor.schedule = MagicMock()
-    return processor
-
-
 def _make_result() -> MemorySearchResult:
     return MemorySearchResult(
         id="mem-1",
@@ -183,7 +175,7 @@ class TestChatCompletion:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler._chat_completion(
             _completion_body(),
@@ -199,7 +191,7 @@ class TestChatCompletion:
     async def test_streaming_returns_stream_result(self, MockClient: MagicMock) -> None:
         chunk = b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
         _setup_streaming_client(MockClient, _mock_streaming_response(chunks=[chunk]))
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler._chat_completion(
             _completion_body(stream=True),
@@ -217,7 +209,7 @@ class TestChatCompletion:
     async def test_enriches_messages(self, MockClient: MagicMock) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._chat_completion(
             _completion_body(),
@@ -237,7 +229,7 @@ class TestChatCompletion:
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._chat_completion(
             _completion_body(max_tokens=1),
@@ -250,7 +242,7 @@ class TestChatCompletion:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_strips_max_tokens_below_two(self, MockClient: MagicMock) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         await handler._chat_completion(
             _completion_body(max_tokens=1),
@@ -267,7 +259,7 @@ class TestChatCompletion:
     ) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._chat_completion(
             _completion_body(max_tokens=200),
@@ -284,7 +276,7 @@ class TestChatCompletion:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_forwards_extra_params_in_body(self, MockClient: MagicMock) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         await handler._chat_completion(
             _completion_body(temperature=0.7, max_tokens=100),
@@ -299,7 +291,7 @@ class TestChatCompletion:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_forwards_headers_to_upstream(self, MockClient: MagicMock) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         headers = [(b"authorization", b"Bearer sk-provider-key")]
         await handler._chat_completion(
@@ -313,7 +305,7 @@ class TestChatCompletion:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_posts_to_correct_url(self, MockClient: MagicMock) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         await handler._chat_completion(
             _completion_body(),
@@ -331,7 +323,7 @@ class TestChatCompletion:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(side_effect=Exception("connection refused"))
         MockClient.return_value = mock_client
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         with pytest.raises(Exception, match="connection refused"):
             await handler._chat_completion(
@@ -345,7 +337,7 @@ class TestHandle:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_routes_post_chat_completions(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
             "POST",
@@ -362,7 +354,7 @@ class TestHandle:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
             "post",
@@ -382,7 +374,7 @@ class TestHandle:
         mock_client = AsyncMock()
         mock_client.request = AsyncMock(return_value=upstream_response)
         MockClient.return_value = mock_client
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
             "GET",
@@ -406,7 +398,7 @@ class TestHandle:
         mock_client = AsyncMock()
         mock_client.request = AsyncMock(return_value=upstream_response)
         MockClient.return_value = mock_client
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
             "GET",
@@ -421,7 +413,7 @@ class TestHandle:
         assert call.kwargs["method"] == "GET"
 
     async def test_raises_value_error_on_invalid_json(self) -> None:
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         with pytest.raises(ValueError, match="Invalid JSON"):
             await handler.handle(
@@ -433,7 +425,7 @@ class TestHandle:
             )
 
     async def test_raises_value_error_on_missing_model(self) -> None:
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
         body = json.dumps({"messages": [{"role": "user", "content": "Hi"}]}).encode()
 
         with pytest.raises(ValueError, match="required"):
@@ -446,7 +438,7 @@ class TestHandle:
             )
 
     async def test_raises_value_error_on_missing_messages(self) -> None:
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
         body = json.dumps({"model": "gpt-4o"}).encode()
 
         with pytest.raises(ValueError, match="required"):
@@ -459,12 +451,12 @@ class TestHandle:
             )
 
     @patch("context_use.proxy.handler.AsyncClient")
-    async def test_session_id_forwarded_to_scheduler(
+    async def test_session_id_forwarded_to_post_response_callback(
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler.handle(
             "POST",
@@ -475,7 +467,7 @@ class TestHandle:
             session_id="sess-xyz",
         )
 
-        assert processor.schedule.call_args.kwargs["session_id"] == "sess-xyz"
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-xyz"
 
 
 class TestBackgroundScheduling:
@@ -484,8 +476,8 @@ class TestBackgroundScheduling:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._chat_completion(
             _completion_body(),
@@ -493,14 +485,9 @@ class TestBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        processor.schedule.assert_called_once()
-        messages = processor.schedule.call_args.args[0]
-        assert any(m["role"] == "assistant" for m in messages)
-        assert any(
-            m.get("content") == "Hi there!"
-            for m in messages
-            if m["role"] == "assistant"
-        )
+        handler._schedule.assert_called_once()
+        assistant_text = handler._schedule.call_args.args[1]
+        assert assistant_text == "Hi there!"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_streaming_schedules_processing(self, MockClient: MagicMock) -> None:
@@ -514,8 +501,8 @@ class TestBackgroundScheduling:
         _setup_streaming_client(
             MockClient, _mock_streaming_response(chunks=[chunk1, chunk2])
         )
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         result = await handler._chat_completion(
             _completion_body(stream=True),
@@ -526,17 +513,15 @@ class TestBackgroundScheduling:
         async for _ in result.chunks:
             pass
 
-        processor.schedule.assert_called_once()
-        messages = processor.schedule.call_args.args[0]
-        assistant_msgs = [m for m in messages if m["role"] == "assistant"]
-        assert len(assistant_msgs) == 1
-        assert assistant_msgs[0]["content"] == "Hi there"
+        handler._schedule.assert_called_once()
+        assistant_text = handler._schedule.call_args.args[1]
+        assert assistant_text == "Hi there"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_session_id_forwarded(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._chat_completion(
             _completion_body(),
@@ -545,13 +530,13 @@ class TestBackgroundScheduling:
             session_id="sess-abc",
         )
 
-        assert processor.schedule.call_args.kwargs["session_id"] == "sess-abc"
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-abc"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_processing_for_probe(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._chat_completion(
             _completion_body(max_tokens=1),
@@ -559,7 +544,7 @@ class TestBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        processor.schedule.assert_not_called()
+        handler._schedule.assert_not_called()
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_scheduling_when_assistant_text_empty(
@@ -570,8 +555,8 @@ class TestBackgroundScheduling:
             MockClient,
             _mock_http_response(status=401, content=error_content),
         )
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._chat_completion(
             _completion_body(),
@@ -579,7 +564,7 @@ class TestBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        processor.schedule.assert_not_called()
+        handler._schedule.assert_not_called()
 
 
 def _response_body(**overrides: Any) -> dict[str, Any]:
@@ -823,7 +808,7 @@ class TestResponseHandler:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler._response(
             _response_body(),
@@ -843,7 +828,7 @@ class TestResponseHandler:
             b'"delta":"Hi"}\n\n'
         )
         _setup_streaming_client(MockClient, _mock_streaming_response(chunks=[chunk]))
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler._response(
             _response_body(stream=True),
@@ -863,7 +848,7 @@ class TestResponseHandler:
             MockClient, _mock_response_api_http_response()
         )
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._response(
             _response_body(),
@@ -883,7 +868,7 @@ class TestResponseHandler:
             MockClient, _mock_response_api_http_response()
         )
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._response(
             _response_body(instructions="Be helpful"),
@@ -901,7 +886,7 @@ class TestResponseHandler:
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._response(
             _response_body(max_output_tokens=1),
@@ -918,7 +903,7 @@ class TestResponseHandler:
         mock_client = _setup_non_streaming_client(
             MockClient, _mock_response_api_http_response()
         )
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         await handler._response(
             _response_body(max_output_tokens=1),
@@ -934,7 +919,7 @@ class TestResponseHandler:
         mock_client = _setup_non_streaming_client(
             MockClient, _mock_response_api_http_response()
         )
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         await handler._response(
             _response_body(),
@@ -951,7 +936,7 @@ class TestResponseHandler:
         mock_client = _setup_non_streaming_client(
             MockClient, _mock_response_api_http_response()
         )
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         headers = [(b"authorization", b"Bearer sk-provider-key")]
         await handler._response(
@@ -963,7 +948,7 @@ class TestResponseHandler:
         assert mock_client.post.call_args.kwargs["headers"] == headers
 
     async def test_raises_value_error_on_missing_model(self) -> None:
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         with pytest.raises(ValueError, match="required"):
             await handler._response(
@@ -976,7 +961,7 @@ class TestResponseHandler:
     async def test_handles_array_input(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
         ctx = _mock_ctx(memories=[_make_result()])
-        handler = ContextProxy(ctx, _mock_processor())
+        handler = ContextProxy(ctx)
 
         await handler._response(
             _response_body(
@@ -1002,7 +987,7 @@ class TestResponseHandleRouting:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_routes_post_responses(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
             "POST",
@@ -1019,7 +1004,7 @@ class TestResponseHandleRouting:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
             "post",
@@ -1032,7 +1017,7 @@ class TestResponseHandleRouting:
         assert isinstance(result, ContextProxyResult)
 
     async def test_raises_value_error_on_invalid_json(self) -> None:
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
 
         with pytest.raises(ValueError, match="Invalid JSON"):
             await handler.handle(
@@ -1044,7 +1029,7 @@ class TestResponseHandleRouting:
             )
 
     async def test_raises_value_error_on_missing_model(self) -> None:
-        handler = ContextProxy(_mock_ctx(), _mock_processor())
+        handler = ContextProxy(_mock_ctx())
         body = json.dumps({"input": "Hello"}).encode()
 
         with pytest.raises(ValueError, match="required"):
@@ -1063,8 +1048,8 @@ class TestResponseBackgroundScheduling:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
             _response_body(),
@@ -1072,22 +1057,17 @@ class TestResponseBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        processor.schedule.assert_called_once()
-        messages = processor.schedule.call_args.args[0]
-        assert any(m["role"] == "assistant" for m in messages)
-        assert any(
-            m.get("content") == "Hi there!"
-            for m in messages
-            if m["role"] == "assistant"
-        )
+        handler._schedule.assert_called_once()
+        assistant_text = handler._schedule.call_args.args[1]
+        assert assistant_text == "Hi there!"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_non_streaming_includes_input_in_messages(
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
             _response_body(input="What is AI?"),
@@ -1095,7 +1075,7 @@ class TestResponseBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        messages = processor.schedule.call_args.args[0]
+        messages = handler._schedule.call_args.args[0]
         assert any(
             m["role"] == "user" and m["content"] == "What is AI?" for m in messages
         )
@@ -1105,8 +1085,8 @@ class TestResponseBackgroundScheduling:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
             _response_body(instructions="Be helpful"),
@@ -1114,7 +1094,7 @@ class TestResponseBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        messages = processor.schedule.call_args.args[0]
+        messages = handler._schedule.call_args.args[0]
         assert messages[0] == {"role": "system", "content": "Be helpful"}
 
     @patch("context_use.proxy.handler.AsyncClient")
@@ -1129,8 +1109,8 @@ class TestResponseBackgroundScheduling:
         _setup_streaming_client(
             MockClient, _mock_streaming_response(chunks=[chunk1, chunk2])
         )
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         result = await handler._response(
             _response_body(stream=True),
@@ -1141,17 +1121,15 @@ class TestResponseBackgroundScheduling:
         async for _ in result.chunks:
             pass
 
-        processor.schedule.assert_called_once()
-        messages = processor.schedule.call_args.args[0]
-        assistant_msgs = [m for m in messages if m["role"] == "assistant"]
-        assert len(assistant_msgs) == 1
-        assert assistant_msgs[0]["content"] == "Hi there"
+        handler._schedule.assert_called_once()
+        assistant_text = handler._schedule.call_args.args[1]
+        assert assistant_text == "Hi there"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_session_id_forwarded(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
             _response_body(),
@@ -1160,13 +1138,13 @@ class TestResponseBackgroundScheduling:
             session_id="sess-abc",
         )
 
-        assert processor.schedule.call_args.kwargs["session_id"] == "sess-abc"
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-abc"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_processing_for_probe(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
             _response_body(max_output_tokens=1),
@@ -1174,7 +1152,7 @@ class TestResponseBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        processor.schedule.assert_not_called()
+        handler._schedule.assert_not_called()
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_scheduling_when_output_text_empty(
@@ -1185,8 +1163,8 @@ class TestResponseBackgroundScheduling:
             MockClient,
             _mock_response_api_http_response(status=401, content=error_content),
         )
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
             _response_body(),
@@ -1194,4 +1172,4 @@ class TestResponseBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        processor.schedule.assert_not_called()
+        handler._schedule.assert_not_called()

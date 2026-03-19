@@ -13,12 +13,10 @@ from context_use.proxy.log import log_request, log_response
 
 if TYPE_CHECKING:
     from context_use.facade.core import ContextUse
-    from context_use.proxy.background import BackgroundMemoryProcessor
 
 logger = logging.getLogger(__name__)
 
 _MIN_MAX_TOKENS_FOR_ENRICHMENT = 50
-
 _UPSTREAM_TIMEOUT = Timeout(None)
 
 
@@ -36,15 +34,40 @@ class ContextProxyStreamResult:
     chunks: AsyncGenerator[bytes, None]
 
 
+type PostResponseCallback = Callable[
+    [ContextUse, list[dict[str, Any]], str | None], None
+]
+"""Called after a proxied response completes with the ``ContextUse`` instance,
+the full conversation (including the assistant reply), and the session ID.
+
+Messages and session ID are JSON-serializable, so the callback can dispatch
+to an async task runner, a Celery queue, or any other backend.
+
+Example::
+
+    def my_callback(
+        ctx: ContextUse, messages: list[dict[str, Any]], session_id: str | None
+    ) -> None:
+        import asyncio
+        print(f"[{session_id}] {len(messages)} messages")
+        asyncio.create_task(
+            ctx.generate_memories_from_messages(messages, session_id=session_id),
+        )
+
+    proxy = ContextProxy(ctx, post_response_callback=my_callback)
+"""
+
+
 class ContextProxy:
     def __init__(
         self,
         ctx: ContextUse,
-        processor: BackgroundMemoryProcessor,
+        *,
+        post_response_callback: PostResponseCallback | None = None,
     ) -> None:
         self._ctx = ctx
-        self._processor = processor
         self._client = AsyncClient(timeout=_UPSTREAM_TIMEOUT)
+        self._post_response_callback = post_response_callback
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -227,8 +250,10 @@ class ContextProxy:
         *,
         session_id: str | None,
     ) -> None:
+        if self._post_response_callback is None:
+            return
         full_messages = [*messages, {"role": "assistant", "content": assistant_text}]
-        self._processor.schedule(full_messages, session_id=session_id)
+        self._post_response_callback(self._ctx, full_messages, session_id)
 
 
 async def _forward_request(

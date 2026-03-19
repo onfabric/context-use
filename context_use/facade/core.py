@@ -24,6 +24,7 @@ from context_use.store.base import MemorySearchResult
 
 if TYPE_CHECKING:
     from datetime import date, datetime
+    from typing import Any
 
     from context_use.llm.base import BaseLLMClient
     from context_use.storage.base import StorageBackend
@@ -267,6 +268,38 @@ class ContextUse:
         if self._agent is None:
             self._agent = AgentRunner(self, self._llm_client)
         return await self._agent.run(message)
+
+    async def generate_memories_from_messages(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        session_id: str | None = None,
+    ) -> AgentResult | None:
+        from context_use.agent.skill import make_process_thread_skill
+        from context_use.memories.prompt.conversation import format_transcript
+        from context_use.models.thread import Thread
+        from context_use.proxy.threads import messages_to_thread_rows
+
+        rows = messages_to_thread_rows(messages, session_id=session_id)
+        if not rows:
+            return None
+
+        await self.insert_threads(rows)
+        threads = [
+            Thread(
+                unique_key=r.unique_key,
+                provider=r.provider,
+                interaction_type=r.interaction_type,
+                preview=r.preview,
+                payload=r.payload,
+                version=r.version,
+                asat=r.asat,
+            )
+            for r in rows
+        ]
+        transcript = format_transcript(threads)
+        skill = make_process_thread_skill(transcript)
+        return await self.run_agent(skill.prompt)
 
     # ── Queries ──────────────────────────────────────────────────────
 
