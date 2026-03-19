@@ -14,7 +14,6 @@ from context_use.proxy.app import (
     SESSION_ID_HEADER,
     create_proxy_app,
 )
-from context_use.proxy.background import BackgroundMemoryProcessor
 from context_use.proxy.handler import ContextProxy
 from context_use.store.base import MemorySearchResult
 
@@ -36,16 +35,10 @@ def _mock_ctx(
     return ctx
 
 
-def _mock_processor() -> MagicMock:
-    processor = MagicMock(spec=BackgroundMemoryProcessor)
-    processor.schedule = MagicMock()
-    return processor
-
-
 def _make_handler(
     memories: list[MemorySearchResult] | None = None,
 ) -> ContextProxy:
-    return ContextProxy(_mock_ctx(memories), _mock_processor())
+    return ContextProxy(_mock_ctx(memories))
 
 
 def _make_result() -> MemorySearchResult:
@@ -432,8 +425,8 @@ class TestSessionIdHeader:
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
         app = create_proxy_app(handler)
         transport = _transport(app)
 
@@ -446,16 +439,16 @@ class TestSessionIdHeader:
                 headers={SESSION_ID_HEADER: "sess-abc"},
             )
 
-        processor.schedule.assert_called_once()
-        assert processor.schedule.call_args.kwargs["session_id"] == "sess-abc"
+        handler._schedule.assert_called_once()
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-abc"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_configured_session_id_used_when_header_absent(
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
         app = create_proxy_app(handler, session_id="sess-fixed")
         transport = _transport(app)
 
@@ -467,16 +460,16 @@ class TestSessionIdHeader:
                 json=_completion_body(),
             )
 
-        processor.schedule.assert_called_once()
-        assert processor.schedule.call_args.kwargs["session_id"] == "sess-fixed"
+        handler._schedule.assert_called_once()
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-fixed"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_header_session_id_overrides_default_session_id(
         self, MockClient: MagicMock
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        processor = _mock_processor()
-        handler = ContextProxy(_mock_ctx(), processor)
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
         app = create_proxy_app(handler, session_id="sess-fixed")
         transport = _transport(app)
 
@@ -489,8 +482,8 @@ class TestSessionIdHeader:
                 headers={SESSION_ID_HEADER: "sess-header"},
             )
 
-        processor.schedule.assert_called_once()
-        assert processor.schedule.call_args.kwargs["session_id"] == "sess-header"
+        handler._schedule.assert_called_once()
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-header"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_session_id_header_not_forwarded_to_upstream(
