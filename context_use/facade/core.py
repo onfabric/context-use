@@ -64,13 +64,10 @@ class ContextUse:
         self._storage = storage
         self._store = store
         self._llm_client = llm_client
-        self._ops: MemoryService | None = None
-        self._agent: AgentRunner | None = None
-
-    def _memory_service(self) -> MemoryService:
-        if self._ops is None:
-            self._ops = MemoryService(self._store, self._llm_client)
-        return self._ops
+        self._memory_service = MemoryService(self._store, self._llm_client)
+        self._agent = AgentRunner(
+            memory_service=self._memory_service, llm_client=self._llm_client
+        )
 
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
@@ -263,10 +260,6 @@ class ContextUse:
     # ── Personal agent ───────────────────────────────────────────────
 
     async def run_agent(self, message: str) -> AgentResult:
-        if self._agent is None:
-            self._agent = AgentRunner(
-                memory_service=self._memory_service(), llm_client=self._llm_client
-            )
         return await self._agent.run(message)
 
     async def generate_memories_from_messages(
@@ -311,13 +304,13 @@ class ContextUse:
         limit: int | None = None,
     ) -> list[MemorySummary]:
         """Return active memories, ordered by date."""
-        return await self._memory_service().list_memories(
+        return await self._memory_service.list_memories(
             from_date=from_date, to_date=to_date, limit=limit
         )
 
     async def get_memory(self, memory_id: str) -> TapestryMemory | None:
         """Return a single memory by ID, or ``None`` if not found."""
-        return await self._memory_service().get_memory(memory_id)
+        return await self._memory_service.get_memory(memory_id)
 
     async def update_memory(
         self,
@@ -335,7 +328,7 @@ class ContextUse:
         Raises:
             ValueError: if the memory does not exist or nothing is updated.
         """
-        return await self._memory_service().update_memory(
+        return await self._memory_service.update_memory(
             memory_id, content=content, from_date=from_date, to_date=to_date
         )
 
@@ -348,7 +341,7 @@ class ContextUse:
         source_memory_ids: list[str] | None = None,
     ) -> TapestryMemory:
         """Write a new memory to the store with a freshly computed embedding."""
-        return await self._memory_service().create_memory(
+        return await self._memory_service.create_memory(
             content, from_date, to_date, source_memory_ids=source_memory_ids
         )
 
@@ -359,13 +352,13 @@ class ContextUse:
         superseded_by: str | None = None,
     ) -> list[str]:
         """Mark memories as superseded and return the IDs that were archived."""
-        return await self._memory_service().archive_memories(
+        return await self._memory_service.archive_memories(
             memory_ids, superseded_by=superseded_by
         )
 
     async def count_memories(self) -> int:
         """Return the number of active memories."""
-        return await self._memory_service().count_memories()
+        return await self._memory_service.count_memories()
 
     async def search_memories(
         self,
@@ -376,7 +369,7 @@ class ContextUse:
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
         """Search memories by semantic similarity, optionally filtered by date range."""
-        return await self._memory_service().search_memories(
+        return await self._memory_service.search_memories(
             query=query, from_date=from_date, to_date=to_date, top_k=top_k
         )
 
