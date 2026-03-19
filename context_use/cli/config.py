@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from context_use.llm.litellm import OpenAIEmbeddingModel, OpenAIModel
+from context_use.llm.litellm.models import OpenAIEmbeddingModel, OpenAIModel
 
 if TYPE_CHECKING:
     from context_use.core import ContextUse
@@ -164,11 +164,9 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
     from context_use.core import ContextUse
-    from context_use.llm.litellm import (
+    from context_use.llm.litellm.llm import (
         LiteLLMBatchClient,
         LiteLLMSyncClient,
-        OpenAIEmbeddingModel,
-        OpenAIModel,
     )
     from context_use.storage.disk import DiskStorage
     from context_use.store.sqlite import SqliteStore

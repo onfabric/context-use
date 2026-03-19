@@ -5,7 +5,8 @@ import pytest
 from context_use.batch.grouper import ThreadGroup
 from context_use.cli.config import load_config
 from context_use.llm.base import PromptItem
-from context_use.llm.litellm import LiteLLMSyncClient, OpenAIEmbeddingModel, OpenAIModel
+from context_use.llm.litellm.llm import LiteLLMSyncClient
+from context_use.llm.litellm.models import OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.prompt.base import GroupContext
 from context_use.memories.prompt.conversation import (
     AgentConversationMemoryPromptBuilder,
