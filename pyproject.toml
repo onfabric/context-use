@@ -60,6 +60,7 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["context_use"]
+exclude = ["context_use/providers/**/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
