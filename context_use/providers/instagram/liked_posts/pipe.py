@@ -15,10 +15,9 @@ from context_use.etl.payload.models import (
     Profile,
 )
 from context_use.models.etl_task import EtlTask
-from context_use.providers.instagram.likes.record import InstagramLikedPostRecord
-from context_use.providers.instagram.likes.schemas import (
+from context_use.providers.instagram.liked_posts.record import InstagramLikedPostRecord
+from context_use.providers.instagram.liked_posts.schemas import (
     InstagramLikedPostsV0Manifest,
-    InstagramStoryLikesV0Manifest,
 )
 from context_use.providers.instagram.schemas import (
     PROVIDER,
@@ -34,15 +33,10 @@ from context_use.storage.base import StorageBackend
 logger = logging.getLogger(__name__)
 
 
-class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
-    """Shared transform logic for Instagram like pipes.
-
-    Subclasses implement :meth:`extract_file` to parse their specific
-    archive format; :meth:`transform` is inherited.
-    """
-
+class _InstagramLikedPostPipe(Pipe[InstagramLikedPostRecord]):
     provider = PROVIDER
     record_schema = InstagramLikedPostRecord
+    interaction_type = "instagram_liked_posts"
 
     def transform(
         self,
@@ -78,16 +72,7 @@ class _InstagramLikePipe(Pipe[InstagramLikedPostRecord]):
         )
 
 
-class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
-    """ETL pipe for Instagram liked posts — v0 archive format.
-
-    Reads ``likes_media_likes`` from
-    ``your_instagram_activity/likes/liked_posts.json``.
-    Each item has ``{title, string_list_data: [{href, value, timestamp}]}``.
-    Creates ``FibreLike(object=FibrePost(...))``.
-    """
-
-    interaction_type = "instagram_liked_posts"
+class InstagramLikedPostsV0Pipe(_InstagramLikedPostPipe):
     archive_version = 0
     archive_path_pattern = "your_instagram_activity/likes/liked_posts.json"
 
@@ -99,28 +84,6 @@ class InstagramLikedPostsV0Pipe(_InstagramLikePipe):
         raw = storage.read(source_uri)
         manifest = InstagramLikedPostsV0Manifest.model_validate_json(raw)
         for item in manifest.likes_media_likes:
-            for entry in item.string_list_data:
-                yield InstagramLikedPostRecord(
-                    title=item.title,
-                    href=entry.href,
-                    timestamp=entry.timestamp,
-                    source=item.model_dump_json(),
-                )
-
-
-class InstagramStoryLikesV0Pipe(_InstagramLikePipe):
-    interaction_type = "instagram_story_likes"
-    archive_version = 0
-    archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
-
-    def extract_file(
-        self,
-        source_uri: str,
-        storage: StorageBackend,
-    ) -> Iterator[InstagramLikedPostRecord]:
-        raw = storage.read(source_uri)
-        manifest = InstagramStoryLikesV0Manifest.model_validate_json(raw)
-        for item in manifest.story_activities_story_likes:
             for entry in item.string_list_data:
                 yield InstagramLikedPostRecord(
                     title=item.title,
@@ -147,16 +110,7 @@ def _extract_like_item(item: InstagramV1ActivityItem) -> InstagramLikedPostRecor
     )
 
 
-class InstagramLikedPostsPipe(_InstagramLikePipe):
-    """ETL pipe for Instagram liked posts — v1 archive format.
-
-    V1 files are a bare JSON array of ``{timestamp, media, label_values}``
-    items.  The post URL is in ``label_values`` with ``label == "URL"``,
-    and the author username is nested inside an ``Owner`` dict entry.
-    Creates ``FibreLike(object=FibrePost(...))``.
-    """
-
-    interaction_type = "instagram_liked_posts"
+class InstagramLikedPostsPipe(_InstagramLikedPostPipe):
     archive_version = 1
     archive_path_pattern = "your_instagram_activity/likes/liked_posts.json"
 
@@ -174,4 +128,3 @@ class InstagramLikedPostsPipe(_InstagramLikePipe):
 
 
 declare_interaction(InteractionConfig(pipe=InstagramLikedPostsPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))

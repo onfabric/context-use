@@ -13,7 +13,3 @@ class InstagramV0LikesItem(InstagramBaseModel):
 
 class InstagramLikedPostsV0Manifest(InstagramBaseModel):
     likes_media_likes: list[InstagramV0LikesItem]
-
-
-class InstagramStoryLikesV0Manifest(InstagramBaseModel):
-    story_activities_story_likes: list[InstagramV0LikesItem]
