@@ -19,6 +19,9 @@ from context_use.store.sqlite import SqliteStore
 class _StubLLMClient(BaseLLMClient):
     """Minimal stub for ETL-only integration tests that never call the LLM."""
 
+    _model = "stub"
+    _api_key = "stub"
+
     async def batch_submit(self, batch_id: str, prompts: list[PromptItem]) -> str:
         raise NotImplementedError
 
