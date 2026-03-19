@@ -1,3 +1,24 @@
+## [0.11.0] - 2026-03-19
+
+### 🚀 Features
+
+- Autogen pipe for instagram_ads_clicked interaction type (#243)
+- Autogen schemas for v0/v1 story_likes on IG (#240)
+- [**breaking**] Memory service used by both agent and cli (#241)
+- Add instagram_ads_viewed pipe and FibreAd models (#235)
+
+### 🚜 Refactor
+
+- Split pipes for story_likes and liked_posts (#239)
+
+### 🧪 Testing
+
+- Payload test for videos_watched (#224)
+
+### ⚙️ Miscellaneous Tasks
+
+- Do not package json schemas (#242)
+
 ## [0.10.0] - 2026-03-19
 
 ### 🚀 Features
