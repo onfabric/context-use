@@ -60,6 +60,7 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["context_use"]
+exclude = ["context_use/providers/**/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -128,6 +129,17 @@ docstring-code-line-length = "dynamic"
 
 [tool.check-wheel-contents]
 toplevel = ["context_use"]
+package = ["context_use"]
+package_omit = [
+    ".*",
+    "CVS",
+    "RCS",
+    "*.pyc",
+    "*.pyo",
+    "*.egg-info",
+    # Make sure the JSON schemas are not included in the wheel
+    "*.json",
+]
 
 [tool.uv]
 package = true
