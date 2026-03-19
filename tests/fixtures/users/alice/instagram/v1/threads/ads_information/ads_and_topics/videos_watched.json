@@ -12,5 +12,42 @@
                 "href": "https://www.instagram.com/reel/SYNTHETIC_VIDEO/"
             }
         ]
+    },
+    {
+        "timestamp": 1773153225,
+        "media": [],
+        "label_values": [
+            {
+                "label": "Ad library public URL"
+            },
+            {
+                "label": "URL",
+                "value": "https://www.instagram.com/reel/SYNTHETIC_REEL_1/",
+                "href": "https://www.instagram.com/reel/SYNTHETIC_REEL_1/"
+            },
+            {
+                "dict": [
+                    {
+                        "dict": [
+                            {
+                                "label": "URL",
+                                "value": "https://example.com/synthetic_creator_1"
+                            },
+                            {
+                                "label": "Name",
+                                "value": "Synthetic Creator 1"
+                            },
+                            {
+                                "label": "Username",
+                                "value": "synthetic_creator_1"
+                            }
+                        ],
+                        "title": ""
+                    }
+                ],
+                "title": "Owner"
+            }
+        ],
+        "fbid": "1234567890"
     }
 ]
