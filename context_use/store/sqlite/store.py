@@ -793,7 +793,6 @@ async def _search_by_embedding(
     return results[:top_k]
 
 
-
 async def _load_facet_embeddings(
     db: aiosqlite.Connection,
     facets: list[MemoryFacet],
