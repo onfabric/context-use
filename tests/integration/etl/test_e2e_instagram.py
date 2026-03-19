@@ -14,7 +14,7 @@ class TestE2EInstagram:
     async def test_full_flow(self, ctx: ContextUse, instagram_zip):
         result = await ctx.process_archive(instagram.PROVIDER, str(instagram_zip))
 
-        assert result.tasks_completed == 15
+        assert result.tasks_completed == 16
         assert result.tasks_failed == 0
         assert result.threads_created > 0
         assert len(result.errors) == 0
@@ -33,6 +33,7 @@ class TestE2EInstagram:
         assert "instagram_saved_posts" in interaction_types
         assert "instagram_saved_collections" in interaction_types
         assert "instagram_direct_messages" in interaction_types
+        assert "instagram_story_likes" in interaction_types
 
         threads = await ctx._store.get_unprocessed_threads()
         assert len(threads) == result.threads_created

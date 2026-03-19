@@ -1,0 +1,70 @@
+[
+    {
+        "timestamp": 1771028852,
+        "media": [],
+        "label_values": [
+            {
+                "label": "URL",
+                "value": "https://www.instagram.com/stories/synthetic_photographer/1234567890123456789",
+                "href": "https://www.instagram.com/stories/synthetic_photographer/1234567890123456789"
+            },
+            {
+                "dict": [
+                    {
+                        "dict": [
+                            {
+                                "label": "URL",
+                                "value": ""
+                            },
+                            {
+                                "label": "Name",
+                                "value": "Synthetic Photographer"
+                            },
+                            {
+                                "label": "Username",
+                                "value": "synthetic_photographer"
+                            }
+                        ],
+                        "title": ""
+                    }
+                ],
+                "title": "Owner"
+            }
+        ],
+        "fbid": "18079916561048001"
+    },
+    {
+        "timestamp": 1770912145,
+        "media": [],
+        "label_values": [
+            {
+                "label": "URL",
+                "value": "https://www.instagram.com/stories/synthetic_traveler/9876543210987654321",
+                "href": "https://www.instagram.com/stories/synthetic_traveler/9876543210987654321"
+            },
+            {
+                "dict": [
+                    {
+                        "dict": [
+                            {
+                                "label": "URL",
+                                "value": ""
+                            },
+                            {
+                                "label": "Name",
+                                "value": "Synthetic Traveler"
+                            },
+                            {
+                                "label": "Username",
+                                "value": "synthetic_traveler"
+                            }
+                        ],
+                        "title": ""
+                    }
+                ],
+                "title": "Owner"
+            }
+        ],
+        "fbid": "18079916561048002"
+    }
+]
