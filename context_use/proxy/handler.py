@@ -45,10 +45,11 @@ to an async task runner, a Celery queue, or any other backend.
 
 Example::
 
-    def my_callback(
+    async def my_callback(
         ctx: ContextUse, messages: list[dict[str, Any]], session_id: str | None
     ) -> None:
         print(f"[{session_id}] {len(messages)} messages")
+        await ctx.generate_memories_from_messages(messages, session_id=session_id)
 
     proxy = ContextProxy(ctx, post_response_callback=my_callback)
 """
