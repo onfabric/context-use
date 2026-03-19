@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     from context_use.batch.manager import ScheduleInstruction
     from context_use.batch.states import State
     from context_use.cli.config import Config, build_ctx, load_config, save_config
-    from context_use.types import PipelineResult
     from context_use.models.batch import Batch
+    from context_use.types import PipelineResult
 
 
 def _batch_detail_from_state(state: State | None) -> str:

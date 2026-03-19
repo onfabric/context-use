@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from context_use.batch.manager import ScheduleInstruction
     from context_use.core import ContextUse
-    from context_use.types import PipelineResult, TaskBreakdown
     from context_use.proxy.app import create_proxy_app
     from context_use.proxy.handler import (
         ContextProxy,
@@ -18,6 +17,7 @@ if TYPE_CHECKING:
         ContextProxyStreamResult,
     )
     from context_use.store import Store
+    from context_use.types import PipelineResult, TaskBreakdown
 
 __all__ = [
     "ContextProxy",
@@ -38,7 +38,6 @@ def __getattr__(name: str) -> Any:
 
     from context_use.batch.manager import ScheduleInstruction
     from context_use.core import ContextUse
-    from context_use.types import PipelineResult, TaskBreakdown
     from context_use.proxy.app import create_proxy_app
     from context_use.proxy.handler import (
         ContextProxy,
@@ -46,6 +45,7 @@ def __getattr__(name: str) -> Any:
         ContextProxyStreamResult,
     )
     from context_use.store import Store
+    from context_use.types import PipelineResult, TaskBreakdown
 
     exports: dict[str, Any] = {
         "ContextProxy": ContextProxy,
