@@ -300,6 +300,17 @@ class FibreViewAdObject(FibreViewObject):
         return parts
 
 
+class FibreClickAdObject(FibreViewAdObject):
+    fibreKind: Literal["ClickAd"] = Field("ClickAd", alias="fibre_kind")  # type: ignore[reportIncompatibleVariableOverride]
+    object: FibreAd  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        parts = f"Clicked {self.object.get_preview(provider)}"
+        if provider:
+            parts += f" on {provider}"
+        return parts
+
+
 class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
     """Inherits fibreKind="Reaction" from FibreReaction, type="Like" from Like."""
 
@@ -432,7 +443,8 @@ FibreReactionByType = Annotated[
 ]
 
 FibreByType = Annotated[
-    FibreViewAdObject
+    FibreClickAdObject
+    | FibreViewAdObject
     | FibreViewObject
     | FibreCreateObject
     | FibreAddObjectToCollection
@@ -466,6 +478,7 @@ FibreSendMessage.model_rebuild()
 FibreReceiveMessage.model_rebuild()
 FibreViewObject.model_rebuild()
 FibreViewAdObject.model_rebuild()
+FibreClickAdObject.model_rebuild()
 FibreLike.model_rebuild()
 FibreDislike.model_rebuild()
 FibreComment.model_rebuild()

@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/schema#",
+  "type": "object",
+  "properties": {
+    "timestamp": {
+      "type": "integer"
+    },
+    "media": {
+      "type": "array"
+    },
+    "label_values": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "href": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ]
+      }
+    },
+    "fbid": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "fbid",
+    "label_values",
+    "media",
+    "timestamp"
+  ]
+}

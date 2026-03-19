@@ -59,6 +59,10 @@ INSTAGRAM_FOLLOWING_JSON: dict = load_fixture(
     f"{_V1}/connections/followers_and_following/following.json"
 )
 
+INSTAGRAM_ADS_CLICKED_V1_JSON: list[dict] = load_fixture(
+    f"{_V1}/ads_information/ads_and_topics/ads_clicked.json"
+)
+
 INSTAGRAM_ADS_VIEWED_V1_JSON: list[dict] = load_fixture(
     f"{_V1}/ads_information/ads_and_topics/ads_viewed.json"
 )
