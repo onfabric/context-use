@@ -34,6 +34,7 @@ class OpenAIEmbeddingModel(StrEnum):
     def model_name(self) -> str:
         return self.split("/", 1)[-1]
 
+
 logger = logging.getLogger(__name__)
 
 
