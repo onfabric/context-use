@@ -207,12 +207,12 @@ class Store(ABC):
     async def search_memories(
         self,
         *,
-        query_embedding: list[float] | None = None,
+        query_embedding: list[float],
         from_date: date | None = None,
         to_date: date | None = None,
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
-        """Search memories by semantic similarity, date range, or both."""
+        """Search memories by semantic similarity, optionally filtered by date range."""
         ...
 
     # ── Memory Facets ────────────────────────────────────────────────

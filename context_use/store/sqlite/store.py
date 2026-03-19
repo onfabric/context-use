@@ -557,24 +557,15 @@ class SqliteStore(Store):
     async def search_memories(
         self,
         *,
-        query_embedding: list[float] | None = None,
+        query_embedding: list[float],
         from_date: date | None = None,
         to_date: date | None = None,
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
         db = await self._conn()
-
-        if query_embedding is not None:
-            return await _search_by_embedding(
-                db,
-                query_embedding,
-                from_date=from_date,
-                to_date=to_date,
-                top_k=top_k,
-            )
-
-        return await _search_by_date(
+        return await _search_by_embedding(
             db,
+            query_embedding,
             from_date=from_date,
             to_date=to_date,
             top_k=top_k,
@@ -800,30 +791,6 @@ async def _search_by_embedding(
         reverse=True,
     )
     return results[:top_k]
-
-
-async def _search_by_date(
-    db: aiosqlite.Connection,
-    *,
-    from_date: date | None,
-    to_date: date | None,
-    top_k: int,
-) -> list[MemorySearchResult]:
-    sql = (
-        "SELECT id, content, from_date, to_date FROM tapestry_memories WHERE status = ?"
-    )
-    params: list = [MemoryStatus.active.value]
-    if from_date is not None:
-        sql += " AND from_date >= ?"
-        params.append(from_date.isoformat())
-    if to_date is not None:
-        sql += " AND to_date <= ?"
-        params.append(to_date.isoformat())
-    sql += " ORDER BY from_date DESC LIMIT ?"
-    params.append(top_k)
-
-    rows = await db.execute_fetchall(sql, params)
-    return [MemoryRow.to_search_result(r, None) for r in rows]
 
 
 async def _load_facet_embeddings(

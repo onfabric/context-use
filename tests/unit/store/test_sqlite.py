@@ -309,22 +309,6 @@ async def test_count_memories(store: SqliteStore) -> None:
     assert await store.count_memories(status=MemoryStatus.active.value) == 1
 
 
-async def test_search_memories_by_date(store: SqliteStore) -> None:
-    m1 = _make_memory(content="jan", from_d=date(2024, 1, 1), to_d=date(2024, 1, 31))
-    m2 = _make_memory(content="feb", from_d=date(2024, 2, 1), to_d=date(2024, 2, 28))
-    m3 = _make_memory(content="mar", from_d=date(2024, 3, 1), to_d=date(2024, 3, 31))
-    await store.create_memory(m1)
-    await store.create_memory(m2)
-    await store.create_memory(m3)
-
-    results = await store.search_memories(
-        from_date=date(2024, 2, 1), to_date=date(2024, 2, 28), top_k=10
-    )
-    assert len(results) == 1
-    assert results[0].content == "feb"
-    assert results[0].similarity is None
-
-
 async def test_search_memories_by_embedding(store: SqliteStore) -> None:
     emb_similar = [1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
     emb_different = [0.0, 1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 2)
@@ -342,6 +326,34 @@ async def test_search_memories_by_embedding(store: SqliteStore) -> None:
     assert results[0].similarity is not None
     assert results[1].similarity is not None
     assert results[0].similarity > results[1].similarity
+
+
+async def test_search_memories_by_embedding_with_date_filter(
+    store: SqliteStore,
+) -> None:
+    emb = [1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
+    m1 = _make_memory(
+        content="jan", embedding=emb, from_d=date(2024, 1, 1), to_d=date(2024, 1, 31)
+    )
+    m2 = _make_memory(
+        content="feb", embedding=emb, from_d=date(2024, 2, 1), to_d=date(2024, 2, 28)
+    )
+    m3 = _make_memory(
+        content="mar", embedding=emb, from_d=date(2024, 3, 1), to_d=date(2024, 3, 31)
+    )
+    await store.create_memory(m1)
+    await store.create_memory(m2)
+    await store.create_memory(m3)
+
+    results = await store.search_memories(
+        query_embedding=emb,
+        from_date=date(2024, 2, 1),
+        to_date=date(2024, 2, 28),
+        top_k=10,
+    )
+    assert len(results) == 1
+    assert results[0].content == "feb"
+    assert results[0].similarity is not None
 
 
 async def test_atomic_commits_on_success(store: SqliteStore) -> None:
