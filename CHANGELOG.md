@@ -1,5 +1,7 @@
 ## [0.10.0] - 2026-03-19
 
+## [0.10.0] - 2026-03-19
+
 ### 🚀 Features
 
 - [**breaking**] Post response proxy callback (#236)
