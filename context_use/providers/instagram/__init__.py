@@ -3,11 +3,12 @@ from context_use.providers.instagram import (
     comments,
     connections,
     direct_messages,
-    likes,
+    liked_posts,
     media,
     posts_viewed,
     profile_searches,
     saved,
+    story_likes,
     videos_watched,
 )
 from context_use.providers.instagram.schemas import PROVIDER
@@ -20,11 +21,12 @@ register_provider(
         comments,
         connections,
         direct_messages,
-        likes,
+        liked_posts,
         media,
         posts_viewed,
         profile_searches,
         saved,
+        story_likes,
         videos_watched,
     ],
 )
