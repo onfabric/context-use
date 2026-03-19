@@ -164,7 +164,7 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
     from context_use.core import ContextUse
-    from context_use.llm.litellm.llm import (
+    from context_use.llm.litellm.clients import (
         LiteLLMBatchClient,
         LiteLLMSyncClient,
     )

@@ -5,7 +5,7 @@ import re
 import pytest
 
 from context_use.llm.base import PromptItem
-from context_use.llm.litellm.llm import LiteLLMSyncClient
+from context_use.llm.litellm.clients import LiteLLMSyncClient
 from context_use.memories.prompt.base import MemorySchema
 
 pytestmark = [pytest.mark.eval]
