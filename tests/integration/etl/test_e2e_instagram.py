@@ -33,6 +33,7 @@ class TestE2EInstagram:
         assert "instagram_saved_posts" in interaction_types
         assert "instagram_saved_collections" in interaction_types
         assert "instagram_direct_messages" in interaction_types
+        assert "instagram_story_likes" in interaction_types
 
         threads = await ctx._store.get_unprocessed_threads()
         assert len(threads) == result.threads_created

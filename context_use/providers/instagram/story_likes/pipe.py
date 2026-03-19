@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import Iterator
 from datetime import UTC, datetime
+
+import ijson
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
@@ -13,16 +16,37 @@ from context_use.etl.payload.models import (
     Profile,
 )
 from context_use.models.etl_task import EtlTask
-from context_use.providers.instagram.schemas import PROVIDER
+from context_use.providers.instagram.schemas import (
+    PROVIDER,
+    _fix_strings_recursive,
+)
 from context_use.providers.instagram.story_likes.record import InstagramStoryLikeRecord
 from context_use.providers.instagram.story_likes.schemas import (
-    InstagramStoryLikesV0Manifest,
+    LabelValue,
+    Model,
+)
+from context_use.providers.instagram.story_likes.schemas_v0 import (
+    Model as V0Model,
 )
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
 
 logger = logging.getLogger(__name__)
+
+
+def _ts_to_datetime(ts: int) -> datetime:
+    return datetime.fromtimestamp(float(ts), tz=UTC)
+
+
+def _extract_v1_owner_username(lv: LabelValue) -> str | None:
+    if lv.dict_ is None:
+        return None
+    for group in lv.dict_:
+        for entry in group.dict_:
+            if entry.label == "Username":
+                return entry.value
+    return None
 
 
 class _InstagramStoryLikePipe(Pipe[InstagramStoryLikeRecord]):
@@ -35,7 +59,7 @@ class _InstagramStoryLikePipe(Pipe[InstagramStoryLikeRecord]):
         record: InstagramStoryLikeRecord,
         task: EtlTask,
     ) -> ThreadRow:
-        published = datetime.fromtimestamp(float(record.timestamp), tz=UTC)
+        published = _ts_to_datetime(record.timestamp)
 
         post_kwargs: dict = {}
         if record.href:
@@ -74,15 +98,50 @@ class InstagramStoryLikesV0Pipe(_InstagramStoryLikePipe):
         storage: StorageBackend,
     ) -> Iterator[InstagramStoryLikeRecord]:
         raw = storage.read(source_uri)
-        manifest = InstagramStoryLikesV0Manifest.model_validate_json(raw)
+        data = _fix_strings_recursive(json.loads(raw))
+        manifest = V0Model.model_validate(data)
         for item in manifest.story_activities_story_likes:
+            item_json = item.model_dump_json()
             for entry in item.string_list_data:
                 yield InstagramStoryLikeRecord(
                     title=item.title,
-                    href=entry.href,
+                    href=None,
                     timestamp=entry.timestamp,
-                    source=item.model_dump_json(),
+                    source=item_json,
                 )
 
 
-declare_interaction(InteractionConfig(pipe=InstagramStoryLikesV0Pipe, memory=None))
+class InstagramStoryLikesPipe(_InstagramStoryLikePipe):
+    archive_version = 1
+    archive_path_pattern = "your_instagram_activity/story_interactions/story_likes.json"
+
+    def extract_file(
+        self,
+        source_uri: str,
+        storage: StorageBackend,
+    ) -> Iterator[InstagramStoryLikeRecord]:
+        stream = storage.open_stream(source_uri)
+        try:
+            for raw in ijson.items(stream, "item"):
+                fixed = _fix_strings_recursive(raw)
+                item = Model.model_validate(fixed)
+                href: str | None = None
+                title: str | None = None
+
+                for lv in item.label_values:
+                    if lv.label == "URL":
+                        href = lv.href or lv.value
+                    elif lv.dict_ is not None and lv.title == "Owner":
+                        title = _extract_v1_owner_username(lv)
+
+                yield InstagramStoryLikeRecord(
+                    title=title or "",
+                    href=href,
+                    timestamp=item.timestamp,
+                    source=json.dumps(fixed),
+                )
+        finally:
+            stream.close()
+
+
+declare_interaction(InteractionConfig(pipe=InstagramStoryLikesPipe, memory=None))
