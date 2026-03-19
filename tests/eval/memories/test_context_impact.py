@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from context_use.llm.litellm import LiteLLMSyncClient
+from context_use.llm.litellm.clients import LiteLLMSyncClient
 from context_use.memories.prompt.base import MemorySchema
 from context_use.memories.prompt.conversation import (
     AgentConversationMemoryPromptBuilder,

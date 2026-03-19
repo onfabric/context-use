@@ -1,5 +1,3 @@
-"""Main facade for the context_use library."""
-
 from __future__ import annotations
 
 import logging
@@ -13,7 +11,6 @@ from context_use.batch.manager import (
     ScheduleInstruction,
     get_manager_for_category,
 )
-from context_use.facade.types import PipelineResult, TaskBreakdown
 from context_use.memories.service import MemoryService
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
@@ -21,6 +18,7 @@ from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
 from context_use.models.memory import MemorySummary, TapestryMemory
 from context_use.store.base import MemorySearchResult
+from context_use.types import PipelineResult, TaskBreakdown
 
 if TYPE_CHECKING:
     from datetime import date, datetime
@@ -41,14 +39,10 @@ class ContextUse:
 
     Usage::
 
-        from context_use.storage.disk import DiskStorage
-        from context_use.store.sqlite import SqliteStore
-        from context_use.llm.litellm import LiteLLMBatchClient
-
         ctx = ContextUse(
-            storage=DiskStorage("./context-use-data"),
-            store=SqliteStore(path="./context-use-data/store/context_use.db"),
-            llm_client=LiteLLMBatchClient(...),
+            storage=...,   # StorageBackend implementation
+            store=...,     # Store implementation
+            llm_client=...,  # BaseLLMClient implementation
         )
         await ctx.init()
         from context_use.providers import chatgpt

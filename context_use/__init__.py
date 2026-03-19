@@ -8,19 +8,16 @@ sub-packages directly.
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from context_use.facade import (
-        ContextUse,
-        PipelineResult,
-        ScheduleInstruction,
-        TaskBreakdown,
-    )
+    from context_use.batch.manager import ScheduleInstruction
+    from context_use.core import ContextUse
     from context_use.proxy.app import create_proxy_app
     from context_use.proxy.handler import (
         ContextProxy,
         ContextProxyResult,
         ContextProxyStreamResult,
     )
-    from context_use.store import SqliteStore, Store
+    from context_use.store import Store
+    from context_use.types import PipelineResult, TaskBreakdown
 
 __all__ = [
     "ContextProxy",
@@ -29,7 +26,6 @@ __all__ = [
     "ContextUse",
     "PipelineResult",
     "ScheduleInstruction",
-    "SqliteStore",
     "Store",
     "TaskBreakdown",
     "create_proxy_app",
@@ -40,19 +36,16 @@ def __getattr__(name: str) -> Any:
     if name not in __all__:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-    from context_use.facade import (
-        ContextUse,
-        PipelineResult,
-        ScheduleInstruction,
-        TaskBreakdown,
-    )
+    from context_use.batch.manager import ScheduleInstruction
+    from context_use.core import ContextUse
     from context_use.proxy.app import create_proxy_app
     from context_use.proxy.handler import (
         ContextProxy,
         ContextProxyResult,
         ContextProxyStreamResult,
     )
-    from context_use.store import SqliteStore, Store
+    from context_use.store import Store
+    from context_use.types import PipelineResult, TaskBreakdown
 
     exports: dict[str, Any] = {
         "ContextProxy": ContextProxy,
@@ -61,7 +54,6 @@ def __getattr__(name: str) -> Any:
         "ContextUse": ContextUse,
         "PipelineResult": PipelineResult,
         "ScheduleInstruction": ScheduleInstruction,
-        "SqliteStore": SqliteStore,
         "Store": Store,
         "TaskBreakdown": TaskBreakdown,
         "create_proxy_app": create_proxy_app,

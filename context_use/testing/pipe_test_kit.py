@@ -12,7 +12,7 @@ from context_use.etl.core.types import ThreadRow
 from context_use.etl.payload.core import make_thread_payload
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.storage.base import StorageBackend
-from context_use.storage.disk import DiskStorage
+from context_use.storage.memory import InMemoryStorage
 
 
 class ExtractConformanceTests:
@@ -126,9 +126,9 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
     snapshot_cases: ClassVar[list[tuple[dict | list, dict]] | None] = None
 
     @pytest.fixture()
-    def pipe_fixture(self, tmp_path) -> tuple[StorageBackend, str]:
+    def pipe_fixture(self) -> tuple[StorageBackend, str]:
         if self.fixture_data is not None and self.fixture_key is not None:
-            storage = DiskStorage(str(tmp_path / "store"))
+            storage = InMemoryStorage()
             storage.write(
                 self.fixture_key,
                 json.dumps(self.fixture_data).encode(),
@@ -186,12 +186,12 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
         second = [r.unique_key for r in self.pipe_class().run(task, storage)]
         assert first == second, "unique_keys must be deterministic across runs"
 
-    def test_snapshots(self, tmp_path) -> None:
+    def test_snapshots(self) -> None:
         if self.snapshot_cases is None:
             pytest.skip("snapshot_cases not set")
         assert self.fixture_key is not None
         for i, (raw_input, expected) in enumerate(self.snapshot_cases):
-            storage = DiskStorage(str(tmp_path / f"snap_{i}"))
+            storage = InMemoryStorage()
             storage.write(self.fixture_key, json.dumps(raw_input).encode())
             task = self._make_task(self.fixture_key)
             rows = list(self.pipe_class().run(task, storage))

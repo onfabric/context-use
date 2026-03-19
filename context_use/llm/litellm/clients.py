@@ -17,7 +17,8 @@ from context_use.llm.base import (
     EmbedItem,
     PromptItem,
 )
-from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+
+from .models import OpenAIEmbeddingModel, OpenAIModel
 
 logger = logging.getLogger(__name__)
 

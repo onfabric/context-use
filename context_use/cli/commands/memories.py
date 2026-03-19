@@ -19,7 +19,7 @@ from context_use.cli.base import (
     ContextCommand,
     run_batches,
 )
-from context_use.config import Config
+from context_use.cli.config import Config
 
 
 def export_memories_markdown(memories: list[MemorySummary], path: Path) -> None:

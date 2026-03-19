@@ -18,7 +18,7 @@ import uvicorn
 
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, prompt_api_key
-from context_use.config import build_ctx, load_config
+from context_use.cli.config import build_ctx, load_config
 from context_use.proxy.app import create_proxy_app
 from context_use.proxy.handler import ContextProxy, PostResponseCallback
 from context_use.proxy.log import (
@@ -28,7 +28,7 @@ from context_use.proxy.log import (
 )
 
 if TYPE_CHECKING:
-    from context_use.facade.core import ContextUse
+    from context_use.core import ContextUse
 
 logger = logging.getLogger(__name__)
 

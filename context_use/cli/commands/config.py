@@ -4,7 +4,7 @@ import argparse
 
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand, CommandGroup
-from context_use.config import (
+from context_use.cli.config import (
     Config,
     config_path,
     load_config,

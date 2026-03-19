@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
-from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+from context_use.llm.litellm.models import OpenAIEmbeddingModel, OpenAIModel
 
 if TYPE_CHECKING:
-    from context_use.facade.core import ContextUse
+    from context_use.core import ContextUse
 
 _DEFAULT_MODEL = OpenAIModel.GPT_5_2
 _DEFAULT_EMBEDDING_MODEL = OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE
@@ -26,11 +26,11 @@ def config_path() -> Path:
 
 
 class _FieldSpec(NamedTuple):
-    attr: str  # Config dataclass field name
-    toml_section: str  # TOML [section]
-    toml_key: str  # key within that section
-    env_var: str | None  # env var name, or None if no env override
-    cast: type = str  # type to coerce raw values to
+    attr: str
+    toml_section: str
+    toml_key: str
+    env_var: str | None
+    cast: type = str
 
 
 _FIELDS: list[_FieldSpec] = [
@@ -47,8 +47,6 @@ _FIELDS: list[_FieldSpec] = [
 @dataclass
 class Config:
     openai_api_key: str = ""
-
-    # LLM models — shared by the memories pipeline and the personal agent
     openai_model: str = _DEFAULT_MODEL
     openai_embedding_model: str = _DEFAULT_EMBEDDING_MODEL
 
@@ -86,7 +84,6 @@ class Config:
         return str(self.store_path / self.database_path)
 
     def ensure_dirs(self) -> None:
-        """Create the data directory structure if it doesn't exist."""
         self.input_dir.mkdir(parents=True, exist_ok=True)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.storage_path.mkdir(parents=True, exist_ok=True)
@@ -166,9 +163,11 @@ def save_config(cfg: Config) -> Path:
 def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     """Construct a :class:`ContextUse` from a :class:`Config`."""
 
-    from context_use.facade.core import ContextUse
-    from context_use.llm.litellm import LiteLLMBatchClient, LiteLLMSyncClient
-    from context_use.llm.models import OpenAIEmbeddingModel, OpenAIModel
+    from context_use.core import ContextUse
+    from context_use.llm.litellm.clients import (
+        LiteLLMBatchClient,
+        LiteLLMSyncClient,
+    )
     from context_use.storage.disk import DiskStorage
     from context_use.store.sqlite import SqliteStore
 

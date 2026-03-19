@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from context_use.proxy.log import log_enrichment
 
 if TYPE_CHECKING:
-    from context_use.facade.core import ContextUse
+    from context_use.core import ContextUse
     from context_use.store.base import MemorySearchResult
 
 logger = logging.getLogger(__name__)
