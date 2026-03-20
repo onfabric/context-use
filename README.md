@@ -90,8 +90,17 @@ Ingests the export and generates memories via the **batch API** of the LLM provi
 ```bash
 context-use memories list
 context-use memories search "hiking trips in 2024"
-context-use memories generate                        # generate memories from ingested data
 context-use memories export
+```
+
+### Multiple archives
+
+To ingest several archives without running the full pipeline each time, use `ingest` to parse them individually, then generate memories in one go:
+
+```bash
+context-use ingest chatgpt-export.zip
+context-use ingest instagram-export.zip
+context-use memories generate
 ```
 
 ## Personal agent
@@ -102,13 +111,6 @@ A multi-turn agent that operates over your full memory store.
 context-use agent synthesise          # generate higher-level pattern memories
 context-use agent profile             # compile a first-person profile
 context-use agent ask "What topics do I keep coming back to across all my conversations?"
-```
-
-## Other commands
-
-```bash
-context-use ingest <your-zipped-data-export>         # parse a data export without generating memories
-context-use reset                                    # wipe all stored data
 ```
 
 ## Configuration
