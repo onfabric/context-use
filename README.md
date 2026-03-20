@@ -43,7 +43,7 @@ client.chat.completions.create(model="gpt-4o", messages=[...])
 If you omit `--upstream-url`, the proxy uses the request `Host` header instead.
 
 > [!NOTE]
-> Only `POST /v1/chat/completions` requests are enriched with memories. All other paths are forwarded transparently without modification.
+> Only `POST /v1/chat/completions` and `POST /v1/responses` requests are enriched with memories. All other paths are forwarded transparently without modification.
 
 Memories are generated in the background from each conversation and are used to automatically enrich future requests that flow through the proxy.
 
@@ -93,6 +93,16 @@ context-use memories search "hiking trips in 2024"
 context-use memories export
 ```
 
+### Multiple archives
+
+To ingest several archives without running the full pipeline each time, use `ingest` to parse them individually, then generate memories in one go:
+
+```bash
+context-use ingest chatgpt-export.zip
+context-use ingest instagram-export.zip
+context-use memories generate
+```
+
 ## Personal agent
 
 A multi-turn agent that operates over your full memory store.
@@ -128,8 +138,9 @@ context-use-data/
 |----------|--------|------------|-------------|
 | ChatGPT | Available | Conversations | [Export your data](https://help.openai.com/en/articles/7260999-how-do-i-export-my-chatgpt-history-and-data) |
 | Claude | Available | Conversations | [Export your data](https://privacy.claude.com/en/articles/9450526-how-can-i-export-my-claude-data) |
-| Instagram | Available | Stories, Reels, Posts, Likes, Followers, Direct Messages, ... | [Export your data](https://help.instagram.com/181231772500920) |
-| Google | Coming soon | Searches, YouTube | [Export your data](https://support.google.com/accounts/answer/3024190) |
-| WhatsApp | Coming soon | Conversations | [Export your data](https://faq.whatsapp.com/1180414079177245) |
+| Instagram | Available | Media, Likes, DMs, Ads, Comments, Saved, Profile Searches, ... | [Export your data](https://help.instagram.com/181231772500920) |
+| Google | Available | Searches, YouTube, Shopping, Lens, Discover | [Export your data](https://support.google.com/accounts/answer/3024190) |
+| Netflix | Available | Viewing Activity, Search History, Ratings, My List, Messages, Preferences | [Export your data](https://help.netflix.com/en/node/100624) |
+| Airbnb | Available | Wishlists, Search History, Reviews, Reservations, Messages | [Export your data](https://www.airbnb.com/help/article/2273) |
 
 Want another provider? Contribute it by pointing your coding agent to the [Adding a Data Provider](docs/add-provider/AGENTS.md) guide.
