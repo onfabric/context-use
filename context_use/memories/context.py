@@ -5,12 +5,7 @@ from context_use.memories.prompt.base import GroupContext
 
 
 class GroupContextBuilder:
-    """Builds ``GroupContext`` from ``ThreadGroup``, enriching with prior context.
-
-    Both the batch pipeline and the proxy/agent path use this to ensure
-    consistent GroupContext construction.  Enrichment (prior memories,
-    user profile, recent threads) hooks into this class.
-    """
+    """Builds ``GroupContext`` from ``ThreadGroup``, enriching with prior context."""
 
     async def build(self, group: ThreadGroup) -> GroupContext:
         return GroupContext(
