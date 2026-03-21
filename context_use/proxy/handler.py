@@ -19,6 +19,15 @@ logger = logging.getLogger(__name__)
 _MIN_MAX_TOKENS_FOR_ENRICHMENT = 50
 _UPSTREAM_TIMEOUT = Timeout(None)
 
+_ACCEPT_ENCODING_HEADER_NAME = b"accept-encoding"
+_REQUEST_ENCODING_HEADERS = frozenset([_ACCEPT_ENCODING_HEADER_NAME])
+
+_CONTENT_ENCODING_HEADER_NAME = b"content-encoding"
+_CONTENT_LENGTH_HEADER_NAME = b"content-length"
+_RESPONSE_ENCODING_HEADERS = frozenset(
+    [_CONTENT_ENCODING_HEADER_NAME, _CONTENT_LENGTH_HEADER_NAME]
+)
+
 
 @dataclass(frozen=True, slots=True)
 class ContextProxyResult:
@@ -88,7 +97,7 @@ class ContextProxy:
         }
         handler = routes.get((method.upper(), path))
         if handler is None:
-            return await _forward_request(
+            return await _passthrough_request(
                 self._client, method, path, headers, body, upstream_url
             )
         try:
@@ -176,10 +185,11 @@ class ContextProxy:
 
         enriched_body = json.dumps(body).encode()
         url = upstream_url.rstrip("/") + path
+        upstream_headers = _strip_request_encoding_headers(headers)
 
         if stream:
             status, resp_headers, chunks = await _start_upstream_stream(
-                self._client, url, headers, enriched_body
+                self._client, url, upstream_headers, enriched_body
             )
             return ContextProxyStreamResult(
                 status=status,
@@ -194,14 +204,17 @@ class ContextProxy:
                 ),
             )
 
-        resp = await self._client.post(url, headers=headers, content=enriched_body)
+        resp = await self._client.post(
+            url, headers=upstream_headers, content=enriched_body
+        )
 
         log_response(resp.status_code)
 
         if should_process:
             try:
                 assistant_text = extract_text(resp.json())
-            except Exception:
+            except Exception as exc:
+                logger.error("Failed to extract assistant text: %s", exc, exc_info=True)
                 assistant_text = ""
             if assistant_text:
                 self._schedule(
@@ -209,10 +222,17 @@ class ContextProxy:
                     assistant_text,
                     session_id=session_id,
                 )
+            else:
+                logger.warning(
+                    "Skipping scheduling: no assistant text found in response: %s",
+                    resp.json(),
+                )
 
         return ContextProxyResult(
             status=resp.status_code,
-            headers=list(resp.headers.raw),
+            headers=_strip_response_encoding_headers(
+                resp.headers.raw, len(resp.content)
+            ),
             body=resp.content,
         )
 
@@ -242,6 +262,11 @@ class ContextProxy:
             assistant_text = "".join(assistant_parts)
             if assistant_text:
                 self._schedule(messages, assistant_text, session_id=session_id)
+            else:
+                logger.warning(
+                    "Skipping scheduling: no assistant text found in response: %s",
+                    assistant_parts,
+                )
 
     def _schedule(
         self,
@@ -251,12 +276,13 @@ class ContextProxy:
         session_id: str | None,
     ) -> None:
         if self._post_response_callback is None:
+            logger.warning("Skipping scheduling: no post response callback")
             return
         full_messages = [*messages, {"role": "assistant", "content": assistant_text}]
         self._post_response_callback(self._ctx, full_messages, session_id)
 
 
-async def _forward_request(
+async def _passthrough_request(
     client: AsyncClient,
     method: str,
     path: str,
@@ -264,12 +290,21 @@ async def _forward_request(
     body: bytes,
     upstream_url: str,
 ) -> ContextProxyResult:
+    """Transparent proxy: forwards the request and raw response bytes without
+    decoding the body or modifying headers.  Uses ``aiter_raw()`` so that
+    httpx does not decompress the upstream response, keeping the original
+    ``content-encoding`` / ``content-length`` headers accurate."""
     url = upstream_url.rstrip("/") + path
-    resp = await client.request(method=method, url=url, headers=headers, content=body)
+    request = client.build_request(method, url, headers=headers, content=body)
+    response = await client.send(request, stream=True)
+    try:
+        raw_body = b"".join([chunk async for chunk in response.aiter_raw()])
+    finally:
+        await response.aclose()
     return ContextProxyResult(
-        status=resp.status_code,
-        headers=list(resp.headers.raw),
-        body=resp.content,
+        status=response.status_code,
+        headers=list(response.headers.raw),
+        body=raw_body,
     )
 
 
@@ -291,7 +326,11 @@ async def _start_upstream_stream(
         finally:
             await response.aclose()
 
-    return response.status_code, list(response.headers.raw), _iter_body()
+    return (
+        response.status_code,
+        _strip_response_encoding_headers(response.headers.raw),
+        _iter_body(),
+    )
 
 
 def _should_enrich(max_tokens: int | None) -> bool:
@@ -311,11 +350,39 @@ def _extract_assistant_text(data: dict[str, Any]) -> str:
     if choices:
         message = choices[0].get("message") or {}
         return message.get("content") or ""
+    logger.warning("No choices found in assistant response: %s", data)
     return ""
+
+
+def _strip_request_encoding_headers(
+    headers: list[tuple[bytes, bytes]],
+) -> list[tuple[bytes, bytes]]:
+    """
+    Makes sure the request headers do not contain encoding headers.
+    The httpx client will automatically pick a compression method
+    and decode the response from the upstream provider accordingly.
+    """
+    return [(k, v) for k, v in headers if k.lower() not in _REQUEST_ENCODING_HEADERS]
+
+
+def _strip_response_encoding_headers(
+    raw_headers: list[tuple[bytes, bytes]],
+    body_length: int | None = None,
+) -> list[tuple[bytes, bytes]]:
+    headers = [
+        (k, v) for k, v in raw_headers if k.lower() not in _RESPONSE_ENCODING_HEADERS
+    ]
+    headers.append((_CONTENT_ENCODING_HEADER_NAME, b"identity"))
+    if body_length is not None:
+        headers.append((_CONTENT_LENGTH_HEADER_NAME, str(body_length).encode()))
+    return headers
 
 
 def _extract_response_output_text(data: dict[str, Any]) -> str:
     output = data.get("output") or []
+    if not output:
+        logger.warning("No output found in response: %s", data)
+        return ""
     texts: list[str] = []
     for item in output:
         if item.get("type") != "message":
@@ -326,6 +393,9 @@ def _extract_response_output_text(data: dict[str, Any]) -> str:
                 text = part.get("text")
                 if isinstance(text, str):
                     texts.append(text)
+    if not texts:
+        logger.warning("No output text found in response: %s", data)
+        return ""
     return " ".join(texts)
 
 
