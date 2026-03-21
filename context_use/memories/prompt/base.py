@@ -53,6 +53,10 @@ class GroupContext:
     recent_threads: list[Thread] = field(default_factory=list)
     user_profile: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.new_threads:
+            raise ValueError("GroupContext requires at least one thread")
+
 
 class BasePromptBuilder(ABC):
     """Strategy interface for building an LLM prompt from a single group.
@@ -66,14 +70,18 @@ class BasePromptBuilder(ABC):
         self.context = context
 
     @abstractmethod
-    def build(self) -> PromptItem | None:
-        """Return a ``PromptItem`` for this group, or ``None`` if empty."""
+    def build(self) -> PromptItem:
+        """Return a ``PromptItem`` for this group."""
         ...
 
-    @abstractmethod
     def has_content(self) -> bool:
-        """Return ``True`` if there is anything worth sending to the LLM."""
-        ...
+        """Return ``True`` if there is anything worth sending to the LLM.
+
+        Defaults to ``True`` since ``GroupContext`` guarantees non-empty
+        threads.  Subclasses may override for stricter checks (e.g. media
+        builders that require asset URIs).
+        """
+        return True
 
     @staticmethod
     def _format_context(ctx: GroupContext) -> str:

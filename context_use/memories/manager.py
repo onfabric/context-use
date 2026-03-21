@@ -102,10 +102,6 @@ class MemoryBatchManager(BaseBatchManager):
         if not contexts:
             return SkippedState(reason="No groups for memory generation")
 
-        all_threads = [t for ctx in contexts for t in ctx.new_threads]
-        if not all_threads:
-            return SkippedState(reason="No threads for memory generation")
-
         from context_use.providers.registry import get_memory_config
 
         prompts = []
@@ -114,19 +110,18 @@ class MemoryBatchManager(BaseBatchManager):
             config = get_memory_config(it)
             builder = config.create_prompt_builder(ctx)
             if builder.has_content():
-                item = builder.build()
-                if item is not None:
-                    prompts.append(item)
+                prompts.append(builder.build())
 
         if not prompts:
             return SkippedState(reason="Prompt builder produced no prompts")
 
+        total_threads = sum(len(ctx.new_threads) for ctx in contexts)
         logger.info(
             "[%s] Submitting batch job for %d groups (%d prompts, %d total threads)",
             self.batch.id,
             len(contexts),
             len(prompts),
-            len(all_threads),
+            total_threads,
         )
 
         job_key = await self.extractor.submit(self.batch.id, prompts)

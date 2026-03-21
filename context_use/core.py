@@ -293,12 +293,7 @@ class ContextUse:
 
         group = ThreadGroup(threads=threads)
         ctx = await GroupContextBuilder().build(group)
-        builder = AgentToolConversationPromptBuilder(ctx)
-        if not builder.has_content():
-            return None
-        item = builder.build()
-        if item is None:
-            return None
+        item = AgentToolConversationPromptBuilder(ctx).build()
 
         return await self.run_agent(item.prompt)
 

@@ -107,12 +107,12 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
     def has_content(self) -> bool:
         return any(t.asset_uri for t in self.context.new_threads)
 
-    def build(self) -> PromptItem | None:
+    def build(self) -> PromptItem:
         threads_with_assets = [
             t for t in self.context.new_threads if t.asset_uri is not None
         ]
         if not threads_with_assets:
-            return None
+            raise ValueError("No threads with assets — check has_content() first")
 
         sorted_threads = sorted(threads_with_assets, key=lambda t: t.asat)
         from_date = sorted_threads[0].asat.date()

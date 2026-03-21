@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from context_use.llm.base import PromptItem
 from context_use.llm.litellm.clients import LiteLLMSyncClient
 from context_use.memories.prompt.base import MemorySchema
 from context_use.memories.prompt.conversation import (
@@ -18,15 +17,7 @@ async def test_context_impact(
     scenario: EvalScenario,
     llm_client: LiteLLMSyncClient,
 ) -> None:
-    prompts: list[PromptItem] = []
-    for ctx in scenario.contexts:
-        item = AgentConversationMemoryPromptBuilder(ctx).build()
-        if item is not None:
-            prompts.append(item)
-
-    assert prompts, (
-        f"[{scenario.id}] No prompts built — check that contexts have threads"
-    )
+    prompts = [AgentConversationMemoryPromptBuilder(ctx).build() for ctx in scenario.contexts]
 
     print(f"\n{'=' * 70}")
     print(f"SCENARIO : {scenario.id}")

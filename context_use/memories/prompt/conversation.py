@@ -138,17 +138,11 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
     @abstractmethod
     def _prompt_template(self) -> str: ...
 
-    def has_content(self) -> bool:
-        return bool(self.context.new_threads)
-
     @property
     def _response_schema(self) -> dict | None:
         return MemorySchema.json_schema()
 
-    def build(self) -> PromptItem | None:
-        if not self.context.new_threads:
-            return None
-
+    def build(self) -> PromptItem:
         threads = sorted(self.context.new_threads, key=lambda t: t.asat)
         transcript = format_transcript(threads, content_fn=self._format_content)
         context_block = self._format_context(self.context)
