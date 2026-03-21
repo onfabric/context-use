@@ -74,15 +74,6 @@ class BasePromptBuilder(ABC):
         """Return a ``PromptItem`` for this group."""
         ...
 
-    def has_content(self) -> bool:
-        """Return ``True`` if there is anything worth sending to the LLM.
-
-        Defaults to ``True`` since ``GroupContext`` guarantees non-empty
-        threads.  Subclasses may override for stricter checks (e.g. media
-        builders that require asset URIs).
-        """
-        return True
-
     @staticmethod
     def _format_context(ctx: GroupContext) -> str:
         """Build an optional context preamble from user profile, prior memories,

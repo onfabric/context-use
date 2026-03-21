@@ -12,11 +12,11 @@ from context_use.batch.states import CompleteState, CreatedState, SkippedState, 
 from context_use.facets.embedding import store_facet_embeddings, submit_facet_embeddings
 from context_use.facets.linker import SemanticFacetLinker
 from context_use.llm.base import BatchResults
+from context_use.memories.context import GroupContextBuilder
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
 )
-from context_use.memories.context import GroupContextBuilder
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.prompt import GroupContext, MemorySchema
@@ -109,8 +109,7 @@ class MemoryBatchManager(BaseBatchManager):
             it = ctx.new_threads[0].interaction_type
             config = get_memory_config(it)
             builder = config.create_prompt_builder(ctx)
-            if builder.has_content():
-                prompts.append(builder.build())
+            prompts.append(builder.build())
 
         if not prompts:
             return SkippedState(reason="Prompt builder produced no prompts")
