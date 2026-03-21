@@ -7,12 +7,6 @@ from context_use.memories.prompt.conversation import (
 )
 
 
-def test_has_content(
-    prompt_builders: list[AgentConversationMemoryPromptBuilder],
-) -> None:
-    assert all(b.has_content() for b in prompt_builders)
-
-
 def test_builds_one_prompt_per_conversation(
     prompt_builders: list[AgentConversationMemoryPromptBuilder],
     conversation_groups: list[ThreadGroup],
@@ -64,13 +58,6 @@ def test_response_schema_is_set(
         assert item is not None
         assert item.response_schema
         assert "memories" in item.response_schema.get("properties", {})
-
-
-def test_empty_group_produces_no_prompt() -> None:
-    ctx = GroupContext(group_id="empty", new_threads=[])
-    builder = AgentConversationMemoryPromptBuilder(ctx)
-    assert not builder.has_content()
-    assert builder.build() is None
 
 
 def test_inbound_messages_truncated_at_2000_chars(
