@@ -8,11 +8,11 @@ class _BaseModel(StrEnum):
         super().__init__()
 
     @property
-    def provider(self) -> str:
+    def provider_id(self) -> str:
         return self._provider
 
     @property
-    def model(self) -> str:
+    def model_id(self) -> str:
         return self._model
 
 

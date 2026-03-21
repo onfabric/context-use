@@ -67,7 +67,7 @@ class LiteLLMBase(BaseLLMClient):
 
     @property
     def _provider(self) -> Any:
-        return self._model.provider
+        return self._model.provider_id
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
@@ -117,7 +117,7 @@ def _build_batch_jsonl_line(
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": model.model,
+            "model": model.model_id,
             "messages": _build_messages(item),
             "response_format": _build_response_format(item),
         },
@@ -133,7 +133,7 @@ def _build_embed_batch_jsonl_line(
         "method": "POST",
         "url": "/v1/embeddings",
         "body": {
-            "model": model.model,
+            "model": model.model_id,
             "input": item.text,
         },
     }
