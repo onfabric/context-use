@@ -17,7 +17,6 @@ class _BaseModel(StrEnum):
 
 
 class OpenAIModel(_BaseModel):
-    GPT_4O = "openai/gpt-4o"
     GPT_5_2 = "openai/gpt-5.2"
 
 
@@ -30,11 +29,10 @@ type Model = OpenAIModel | VertexAIModel
 
 class OpenAIEmbeddingModel(_BaseModel):
     TEXT_EMBEDDING_3_LARGE = "openai/text-embedding-3-large"
-    TEXT_EMBEDDING_3_SMALL = "openai/text-embedding-3-small"
 
 
 class VertexAIEmbeddingModel(_BaseModel):
-    TEXT_EMBEDDING_004 = "vertex_ai/text-embedding-004"
+    TEXT_EMBEDDING_005 = "vertex_ai/text-embedding-005"
 
 
 type EmbeddingModel = OpenAIEmbeddingModel | VertexAIEmbeddingModel
