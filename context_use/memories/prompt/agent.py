@@ -75,13 +75,7 @@ Return a brief summary of what you did (created, updated, or nothing).\
 
 
 class AgentToolConversationPromptBuilder(ConversationMemoryPromptBuilder):
-    """Builds a prompt for the personal agent to process via tools.
-
-    Unlike the batch prompt builders that request structured JSON output,
-    this builder produces a prompt with tool-based instructions and no
-    response schema — the agent uses ``create_memory``, ``update_memory``,
-    etc. to act on the conversation.
-    """
+    """Builds a prompt for the personal agent to process via tools."""
 
     @property
     def _prompt_template(self) -> str:
