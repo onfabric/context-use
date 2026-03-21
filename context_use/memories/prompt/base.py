@@ -53,6 +53,10 @@ class GroupContext:
     recent_threads: list[Thread] = field(default_factory=list)
     user_profile: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.new_threads:
+            raise ValueError("GroupContext requires at least one thread")
+
 
 class BasePromptBuilder(ABC):
     """Strategy interface for building an LLM prompt from a single group.

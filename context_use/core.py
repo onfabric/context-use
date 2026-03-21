@@ -288,9 +288,9 @@ class ContextUse:
 
         group = ThreadGroup(threads=threads)
         ctx = await GroupContextBuilder().build(group)
-        builder = AgentToolConversationPromptBuilder(ctx)
-        prompt = builder.build().prompt
-        return await self.run_agent(prompt)
+        item = AgentToolConversationPromptBuilder(ctx).build()
+
+        return await self.run_agent(item.prompt)
 
     # ── Queries ──────────────────────────────────────────────────────
 
