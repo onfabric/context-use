@@ -1,3 +1,18 @@
+## [0.11.1] - 2026-03-21
+
+### 🐛 Bug Fixes
+
+- *(proxy)* Ignore encoding from client (#249)
+- Import configs utils (#248)
+
+### 🚜 Refactor
+
+- Move local ctx setup in cli (#245)
+
+### ⚙️ Miscellaneous Tasks
+
+- Added new available providers and commands in readme (#246)
+
 ## [0.11.0] - 2026-03-19
 
 ### 🚀 Features
