@@ -18,18 +18,9 @@ from context_use.llm.base import (
     PromptItem,
 )
 from context_use.llm.litellm.config import BaseLlmConfig
+from context_use.llm.litellm.models import EmbeddingModel, Model
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_provider(model: str) -> str:
-    if "/" in model:
-        return model.split("/", 1)[0]
-    return "openai"
-
-
-def _strip_provider_prefix(model: str) -> str:
-    return model.split("/", 1)[-1]
 
 
 def _encode_file_as_data_url(path: str) -> str:
@@ -76,7 +67,7 @@ class LiteLLMBase(BaseLLMClient):
 
     @property
     def _provider(self) -> Any:
-        return _extract_provider(self._model)
+        return self._model.provider
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
@@ -119,14 +110,14 @@ _BATCH_TERMINAL_STATES: set[str] = {"failed", "cancelled", "expired"}
 
 def _build_batch_jsonl_line(
     item: PromptItem,
-    model: str,
+    model: Model,
 ) -> dict[str, Any]:
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": _strip_provider_prefix(model),
+            "model": model.model,
             "messages": _build_messages(item),
             "response_format": _build_response_format(item),
         },
@@ -135,14 +126,14 @@ def _build_batch_jsonl_line(
 
 def _build_embed_batch_jsonl_line(
     item: EmbedItem,
-    model: str,
+    model: EmbeddingModel,
 ) -> dict[str, Any]:
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/embeddings",
         "body": {
-            "model": _strip_provider_prefix(model),
+            "model": model.model,
             "input": item.text,
         },
     }
