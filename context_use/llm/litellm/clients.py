@@ -57,7 +57,6 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
 class LiteLLMBase(BaseLLMClient):
     def __init__(self, config: BaseLlmConfig) -> None:
         self._config = config
-        self._model = config.model
         self._embedding_model = config.embedding_model
         self._litellm_params = config.litellm_params()
 
@@ -67,11 +66,11 @@ class LiteLLMBase(BaseLLMClient):
 
     @property
     def _provider_name(self) -> Any:
-        return self._model.provider_name
+        return self._config.model.provider_name
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
-            model=self._model,
+            model=self._config.model,
             messages=[{"role": "user", "content": prompt}],
             **self._litellm_params,
         )
@@ -80,7 +79,7 @@ class LiteLLMBase(BaseLLMClient):
 
     async def _raw_structured_completion(self, prompt: PromptItem) -> dict:
         response = await litellm.acompletion(
-            model=self._model,
+            model=self._config.model,
             messages=_build_messages(prompt),
             response_format=_build_response_format(prompt),
             **self._litellm_params,
@@ -208,7 +207,7 @@ class LiteLLMBatchClient(LiteLLMBase):
     ) -> str:
         lines: list[str] = []
         for item in prompts:
-            line = _build_batch_jsonl_line(item, self._model)
+            line = _build_batch_jsonl_line(item, self._config.model)
             lines.append(json.dumps(line))
 
         jsonl_bytes = "\n".join(lines).encode("utf-8")
