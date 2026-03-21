@@ -54,7 +54,7 @@ class TestOpenAIConfig:
 class TestVertexAIConfig:
     def test_implements_base(self) -> None:
         config = VertexAIConfig(
-            model=VertexAIModel.GEMINI_2_5_FLASH,
+            model=VertexAIModel.GEMINI_2_5_PRO,
             embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="us-central1",
@@ -63,7 +63,7 @@ class TestVertexAIConfig:
 
     def test_litellm_params_without_credentials(self) -> None:
         config = VertexAIConfig(
-            model=VertexAIModel.GEMINI_2_5_FLASH,
+            model=VertexAIModel.GEMINI_2_5_PRO,
             embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="us-central1",
@@ -77,7 +77,7 @@ class TestVertexAIConfig:
 
     def test_litellm_params_with_credentials(self) -> None:
         config = VertexAIConfig(
-            model=VertexAIModel.GEMINI_2_5_FLASH,
+            model=VertexAIModel.GEMINI_2_5_PRO,
             embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="eu-west1",

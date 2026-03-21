@@ -14,7 +14,7 @@ class TestProviderNameModel:
         assert OpenAIModel.GPT_5_2.provider_name == "openai"
 
     def test_vertex_ai_prefix(self) -> None:
-        assert VertexAIModel.GEMINI_2_5_FLASH.provider_name == "vertex_ai"
+        assert VertexAIModel.GEMINI_2_5_PRO.provider_name == "vertex_ai"
 
 
 class TestModelNameModel:
@@ -22,7 +22,7 @@ class TestModelNameModel:
         assert OpenAIModel.GPT_5_2.model_name == "gpt-5.2"
 
     def test_strips_vertex_ai(self) -> None:
-        assert VertexAIModel.GEMINI_2_5_FLASH.model_name == "gemini-2.5-flash"
+        assert VertexAIModel.GEMINI_2_5_PRO.model_name == "gemini-2.5-pro"
 
 
 class TestProviderNameEmbeddingModel:

@@ -25,7 +25,7 @@ class OpenAIModel(_BaseModel):
 
 
 class VertexAIModel(_BaseModel):
-    GEMINI_2_5_FLASH = "vertex_ai/gemini-2.5-flash"
+    GEMINI_2_5_PRO = "vertex_ai/gemini-2.5-pro"
 
 
 type Model = OpenAIModel | VertexAIModel
