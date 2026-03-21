@@ -41,18 +41,14 @@ class BankRevolutPipe(_BankTransactionPipe):
                 if row.state == "REVERTED":
                     continue
                 authorized_date = (
-                    _parse_revolut_date(row.started_date)
-                    if row.started_date
-                    else None
+                    _parse_revolut_date(row.started_date) if row.started_date else None
                 )
                 date = (
                     _parse_revolut_date(row.completed_date)
                     if row.completed_date
                     else _parse_revolut_date(row.started_date)
                 )
-                payment_channel = (
-                    "in_store" if row.type == "Card Payment" else None
-                )
+                payment_channel = "in_store" if row.type == "Card Payment" else None
                 yield BankTransactionRecord(
                     date=date,
                     authorized_date=authorized_date,
