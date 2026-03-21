@@ -41,7 +41,7 @@ _OPENAI_CONFIG = OpenAIConfig(
 )
 
 _VERTEX_CONFIG = VertexAIConfig(
-    model=VertexAIModel.GEMINI_2_5_FLASH,
+    model=VertexAIModel.GEMINI_2_5_PRO,
     embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
     vertex_project="my-project",
     vertex_location="us-central1",
@@ -54,8 +54,8 @@ class TestBuildBatchJsonlLine:
         assert line["body"]["model"] == "gpt-5.2"
 
     def test_strips_vertex_ai_prefix(self) -> None:
-        line = _build_batch_jsonl_line(_make_prompt(), VertexAIModel.GEMINI_2_5_FLASH)
-        assert line["body"]["model"] == "gemini-2.5-flash"
+        line = _build_batch_jsonl_line(_make_prompt(), VertexAIModel.GEMINI_2_5_PRO)
+        assert line["body"]["model"] == "gemini-2.5-pro"
 
     def test_custom_id_matches(self) -> None:
         line = _build_batch_jsonl_line(_make_prompt("my-id"), OpenAIModel.GPT_5_2)
