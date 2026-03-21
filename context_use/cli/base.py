@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
+from context_use.cli.config import Config, build_ctx, load_config, save_config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
     from context_use.batch.manager import ScheduleInstruction
     from context_use.batch.states import State
-    from context_use.cli.config import Config, build_ctx, load_config, save_config
     from context_use.models.batch import Batch
     from context_use.types import PipelineResult
 
