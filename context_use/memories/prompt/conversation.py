@@ -141,6 +141,10 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
     def has_content(self) -> bool:
         return bool(self.context.new_threads)
 
+    @property
+    def _response_schema(self) -> dict | None:
+        return MemorySchema.json_schema()
+
     def build(self) -> PromptItem | None:
         if not self.context.new_threads:
             return None
@@ -156,7 +160,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         return PromptItem(
             item_id=self.context.group_id,
             prompt=prompt,
-            response_schema=MemorySchema.json_schema(),
+            response_schema=self._response_schema,
         )
 
     def _format_content(self, thread: Thread) -> str:

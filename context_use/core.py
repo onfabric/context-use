@@ -265,8 +265,11 @@ class ContextUse:
         *,
         session_id: str | None = None,
     ) -> AgentResult | None:
-        from context_use.agent.skill import make_process_thread_skill
-        from context_use.memories.prompt.conversation import format_transcript
+        from context_use.batch.grouper import ThreadGroup
+        from context_use.memories.context import GroupContextBuilder
+        from context_use.memories.prompt.agent import (
+            AgentToolConversationPromptBuilder,
+        )
         from context_use.models.thread import Thread
         from context_use.proxy.threads import messages_to_thread_rows
 
@@ -287,9 +290,17 @@ class ContextUse:
             )
             for r in rows
         ]
-        transcript = format_transcript(threads)
-        skill = make_process_thread_skill(transcript)
-        return await self.run_agent(skill.prompt)
+
+        group = ThreadGroup(threads=threads)
+        ctx = await GroupContextBuilder().build(group)
+        builder = AgentToolConversationPromptBuilder(ctx)
+        if not builder.has_content():
+            return None
+        item = builder.build()
+        if item is None:
+            return None
+
+        return await self.run_agent(item.prompt)
 
     # ── Queries ──────────────────────────────────────────────────────
 
