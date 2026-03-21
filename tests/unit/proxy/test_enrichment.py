@@ -173,7 +173,7 @@ class TestEnrichBody:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {
-            "model": "gpt-4o",
+            "model": "gpt-5.2",
             "messages": [{"role": "user", "content": "What food do I like?"}],
         }
 
@@ -188,7 +188,7 @@ class TestEnrichBody:
     async def test_enriches_responses_body_string_input(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
-        body = {"model": "gpt-4o", "input": "What food do I like?"}
+        body = {"model": "gpt-5.2", "input": "What food do I like?"}
 
         result = await enrich_body(body, ctx, top_k=3)
 
@@ -201,7 +201,7 @@ class TestEnrichBody:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {
-            "model": "gpt-4o",
+            "model": "gpt-5.2",
             "input": [{"role": "user", "content": "What food do I like?"}],
         }
 
@@ -213,7 +213,7 @@ class TestEnrichBody:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         body = {
-            "model": "gpt-4o",
+            "model": "gpt-5.2",
             "input": "Hello",
             "instructions": "Be helpful",
         }
@@ -226,7 +226,7 @@ class TestEnrichBody:
     async def test_returns_original_when_no_user_message(self) -> None:
         ctx = AsyncMock()
         messages = [{"role": "system", "content": "Hi"}]
-        body = {"model": "gpt-4o", "messages": messages}
+        body = {"model": "gpt-5.2", "messages": messages}
 
         result = await enrich_body(body, ctx)
 
@@ -235,7 +235,7 @@ class TestEnrichBody:
 
     async def test_returns_original_when_no_input(self) -> None:
         ctx = AsyncMock()
-        body = {"model": "gpt-4o"}
+        body = {"model": "gpt-5.2"}
 
         result = await enrich_body(body, ctx)
 
@@ -245,7 +245,7 @@ class TestEnrichBody:
     async def test_returns_original_when_no_results(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = []
-        body = {"model": "gpt-4o", "input": "Hello"}
+        body = {"model": "gpt-5.2", "input": "Hello"}
 
         result = await enrich_body(body, ctx)
 
@@ -255,7 +255,7 @@ class TestEnrichBody:
         ctx = AsyncMock()
         ctx.search_memories.side_effect = RuntimeError("DB error")
         body = {
-            "model": "gpt-4o",
+            "model": "gpt-5.2",
             "messages": [{"role": "user", "content": "Hello"}],
         }
 
@@ -267,7 +267,7 @@ class TestEnrichBody:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
         messages = [{"role": "user", "content": "Hello"}]
-        body = {"model": "gpt-4o", "messages": messages}
+        body = {"model": "gpt-5.2", "messages": messages}
 
         await enrich_body(body, ctx)
 
@@ -276,7 +276,7 @@ class TestEnrichBody:
     async def test_does_not_mutate_responses_body(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
-        body = {"model": "gpt-4o", "input": "Hello"}
+        body = {"model": "gpt-5.2", "input": "Hello"}
 
         result = await enrich_body(body, ctx)
 

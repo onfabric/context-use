@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
     from typing import Any
 
-    from context_use.llm.base import BaseLLMClient
+    from context_use.llm.litellm.clients import LiteLLMBase
     from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
 
@@ -42,7 +42,7 @@ class ContextUse:
         ctx = ContextUse(
             storage=...,   # StorageBackend implementation
             store=...,     # Store implementation
-            llm_client=...,  # BaseLLMClient implementation
+            llm_client=...,  # LiteLLMBase implementation
         )
         await ctx.init()
         from context_use.providers import chatgpt
@@ -53,14 +53,15 @@ class ContextUse:
         self,
         storage: StorageBackend,
         store: Store,
-        llm_client: BaseLLMClient,
+        llm_client: LiteLLMBase,
     ) -> None:
         self._storage = storage
         self._store = store
         self._llm_client = llm_client
         self._memory_service = MemoryService(self._store, self._llm_client)
         self._agent = AgentRunner(
-            memory_service=self._memory_service, llm_client=self._llm_client
+            memory_service=self._memory_service,
+            llm_config=llm_client.config,
         )
 
     async def init(self) -> None:

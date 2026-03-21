@@ -53,7 +53,7 @@ def _make_result() -> MemorySearchResult:
 
 def _completion_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "model": "gpt-4o",
+        "model": "gpt-5.2",
         "messages": [{"role": "user", "content": "Hello"}],
     }
     body.update(overrides)
@@ -288,7 +288,7 @@ class TestRequestValidation:
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
-                json={"model": "gpt-4o"},
+                json={"model": "gpt-5.2"},
             )
         assert resp.status_code == 400
 

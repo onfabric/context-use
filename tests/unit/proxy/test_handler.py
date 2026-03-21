@@ -50,7 +50,7 @@ def _make_result() -> MemorySearchResult:
 
 def _completion_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "model": "gpt-4o",
+        "model": "gpt-5.2",
         "messages": [{"role": "user", "content": "Hello"}],
     }
     body.update(overrides)
@@ -559,7 +559,7 @@ class TestHandle:
 
     async def test_raises_value_error_on_missing_messages(self) -> None:
         handler = ContextProxy(_mock_ctx())
-        body = json.dumps({"model": "gpt-4o"}).encode()
+        body = json.dumps({"model": "gpt-5.2"}).encode()
 
         with pytest.raises(ValueError, match="required"):
             await handler.handle(
@@ -689,7 +689,7 @@ class TestBackgroundScheduling:
 
 def _response_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "model": "gpt-4o",
+        "model": "gpt-5.2",
         "input": "Hello",
     }
     body.update(overrides)
@@ -855,22 +855,22 @@ class TestInputToMessages:
 
 class TestBodyToMessages:
     def test_completions_body(self) -> None:
-        body = {"messages": [{"role": "user", "content": "Hi"}], "model": "gpt-4o"}
+        body = {"messages": [{"role": "user", "content": "Hi"}], "model": "gpt-5.2"}
         assert _body_to_messages(body) == [{"role": "user", "content": "Hi"}]
 
     def test_responses_body_string_input(self) -> None:
-        body = {"input": "Hello", "model": "gpt-4o"}
+        body = {"input": "Hello", "model": "gpt-5.2"}
         assert _body_to_messages(body) == [{"role": "user", "content": "Hello"}]
 
     def test_responses_body_with_instructions(self) -> None:
-        body = {"input": "Hello", "instructions": "Be helpful", "model": "gpt-4o"}
+        body = {"input": "Hello", "instructions": "Be helpful", "model": "gpt-5.2"}
         assert _body_to_messages(body) == [
             {"role": "system", "content": "Be helpful"},
             {"role": "user", "content": "Hello"},
         ]
 
     def test_responses_body_no_input(self) -> None:
-        body = {"model": "gpt-4o"}
+        body = {"model": "gpt-5.2"}
         assert _body_to_messages(body) == []
 
 
