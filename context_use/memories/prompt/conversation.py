@@ -138,6 +138,10 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
     @abstractmethod
     def _prompt_template(self) -> str: ...
 
+    @property
+    def _response_schema(self) -> dict | None:
+        return MemorySchema.json_schema()
+
     def build(self) -> PromptItem:
         threads = sorted(self.context.new_threads, key=lambda t: t.asat)
         transcript = format_transcript(threads, content_fn=self._format_content)
@@ -150,7 +154,7 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         return PromptItem(
             item_id=self.context.group_id,
             prompt=prompt,
-            response_schema=MemorySchema.json_schema(),
+            response_schema=self._response_schema,
         )
 
     def _format_content(self, thread: Thread) -> str:

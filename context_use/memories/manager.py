@@ -12,6 +12,7 @@ from context_use.batch.states import CompleteState, CreatedState, SkippedState, 
 from context_use.facets.embedding import store_facet_embeddings, submit_facet_embeddings
 from context_use.facets.linker import SemanticFacetLinker
 from context_use.llm.base import BatchResults
+from context_use.memories.context import GroupContextBuilder
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
@@ -50,19 +51,12 @@ class MemoryBatchManager(BaseBatchManager):
         self.extractor = MemoryExtractor(ctx.llm_client)
         self.batch_factory = MemoryBatchFactory
         self.linker = SemanticFacetLinker(ctx.store)
+        self.context_builder = GroupContextBuilder()
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
         groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
-        contexts: list[GroupContext] = []
-        for group in groups:
-            contexts.append(
-                GroupContext(
-                    group_id=group.group_id,
-                    new_threads=group.threads,
-                )
-            )
-        return contexts
+        return await self.context_builder.build_many(groups)
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
