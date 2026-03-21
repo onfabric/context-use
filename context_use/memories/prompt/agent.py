@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from context_use.memories.prompt.conversation import (
-    ConversationMemoryPromptBuilder,
     _MAX_INBOUND_CHARS,
+    ConversationMemoryPromptBuilder,
 )
 from context_use.models.thread import Thread
 
