@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "Type": {
+      "type": "string"
+    },
+    "Product": {
+      "type": "string"
+    },
+    "Started Date": {
+      "type": "string"
+    },
+    "Completed Date": {
+      "type": "string"
+    },
+    "Description": {
+      "type": "string"
+    },
+    "Amount": {
+      "type": "string"
+    },
+    "Fee": {
+      "type": "string"
+    },
+    "Currency": {
+      "type": "string"
+    },
+    "State": {
+      "type": "string"
+    },
+    "Balance": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "Amount",
+    "Balance",
+    "Completed Date",
+    "Currency",
+    "Description",
+    "Fee",
+    "Product",
+    "Started Date",
+    "State",
+    "Type"
+  ]
+}
