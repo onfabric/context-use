@@ -47,7 +47,9 @@ def test_transcript_contains_fixture_content(
     prompt_builders: list[AgentConversationMemoryPromptBuilder],
 ) -> None:
     combined = "\n".join(
-        b.build().prompt for b in prompt_builders if b.build() is not None  # type: ignore[union-attr]
+        b.build().prompt
+        for b in prompt_builders
+        if b.build() is not None  # type: ignore[union-attr]
     )
     assert "wispr flow" in combined.lower()
     assert "cacio e pepe" in combined.lower()

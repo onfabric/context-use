@@ -153,9 +153,9 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
         transcript = format_transcript(threads, content_fn=self._format_content)
         context_block = self._format_context(self.context)
 
-        prompt = self._prompt_template.replace(
-            "{{CONTEXT}}", context_block
-        ).replace("{{TRANSCRIPT}}", transcript)
+        prompt = self._prompt_template.replace("{{CONTEXT}}", context_block).replace(
+            "{{TRANSCRIPT}}", transcript
+        )
 
         return PromptItem(
             item_id=self.context.group_id,

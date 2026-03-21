@@ -12,11 +12,11 @@ from context_use.batch.states import CompleteState, CreatedState, SkippedState, 
 from context_use.facets.embedding import store_facet_embeddings, submit_facet_embeddings
 from context_use.facets.linker import SemanticFacetLinker
 from context_use.llm.base import BatchResults
+from context_use.memories.context import GroupContextBuilder
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
 )
-from context_use.memories.context import GroupContextBuilder
 from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.prompt import GroupContext, MemorySchema
