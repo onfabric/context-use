@@ -1,3 +1,6 @@
+from context_use.memories.prompt.agent import (  # noqa: F401
+    AgentToolConversationPromptBuilder,
+)
 from context_use.memories.prompt.base import (  # noqa: F401
     BasePromptBuilder,
     GroupContext,
