@@ -66,7 +66,9 @@ class ContextUse:
 
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
-        await self._store.init()
+        await self._store.init(
+            embedding_dimensions=self._llm_client.config.embedding_model.embedding_dimensions,
+        )
 
     async def reset(self) -> None:
         """Drop all data and recreate from scratch."""

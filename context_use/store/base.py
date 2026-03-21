@@ -43,7 +43,7 @@ class Store(ABC):
     # ── Lifecycle ────────────────────────────────────────────────────
 
     @abstractmethod
-    async def init(self) -> None:
+    async def init(self, *, embedding_dimensions: int) -> None:
         """Create tables / indices."""
         ...
 
