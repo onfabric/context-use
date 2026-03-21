@@ -70,11 +70,6 @@ class BasePromptBuilder(ABC):
         """Return a ``PromptItem`` for this group, or ``None`` if empty."""
         ...
 
-    @abstractmethod
-    def has_content(self) -> bool:
-        """Return ``True`` if there is anything worth sending to the LLM."""
-        ...
-
     @staticmethod
     def _format_context(ctx: GroupContext) -> str:
         """Build an optional context preamble from user profile, prior memories,
