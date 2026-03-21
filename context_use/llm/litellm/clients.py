@@ -57,7 +57,6 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
 class LiteLLMBase(BaseLLMClient):
     def __init__(self, config: BaseLlmConfig) -> None:
         self._config = config
-        self._embedding_model = config.embedding_model
         self._litellm_params = config.litellm_params()
 
     @property
@@ -97,7 +96,7 @@ class LiteLLMBase(BaseLLMClient):
 
     async def embed_query(self, text: str) -> list[float]:
         response = await litellm.aembedding(
-            model=self._embedding_model,
+            model=self._config.embedding_model,
             input=[text],
             **self._litellm_params,
         )
@@ -278,7 +277,9 @@ class LiteLLMBatchClient(LiteLLMBase):
         items: list[EmbedItem],
     ) -> str:
         lines = [
-            json.dumps(_build_embed_batch_jsonl_line(item, self._embedding_model))
+            json.dumps(
+                _build_embed_batch_jsonl_line(item, self._config.embedding_model)
+            )
             for item in items
         ]
         jsonl_bytes = "\n".join(lines).encode("utf-8")
@@ -409,7 +410,7 @@ class LiteLLMSyncClient(LiteLLMBase):
         for item in items:
             try:
                 response = await litellm.aembedding(
-                    model=self._embedding_model,
+                    model=self._config.embedding_model,
                     input=[item.text],
                     **self._litellm_params,
                 )
