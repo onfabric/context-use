@@ -30,9 +30,13 @@ class TestBankRevolutPipe(PipeTestKit):
             assert "Bank" in row.preview
 
     def test_transfer_has_positive_amount(self, extracted_records):
-        transfer = next(r for r in extracted_records if r.transaction_type == "Transfer")
+        transfer = next(
+            r for r in extracted_records if r.transaction_type == "Transfer"
+        )
         assert not transfer.amount.startswith("-")
 
     def test_card_payment_has_negative_amount(self, extracted_records):
-        card = next(r for r in extracted_records if r.transaction_type == "Card Payment")
+        card = next(
+            r for r in extracted_records if r.transaction_type == "Card Payment"
+        )
         assert card.amount.startswith("-")

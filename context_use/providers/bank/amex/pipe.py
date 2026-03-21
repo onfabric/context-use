@@ -27,10 +27,7 @@ class BankAmexPipe(_BankTransactionPipe):
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
             for raw_row in reader:
                 row = Model.model_validate(raw_row)
-                if row.cr == "CR":
-                    amount = f"+{row.amount}"
-                else:
-                    amount = f"-{row.amount}"
+                amount = f"+{row.amount}" if row.cr == "CR" else f"-{row.amount}"
                 foreign_amount = row.foreign_spend_amount or None
                 foreign_currency = row.foreign_spend_currency or None
                 yield BankTransactionRecord(
