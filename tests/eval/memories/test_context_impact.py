@@ -17,7 +17,9 @@ async def test_context_impact(
     scenario: EvalScenario,
     llm_client: LiteLLMSyncClient,
 ) -> None:
-    prompts = [AgentConversationMemoryPromptBuilder(ctx).build() for ctx in scenario.contexts]
+    prompts = [
+        AgentConversationMemoryPromptBuilder(ctx).build() for ctx in scenario.contexts
+    ]
 
     print(f"\n{'=' * 70}")
     print(f"SCENARIO : {scenario.id}")
