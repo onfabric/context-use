@@ -31,7 +31,7 @@ def llm_client() -> LiteLLMSyncClient:
         pytest.skip("OpenAI API key not configured")
     return LiteLLMSyncClient(
         OpenAIConfig(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_2,
             embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
             api_key=cfg.openai_api_key,
         )

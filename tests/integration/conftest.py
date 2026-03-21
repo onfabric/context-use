@@ -11,7 +11,7 @@ from context_use.storage.disk import DiskStorage
 from context_use.store.sqlite import SqliteStore
 
 _STUB_CONFIG = OpenAIConfig(
-    model=OpenAIModel.GPT_4O,
+    model=OpenAIModel.GPT_5_2,
     embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     api_key="stub",
 )

@@ -18,7 +18,7 @@ from context_use.llm.litellm.models import (
 class TestOpenAIConfig:
     def test_implements_base(self) -> None:
         config = OpenAIConfig(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_2,
             embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
             api_key="sk-test",
         )
@@ -26,16 +26,16 @@ class TestOpenAIConfig:
 
     def test_model_property(self) -> None:
         config = OpenAIConfig(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_2,
             embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
             api_key="sk-test",
         )
-        assert config.model == "openai/gpt-4o"
+        assert config.model == "openai/gpt-5.2"
         assert config.embedding_model == "openai/text-embedding-3-large"
 
     def test_litellm_params(self) -> None:
         config = OpenAIConfig(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_2,
             embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
             api_key="sk-test",
         )
@@ -43,7 +43,7 @@ class TestOpenAIConfig:
 
     def test_slots_prevent_mutation(self) -> None:
         config = OpenAIConfig(
-            model=OpenAIModel.GPT_4O,
+            model=OpenAIModel.GPT_5_2,
             embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
             api_key="sk-test",
         )
@@ -55,7 +55,7 @@ class TestVertexAIConfig:
     def test_implements_base(self) -> None:
         config = VertexAIConfig(
             model=VertexAIModel.GEMINI_2_5_FLASH,
-            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_004,
+            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="us-central1",
         )
@@ -64,7 +64,7 @@ class TestVertexAIConfig:
     def test_litellm_params_without_credentials(self) -> None:
         config = VertexAIConfig(
             model=VertexAIModel.GEMINI_2_5_FLASH,
-            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_004,
+            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="us-central1",
         )
@@ -78,7 +78,7 @@ class TestVertexAIConfig:
     def test_litellm_params_with_credentials(self) -> None:
         config = VertexAIConfig(
             model=VertexAIModel.GEMINI_2_5_FLASH,
-            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_004,
+            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="eu-west1",
             vertex_credentials='{"type": "service_account"}',

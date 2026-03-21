@@ -35,14 +35,14 @@ def _make_prompt(item_id: str = "test-1", prompt: str = "hello") -> PromptItem:
 
 
 _OPENAI_CONFIG = OpenAIConfig(
-    model=OpenAIModel.GPT_4O,
+    model=OpenAIModel.GPT_5_2,
     embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
     api_key="sk-test",
 )
 
 _VERTEX_CONFIG = VertexAIConfig(
     model=VertexAIModel.GEMINI_2_5_FLASH,
-    embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_004,
+    embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
     vertex_project="my-project",
     vertex_location="us-central1",
 )
@@ -50,15 +50,15 @@ _VERTEX_CONFIG = VertexAIConfig(
 
 class TestBuildBatchJsonlLine:
     def test_strips_openai_prefix(self) -> None:
-        line = _build_batch_jsonl_line(_make_prompt(), OpenAIModel.GPT_4O)
-        assert line["body"]["model"] == "gpt-4o"
+        line = _build_batch_jsonl_line(_make_prompt(), OpenAIModel.GPT_5_2)
+        assert line["body"]["model"] == "gpt-5.2"
 
     def test_strips_vertex_ai_prefix(self) -> None:
         line = _build_batch_jsonl_line(_make_prompt(), VertexAIModel.GEMINI_2_5_FLASH)
         assert line["body"]["model"] == "gemini-2.5-flash"
 
     def test_custom_id_matches(self) -> None:
-        line = _build_batch_jsonl_line(_make_prompt("my-id"), OpenAIModel.GPT_4O)
+        line = _build_batch_jsonl_line(_make_prompt("my-id"), OpenAIModel.GPT_5_2)
         assert line["custom_id"] == "my-id"
 
 
@@ -87,11 +87,11 @@ class TestLiteLLMBaseInit:
 
     def test_provider_property_openai(self) -> None:
         client = LiteLLMSyncClient(_OPENAI_CONFIG)
-        assert client._provider == "openai"
+        assert client._provider_name == "openai"
 
     def test_provider_property_vertex_ai(self) -> None:
         client = LiteLLMSyncClient(_VERTEX_CONFIG)
-        assert client._provider == "vertex_ai"
+        assert client._provider_name == "vertex_ai"
 
 
 class TestLiteLLMSyncClientCompletion:
