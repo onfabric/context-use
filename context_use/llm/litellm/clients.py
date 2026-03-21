@@ -66,8 +66,8 @@ class LiteLLMBase(BaseLLMClient):
         return self._config
 
     @property
-    def _provider(self) -> Any:
-        return self._model.provider_id
+    def _provider_name(self) -> Any:
+        return self._model.provider_name
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
@@ -117,7 +117,7 @@ def _build_batch_jsonl_line(
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": model.model_id,
+            "model": model.model_name,
             "messages": _build_messages(item),
             "response_format": _build_response_format(item),
         },
@@ -133,7 +133,7 @@ def _build_embed_batch_jsonl_line(
         "method": "POST",
         "url": "/v1/embeddings",
         "body": {
-            "model": model.model_id,
+            "model": model.model_name,
             "input": item.text,
         },
     }
@@ -221,7 +221,7 @@ class LiteLLMBatchClient(LiteLLMBase):
             file_obj = await litellm.acreate_file(
                 file=(f"batch-{batch_id}.jsonl", tmp, "application/jsonl"),
                 purpose="batch",
-                custom_llm_provider=self._provider,
+                custom_llm_provider=self._provider_name,
                 **self._litellm_params,
             )
 
@@ -236,7 +236,7 @@ class LiteLLMBatchClient(LiteLLMBase):
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id=file_obj.id,
-            custom_llm_provider=self._provider,
+            custom_llm_provider=self._provider_name,
             **self._litellm_params,
         )
 
@@ -255,7 +255,7 @@ class LiteLLMBatchClient(LiteLLMBase):
     ) -> BatchResults[T] | None:
         batch = await litellm.aretrieve_batch(
             batch_id=job_key,
-            custom_llm_provider=self._provider,
+            custom_llm_provider=self._provider_name,
             **self._litellm_params,
         )
 
@@ -267,7 +267,7 @@ class LiteLLMBatchClient(LiteLLMBase):
 
         content = await litellm.afile_content(
             file_id=batch.output_file_id,
-            custom_llm_provider=self._provider,
+            custom_llm_provider=self._provider_name,
             **self._litellm_params,
         )
 
@@ -296,7 +296,7 @@ class LiteLLMBatchClient(LiteLLMBase):
                     "application/jsonl",
                 ),
                 purpose="batch",
-                custom_llm_provider=self._provider,
+                custom_llm_provider=self._provider_name,
                 **self._litellm_params,
             )
 
@@ -311,7 +311,7 @@ class LiteLLMBatchClient(LiteLLMBase):
             completion_window="24h",
             endpoint="/v1/embeddings",
             input_file_id=file_obj.id,
-            custom_llm_provider=self._provider,
+            custom_llm_provider=self._provider_name,
             **self._litellm_params,
         )
 
@@ -329,7 +329,7 @@ class LiteLLMBatchClient(LiteLLMBase):
     ) -> EmbedBatchResults | None:
         batch = await litellm.aretrieve_batch(
             batch_id=job_key,
-            custom_llm_provider=self._provider,
+            custom_llm_provider=self._provider_name,
             **self._litellm_params,
         )
 
@@ -343,7 +343,7 @@ class LiteLLMBatchClient(LiteLLMBase):
 
         content = await litellm.afile_content(
             file_id=batch.output_file_id,
-            custom_llm_provider=self._provider,
+            custom_llm_provider=self._provider_name,
             **self._litellm_params,
         )
 

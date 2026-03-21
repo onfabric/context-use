@@ -3,17 +3,17 @@ from enum import StrEnum
 
 class _BaseModel(StrEnum):
     def __init__(self, value: str) -> None:
-        self._provider = self.value.split("/", 1)[0]
-        self._model = self.value.split("/", 1)[-1]
+        self._provider_name = self.value.split("/", 1)[0]
+        self._model_name = self.value.split("/", 1)[-1]
         super().__init__()
 
     @property
-    def provider_id(self) -> str:
-        return self._provider
+    def provider_name(self) -> str:
+        return self._provider_name
 
     @property
-    def model_id(self) -> str:
-        return self._model
+    def model_name(self) -> str:
+        return self._model_name
 
 
 class OpenAIModel(_BaseModel):
