@@ -40,7 +40,12 @@ def llm_client() -> LiteLLMSyncClient:
 
 @pytest.fixture(scope="session")
 def prompts(group_contexts: list[GroupContext]) -> list[PromptItem]:
-    return AgentConversationMemoryPromptBuilder(group_contexts).build()
+    items: list[PromptItem] = []
+    for ctx in group_contexts:
+        item = AgentConversationMemoryPromptBuilder(ctx).build()
+        if item is not None:
+            items.append(item)
+    return items
 
 
 @pytest.fixture(scope="session", params=_SCENARIO_IDS)

@@ -138,33 +138,20 @@ class ConversationMemoryPromptBuilder(BasePromptBuilder):
     @abstractmethod
     def _prompt_template(self) -> str: ...
 
-    def has_content(self) -> bool:
-        return any(ctx.new_threads for ctx in self.contexts)
+    def build(self) -> PromptItem:
+        threads = sorted(self.context.new_threads, key=lambda t: t.asat)
+        transcript = format_transcript(threads, content_fn=self._format_content)
+        context_block = self._format_context(self.context)
 
-    def build(self) -> list[PromptItem]:
-        response_schema = MemorySchema.json_schema()
+        prompt = self._prompt_template.replace("{{CONTEXT}}", context_block).replace(
+            "{{TRANSCRIPT}}", transcript
+        )
 
-        items: list[PromptItem] = []
-        for ctx in self.contexts:
-            if not ctx.new_threads:
-                continue
-
-            threads = sorted(ctx.new_threads, key=lambda t: t.asat)
-            transcript = format_transcript(threads, content_fn=self._format_content)
-            context_block = self._format_context(ctx)
-
-            prompt = self._prompt_template.replace(
-                "{{CONTEXT}}", context_block
-            ).replace("{{TRANSCRIPT}}", transcript)
-
-            items.append(
-                PromptItem(
-                    item_id=ctx.group_id,
-                    prompt=prompt,
-                    response_schema=response_schema,
-                )
-            )
-        return items
+        return PromptItem(
+            item_id=self.context.group_id,
+            prompt=prompt,
+            response_schema=MemorySchema.json_schema(),
+        )
 
     def _format_content(self, thread: Thread) -> str:
         return thread.get_message_content() or ""

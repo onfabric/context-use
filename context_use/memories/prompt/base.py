@@ -55,24 +55,19 @@ class GroupContext:
 
 
 class BasePromptBuilder(ABC):
-    """Strategy interface for building LLM prompts from grouped threads.
+    """Strategy interface for building an LLM prompt from a single group.
 
     Each provider / interaction type supplies its own subclass that knows
     how to format threads into a prompt and determine whether the group
     has enough content to process.
     """
 
-    def __init__(self, contexts: list[GroupContext]) -> None:
-        self.contexts = contexts
+    def __init__(self, context: GroupContext) -> None:
+        self.context = context
 
     @abstractmethod
-    def build(self) -> list[PromptItem]:
-        """Return one ``PromptItem`` per processable group."""
-        ...
-
-    @abstractmethod
-    def has_content(self) -> bool:
-        """Return ``True`` if there is anything worth sending to the LLM."""
+    def build(self) -> PromptItem:
+        """Return a ``PromptItem`` for this group."""
         ...
 
     @staticmethod

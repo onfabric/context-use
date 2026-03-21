@@ -31,7 +31,9 @@ def _encode_file_as_data_url(path: str) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
-def _build_response_format(item: PromptItem) -> dict:
+def _build_response_format(item: PromptItem) -> dict | None:
+    if item.response_schema is None:
+        return None
     return {
         "type": "json_schema",
         "json_schema": {
@@ -77,11 +79,14 @@ class LiteLLMBase(BaseLLMClient):
         return text.strip()
 
     async def _raw_structured_completion(self, prompt: PromptItem) -> dict:
+        kwargs: dict[str, Any] = {**self._litellm_params}
+        response_format = _build_response_format(prompt)
+        if response_format is not None:
+            kwargs["response_format"] = response_format
         response = await litellm.acompletion(
             model=self._config.model,
             messages=_build_messages(prompt),
-            response_format=_build_response_format(prompt),
-            **self._litellm_params,
+            **kwargs,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return json.loads(text.strip())
@@ -110,15 +115,18 @@ def _build_batch_jsonl_line(
     item: PromptItem,
     model: Model,
 ) -> dict[str, Any]:
+    body: dict[str, Any] = {
+        "model": model.model_name,
+        "messages": _build_messages(item),
+    }
+    response_format = _build_response_format(item)
+    if response_format is not None:
+        body["response_format"] = response_format
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/chat/completions",
-        "body": {
-            "model": model.model_name,
-            "messages": _build_messages(item),
-            "response_format": _build_response_format(item),
-        },
+        "body": body,
     }
 
 
