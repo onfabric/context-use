@@ -66,13 +66,8 @@ class BasePromptBuilder(ABC):
         self.context = context
 
     @abstractmethod
-    def build(self) -> PromptItem | None:
-        """Return a ``PromptItem`` for this group, or ``None`` if empty."""
-        ...
-
-    @abstractmethod
-    def has_content(self) -> bool:
-        """Return ``True`` if there is anything worth sending to the LLM."""
+    def build(self) -> PromptItem:
+        """Return a ``PromptItem`` for this group."""
         ...
 
     @staticmethod
