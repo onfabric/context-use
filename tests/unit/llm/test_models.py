@@ -1,8 +1,11 @@
+import pytest
+
 from context_use.llm.litellm.models import (
     OpenAIEmbeddingModel,
     OpenAIModel,
     VertexAIEmbeddingModel,
     VertexAIModel,
+    _BaseModel,
 )
 
 
@@ -16,7 +19,7 @@ class TestProviderNameModel:
 
 class TestModelNameModel:
     def test_strips_openai(self) -> None:
-        assert OpenAIModel.GPT_5_2.model_name == "gpt-4o"
+        assert OpenAIModel.GPT_5_2.model_name == "gpt-5.2"
 
     def test_strips_vertex_ai(self) -> None:
         assert VertexAIModel.GEMINI_2_5_FLASH.model_name == "gemini-2.5-flash"
@@ -41,3 +44,23 @@ class TestModelNameEmbeddingModel:
         assert (
             VertexAIEmbeddingModel.TEXT_EMBEDDING_005.model_name == "text-embedding-005"
         )
+
+
+class TestBaseModelValidation:
+    def test_rejects_no_slash(self) -> None:
+        with pytest.raises(ValueError, match="Invalid model value"):
+
+            class _Bad(_BaseModel):
+                X = "no-slash"
+
+    def test_rejects_empty_provider(self) -> None:
+        with pytest.raises(ValueError, match="Invalid model value"):
+
+            class _Bad(_BaseModel):
+                X = "/model"
+
+    def test_rejects_empty_model_name(self) -> None:
+        with pytest.raises(ValueError, match="Invalid model value"):
+
+            class _Bad(_BaseModel):
+                X = "provider/"

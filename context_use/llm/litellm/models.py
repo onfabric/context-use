@@ -3,8 +3,11 @@ from enum import StrEnum
 
 class _BaseModel(StrEnum):
     def __init__(self, value: str) -> None:
-        self._provider_name = self.value.split("/", 1)[0]
-        self._model_name = self.value.split("/", 1)[-1]
+        parts = self.value.split("/", 1)
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError(f"Invalid model value: {self.value}")
+        self._provider_name = parts[0]
+        self._model_name = parts[1]
         super().__init__()
 
     @property
