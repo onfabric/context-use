@@ -16,13 +16,13 @@ class PromptItem:
     Attributes:
         item_id:         Unique key for this item (thread_id, date string, etc.)
         prompt:          The text prompt.
-        response_schema: JSON schema dict the LLM should conform to.
+        response_schema: Optional JSON schema dict the LLM should conform to.
         asset_uris:      URIs for images/videos to include as parts.
     """
 
     item_id: str
     prompt: str
-    response_schema: dict
+    response_schema: dict | None = None
     asset_uris: list[str] = field(default_factory=list)
 
 

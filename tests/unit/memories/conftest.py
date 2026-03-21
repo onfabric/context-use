@@ -9,7 +9,7 @@ from context_use.memories.prompt.conversation import (
 
 
 @pytest.fixture(scope="session")
-def prompt_builder(
+def prompt_builders(
     group_contexts: list[GroupContext],
-) -> AgentConversationMemoryPromptBuilder:
-    return AgentConversationMemoryPromptBuilder(group_contexts)
+) -> list[AgentConversationMemoryPromptBuilder]:
+    return [AgentConversationMemoryPromptBuilder(ctx) for ctx in group_contexts]

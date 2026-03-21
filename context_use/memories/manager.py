@@ -112,19 +112,17 @@ class MemoryBatchManager(BaseBatchManager):
         if not all_threads:
             return SkippedState(reason="No threads for memory generation")
 
+        from context_use.providers.registry import get_memory_config
+
         prompts = []
-        by_type: dict[str, list[GroupContext]] = {}
         for ctx in contexts:
             it = ctx.new_threads[0].interaction_type
-            by_type.setdefault(it, []).append(ctx)
-
-        for interaction_type, type_contexts in by_type.items():
-            from context_use.providers.registry import get_memory_config
-
-            config = get_memory_config(interaction_type)
-            builder = config.create_prompt_builder(type_contexts)
+            config = get_memory_config(it)
+            builder = config.create_prompt_builder(ctx)
             if builder.has_content():
-                prompts.extend(builder.build())
+                item = builder.build()
+                if item is not None:
+                    prompts.append(item)
 
         if not prompts:
             return SkippedState(reason="Prompt builder produced no prompts")
@@ -137,7 +135,7 @@ class MemoryBatchManager(BaseBatchManager):
             len(all_threads),
         )
 
-        job_key = await self.extractor.submit(self.batch.id, prompts)  # noqa: E501
+        job_key = await self.extractor.submit(self.batch.id, prompts)
         return MemoryGeneratePendingState(job_key=job_key)
 
     async def _check_memory_generation_status(
