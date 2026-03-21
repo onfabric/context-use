@@ -27,6 +27,7 @@ def _parse_revolut_date(value: str) -> str:
 class BankRevolutPipe(_BankTransactionPipe):
     interaction_type = "bank_revolut"
     archive_path_pattern = "*/revolut/*.csv"
+    institution_name = "Revolut"
 
     def extract_file(
         self,
@@ -38,25 +39,25 @@ class BankRevolutPipe(_BankTransactionPipe):
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
             for raw_row in reader:
                 row = Model.model_validate(raw_row)
-                if row.state == "REVERTED":
+                if row.State == "REVERTED":
                     continue
                 authorized_date = (
-                    _parse_revolut_date(row.started_date) if row.started_date else None
+                    _parse_revolut_date(row.Started_Date) if row.Started_Date else None
                 )
                 date = (
-                    _parse_revolut_date(row.completed_date)
-                    if row.completed_date
-                    else _parse_revolut_date(row.started_date)
+                    _parse_revolut_date(row.Completed_Date)
+                    if row.Completed_Date
+                    else _parse_revolut_date(row.Started_Date)
                 )
-                payment_channel = "in_store" if row.type == "Card Payment" else None
+                payment_channel = "in_store" if row.Type == "Card Payment" else None
                 yield BankTransactionRecord(
                     date=date,
                     authorized_date=authorized_date,
-                    amount=row.amount,
-                    currency=row.currency,
-                    description=row.description,
-                    merchant_name=row.description,
-                    transaction_type=row.type,
+                    amount=row.Amount,
+                    currency=row.Currency,
+                    description=row.Description,
+                    merchant_name=row.Description,
+                    transaction_type=row.Type,
                     payment_channel=payment_channel,
                     source=json.dumps(raw_row),
                 )

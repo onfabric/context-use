@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 from context_use.providers.bank.amex.pipe import BankAmexPipe
+from context_use.providers.bank.pipe import _parse_date
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.bank.conftest import AMEX_CSV
@@ -41,3 +42,23 @@ class TestBankAmexPipe(PipeTestKit):
     def test_preview_shows_account_owner(self, transformed_rows):
         for row in transformed_rows:
             assert "(by " in row.preview
+
+    def test_preview_contains_institution(self, transformed_rows):
+        for row in transformed_rows:
+            assert "Amex" in row.preview
+
+
+class TestParseDate:
+    def test_date_only(self) -> None:
+        dt = _parse_date("2025-11-01")
+        assert dt.year == 2025
+        assert dt.month == 11
+        assert dt.day == 1
+
+    def test_datetime(self) -> None:
+        dt = _parse_date("2025-11-01 14:30:00")
+        assert dt.hour == 14
+
+    def test_invalid_raises(self) -> None:
+        with pytest.raises(ValueError, match="Cannot parse date"):
+            _parse_date("not-a-date")

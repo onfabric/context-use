@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from context_use.providers.bank.revolut.pipe import BankRevolutPipe
+from context_use.providers.bank.revolut.pipe import BankRevolutPipe, _parse_revolut_date
 from context_use.storage.disk import DiskStorage
 from context_use.testing import PipeTestKit
 from tests.unit.etl.bank.conftest import REVOLUT_CSV
@@ -25,9 +25,9 @@ class TestBankRevolutPipe(PipeTestKit):
         for record in extracted_records:
             assert "REVERTED" not in (record.source or "")
 
-    def test_preview_contains_provider(self, transformed_rows):
+    def test_preview_contains_institution(self, transformed_rows):
         for row in transformed_rows:
-            assert "Bank" in row.preview
+            assert "Revolut" in row.preview
 
     def test_transfer_has_positive_amount(self, extracted_records):
         transfer = next(
@@ -40,3 +40,15 @@ class TestBankRevolutPipe(PipeTestKit):
             r for r in extracted_records if r.transaction_type == "Card Payment"
         )
         assert card.amount.startswith("-")
+
+
+class TestParseRevolutDate:
+    def test_valid_datetime(self) -> None:
+        assert _parse_revolut_date("2025-11-01 10:00:00") == "2025-11-01"
+
+    def test_valid_date_only(self) -> None:
+        assert _parse_revolut_date("2025-11-01") == "2025-11-01"
+
+    def test_invalid_date_raises(self) -> None:
+        with pytest.raises(ValueError, match="Cannot parse Revolut date"):
+            _parse_revolut_date("not-a-date")

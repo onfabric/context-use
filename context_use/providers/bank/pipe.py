@@ -28,6 +28,7 @@ class _BankTransactionPipe(Pipe[BankTransactionRecord]):
     provider = PROVIDER
     archive_version = 1
     record_schema = BankTransactionRecord
+    institution_name: str
 
     def transform(
         self,
@@ -51,7 +52,7 @@ class _BankTransactionPipe(Pipe[BankTransactionRecord]):
             unique_key=payload.unique_key(),
             provider=self.provider,
             interaction_type=self.interaction_type,
-            preview=payload.get_preview("Bank") or "",
+            preview=payload.get_preview(self.institution_name) or "",
             payload=payload.to_dict(),
             version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=published,

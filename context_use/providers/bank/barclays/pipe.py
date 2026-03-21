@@ -36,6 +36,8 @@ def _extract_transaction_type(description: str) -> str | None:
 class BankBarclaysPipe(_BankTransactionPipe):
     interaction_type = "bank_barclays"
     archive_path_pattern = "*/barclays/*.csv"
+    institution_name = "Barclays"
+    currency = "GBP"
 
     def extract_file(
         self,
@@ -47,18 +49,18 @@ class BankBarclaysPipe(_BankTransactionPipe):
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
             for raw_row in reader:
                 row = Model.model_validate(raw_row)
-                if row.money_out:
-                    amount = f"-{row.money_out}"
-                elif row.money_in:
-                    amount = f"+{row.money_in}"
+                if row.Money_Out:
+                    amount = f"-{row.Money_Out}"
+                elif row.Money_In:
+                    amount = f"+{row.Money_In}"
                 else:
                     continue
                 yield BankTransactionRecord(
-                    date=row.date,
+                    date=row.Date,
                     amount=amount,
-                    currency="GBP",
-                    description=row.description,
-                    transaction_type=_extract_transaction_type(row.description),
+                    currency=self.currency,
+                    description=row.Description,
+                    transaction_type=_extract_transaction_type(row.Description),
                     source=json.dumps(raw_row),
                 )
         finally:

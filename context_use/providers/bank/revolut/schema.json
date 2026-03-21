@@ -35,8 +35,6 @@
   },
   "required": [
     "Amount",
-    "Balance",
-    "Completed Date",
     "Currency",
     "Description",
     "Fee",

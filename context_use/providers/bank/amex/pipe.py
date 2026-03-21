@@ -16,6 +16,8 @@ from context_use.storage.base import StorageBackend
 class BankAmexPipe(_BankTransactionPipe):
     interaction_type = "bank_amex"
     archive_path_pattern = "*/amex/*.csv"
+    institution_name = "Amex"
+    currency = "GBP"
 
     def extract_file(
         self,
@@ -27,17 +29,17 @@ class BankAmexPipe(_BankTransactionPipe):
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
             for raw_row in reader:
                 row = Model.model_validate(raw_row)
-                amount = f"+{row.amount}" if row.cr == "CR" else f"-{row.amount}"
-                foreign_amount = row.foreign_spend_amount or None
-                foreign_currency = row.foreign_spend_currency or None
+                amount = f"+{row.Amount}" if row.CR == "CR" else f"-{row.Amount}"
+                foreign_amount = row.Foreign_Spend_Amount or None
+                foreign_currency = row.Foreign_Spend_Currency or None
                 yield BankTransactionRecord(
-                    date=row.process_date,
-                    authorized_date=row.transaction_date,
+                    date=row.Process_Date,
+                    authorized_date=row.Transaction_Date,
                     amount=amount,
-                    currency="GBP",
-                    description=row.description,
-                    merchant_name=row.description,
-                    account_owner=row.cardmember,
+                    currency=self.currency,
+                    description=row.Description,
+                    merchant_name=row.Description,
+                    account_owner=row.Cardmember,
                     foreign_amount=foreign_amount,
                     foreign_currency=foreign_currency,
                     source=json.dumps(raw_row),
