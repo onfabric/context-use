@@ -12,8 +12,6 @@ from context_use.llm.litellm.clients import (
     LiteLLMSyncClient,
     _build_batch_jsonl_line,
     _build_embed_batch_jsonl_line,
-    _extract_provider,
-    _strip_provider_prefix,
 )
 from context_use.llm.litellm.config import OpenAIConfig, VertexAIConfig
 from context_use.llm.litellm.models import (
@@ -22,33 +20,6 @@ from context_use.llm.litellm.models import (
     VertexAIEmbeddingModel,
     VertexAIModel,
 )
-
-
-class TestExtractProvider:
-    def test_openai_prefix(self) -> None:
-        assert _extract_provider(OpenAIModel.GPT_4O) == "openai"
-
-    def test_vertex_ai_prefix(self) -> None:
-        assert _extract_provider(VertexAIModel.GEMINI_2_5_FLASH) == "vertex_ai"
-
-    def test_no_prefix_defaults_to_openai(self) -> None:
-        assert _extract_provider("gpt-4o") == "openai"
-
-    def test_arbitrary_provider_prefix(self) -> None:
-        assert _extract_provider("bedrock/anthropic.claude-3") == "bedrock"
-
-
-class TestStripProviderPrefix:
-    def test_strips_openai(self) -> None:
-        assert _strip_provider_prefix(OpenAIModel.GPT_4O) == "gpt-4o"
-
-    def test_strips_vertex_ai(self) -> None:
-        assert (
-            _strip_provider_prefix(VertexAIModel.GEMINI_2_5_FLASH) == "gemini-2.5-flash"
-        )
-
-    def test_no_prefix_returns_as_is(self) -> None:
-        assert _strip_provider_prefix("gpt-4o") == "gpt-4o"
 
 
 class _SampleSchema(BaseModel):
