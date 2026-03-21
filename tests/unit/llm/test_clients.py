@@ -55,7 +55,7 @@ class TestBuildBatchJsonlLine:
 
     def test_strips_vertex_ai_prefix(self) -> None:
         line = _build_batch_jsonl_line(_make_prompt(), VertexAIModel.GEMINI_2_5_PRO)
-        assert line["body"]["model"] == "gemini-2.5-flash"
+        assert line["body"]["model"] == "gemini-2.5-pro"
 
     def test_custom_id_matches(self) -> None:
         line = _build_batch_jsonl_line(_make_prompt("my-id"), OpenAIModel.GPT_5_2)
