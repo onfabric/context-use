@@ -113,10 +113,7 @@ class MemoryBatchManager(BaseBatchManager):
             it = ctx.new_threads[0].interaction_type
             config = get_memory_config(it)
             builder = config.create_prompt_builder(ctx)
-            if builder.has_content():
-                item = builder.build()
-                if item is not None:
-                    prompts.append(item)
+            prompts.append(builder.build())
 
         if not prompts:
             return SkippedState(reason="Prompt builder produced no prompts")
