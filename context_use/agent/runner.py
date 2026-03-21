@@ -18,7 +18,7 @@ from google.genai import types
 
 import context_use as _pkg
 from context_use.agent.tools import make_agent_tools
-from context_use.llm.litellm.config import BaseProviderConfig
+from context_use.llm.litellm.config import BaseLlmConfig
 from context_use.memories.service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,10 @@ class AgentRunner:
     def __init__(
         self,
         memory_service: MemoryService,
-        provider_config: BaseProviderConfig,
+        llm_config: BaseLlmConfig,
     ) -> None:
         tools = make_agent_tools(memory_service)
-        llm = LiteLlm(model=provider_config.model, **provider_config.litellm_params())
+        llm = LiteLlm(model=llm_config.model, **llm_config.litellm_params())
         agent = LlmAgent(
             name=_AGENT_NAME,
             model=llm,

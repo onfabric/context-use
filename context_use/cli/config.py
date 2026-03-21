@@ -175,15 +175,15 @@ def build_ctx(cfg: Config, *, llm_mode: str = "batch") -> ContextUse:
     storage = DiskStorage(str(cfg.storage_path))
     store = SqliteStore(path=cfg.db_path)
 
-    provider_config = OpenAIConfig(
+    llm_config = OpenAIConfig(
         model=OpenAIModel(cfg.openai_model),
         embedding_model=OpenAIEmbeddingModel(cfg.openai_embedding_model),
         api_key=cfg.openai_api_key,
     )
 
     if llm_mode == "sync":
-        llm_client = LiteLLMSyncClient(provider_config)
+        llm_client = LiteLLMSyncClient(llm_config)
     else:
-        llm_client = LiteLLMBatchClient(provider_config)
+        llm_client = LiteLLMBatchClient(llm_config)
 
     return ContextUse(storage=storage, store=store, llm_client=llm_client)

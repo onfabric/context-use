@@ -61,7 +61,7 @@ class ContextUse:
         self._memory_service = MemoryService(self._store, self._llm_client)
         self._agent = AgentRunner(
             memory_service=self._memory_service,
-            provider_config=llm_client.config,
+            llm_config=llm_client.config,
         )
 
     async def init(self) -> None:

@@ -17,7 +17,7 @@ from context_use.llm.base import (
     EmbedItem,
     PromptItem,
 )
-from context_use.llm.litellm.config import BaseProviderConfig
+from context_use.llm.litellm.config import BaseLlmConfig
 
 logger = logging.getLogger(__name__)
 
@@ -64,14 +64,14 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
 
 
 class LiteLLMBase(BaseLLMClient):
-    def __init__(self, config: BaseProviderConfig) -> None:
+    def __init__(self, config: BaseLlmConfig) -> None:
         self._config = config
         self._model = config.model
         self._embedding_model = config.embedding_model
         self._litellm_params = config.litellm_params()
 
     @property
-    def config(self) -> BaseProviderConfig:
+    def config(self) -> BaseLlmConfig:
         return self._config
 
     @property
@@ -369,7 +369,7 @@ class LiteLLMSyncClient(LiteLLMBase):
     cached results immediately.
     """
 
-    def __init__(self, config: BaseProviderConfig) -> None:
+    def __init__(self, config: BaseLlmConfig) -> None:
         super().__init__(config)
         self._gen_cache: dict[str, BatchResults] = {}  # type: ignore[type-arg]
         self._embed_cache: dict[str, EmbedBatchResults] = {}

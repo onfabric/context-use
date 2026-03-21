@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from context_use.llm.litellm.config import (
-    BaseProviderConfig,
+    BaseLlmConfig,
     OpenAIConfig,
     VertexAIConfig,
 )
@@ -22,7 +22,7 @@ class TestOpenAIConfig:
             embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
             api_key="sk-test",
         )
-        assert isinstance(config, BaseProviderConfig)
+        assert isinstance(config, BaseLlmConfig)
 
     def test_model_property(self) -> None:
         config = OpenAIConfig(
@@ -59,7 +59,7 @@ class TestVertexAIConfig:
             vertex_project="proj",
             vertex_location="us-central1",
         )
-        assert isinstance(config, BaseProviderConfig)
+        assert isinstance(config, BaseLlmConfig)
 
     def test_litellm_params_without_credentials(self) -> None:
         config = VertexAIConfig(

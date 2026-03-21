@@ -13,7 +13,7 @@ from context_use.llm.litellm.models import (
 )
 
 
-class BaseProviderConfig(ABC):
+class BaseLlmConfig(ABC):
     __slots__ = ()
 
     @property
@@ -28,7 +28,7 @@ class BaseProviderConfig(ABC):
     def litellm_params(self) -> dict[str, Any]: ...
 
 
-class OpenAIConfig(BaseProviderConfig):
+class OpenAIConfig(BaseLlmConfig):
     __slots__ = ("_model", "_embedding_model", "_api_key")
 
     def __init__(
@@ -53,7 +53,7 @@ class OpenAIConfig(BaseProviderConfig):
         return {"api_key": self._api_key}
 
 
-class VertexAIConfig(BaseProviderConfig):
+class VertexAIConfig(BaseLlmConfig):
     __slots__ = (
         "_model",
         "_embedding_model",
