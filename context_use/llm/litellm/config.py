@@ -24,27 +24,21 @@ class BaseLlmConfig(ABC):
     @abstractmethod
     def embedding_model(self) -> EmbeddingModel: ...
 
-    @property
-    @abstractmethod
-    def embedding_dimensions(self) -> int: ...
-
     @abstractmethod
     def litellm_params(self) -> dict[str, Any]: ...
 
 
 class OpenAIConfig(BaseLlmConfig):
-    __slots__ = ("_model", "_embedding_model", "_embedding_dimensions", "_api_key")
+    __slots__ = ("_model", "_embedding_model", "_api_key")
 
     def __init__(
         self,
         model: OpenAIModel,
         embedding_model: OpenAIEmbeddingModel,
         api_key: str,
-        embedding_dimensions: int = 3072,
     ) -> None:
         self._model = model
         self._embedding_model = embedding_model
-        self._embedding_dimensions = embedding_dimensions
         self._api_key = api_key
 
     @property
@@ -55,10 +49,6 @@ class OpenAIConfig(BaseLlmConfig):
     def embedding_model(self) -> OpenAIEmbeddingModel:
         return self._embedding_model
 
-    @property
-    def embedding_dimensions(self) -> int:
-        return self._embedding_dimensions
-
     def litellm_params(self) -> dict[str, Any]:
         return {"api_key": self._api_key}
 
@@ -67,7 +57,6 @@ class VertexAIConfig(BaseLlmConfig):
     __slots__ = (
         "_model",
         "_embedding_model",
-        "_embedding_dimensions",
         "_vertex_project",
         "_vertex_location",
         "_vertex_credentials",
@@ -80,11 +69,9 @@ class VertexAIConfig(BaseLlmConfig):
         vertex_project: str,
         vertex_location: str,
         vertex_credentials: str | None = None,
-        embedding_dimensions: int = 768,
     ) -> None:
         self._model = model
         self._embedding_model = embedding_model
-        self._embedding_dimensions = embedding_dimensions
         self._vertex_project = vertex_project
         self._vertex_location = vertex_location
         self._vertex_credentials = vertex_credentials
@@ -96,10 +83,6 @@ class VertexAIConfig(BaseLlmConfig):
     @property
     def embedding_model(self) -> VertexAIEmbeddingModel:
         return self._embedding_model
-
-    @property
-    def embedding_dimensions(self) -> int:
-        return self._embedding_dimensions
 
     def litellm_params(self) -> dict[str, Any]:
         params: dict[str, Any] = {

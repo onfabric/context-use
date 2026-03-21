@@ -46,6 +46,14 @@ class TestModelNameEmbeddingModel:
         )
 
 
+class TestEmbeddingDimensions:
+    def test_openai_embedding_dimensions(self) -> None:
+        assert OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE.embedding_dimensions == 3072
+
+    def test_vertex_ai_embedding_dimensions(self) -> None:
+        assert VertexAIEmbeddingModel.TEXT_EMBEDDING_005.embedding_dimensions == 768
+
+
 class TestBaseModelValidation:
     def test_rejects_no_slash(self) -> None:
         with pytest.raises(ValueError, match="Invalid model value"):

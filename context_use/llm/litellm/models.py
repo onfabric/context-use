@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Self
 
 
 class _BaseModel(StrEnum):
@@ -30,12 +31,25 @@ class VertexAIModel(_BaseModel):
 type Model = OpenAIModel | VertexAIModel
 
 
-class OpenAIEmbeddingModel(_BaseModel):
-    TEXT_EMBEDDING_3_LARGE = "openai/text-embedding-3-large"
+class _BaseEmbeddingModel(_BaseModel):
+    embedding_dimensions: int
+
+    def __new__(cls, value: str, embedding_dimensions: int) -> Self:
+        obj = str.__new__(cls, value)
+        obj._value_ = value
+        return obj
+
+    def __init__(self, value: str, embedding_dimensions: int) -> None:
+        self.embedding_dimensions = embedding_dimensions
+        super().__init__(value)
 
 
-class VertexAIEmbeddingModel(_BaseModel):
-    TEXT_EMBEDDING_005 = "vertex_ai/text-embedding-005"
+class OpenAIEmbeddingModel(_BaseEmbeddingModel):
+    TEXT_EMBEDDING_3_LARGE = "openai/text-embedding-3-large", 3072
+
+
+class VertexAIEmbeddingModel(_BaseEmbeddingModel):
+    TEXT_EMBEDDING_005 = "vertex_ai/text-embedding-005", 768
 
 
 type EmbeddingModel = OpenAIEmbeddingModel | VertexAIEmbeddingModel
