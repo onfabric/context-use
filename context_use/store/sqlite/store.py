@@ -46,6 +46,7 @@ BULK_INSERT_BATCH_SIZE = 500
 class SqliteStore(Store):
     def __init__(self, path: str) -> None:
         self._path = path
+        self._embedding_dimensions: int | None = None
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
         self._atomic_lock = asyncio.Lock()
@@ -59,7 +60,13 @@ class SqliteStore(Store):
         if not self._in_atomic:
             await (await self._conn()).commit()
 
-    async def init(self) -> None:
+    def _ensure_embedding_dimensions(self) -> int:
+        if self._embedding_dimensions is None:
+            raise RuntimeError("SqliteStore not initialized — call init() first")
+        return self._embedding_dimensions
+
+    async def init(self, *, embedding_dimensions: int) -> None:
+        self._embedding_dimensions = embedding_dimensions
         conn = aiosqlite.connect(self._path)
         # Make sure that when the main thread exits,
         # the daemon thread is automatically killed
@@ -73,11 +80,12 @@ class SqliteStore(Store):
         await self._db.load_extension(sqlite_vec.loadable_path())
         await self._db.enable_load_extension(False)
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(embedding_dimensions):
             await self._db.execute(stmt)
         await self._db.commit()
 
     async def reset(self) -> None:
+        dims = self._ensure_embedding_dimensions()
         db = await self._conn()
         await db.execute("PRAGMA foreign_keys=OFF")
         rows = await db.execute_fetchall(
@@ -91,7 +99,7 @@ class SqliteStore(Store):
         await db.execute("PRAGMA foreign_keys=ON")
         await db.commit()
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(dims):
             await db.execute(stmt)
         await db.commit()
 

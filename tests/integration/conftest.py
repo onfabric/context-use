@@ -20,7 +20,7 @@ _STUB_CONFIG = OpenAIConfig(
 @pytest.fixture()
 async def store(tmp_path: Path) -> AsyncGenerator[SqliteStore]:
     s = SqliteStore(path=str(tmp_path / "integration_test.db"))
-    await s.init()
+    await s.init(embedding_dimensions=_STUB_CONFIG.embedding_dimensions)
     yield s
     await s.close()
 
