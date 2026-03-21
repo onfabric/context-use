@@ -6,6 +6,7 @@ from context_use.batch.grouper import ThreadGroup
 from context_use.cli.config import load_config
 from context_use.llm.base import PromptItem
 from context_use.llm.litellm.clients import LiteLLMSyncClient
+from context_use.llm.litellm.config import OpenAIConfig
 from context_use.llm.litellm.models import OpenAIEmbeddingModel, OpenAIModel
 from context_use.memories.prompt.base import GroupContext
 from context_use.memories.prompt.conversation import (
@@ -29,9 +30,11 @@ def llm_client() -> LiteLLMSyncClient:
     if not cfg.openai_api_key:
         pytest.skip("OpenAI API key not configured")
     return LiteLLMSyncClient(
-        model=OpenAIModel.GPT_4O,
-        api_key=cfg.openai_api_key,
-        embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
+        OpenAIConfig(
+            model=OpenAIModel.GPT_4O,
+            embedding_model=OpenAIEmbeddingModel.TEXT_EMBEDDING_3_LARGE,
+            api_key=cfg.openai_api_key,
+        )
     )
 
 

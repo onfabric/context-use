@@ -17,10 +17,19 @@ from context_use.llm.base import (
     EmbedItem,
     PromptItem,
 )
-
-from .models import OpenAIEmbeddingModel, OpenAIModel
+from context_use.llm.litellm.config import BaseProviderConfig
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_provider(model: str) -> str:
+    if "/" in model:
+        return model.split("/", 1)[0]
+    return "openai"
+
+
+def _strip_provider_prefix(model: str) -> str:
+    return model.split("/", 1)[-1]
 
 
 def _encode_file_as_data_url(path: str) -> str:
@@ -54,35 +63,36 @@ def _build_messages(item: PromptItem) -> list[dict[str, Any]]:
     return [{"role": "user", "content": parts}]
 
 
-class _LiteLLMBase(BaseLLMClient):
-    """Shared init, completion, and embed_query for litellm-backed clients."""
+class LiteLLMBase(BaseLLMClient):
+    def __init__(self, config: BaseProviderConfig) -> None:
+        self._config = config
+        self._model = config.model
+        self._embedding_model = config.embedding_model
+        self._litellm_params = config.litellm_params()
 
-    def __init__(
-        self,
-        model: OpenAIModel,
-        api_key: str,
-        embedding_model: OpenAIEmbeddingModel,
-    ) -> None:
-        self._model = model
-        self._embedding_model = embedding_model
-        self._api_key = api_key
+    @property
+    def config(self) -> BaseProviderConfig:
+        return self._config
+
+    @property
+    def _provider(self) -> Any:
+        return _extract_provider(self._model)
 
     async def completion(self, prompt: str) -> str:
         response = await litellm.acompletion(
             model=self._model,
             messages=[{"role": "user", "content": prompt}],
-            api_key=self._api_key,
+            **self._litellm_params,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return text.strip()
 
     async def _raw_structured_completion(self, prompt: PromptItem) -> dict:
-        """Call the LLM with a structured response format and return parsed JSON."""
         response = await litellm.acompletion(
             model=self._model,
             messages=_build_messages(prompt),
             response_format=_build_response_format(prompt),
-            api_key=self._api_key,
+            **self._litellm_params,
         )
         text: str = response.choices[0].message.content  # type: ignore[union-attr]
         return json.loads(text.strip())
@@ -99,7 +109,7 @@ class _LiteLLMBase(BaseLLMClient):
         response = await litellm.aembedding(
             model=self._embedding_model,
             input=[text],
-            api_key=self._api_key,
+            **self._litellm_params,
         )
         return response.data[0]["embedding"]
 
@@ -109,15 +119,14 @@ _BATCH_TERMINAL_STATES: set[str] = {"failed", "cancelled", "expired"}
 
 def _build_batch_jsonl_line(
     item: PromptItem,
-    model: OpenAIModel,
+    model: str,
 ) -> dict[str, Any]:
-    model_name = model.model_name()
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/chat/completions",
         "body": {
-            "model": model_name,
+            "model": _strip_provider_prefix(model),
             "messages": _build_messages(item),
             "response_format": _build_response_format(item),
         },
@@ -126,15 +135,14 @@ def _build_batch_jsonl_line(
 
 def _build_embed_batch_jsonl_line(
     item: EmbedItem,
-    model: OpenAIEmbeddingModel,
+    model: str,
 ) -> dict[str, Any]:
-    model_name = model.model_name()
     return {
         "custom_id": item.item_id,
         "method": "POST",
         "url": "/v1/embeddings",
         "body": {
-            "model": model_name,
+            "model": _strip_provider_prefix(model),
             "input": item.text,
         },
     }
@@ -201,18 +209,12 @@ def _parse_embed_batch_results(
     return results
 
 
-class LiteLLMBatchClient(_LiteLLMBase):
-    """OpenAI-compatible batch client using JSONL file upload and polling."""
-
+class LiteLLMBatchClient(LiteLLMBase):
     async def batch_submit(
         self,
         batch_id: str,
         prompts: list[PromptItem],
     ) -> str:
-        """Build JSONL, upload to OpenAI, and create a batch job.
-
-        Returns the provider batch ID for polling with ``batch_get_results``.
-        """
         lines: list[str] = []
         for item in prompts:
             line = _build_batch_jsonl_line(item, self._model)
@@ -228,8 +230,8 @@ class LiteLLMBatchClient(_LiteLLMBase):
             file_obj = await litellm.acreate_file(
                 file=(f"batch-{batch_id}.jsonl", tmp, "application/jsonl"),
                 purpose="batch",
-                custom_llm_provider="openai",
-                api_key=self._api_key,
+                custom_llm_provider=self._provider,
+                **self._litellm_params,
             )
 
         logger.info(
@@ -243,8 +245,8 @@ class LiteLLMBatchClient(_LiteLLMBase):
             completion_window="24h",
             endpoint="/v1/chat/completions",
             input_file_id=file_obj.id,
-            custom_llm_provider="openai",
-            api_key=self._api_key,
+            custom_llm_provider=self._provider,
+            **self._litellm_params,
         )
 
         logger.info(
@@ -260,15 +262,10 @@ class LiteLLMBatchClient(_LiteLLMBase):
         job_key: str,
         schema: type[T],
     ) -> BatchResults[T] | None:
-        """Poll an OpenAI batch job for results.
-
-        Returns ``None`` while the job is still running, parsed
-        ``BatchResults`` when complete, or raises on terminal failure.
-        """
         batch = await litellm.aretrieve_batch(
             batch_id=job_key,
-            custom_llm_provider="openai",
-            api_key=self._api_key,
+            custom_llm_provider=self._provider,
+            **self._litellm_params,
         )
 
         if batch.status in _BATCH_TERMINAL_STATES:
@@ -279,8 +276,8 @@ class LiteLLMBatchClient(_LiteLLMBase):
 
         content = await litellm.afile_content(
             file_id=batch.output_file_id,
-            custom_llm_provider="openai",
-            api_key=self._api_key,
+            custom_llm_provider=self._provider,
+            **self._litellm_params,
         )
 
         return _parse_batch_results(content.content, schema)
@@ -290,11 +287,6 @@ class LiteLLMBatchClient(_LiteLLMBase):
         batch_id: str,
         items: list[EmbedItem],
     ) -> str:
-        """Build embedding JSONL, upload, and create a batch job.
-
-        Returns the provider batch ID for polling with
-        ``embed_batch_get_results``.
-        """
         lines = [
             json.dumps(_build_embed_batch_jsonl_line(item, self._embedding_model))
             for item in items
@@ -313,8 +305,8 @@ class LiteLLMBatchClient(_LiteLLMBase):
                     "application/jsonl",
                 ),
                 purpose="batch",
-                custom_llm_provider="openai",
-                api_key=self._api_key,
+                custom_llm_provider=self._provider,
+                **self._litellm_params,
             )
 
         logger.info(
@@ -328,8 +320,8 @@ class LiteLLMBatchClient(_LiteLLMBase):
             completion_window="24h",
             endpoint="/v1/embeddings",
             input_file_id=file_obj.id,
-            custom_llm_provider="openai",
-            api_key=self._api_key,
+            custom_llm_provider=self._provider,
+            **self._litellm_params,
         )
 
         logger.info(
@@ -344,15 +336,10 @@ class LiteLLMBatchClient(_LiteLLMBase):
         self,
         job_key: str,
     ) -> EmbedBatchResults | None:
-        """Poll an OpenAI embedding batch job.
-
-        Returns ``None`` while still running, or a dict mapping each
-        ``item_id`` to its embedding vector.
-        """
         batch = await litellm.aretrieve_batch(
             batch_id=job_key,
-            custom_llm_provider="openai",
-            api_key=self._api_key,
+            custom_llm_provider=self._provider,
+            **self._litellm_params,
         )
 
         if batch.status in _BATCH_TERMINAL_STATES:
@@ -365,14 +352,14 @@ class LiteLLMBatchClient(_LiteLLMBase):
 
         content = await litellm.afile_content(
             file_id=batch.output_file_id,
-            custom_llm_provider="openai",
-            api_key=self._api_key,
+            custom_llm_provider=self._provider,
+            **self._litellm_params,
         )
 
         return _parse_embed_batch_results(content.content)
 
 
-class LiteLLMSyncClient(_LiteLLMBase):
+class LiteLLMSyncClient(LiteLLMBase):
     """Runs all prompts via individual completions (no batch API).
 
     Useful for quickstart / demos where the batch API's latency
@@ -382,13 +369,8 @@ class LiteLLMSyncClient(_LiteLLMBase):
     cached results immediately.
     """
 
-    def __init__(
-        self,
-        model: OpenAIModel,
-        api_key: str,
-        embedding_model: OpenAIEmbeddingModel,
-    ) -> None:
-        super().__init__(model, api_key, embedding_model)
+    def __init__(self, config: BaseProviderConfig) -> None:
+        super().__init__(config)
         self._gen_cache: dict[str, BatchResults] = {}  # type: ignore[type-arg]
         self._embed_cache: dict[str, EmbedBatchResults] = {}
 
@@ -439,7 +421,7 @@ class LiteLLMSyncClient(_LiteLLMBase):
                 response = await litellm.aembedding(
                     model=self._embedding_model,
                     input=[item.text],
-                    api_key=self._api_key,
+                    **self._litellm_params,
                 )
                 results[item.item_id] = response.data[0]["embedding"]
             except Exception:
