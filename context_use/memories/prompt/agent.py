@@ -83,6 +83,7 @@ class AgentToolConversationPromptBuilder(ConversationMemoryPromptBuilder):
 
     @property
     def _response_schema(self) -> dict | None:
+        # Overwrites the property of ConversationMemoryPromptBuilder to return None,
         return None
 
     def _format_content(self, thread: Thread) -> str:
