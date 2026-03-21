@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from context_use.memories.prompt.conversation import (
-    ConversationMemoryPromptBuilder,
     _MAX_INBOUND_CHARS,
+    ConversationMemoryPromptBuilder,
 )
 from context_use.models.thread import Thread
 
@@ -75,13 +75,7 @@ Return a brief summary of what you did (created, updated, or nothing).\
 
 
 class AgentToolConversationPromptBuilder(ConversationMemoryPromptBuilder):
-    """Builds a prompt for the personal agent to process via tools.
-
-    Unlike the batch prompt builders that request structured JSON output,
-    this builder produces a prompt with tool-based instructions and no
-    response schema — the agent uses ``create_memory``, ``update_memory``,
-    etc. to act on the conversation.
-    """
+    """Builds a prompt for the personal agent to process via tools."""
 
     @property
     def _prompt_template(self) -> str:
@@ -89,6 +83,7 @@ class AgentToolConversationPromptBuilder(ConversationMemoryPromptBuilder):
 
     @property
     def _response_schema(self) -> dict | None:
+        # Overwrites the property of ConversationMemoryPromptBuilder to return None,
         return None
 
     def _format_content(self, thread: Thread) -> str:

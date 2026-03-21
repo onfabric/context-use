@@ -2,21 +2,32 @@ from __future__ import annotations
 
 import logging
 import zipfile
+from collections import defaultdict
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from context_use.agent.runner import AgentResult, AgentRunner
+from context_use.batch.grouper import ThreadGroup
 from context_use.batch.manager import (
     BatchContext,
     ScheduleInstruction,
     get_manager_for_category,
 )
+from context_use.memories.context import GroupContextBuilder
+from context_use.memories.factory import MemoryBatchFactory
+from context_use.memories.prompt.agent import AgentToolConversationPromptBuilder
 from context_use.memories.service import MemoryService
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
 from context_use.models.memory import MemorySummary, TapestryMemory
+from context_use.models.thread import Thread
+from context_use.providers.registry import (
+    get_memory_config,
+    get_memory_interaction_types,
+)
+from context_use.proxy.threads import messages_to_thread_rows
 from context_use.store.base import MemorySearchResult
 from context_use.types import PipelineResult, TaskBreakdown
 
@@ -200,15 +211,6 @@ class ContextUse:
         Returns persisted :class:`Batch` objects ready to be advanced
         via :meth:`advance_batch`.
         """
-        from collections import defaultdict
-
-        from context_use.batch.grouper import ThreadGroup
-        from context_use.memories.factory import MemoryBatchFactory
-        from context_use.models.thread import Thread
-        from context_use.providers.registry import (
-            get_memory_config,
-            get_memory_interaction_types,
-        )
 
         supported = get_memory_interaction_types()
         if interaction_types is not None:
@@ -265,13 +267,6 @@ class ContextUse:
         *,
         session_id: str | None = None,
     ) -> AgentResult | None:
-        from context_use.batch.grouper import ThreadGroup
-        from context_use.memories.context import GroupContextBuilder
-        from context_use.memories.prompt.agent import (
-            AgentToolConversationPromptBuilder,
-        )
-        from context_use.models.thread import Thread
-        from context_use.proxy.threads import messages_to_thread_rows
 
         rows = messages_to_thread_rows(messages, session_id=session_id)
         if not rows:

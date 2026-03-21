@@ -51,12 +51,12 @@ class MemoryBatchManager(BaseBatchManager):
         self.extractor = MemoryExtractor(ctx.llm_client)
         self.batch_factory = MemoryBatchFactory
         self.linker = SemanticFacetLinker(ctx.store)
-        self._context_builder = GroupContextBuilder()
+        self.context_builder = GroupContextBuilder()
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
         groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
-        return await self._context_builder.build_many(groups)
+        return await self.context_builder.build_many(groups)
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
