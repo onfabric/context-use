@@ -12,7 +12,7 @@ from context_use.etl.payload.models import (
 )
 from context_use.models.etl_task import EtlTask
 from context_use.providers.bank.record import BankTransactionRecord
-from context_use.providers.bank.schemas import PROVIDER
+from context_use.providers.bank.transaction_types import normalize_transaction_type
 
 
 def _parse_date(value: str) -> datetime:
@@ -25,10 +25,9 @@ def _parse_date(value: str) -> datetime:
 
 
 class _BankTransactionPipe(Pipe[BankTransactionRecord]):
-    provider = PROVIDER
     archive_version = 1
     record_schema = BankTransactionRecord
-    institution_name: str
+    display_name: str
 
     def transform(
         self,
@@ -51,8 +50,8 @@ class _BankTransactionPipe(Pipe[BankTransactionRecord]):
         return ThreadRow(
             unique_key=payload.unique_key(),
             provider=self.provider,
-            interaction_type=self.interaction_type,
-            preview=payload.get_preview(self.institution_name) or "",
+            interaction_type=normalize_transaction_type(record.transaction_type),
+            preview=payload.get_preview(self.display_name) or "",
             payload=payload.to_dict(),
             version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=published,

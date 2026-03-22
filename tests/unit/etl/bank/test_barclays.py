@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from context_use.providers.bank.barclays.pipe import (
-    BankBarclaysPipe,
+from context_use.providers.barclays.transactions.pipe import (
+    BarclaysTransactionsPipe,
     _extract_transaction_type,
 )
 from context_use.storage.disk import DiskStorage
@@ -11,11 +11,12 @@ from context_use.testing import PipeTestKit
 from tests.unit.etl.bank.conftest import BARCLAYS_CSV
 
 
-class TestBankBarclaysPipe(PipeTestKit):
-    pipe_class = BankBarclaysPipe
+class TestBarclaysTransactionsPipe(PipeTestKit):
+    pipe_class = BarclaysTransactionsPipe
     expected_extract_count = 3
     expected_transform_count = 3
     expected_fibre_kind = "Transaction"
+    per_record_interaction_type = True
 
     @pytest.fixture()
     def pipe_fixture(self, tmp_path):
@@ -44,6 +45,22 @@ class TestBankBarclaysPipe(PipeTestKit):
         for row in transformed_rows:
             assert "Barclays" in row.preview
 
+    def test_provider_is_barclays(self, transformed_rows):
+        for row in transformed_rows:
+            assert row.provider == "barclays"
+
+    def test_direct_debit_interaction_type(self, transformed_rows):
+        dd = next(r for r in transformed_rows if "Direct Debit" in r.preview)
+        assert dd.interaction_type == "direct_debit"
+
+    def test_card_purchase_interaction_type(self, transformed_rows):
+        cp = next(r for r in transformed_rows if "Card Purchase" in r.preview)
+        assert cp.interaction_type == "purchase"
+
+    def test_transfer_interaction_type(self, transformed_rows):
+        xfer = next(r for r in transformed_rows if "Bank Transfer" in r.preview)
+        assert xfer.interaction_type == "transfer"
+
     def test_empty_money_in_and_out_skipped(self, tmp_path):
         csv_with_empty = (
             b"Date,Description,Money Out,Money In,Balance\n"
@@ -53,7 +70,7 @@ class TestBankBarclaysPipe(PipeTestKit):
         storage = DiskStorage(str(tmp_path / "store"))
         key = "archive/barclays/statement.csv"
         storage.write(key, csv_with_empty)
-        pipe = BankBarclaysPipe()
+        pipe = BarclaysTransactionsPipe()
         records = list(pipe.extract_file(key, storage))
         assert len(records) == 1
         assert "Energy" in records[0].description

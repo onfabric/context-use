@@ -142,6 +142,8 @@ context-use-data/
 | Google | Available | Searches, YouTube, Shopping, Lens, Discover | [Export your data](https://support.google.com/accounts/answer/3024190) |
 | Netflix | Available | Viewing Activity, Search History, Ratings, My List, Messages, Preferences | [Export your data](https://help.netflix.com/en/node/100624) |
 | Airbnb | Available | Wishlists, Search History, Reviews, Reservations, Messages | [Export your data](https://www.airbnb.com/help/article/2273) |
-| Bank | Available | Transactions (Amex, Barclays, Revolut) | Manual CSV download from your bank |
+| Amex | Available | Transactions | Manual CSV download from Amex |
+| Barclays | Available | Transactions | Manual CSV download from Barclays |
+| Revolut | Available | Transactions | Manual CSV download from Revolut |
 
 Want another provider? Contribute it by pointing your coding agent to the [Adding a Data Provider](docs/add-provider/AGENTS.md) guide.

@@ -6,12 +6,15 @@ import json
 import re
 from collections.abc import Iterator
 
-from context_use.providers.bank.barclays.schemas import Model
 from context_use.providers.bank.pipe import _BankTransactionPipe
 from context_use.providers.bank.record import BankTransactionRecord
+from context_use.providers.bank.transaction_types import FALLBACK_INTERACTION_TYPE
+from context_use.providers.barclays.transactions.schemas import Model
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
+
+PROVIDER = "barclays"
 
 _TYPE_PREFIXES = [
     "Direct Debit",
@@ -33,10 +36,11 @@ def _extract_transaction_type(description: str) -> str | None:
     return m.group(1) if m else None
 
 
-class BankBarclaysPipe(_BankTransactionPipe):
-    interaction_type = "bank_barclays"
+class BarclaysTransactionsPipe(_BankTransactionPipe):
+    provider = PROVIDER
+    interaction_type = FALLBACK_INTERACTION_TYPE
     archive_path_pattern = "*/barclays/*.csv"
-    institution_name = "Barclays"
+    display_name = "Barclays"
     currency = "GBP"
 
     def extract_file(
@@ -67,4 +71,4 @@ class BankBarclaysPipe(_BankTransactionPipe):
             stream.close()
 
 
-declare_interaction(InteractionConfig(pipe=BankBarclaysPipe))
+declare_interaction(InteractionConfig(pipe=BarclaysTransactionsPipe))

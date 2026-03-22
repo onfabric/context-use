@@ -8,10 +8,13 @@ from datetime import datetime
 
 from context_use.providers.bank.pipe import _BankTransactionPipe
 from context_use.providers.bank.record import BankTransactionRecord
-from context_use.providers.bank.revolut.schemas import Model
+from context_use.providers.bank.transaction_types import FALLBACK_INTERACTION_TYPE
 from context_use.providers.registry import declare_interaction
+from context_use.providers.revolut.transactions.schemas import Model
 from context_use.providers.types import InteractionConfig
 from context_use.storage.base import StorageBackend
+
+PROVIDER = "revolut"
 
 
 def _parse_revolut_date(value: str) -> str:
@@ -24,10 +27,11 @@ def _parse_revolut_date(value: str) -> str:
     raise ValueError(f"Cannot parse Revolut date: {value!r}")
 
 
-class BankRevolutPipe(_BankTransactionPipe):
-    interaction_type = "bank_revolut"
+class RevolutTransactionsPipe(_BankTransactionPipe):
+    provider = PROVIDER
+    interaction_type = FALLBACK_INTERACTION_TYPE
     archive_path_pattern = "*/revolut/*.csv"
-    institution_name = "Revolut"
+    display_name = "Revolut"
 
     def extract_file(
         self,
@@ -65,4 +69,4 @@ class BankRevolutPipe(_BankTransactionPipe):
             stream.close()
 
 
-declare_interaction(InteractionConfig(pipe=BankRevolutPipe))
+declare_interaction(InteractionConfig(pipe=RevolutTransactionsPipe))
