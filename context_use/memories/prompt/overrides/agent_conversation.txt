@@ -4,7 +4,7 @@ You are given a conversation between a user and an AI assistant.
 
 Extract the user’s **memories** from this conversation. A memory is a durable, personally meaningful fact about the user (identity, values, preferences, relationships, motivations, long-running projects/responsibilities, constraints, or major life events) written as a first-person journal entry.
 
-**Focus on what the user reveals about themselves.** The assistant is only context. Do not echo the assistant’s framing; capture what the user disclosed through statements of intent, feelings, priorities, boundaries, responsibilities, trade-offs, fears/hopes, and decisions.
+**Capture what the user revealed about themselves, not what happened in the conversation.** The assistant is only context. Do not echo the assistant’s framing; capture what the user disclosed through statements of intent, feelings, priorities, boundaries, responsibilities, trade-offs, fears/hopes, and decisions.
 
 Before writing any memory, gate it with these checks (all must pass):
 1) Durability: Will this plausibly still matter in ~6+ months, or is it a major event/decision that will remain a reference point?
@@ -14,6 +14,11 @@ Before writing any memory, gate it with these checks (all must pass):
 5) Evidence & certainty: Did the user actually indicate this, and am I matching their confidence (decided vs considering vs curious)?
 
 Only write a memory when the evidence is clear and the stake is real. If the transcript contains no such signals, output no memories.
+
+Additional precision rules:
+- Prefer fewer, higher-signal memories over many low-signal ones.
+- A “preference” is only a memory if it is a durable style/standard/boundary the user cares about (not a one-off formatting tweak unless clearly important to them).
+- Whenever possible, include: (who/what) + (why it matters) + (constraint/pressure) + (current status). If you can’t support the why, keep it minimal and factual.
 
 ### What to avoid (additional)
 
@@ -26,22 +31,23 @@ Only write a memory when the evidence is clear and the stake is real. If the tra
 - Do not include names/handles of private individuals unless the relationship itself is central and already explicit; prefer “a friend/partner/coworker” over identifiers.
 - Do not include secrets or sensitive identifiers (passwords, API keys, tokens, private addresses). Omit entirely.
 - Do not capture vendor/stack trivia as a memory unless it’s tied to a durable commitment or decision criterion (e.g., “I prioritize simplicity and low ops overhead” rather than “I used product X”).
+- Avoid turning micro-edits and ephemeral stylistic constraints into standalone memories unless the user framed them as an ongoing personal standard (e.g., a consistent writing identity, accessibility requirement, or professional norm).
 
 ### What to capture
 
 Prioritize information that answers: “Who is this person, what matters to them, what are they responsible for, and what constraints/standards shape their choices?”
 
-Capture memories that include at least one of: (a) ownership/responsibility, (b) values/standards, (c) relationships/social dynamics, (d) emotions with stakes, (e) durable constraints, (f) significant events/decisions, (g) recurring decision patterns.
+Capture memories that include at least one of: (a) ownership/responsibility, (b) values/standards/boundaries, (c) relationships/social dynamics, (d) emotions with stakes, (e) durable constraints, (f) significant events/decisions, (g) recurring decision patterns.
 
 - **Identity & stable context** — role, seniority, domain, location/language, education, affiliations (only if explicitly stated).
-- **Ownership & ongoing responsibilities** — what they run/maintain/lead; what others depend on; accountability pressures; “this is on me.”
+- **Ownership & ongoing responsibilities** — what they run/maintain/lead; who depends on them; accountability pressures; commitments they must follow through on.
 - **Projects & long-horizon goals (with stakes)** — what they’re building/learning/changing/deciding and why it matters; include deadlines, money, risk, audience, impact when present.
-- **Decision criteria & trade-offs** — what they optimize for (cost, time, autonomy, privacy, safety, simplicity, reliability, maintainability, speed to market); what they refuse to compromise on; what would make them switch strategies.
+- **Decision criteria & trade-offs** — what they optimize for (cost, time, autonomy, privacy, safety, simplicity, reliability, maintainability, speed to market); what they refuse to compromise on; switching triggers.
 - **Motivations, emotions, and friction** — excitement, anxiety, frustration, uncertainty, pride, disappointment; pair the emotion with what’s at stake and why.
-- **Preferences & standards** — “what good looks like,” working style, communication/tone preferences, quality bars, reliability expectations, privacy/security stance; only if recurring or clearly important.
+- **Preferences, standards & boundaries** — stable “what good looks like,” communication tone, quality bar, reliability expectations, privacy/security posture; only when the user signals it’s important or recurring.
 - **Constraints** — budget/time/health/family/team/policy/legal constraints; immovable limitations; risk/compliance posture; resource scarcity.
 - **Relationships & social dynamics** — partners/family/friends/teams/communities; obligations, support, conflict, belonging/loneliness, reputation concerns, mentorship.
-- **Values & boundaries** — principles, ethics, privacy boundaries, deal-breakers, identity commitments, how they want to be seen.
+- **Values & self-concept** — principles, ethics, identity commitments, desired self-image (“the kind of person I want to be”), deal-breakers.
 - **Routines & recurring patterns** — stable habits and repeated behaviors that shape their life/work (not one-off logistics).
 - **Notable life events & lasting lessons** — moves, job changes, major launches/failures, applications, public speaking, major purchases, health events—only when tied to meaning, consequence, identity, or a durable lesson.
 
@@ -68,6 +74,7 @@ Each memory should be:
 - **Revealing**: exposes priorities, standards, identity, self-image, relationships, constraints, or decision criteria.
 - **Faithful and properly qualified**: match the user’s certainty; preserve hedges and ambiguity (“I might…”, “I’m unsure…”, “I’m considering…”).
 - **First-person journal voice**: “I’m…”, “I want…”, “I care about…”, “I’m worried…”, “I’m responsible for…”, “I’m considering…”, “I decided… because…”.
+- **Substantive**: a stranger reading it should learn something meaningful about the user beyond a narrow momentary preference.
 
 ### What to avoid
 
@@ -77,6 +84,7 @@ Each memory should be:
 - Do not treat every technical interest as a memory; it must signal ongoing commitment, durable preference/standard, real constraint, meaningful risk, or emotionally significant challenge.
 - Do not include sensitive secrets (passwords, API keys, private tokens, full credentials). If present, omit entirely rather than paraphrasing.
 - Do not include trivial one-offs (single meals, single errands, fleeting curiosities) unless tied to a meaningful long-horizon goal, constraint, relationship, or recurring pattern.
+- Do not split one theme into multiple near-duplicates; prefer one stronger memory with the why/constraint over several shallow ones.
 
 {{CONTEXT}}{{TRANSCRIPT}}
 
