@@ -70,7 +70,7 @@ class VertexAIConfig(BaseLlmConfig):
         vertex_project: str,
         vertex_location: str,
         vertex_credentials: str,
-        batch_artifacts_gcs_bucket_name: str | None = None,
+        batch_artifacts_gcs_bucket_name: str,
     ) -> None:
         self._model = model
         self._embedding_model = embedding_model
@@ -92,7 +92,6 @@ class VertexAIConfig(BaseLlmConfig):
             "vertex_project": self._vertex_project,
             "vertex_location": self._vertex_location,
             "vertex_credentials": self._vertex_credentials,
+            "gcs_bucket_name": self._batch_artifacts_gcs_bucket_name,
         }
-        if self._batch_artifacts_gcs_bucket_name is not None:
-            params["gcs_bucket_name"] = self._batch_artifacts_gcs_bucket_name
         return params

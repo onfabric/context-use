@@ -59,24 +59,11 @@ class TestVertexAIConfig:
             vertex_project="proj",
             vertex_location="us-central1",
             vertex_credentials='{"type": "service_account"}',
+            batch_artifacts_gcs_bucket_name="my-bucket",
         )
         assert isinstance(config, BaseLlmConfig)
 
-    def test_litellm_params_without_bucket(self) -> None:
-        config = VertexAIConfig(
-            model=VertexAIModel.GEMINI_2_5_PRO,
-            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
-            vertex_project="proj",
-            vertex_location="eu-west1",
-            vertex_credentials='{"type": "service_account"}',
-        )
-        assert config.litellm_params() == {
-            "vertex_project": "proj",
-            "vertex_location": "eu-west1",
-            "vertex_credentials": '{"type": "service_account"}',
-        }
-
-    def test_litellm_params_with_bucket(self) -> None:
+    def test_litellm_params(self) -> None:
         config = VertexAIConfig(
             model=VertexAIModel.GEMINI_2_5_PRO,
             embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
