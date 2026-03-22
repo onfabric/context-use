@@ -9,13 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from httpx import ASGITransport
 
-from context_use.proxy.app import (
-    _ALLOWED_UPSTREAM_HOSTS,
-    SESSION_ID_HEADER,
-    create_proxy_app,
-)
+from context_use.proxy.app import _ALLOWED_UPSTREAM_HOSTS, create_proxy_app
 from context_use.proxy.handler import ContextProxy
+from context_use.proxy.headers import DEFAULT_PREFIX, ProxyHeaders
 from context_use.store.base import MemorySearchResult
+
+HEADERS = ProxyHeaders.from_prefix(DEFAULT_PREFIX)
 
 
 async def _aiter(*items: bytes) -> AsyncGenerator[bytes, None]:
@@ -123,8 +122,8 @@ def _setup_passthrough_client(
     return mock_client
 
 
-class TestMissingHostHeader:
-    async def test_returns_400_when_host_absent(self) -> None:
+class TestUpstreamHostHeader:
+    async def test_returns_400_when_header_absent(self) -> None:
         responses: list[dict[str, Any]] = []
 
         async def mock_receive() -> dict[str, Any]:
@@ -148,29 +147,91 @@ class TestMissingHostHeader:
 
         assert responses[0]["status"] == 400
         body = json.loads(responses[1]["body"])
-        assert "Host" in body["error"]["message"]
+        assert "upstream host" in body["error"]["message"]
 
     async def test_returns_400_when_host_is_unknown(self) -> None:
         app = create_proxy_app(_make_handler())
         transport = _transport(app)
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://localhost:8080"
+            transport=transport, base_url="http://testserver"
         ) as client:
-            resp = await client.post("/v1/chat/completions", json=_completion_body())
+            resp = await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "evil.example.com"},
+            )
         assert resp.status_code == 400
-        body = resp.json()
-        assert "localhost" in body["error"]["message"]
-
-    async def test_returns_400_when_host_is_arbitrary_domain(self) -> None:
-        app = create_proxy_app(_make_handler())
-        transport = _transport(app)
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://my-custom-llm.example.com"
-        ) as client:
-            resp = await client.post("/v1/chat/completions", json=_completion_body())
-        assert resp.status_code == 400
+        assert "evil.example.com" in resp.json()["error"]["message"]
 
     async def test_allowed_host_passes_validation(self) -> None:
+        host = next(iter(_ALLOWED_UPSTREAM_HOSTS))
+        app = create_proxy_app(_make_handler())
+
+        responses: list[dict[str, Any]] = []
+
+        async def mock_receive() -> dict[str, Any]:
+            return {"body": b"", "more_body": False}
+
+        async def mock_send(message: dict[str, Any]) -> None:
+            responses.append(message)
+
+        await app(
+            {
+                "type": "http",
+                "method": "GET",
+                "path": "/v1/models",
+                "headers": [(HEADERS.upstream_host.encode(), host.encode())],
+                "query_string": b"",
+            },
+            mock_receive,
+            mock_send,
+        )
+
+        assert responses[0]["status"] != 400
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_header_determines_upstream(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "api.openai.com"},
+            )
+
+        assert (
+            mock_client.post.call_args.args[0]
+            == "https://api.openai.com/v1/chat/completions"
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_header_not_forwarded_to_upstream(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "api.openai.com"},
+            )
+
+        forwarded_keys = [k for k, _ in mock_client.post.call_args.kwargs["headers"]]
+        assert HEADERS.upstream_host.encode() not in forwarded_keys
+
+
+class TestHostHeaderFallback:
+    async def test_allowed_host_header_resolves_upstream(self) -> None:
         host = next(iter(_ALLOWED_UPSTREAM_HOSTS))
         app = create_proxy_app(_make_handler())
 
@@ -195,6 +256,38 @@ class TestMissingHostHeader:
         )
 
         assert responses[0]["status"] != 400
+
+    async def test_unknown_host_header_returns_400(self) -> None:
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://localhost:8080"
+        ) as client:
+            resp = await client.post("/v1/chat/completions", json=_completion_body())
+        assert resp.status_code == 400
+        assert "localhost" in resp.json()["error"]["message"]
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_upstream_host_header_takes_priority_over_host(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://localhost:8080"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "api.openai.com"},
+            )
+
+        assert (
+            mock_client.post.call_args.args[0]
+            == "https://api.openai.com/v1/chat/completions"
+        )
 
 
 class TestConfiguredUpstreamUrl:
@@ -267,11 +360,13 @@ class TestConfiguredUpstreamUrl:
 
 
 class TestRequestValidation:
+    _UPSTREAM = "https://api.openai.com"
+
     async def test_missing_model(self) -> None:
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
@@ -281,10 +376,10 @@ class TestRequestValidation:
         assert "required" in resp.json()["error"]["message"]
 
     async def test_missing_messages(self) -> None:
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
@@ -293,10 +388,10 @@ class TestRequestValidation:
         assert resp.status_code == 400
 
     async def test_invalid_json(self) -> None:
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
@@ -308,14 +403,18 @@ class TestRequestValidation:
 
 
 class TestNonStreaming:
+    _UPSTREAM = "https://api.openai.com"
+
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_returns_completion(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        app = create_proxy_app(_make_handler(memories=[_make_result()]))
+        app = create_proxy_app(
+            _make_handler(memories=[_make_result()]), upstream_url=self._UPSTREAM
+        )
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
@@ -326,29 +425,13 @@ class TestNonStreaming:
         assert resp.json()["choices"][0]["message"]["content"] == "Hi there!"
 
     @patch("context_use.proxy.handler.AsyncClient")
-    async def test_host_header_determines_upstream(self, MockClient: MagicMock) -> None:
-        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        app = create_proxy_app(_make_handler())
-        transport = _transport(app)
-
-        async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
-        ) as client:
-            await client.post("/v1/chat/completions", json=_completion_body())
-
-        assert (
-            mock_client.post.call_args.args[0]
-            == "https://api.openai.com/v1/chat/completions"
-        )
-
-    @patch("context_use.proxy.handler.AsyncClient")
     async def test_authorization_header_forwarded(self, MockClient: MagicMock) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             await client.post(
                 "/v1/chat/completions",
@@ -364,11 +447,11 @@ class TestNonStreaming:
         self, MockClient: MagicMock
     ) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             await client.post("/v1/chat/completions", json=_completion_body())
 
@@ -377,6 +460,8 @@ class TestNonStreaming:
 
 
 class TestStreaming:
+    _UPSTREAM = "https://api.openai.com"
+
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_streams_raw_bytes_from_upstream(self, MockClient: MagicMock) -> None:
         sse_chunk = (
@@ -389,11 +474,11 @@ class TestStreaming:
                 chunks=[sse_chunk],
             ),
         )
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
@@ -405,16 +490,18 @@ class TestStreaming:
 
 
 class TestErrorHandling:
+    _UPSTREAM = "https://api.openai.com"
+
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_upstream_error_returns_500(self, MockClient: MagicMock) -> None:
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(side_effect=Exception("upstream down"))
         MockClient.return_value = mock_client
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.post(
                 "/v1/chat/completions",
@@ -426,6 +513,8 @@ class TestErrorHandling:
 
 
 class TestSessionIdHeader:
+    _UPSTREAM = "https://api.openai.com"
+
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_session_id_extracted_from_header(
         self, MockClient: MagicMock
@@ -433,16 +522,16 @@ class TestSessionIdHeader:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
         handler._schedule = MagicMock()  # type: ignore[method-assign]
-        app = create_proxy_app(handler)
+        app = create_proxy_app(handler, upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={SESSION_ID_HEADER: "sess-abc"},
+                headers={HEADERS.session_id: "sess-abc"},
             )
 
         handler._schedule.assert_called_once()
@@ -455,11 +544,13 @@ class TestSessionIdHeader:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
         handler._schedule = MagicMock()  # type: ignore[method-assign]
-        app = create_proxy_app(handler, session_id="sess-fixed")
+        app = create_proxy_app(
+            handler, session_id="sess-fixed", upstream_url=self._UPSTREAM
+        )
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             await client.post(
                 "/v1/chat/completions",
@@ -476,16 +567,18 @@ class TestSessionIdHeader:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
         handler._schedule = MagicMock()  # type: ignore[method-assign]
-        app = create_proxy_app(handler, session_id="sess-fixed")
+        app = create_proxy_app(
+            handler, session_id="sess-fixed", upstream_url=self._UPSTREAM
+        )
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={SESSION_ID_HEADER: "sess-header"},
+                headers={HEADERS.session_id: "sess-header"},
             )
 
         handler._schedule.assert_called_once()
@@ -496,23 +589,25 @@ class TestSessionIdHeader:
         self, MockClient: MagicMock
     ) -> None:
         mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={SESSION_ID_HEADER: "sess-abc"},
+                headers={HEADERS.session_id: "sess-abc"},
             )
 
         forwarded_keys = [k for k, _ in mock_client.post.call_args.kwargs["headers"]]
-        assert SESSION_ID_HEADER.encode() not in forwarded_keys
+        assert HEADERS.session_id.encode() not in forwarded_keys
 
 
 class TestPassThrough:
+    _UPSTREAM = "https://api.openai.com"
+
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_unknown_path_forwarded_to_upstream(
         self, MockClient: MagicMock
@@ -520,11 +615,11 @@ class TestPassThrough:
         content = json.dumps({"object": "list", "data": []}).encode()
         mock_client = _setup_passthrough_client(MockClient, content)
 
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.get("/v1/models")
 
@@ -543,12 +638,87 @@ class TestPassThrough:
         mock_client.send = AsyncMock(side_effect=Exception("refused"))
         MockClient.return_value = mock_client
 
-        app = create_proxy_app(_make_handler())
+        app = create_proxy_app(_make_handler(), upstream_url=self._UPSTREAM)
         transport = _transport(app)
 
         async with httpx.AsyncClient(
-            transport=transport, base_url="http://api.openai.com"
+            transport=transport, base_url="http://testserver"
         ) as client:
             resp = await client.get("/v1/models")
 
         assert resp.status_code == 500
+
+
+class TestCustomHeaderPrefix:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_custom_prefix_upstream_host(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        app = create_proxy_app(_make_handler(), header_prefix="myproxy")
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={"myproxy-upstream-host": "api.openai.com"},
+            )
+
+        assert (
+            mock_client.post.call_args.args[0]
+            == "https://api.openai.com/v1/chat/completions"
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_custom_prefix_session_id(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        app = create_proxy_app(
+            handler,
+            upstream_url="https://api.openai.com",
+            header_prefix="myproxy",
+        )
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={"myproxy-session-id": "sess-custom"},
+            )
+
+        handler._schedule.assert_called_once()
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-custom"
+
+    async def test_default_header_ignored_with_custom_prefix(self) -> None:
+        app = create_proxy_app(_make_handler(), header_prefix="myproxy")
+
+        responses: list[dict[str, Any]] = []
+
+        async def mock_receive() -> dict[str, Any]:
+            return {"body": b"", "more_body": False}
+
+        async def mock_send(message: dict[str, Any]) -> None:
+            responses.append(message)
+
+        await app(
+            {
+                "type": "http",
+                "method": "POST",
+                "path": "/v1/chat/completions",
+                "headers": [
+                    (b"ctxuse-upstream-host", b"api.openai.com"),
+                ],
+                "query_string": b"",
+            },
+            mock_receive,
+            mock_send,
+        )
+
+        assert responses[0]["status"] == 400
+        body = json.loads(responses[1]["body"])
+        assert "upstream host" in body["error"]["message"]
