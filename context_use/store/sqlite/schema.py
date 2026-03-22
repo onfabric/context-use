@@ -148,7 +148,8 @@ CREATE TABLE IF NOT EXISTS threads (
             "CREATE INDEX IF NOT EXISTS idx_thread_provider ON threads(provider)",
             "CREATE INDEX IF NOT EXISTS idx_thread_type ON threads(interaction_type)",
             "CREATE INDEX IF NOT EXISTS idx_thread_asat ON threads(asat)",
-            "CREATE INDEX IF NOT EXISTS idx_thread_collection ON threads(collection_id)",
+            "CREATE INDEX IF NOT EXISTS idx_thread_collection "
+            "ON threads(collection_id)",
         ]
 
     @staticmethod
