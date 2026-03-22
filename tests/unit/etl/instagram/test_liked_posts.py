@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.liked_posts.pipe import (
@@ -23,6 +24,41 @@ class TestInstagramLikedPostsV0Pipe(
     fixture_data = INSTAGRAM_LIKED_POSTS_V0_JSON
     fixture_key = "archive/your_instagram_activity/likes/liked_posts.json"
     expected_fibre_kind = "Reaction"
+    snapshot_cases = [
+        (
+            {
+                "likes_media_likes": [
+                    {
+                        "title": "synthetic_foodblog",
+                        "string_list_data": [
+                            {
+                                "href": "https://www.instagram.com/reel/XXXXXXXXXXX/",
+                                "timestamp": 1770775983,
+                            }
+                        ],
+                    }
+                ]
+            },
+            {
+                "preview": "Liked post by synthetic_foodblog on instagram",
+                "asat": datetime(2026, 2, 11, 2, 13, 3, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "Reaction",
+                    "type": "Like",
+                    "published": "2026-02-11T02:13:03Z",
+                    "object": {
+                        "attributedTo": {
+                            "name": "synthetic_foodblog",
+                            "type": "Profile",
+                        },
+                        "fibreKind": "Post",
+                        "type": "Note",
+                        "url": "https://www.instagram.com/reel/XXXXXXXXXXX/",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
@@ -70,6 +106,61 @@ class TestInstagramLikedPostsV1Pipe(
     fixture_data = INSTAGRAM_LIKED_POSTS_V1_JSON
     fixture_key = "archive/your_instagram_activity/likes/liked_posts.json"
     expected_fibre_kind = "Reaction"
+    snapshot_cases = [
+        (
+            [
+                {
+                    "timestamp": 1750714053,
+                    "media": [],
+                    "label_values": [
+                        {
+                            "label": "URL",
+                            "value": "https://www.instagram.com/p/SYNTHETIC_LIKED_POST_1/",
+                            "href": "https://www.instagram.com/p/SYNTHETIC_LIKED_POST_1/",
+                        },
+                        {
+                            "dict": [
+                                {
+                                    "dict": [
+                                        {
+                                            "label": "URL",
+                                            "value": "https://www.example.com/synthetic_creator",
+                                        },
+                                        {"label": "Name", "value": "Synthetic Creator"},
+                                        {
+                                            "label": "Username",
+                                            "value": "synthetic_creator",
+                                        },
+                                    ],
+                                    "title": "",
+                                }
+                            ],
+                            "title": "Owner",
+                        },
+                    ],
+                    "fbid": "18077840540083801",
+                }
+            ],
+            {
+                "preview": "Liked post by synthetic_creator on instagram",
+                "asat": datetime(2025, 6, 23, 21, 27, 33, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "Reaction",
+                    "type": "Like",
+                    "published": "2025-06-23T21:27:33Z",
+                    "object": {
+                        "attributedTo": {
+                            "name": "synthetic_creator",
+                            "type": "Profile",
+                        },
+                        "fibreKind": "Post",
+                        "type": "Note",
+                        "url": "https://www.instagram.com/p/SYNTHETIC_LIKED_POST_1/",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
