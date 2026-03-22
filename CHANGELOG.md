@@ -1,3 +1,11 @@
+## [0.14.0] - 2026-03-22
+
+### 🚀 Features
+
+- Add recent threads from collection to group context (#264)
+- [**breaking**] Add opt collection_id to thread (#262)
+- [**breaking**] Require credentials and bucket name in `VertexAIConfig` (#263)
+
 ## [0.13.0] - 2026-03-22
 
 ### 🚀 Features
