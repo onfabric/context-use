@@ -1,10 +1,11 @@
 from collections.abc import AsyncGenerator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
 from context_use.batch.grouper import ThreadGroup
 from context_use.etl.core.types import ThreadRow
+from context_use.memories.context import GroupContextBuilder
 from context_use.models import (
     Archive,
     ArchiveStatus,
@@ -14,6 +15,7 @@ from context_use.models import (
     MemoryStatus,
     TapestryMemory,
 )
+from context_use.store.base import SortOrder
 from context_use.store.sqlite import SqliteStore
 
 _TEST_EMBEDDING_DIMS = 4
@@ -166,6 +168,51 @@ async def test_get_unprocessed_threads_interaction_type_filter(
     threads = await store.get_unprocessed_threads(interaction_types=["type_a"])
     assert len(threads) == 2
     assert all(t.interaction_type == "type_a" for t in threads)
+
+
+async def test_list_threads_asat_desc_limit(store: SqliteStore, task_id: str) -> None:
+    coll = "https://example.com/c/1"
+    base = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+    rows = [
+        _make_row(
+            f"k{i}",
+            collection_id=coll,
+            asat=base + timedelta(hours=i),
+        )
+        for i in range(5)
+    ]
+    await store.insert_threads(rows, task_id=task_id)
+    got = await store.list_threads(
+        collection_id=coll,
+        limit=3,
+        asat_order=SortOrder.DESC,
+    )
+    assert [t.unique_key for t in got] == ["k4", "k3", "k2"]
+
+
+async def test_group_context_builder_loads_recent_collection_threads(
+    store: SqliteStore,
+    task_id: str,
+) -> None:
+    coll = "https://example.com/c/3"
+    base = datetime(2024, 3, 1, 12, 0, 0, tzinfo=UTC)
+    rows = [
+        _make_row(
+            f"k{i}",
+            collection_id=coll,
+            asat=base + timedelta(hours=i),
+        )
+        for i in range(12)
+    ]
+    await store.insert_threads(rows, task_id=task_id)
+    all_t = await store.list_threads(collection_id=coll)
+    ordered = sorted(all_t, key=lambda t: t.asat)
+    group = ThreadGroup(threads=ordered[-4:], group_id="g1")
+
+    ctx = await GroupContextBuilder(store).build(group)
+    assert len(ctx.new_threads) == 4
+    assert len(ctx.relevant_threads) == 8
+    assert ctx.relevant_threads[0].asat <= ctx.relevant_threads[-1].asat
 
 
 async def test_batch_crud_with_groups(store: SqliteStore, task_id: str) -> None:

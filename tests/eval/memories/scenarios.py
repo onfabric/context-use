@@ -34,14 +34,14 @@ def make_scenarios(groups: list[ThreadGroup]) -> list[EvalScenario]:
     def base_contexts(
         *,
         user_profile: str | None = None,
-        prior_memories: list[str] | None = None,
+        relevant_memories: list[str] | None = None,
     ) -> list[GroupContext]:
         return [
             GroupContext(
                 group_id=g.group_id,
                 new_threads=g.threads,
                 user_profile=user_profile,
-                prior_memories=prior_memories or [],
+                relevant_memories=relevant_memories or [],
             )
             for g in groups
         ]
@@ -59,15 +59,15 @@ def make_scenarios(groups: list[ThreadGroup]) -> list[EvalScenario]:
         ),
         EvalScenario(
             id="relevant_memories",
-            description="Relevant prior memories injected",
-            contexts=base_contexts(prior_memories=RELEVANT_MEMORIES),
+            description="Relevant memories injected",
+            contexts=base_contexts(relevant_memories=RELEVANT_MEMORIES),
         ),
         EvalScenario(
             id="profile_and_memories",
-            description="Both relevant profile and prior memories injected",
+            description="Both relevant profile and relevant memories injected",
             contexts=base_contexts(
                 user_profile=RELEVANT_PROFILE,
-                prior_memories=RELEVANT_MEMORIES,
+                relevant_memories=RELEVANT_MEMORIES,
             ),
         ),
         EvalScenario(

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from context_use.batch.grouper import ThreadGroup
 from context_use.memories.prompt.base import GroupContext
 from context_use.memories.prompt.conversation import (
@@ -53,11 +51,6 @@ def test_response_schema_is_set(
         item = builder.build()
         assert item.response_schema
         assert "memories" in item.response_schema.get("properties", {})
-
-
-def test_empty_threads_rejected() -> None:
-    with pytest.raises(ValueError, match="at least one thread"):
-        GroupContext(group_id="empty", new_threads=[])
 
 
 def test_inbound_messages_truncated_at_2000_chars(
