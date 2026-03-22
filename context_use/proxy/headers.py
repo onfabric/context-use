@@ -8,7 +8,11 @@ DEFAULT_PREFIX = "ctxuse"
 @dataclass(frozen=True)
 class ProxyHeaders:
     session_id: str
+    upstream_host: str
 
     @staticmethod
     def from_prefix(prefix: str) -> ProxyHeaders:
-        return ProxyHeaders(session_id=f"{prefix}-session-id")
+        return ProxyHeaders(
+            session_id=f"{prefix}-session-id",
+            upstream_host=f"{prefix}-upstream-host",
+        )
