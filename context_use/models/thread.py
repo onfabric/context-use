@@ -65,3 +65,6 @@ class Thread:
 
     def get_participant_label(self) -> str:
         return self._parsed_payload.get_participant_label()
+
+
+type NonEmptyThreads = tuple[Thread, *tuple[Thread, ...]]

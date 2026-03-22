@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 from context_use.facets.types import FacetType
 from context_use.llm.base import PromptItem
-from context_use.models.thread import Thread
+from context_use.models.thread import NonEmptyThreads, Thread
 
 
 class MemoryFacetExtract(BaseModel):
@@ -48,14 +48,10 @@ class GroupContext:
     """Everything the prompt builder needs for one group."""
 
     group_id: str
-    new_threads: list[Thread]
-    prior_memories: list[str] = field(default_factory=list)
-    recent_threads: list[Thread] = field(default_factory=list)
+    new_threads: NonEmptyThreads
+    relevant_memories: list[str] = field(default_factory=list)
+    relevant_threads: list[Thread] = field(default_factory=list)
     user_profile: str | None = None
-
-    def __post_init__(self) -> None:
-        if not self.new_threads:
-            raise ValueError("GroupContext requires at least one thread")
 
 
 class BasePromptBuilder(ABC):
@@ -76,13 +72,17 @@ class BasePromptBuilder(ABC):
 
     @staticmethod
     def _format_context(ctx: GroupContext) -> str:
-        """Build an optional context preamble from user profile, prior memories,
-        and recent threads.
+        """Build an optional context preamble from user profile, relevant memories,
+        and relevant threads.
 
-        Returns an empty string when there is no prior context (initial run),
+        Returns an empty string when there is no extra context (initial run),
         keeping the prompt identical to the non-delta path.
         """
-        if not ctx.user_profile and not ctx.prior_memories and not ctx.recent_threads:
+        if (
+            not ctx.user_profile
+            and not ctx.relevant_memories
+            and not ctx.relevant_threads
+        ):
             return ""
 
         sections: list[str] = []
@@ -96,10 +96,10 @@ class BasePromptBuilder(ABC):
                 f"{ctx.user_profile.strip()}"
             )
 
-        if ctx.prior_memories:
-            memories_text = "\n".join(f"- {m}" for m in ctx.prior_memories)
+        if ctx.relevant_memories:
+            memories_text = "\n".join(f"- {m}" for m in ctx.relevant_memories)
             sections.append(
-                "## Previously extracted memories\n"
+                "## Relevant memories\n"
                 "These memories have already been extracted from earlier "
                 "interactions. Use them for continuity but do NOT repeat "
                 "or rephrase them — only produce NEW memories from the "
@@ -107,13 +107,13 @@ class BasePromptBuilder(ABC):
                 f"{memories_text}"
             )
 
-        if ctx.recent_threads:
+        if ctx.relevant_threads:
             lines: list[str] = []
-            for t in sorted(ctx.recent_threads, key=lambda t: t.asat):
+            for t in sorted(ctx.relevant_threads, key=lambda t: t.asat):
                 ts = t.asat.strftime("%H:%M")
                 lines.append(f"- [{ts}] {t.preview}")
             sections.append(
-                "## Recent messages (for context only — already processed)\n"
+                "## Relevant threads (for context only — already processed)\n"
                 + "\n".join(lines)
             )
 

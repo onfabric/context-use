@@ -22,7 +22,7 @@ from context_use.models import (
     Thread,
 )
 from context_use.models.utils import generate_uuidv4
-from context_use.store.base import MemorySearchResult, Store
+from context_use.store.base import MemorySearchResult, SortOrder, Store
 from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
@@ -344,6 +344,7 @@ class SqliteStore(Store):
         from_date: datetime | None = None,
         to_date: datetime | None = None,
         limit: int | None = None,
+        asat_order: SortOrder = SortOrder.ASC,
     ) -> list[Thread]:
         db = await self._conn()
         sql = "SELECT * FROM threads WHERE 1=1"
@@ -360,7 +361,10 @@ class SqliteStore(Store):
         if to_date is not None:
             sql += " AND asat < ?"
             params.append(to_date.isoformat())
-        sql += " ORDER BY asat, id"
+        if asat_order == SortOrder.ASC:
+            sql += " ORDER BY asat, id"
+        else:
+            sql += " ORDER BY asat DESC, id DESC"
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
@@ -450,6 +454,7 @@ class SqliteStore(Store):
         return [
             ThreadGroup(threads=threads, group_id=gid)
             for gid, threads in groups_map.items()
+            if threads
         ]
 
     async def create_memory(

@@ -74,6 +74,7 @@ class ContextUse:
             memory_service=self._memory_service,
             llm_config=llm_client.config,
         )
+        self._group_context_builder = GroupContextBuilder(store)
 
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
@@ -273,6 +274,7 @@ class ContextUse:
             return None
 
         await self.insert_threads(rows)
+
         threads = [
             Thread(
                 unique_key=r.unique_key,
@@ -282,13 +284,14 @@ class ContextUse:
                 payload=r.payload,
                 version=r.version,
                 asat=r.asat,
+                collection_id=r.collection_id,
             )
             for r in rows
         ]
 
-        group = ThreadGroup(threads=threads)
-        ctx = await GroupContextBuilder().build(group)
-        item = AgentToolConversationPromptBuilder(ctx).build()
+        thread_group = ThreadGroup(threads=threads)
+        group_context = await self._group_context_builder.build(thread_group)
+        item = AgentToolConversationPromptBuilder(group_context).build()
 
         return await self.run_agent(item.prompt)
 

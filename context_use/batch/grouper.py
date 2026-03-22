@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
-from dataclasses import dataclass, field
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import timedelta
+from typing import cast
 
-from context_use.models.thread import Thread
+from context_use.models.thread import NonEmptyThreads, Thread
 from context_use.models.utils import generate_uuidv4
 
 
@@ -39,12 +41,23 @@ class WindowConfig:
         return max(1, self.window_days)
 
 
-@dataclass
+@dataclass(init=False)
 class ThreadGroup:
     """A set of threads that must be processed together as one LLM prompt."""
 
-    threads: list[Thread] = field(default_factory=list)
-    group_id: str = field(default_factory=generate_uuidv4)
+    threads: NonEmptyThreads
+    group_id: str
+
+    @staticmethod
+    def _as_non_empty_threads(threads: Iterable[Thread]) -> NonEmptyThreads:
+        t = tuple(threads)
+        if len(t) < 1:
+            raise ValueError("ThreadGroup requires at least one thread")
+        return cast(NonEmptyThreads, t)
+
+    def __init__(self, threads: Iterable[Thread], group_id: str | None = None) -> None:
+        self.threads = ThreadGroup._as_non_empty_threads(threads)
+        self.group_id = group_id if group_id is not None else generate_uuidv4()
 
 
 class ThreadGrouper(ABC):
