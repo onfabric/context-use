@@ -1,3 +1,17 @@
+## [0.12.0] - 2026-03-22
+
+### 🚀 Features
+
+- [**breaking**] Only support `gemini-2.5-pro` for vertex ai models (#252)
+- [**breaking**] Require embedding dimension in to init store (#251)
+- [**breaking**] Switch to litellm base client (#247)
+
+### 🚜 Refactor
+
+- Cleanup (#257)
+- Extract GroupContextBuilder (#255)
+- Change BasePromptBuilder to single GroupContext interface (#254)
+
 ## [0.11.1] - 2026-03-21
 
 ### 🐛 Bug Fixes
