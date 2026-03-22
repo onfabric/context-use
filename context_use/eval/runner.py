@@ -70,18 +70,10 @@ async def run_extraction(
         grouper = config.create_grouper()
         groups = grouper.group(type_threads)
 
-        contexts = [
-            GroupContext(group_id=g.group_id, new_threads=g.threads)
-            for g in groups
-        ]
-
-        builder = config.create_prompt_builder(contexts)
-        if not builder.has_content():
-            continue
-
-        prompts = builder.build()
-
-        for prompt_item in prompts:
+        for g in groups:
+            ctx = GroupContext(group_id=g.group_id, new_threads=g.threads)
+            builder = config.create_prompt_builder(ctx)
+            prompt_item = builder.build()
             if not captured_body:
                 run.prompt_body = _extract_prompt_body(prompt_item.prompt)
                 captured_body = True
@@ -99,12 +91,7 @@ async def run_extraction(
                 group_result = GroupResult(
                     group_id=prompt_item.item_id,
                     interaction_type=interaction_type,
-                    thread_count=len(
-                        next(
-                            (g.threads for g in groups if g.group_id == prompt_item.item_id),
-                            [],
-                        )
-                    ),
+                    thread_count=len(g.threads),
                     memories=schema.memories,
                 )
                 run.results.append(group_result)

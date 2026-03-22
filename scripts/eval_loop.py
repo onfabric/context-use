@@ -24,11 +24,10 @@ import asyncio
 import difflib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.eval.llm_judge import judge_memories, mean_judge_score
-from context_use.eval.metrics import score_memories
 from context_use.eval.runner import ExtractionRun, run_extraction
 from context_use.llm.base import BaseLLMClient
 from context_use.models.thread import Thread
@@ -58,7 +57,7 @@ level of abstraction, what makes a good memory, what to avoid).
 - Do not change the output format section — it will be appended automatically.
 - Be bold with changes but stay grounded in what makes a good memory.
 - The prompt must still work for any conversation topic (not just the samples).
-"""
+"""  # noqa: E501
 
 
 def _format_mutation_prompt(
@@ -103,7 +102,9 @@ async def _propose_mutation(
     return await llm.completion(prompt)
 
 
-async def _judge_run(run: ExtractionRun, llm: BaseLLMClient) -> tuple[float, dict[int, int]]:
+async def _judge_run(
+    run: ExtractionRun, llm: BaseLLMClient
+) -> tuple[float, dict[int, int]]:
     judgments = await judge_memories(run.all_memories, llm)
     score = mean_judge_score(judgments)
     by_index = {j.index: j.score for j in judgments}
@@ -111,8 +112,12 @@ async def _judge_run(run: ExtractionRun, llm: BaseLLMClient) -> tuple[float, dic
 
 
 def _parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Autoresearch loop for memory extraction prompts")
-    p.add_argument("--iterations", type=int, default=3, help="Number of mutation iterations")
+    p = argparse.ArgumentParser(
+        description="Autoresearch loop for memory extraction prompts"
+    )
+    p.add_argument(
+        "--iterations", type=int, default=3, help="Number of mutation iterations"
+    )
     p.add_argument("--threads", type=int, default=50, help="Max threads to sample")
     p.add_argument("--interaction-type", help="Filter to one interaction type")
     p.add_argument("--output", type=str, help="Path to save iteration log (JSONL)")
@@ -128,7 +133,7 @@ def _log_iteration(
     prompt_body: str,
 ) -> None:
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "iteration": iteration,
         "judge_score": judge_score,
         "memory_count": memory_count,
@@ -146,12 +151,9 @@ def _print_comparison(label: str, judge_score: float, memory_count: int) -> None
 async def main() -> None:
     args = _parse_args()
 
-    from context_use.config import build_ctx, load_config
+    from context_use.cli.config import build_ctx, load_config
 
     cfg = load_config()
-    if not cfg.openai_api_key:
-        print("No API key configured. Set OPENAI_API_KEY or run 'context-use config set-key'.")
-        sys.exit(1)
 
     ctx = build_ctx(cfg, llm_mode="sync")
     await ctx.init()
@@ -184,7 +186,7 @@ async def main() -> None:
     best_body = baseline.prompt_body
     best_count = len(baseline.all_memories)
 
-    print(f"\nBaseline:")
+    print("\nBaseline:")
     _print_comparison("baseline", best_score, best_count)
 
     if log_path:
@@ -205,7 +207,10 @@ async def main() -> None:
 
         print("  Proposing mutation...")
         mutated_body = await _propose_mutation(
-            ctx._llm_client, best_body, best_score, sample_with_scores,
+            ctx._llm_client,
+            best_body,
+            best_score,
+            sample_with_scores,
         )
 
         threads = await _sample_threads()
@@ -215,7 +220,9 @@ async def main() -> None:
         best_run = await run_extraction(threads, ctx._llm_client, prompt_body=best_body)
         print("  Running mutation on same sample...")
         mutated_run = await run_extraction(
-            threads, ctx._llm_client, prompt_body=mutated_body,
+            threads,
+            ctx._llm_client,
+            prompt_body=mutated_body,
         )
 
         if not best_run.all_memories or not mutated_run.all_memories:
@@ -226,7 +233,9 @@ async def main() -> None:
 
         print("  Judging both runs...")
         current_score, _ = await _judge_run(best_run, ctx._llm_client)
-        mutated_score, mutated_judgments = await _judge_run(mutated_run, ctx._llm_client)
+        mutated_score, mutated_judgments = await _judge_run(
+            mutated_run, ctx._llm_client
+        )
 
         _print_comparison("current best", current_score, len(best_run.all_memories))
         _print_comparison("mutation", mutated_score, len(mutated_run.all_memories))
@@ -245,7 +254,14 @@ async def main() -> None:
             print(f"  ✗ Rejected ({delta:+.2f})")
 
         if log_path:
-            _log_iteration(log_path, i, mutated_score, len(mutated_run.all_memories), accepted, mutated_body)
+            _log_iteration(
+                log_path,
+                i,
+                mutated_score,
+                len(mutated_run.all_memories),
+                accepted,
+                mutated_body,
+            )
 
     print(f"\n{'═' * 60}")
     print(f"  Final results after {args.iterations} iterations")

@@ -16,8 +16,14 @@ import sys
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Evaluate memory extraction quality")
-    p.add_argument("--extract", action="store_true", help="Run fresh extraction instead of scoring existing memories")
-    p.add_argument("--threads", type=int, default=50, help="Max threads to sample (with --extract)")
+    p.add_argument(
+        "--extract",
+        action="store_true",
+        help="Run fresh extraction instead of scoring existing memories",
+    )
+    p.add_argument(
+        "--threads", type=int, default=50, help="Max threads to sample (with --extract)"
+    )
     p.add_argument("--interaction-type", help="Filter to one interaction type")
     return p.parse_args()
 
@@ -43,7 +49,9 @@ async def _score_existing(cfg, ctx, args) -> None:  # noqa: ANN001
     memories = await ctx._store.list_memories(status=MemoryStatus.active.value)
 
     if not memories:
-        print("No memories in store. Run 'context-use pipeline' first, or use --extract.")
+        print(
+            "No memories in store. Run 'context-use pipeline' first, or use --extract."
+        )
         sys.exit(1)
 
     print(f"Found {len(memories)} active memories")
@@ -89,7 +97,9 @@ async def _run_extraction(cfg, ctx, args) -> None:  # noqa: ANN001
         print("No memories extracted.")
         sys.exit(1)
 
-    print(f"\nExtracted {len(extraction.all_memories)} memories from {len(extraction.results)} groups")
+    print(
+        f"\nExtracted {len(extraction.all_memories)} memories from {len(extraction.results)} groups"  # noqa: E501
+    )
     metrics = score_memories(extraction.all_memories)
     _print_metrics(metrics)
 
@@ -103,13 +113,15 @@ async def _run_extraction(cfg, ctx, args) -> None:  # noqa: ANN001
 async def main() -> None:
     args = _parse_args()
 
-    from context_use.config import build_ctx, load_config
+    from context_use.cli.config import build_ctx, load_config
 
     cfg = load_config()
     llm_mode = "sync" if args.extract else "batch"
 
     if args.extract and not cfg.openai_api_key:
-        print("No API key configured. Set OPENAI_API_KEY or run 'context-use config set-key'.")
+        print(
+            "No API key configured. Set OPENAI_API_KEY or run 'context-use config set-key'."  # noqa: E501
+        )
         sys.exit(1)
 
     ctx = build_ctx(cfg, llm_mode=llm_mode)

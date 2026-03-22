@@ -63,6 +63,14 @@ Return a JSON object with a ``memories`` array. Each memory has:
 
 AGENT_PROMPT_OVERRIDE = Path(__file__).with_name("overrides") / "agent_conversation.txt"
 
+OUTPUT_FORMAT = """\
+## Output format
+Return a JSON object with a ``memories`` array. Each memory has:
+- ``content``: the memory text (1-2 sentences, detail-rich, first-person).
+- ``from_date``: start date (YYYY-MM-DD).
+- ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).\
+"""
+
 AGENT_CONVERSATION_MEMORIES_PROMPT = (
     """\
 You are given a conversation between a user and an AI assistant.
