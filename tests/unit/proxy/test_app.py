@@ -9,13 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 from httpx import ASGITransport
 
-from context_use.proxy.app import (
-    _ALLOWED_UPSTREAM_HOSTS,
-    SESSION_ID_HEADER,
-    create_proxy_app,
-)
+from context_use.proxy.app import _ALLOWED_UPSTREAM_HOSTS, create_proxy_app
 from context_use.proxy.handler import ContextProxy
+from context_use.proxy.headers import DEFAULT_PREFIX, ProxyHeaders
 from context_use.store.base import MemorySearchResult
+
+HEADERS = ProxyHeaders.from_prefix(DEFAULT_PREFIX)
 
 
 async def _aiter(*items: bytes) -> AsyncGenerator[bytes, None]:
@@ -442,7 +441,7 @@ class TestSessionIdHeader:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={SESSION_ID_HEADER: "sess-abc"},
+                headers={HEADERS.session_id: "sess-abc"},
             )
 
         handler._schedule.assert_called_once()
@@ -485,7 +484,7 @@ class TestSessionIdHeader:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={SESSION_ID_HEADER: "sess-header"},
+                headers={HEADERS.session_id: "sess-header"},
             )
 
         handler._schedule.assert_called_once()
@@ -505,11 +504,11 @@ class TestSessionIdHeader:
             await client.post(
                 "/v1/chat/completions",
                 json=_completion_body(),
-                headers={SESSION_ID_HEADER: "sess-abc"},
+                headers={HEADERS.session_id: "sess-abc"},
             )
 
         forwarded_keys = [k for k, _ in mock_client.post.call_args.kwargs["headers"]]
-        assert SESSION_ID_HEADER.encode() not in forwarded_keys
+        assert HEADERS.session_id.encode() not in forwarded_keys
 
 
 class TestPassThrough:
@@ -552,3 +551,49 @@ class TestPassThrough:
             resp = await client.get("/v1/models")
 
         assert resp.status_code == 500
+
+
+class TestCustomHeaderPrefix:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_custom_prefix_session_id(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        app = create_proxy_app(handler, header_prefix="myproxy")
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://api.openai.com"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={"myproxy-session-id": "sess-custom"},
+            )
+
+        handler._schedule.assert_called_once()
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-custom"
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_default_session_id_header_ignored_with_custom_prefix(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        app = create_proxy_app(
+            handler, session_id="sess-default", header_prefix="myproxy"
+        )
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://api.openai.com"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.session_id: "sess-ignored"},
+            )
+
+        handler._schedule.assert_called_once()
+        assert handler._schedule.call_args.kwargs["session_id"] == "sess-default"

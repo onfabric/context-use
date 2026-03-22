@@ -11,10 +11,10 @@ from context_use.proxy.handler import (
     ContextProxyResult,
     ContextProxyStreamResult,
 )
+from context_use.proxy.headers import DEFAULT_PREFIX, ProxyHeaders
 
 logger = logging.getLogger(__name__)
 
-SESSION_ID_HEADER = "ctxuse-session-id"
 CONTENT_LENGTH_HEADER = "content-length"
 
 _HOP_BY_HOP = frozenset(
@@ -45,7 +45,10 @@ def create_proxy_app(
     *,
     upstream_url: str | None = None,
     session_id: str | None = None,
+    header_prefix: str = DEFAULT_PREFIX,
 ) -> ASGIApp:
+    ctxuse_headers = ProxyHeaders.from_prefix(header_prefix)
+
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return
@@ -73,17 +76,14 @@ def create_proxy_app(
             )
             return
 
-        resolved_session_id = headers_dict.get(SESSION_ID_HEADER) or session_id
+        resolved_session_id = headers_dict.get(ctxuse_headers.session_id) or session_id
 
-        # Hop-by-hop headers and the session-id header are connection-scoped or internal
-        # and are not meant for the upstream provider.
-        # content-length is also stripped and recomputed from the rewritten body
         forward_headers = [
             (k, v)
             for k, v in scope["headers"]
             if k.lower() not in _HOP_BY_HOP
             and k.lower() != CONTENT_LENGTH_HEADER.encode()
-            and k.lower() != SESSION_ID_HEADER.encode()
+            and k.lower() != ctxuse_headers.session_id.encode()
         ]
 
         try:
