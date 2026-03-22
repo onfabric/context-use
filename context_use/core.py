@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import zipfile
 from pathlib import PurePosixPath
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from context_use.agent.runner import AgentResult, AgentRunner
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
     from typing import Any
 
+    from context_use.etl.core.pipe import Pipe
     from context_use.llm.base import BaseLLMClient
     from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
@@ -77,6 +79,7 @@ class ContextUse:
         self,
         provider: str,
         path: str,
+        pipe_factory: Callable[[type[Pipe]], Pipe] | None = None,
     ) -> PipelineResult:
         """Unzip, discover, and run ETL for the given archive.
 
@@ -136,7 +139,7 @@ class ContextUse:
         for task_model in task_models:
             try:
                 pipe_cls = provider_cfg.get_pipe(task_model.interaction_type)
-                pipe = pipe_cls()
+                pipe = pipe_factory(pipe_cls) if pipe_factory else pipe_cls()
                 count = await self._run_pipe(pipe, task_model)
 
                 task_model.status = EtlTaskStatus.COMPLETED.value

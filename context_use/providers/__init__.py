@@ -1,6 +1,7 @@
 from context_use.providers import (  # noqa: F401 — triggers provider registration
     airbnb,
     amex,
+    bank,
     barclays,
     chatgpt,
     claude,
