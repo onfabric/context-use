@@ -67,11 +67,10 @@ def create_proxy_app(
         raw = await _read_body(receive)
         headers_dict = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
 
-        header_host = headers_dict.get(ctxuse_headers.upstream_host)
+        upstream_host = headers_dict.get(ctxuse_headers.upstream_host)
         resolved_upstream_url, upstream_error = _resolve_upstream_url(
             upstream_url=upstream_url,
-            host=header_host,
-            upstream_host_header=ctxuse_headers.upstream_host,
+            upstream_host=upstream_host,
         )
         if upstream_error is not None:
             await _send_json(
@@ -119,8 +118,7 @@ def create_proxy_app(
 def _resolve_upstream_url(
     *,
     upstream_url: str | None,
-    host: str | None,
-    upstream_host_header: str,
+    upstream_host: str | None,
 ) -> tuple[str, str | None]:
     if upstream_url is not None:
         parsed = urlsplit(upstream_url)
@@ -146,21 +144,18 @@ def _resolve_upstream_url(
         return upstream_url.rstrip("/"), None
 
     allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
-    if not host:
+    if not upstream_host:
         return "", (
-            f"Missing {upstream_host_header} header. Set it to your upstream "
+            f"Missing upstream host header. Set it to your upstream "
             f"provider, or start the proxy with --upstream-url. "
             f"Allowed hosts: {allowed}"
         )
 
-    hostname = host.lower().split(":")[0]
+    hostname = upstream_host.lower().split(":")[0]
     if hostname in _ALLOWED_UPSTREAM_HOSTS:
-        return f"https://{host}", None
+        return f"https://{upstream_host}", None
 
-    return "", (
-        f"Unknown upstream host {host!r} from {upstream_host_header} header. "
-        f"Allowed hosts: {allowed}"
-    )
+    return "", (f"Unknown upstream host {upstream_host!r}. Allowed hosts: {allowed}")
 
 
 async def _read_body(receive: Receive) -> bytes:
