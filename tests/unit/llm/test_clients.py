@@ -45,6 +45,8 @@ _VERTEX_CONFIG = VertexAIConfig(
     embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
     vertex_project="my-project",
     vertex_location="us-central1",
+    vertex_credentials='{"type": "service_account"}',
+    batch_artifacts_gcs_bucket_name="my-bucket",
 )
 
 

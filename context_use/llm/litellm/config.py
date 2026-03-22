@@ -60,6 +60,7 @@ class VertexAIConfig(BaseLlmConfig):
         "_vertex_project",
         "_vertex_location",
         "_vertex_credentials",
+        "_batch_artifacts_gcs_bucket_name",
     )
 
     def __init__(
@@ -68,13 +69,15 @@ class VertexAIConfig(BaseLlmConfig):
         embedding_model: VertexAIEmbeddingModel,
         vertex_project: str,
         vertex_location: str,
-        vertex_credentials: str | None = None,
+        vertex_credentials: str,
+        batch_artifacts_gcs_bucket_name: str,
     ) -> None:
         self._model = model
         self._embedding_model = embedding_model
         self._vertex_project = vertex_project
         self._vertex_location = vertex_location
         self._vertex_credentials = vertex_credentials
+        self._batch_artifacts_gcs_bucket_name = batch_artifacts_gcs_bucket_name
 
     @property
     def model(self) -> VertexAIModel:
@@ -88,7 +91,7 @@ class VertexAIConfig(BaseLlmConfig):
         params: dict[str, Any] = {
             "vertex_project": self._vertex_project,
             "vertex_location": self._vertex_location,
+            "vertex_credentials": self._vertex_credentials,
+            "gcs_bucket_name": self._batch_artifacts_gcs_bucket_name,
         }
-        if self._vertex_credentials is not None:
-            params["vertex_credentials"] = self._vertex_credentials
         return params
