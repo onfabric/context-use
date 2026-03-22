@@ -58,32 +58,23 @@ class TestVertexAIConfig:
             embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="us-central1",
+            vertex_credentials='{"type": "service_account"}',
+            batch_artifacts_gcs_bucket_name="my-bucket",
         )
         assert isinstance(config, BaseLlmConfig)
 
-    def test_litellm_params_without_credentials(self) -> None:
-        config = VertexAIConfig(
-            model=VertexAIModel.GEMINI_2_5_PRO,
-            embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
-            vertex_project="proj",
-            vertex_location="us-central1",
-        )
-        params = config.litellm_params()
-        assert params == {
-            "vertex_project": "proj",
-            "vertex_location": "us-central1",
-        }
-        assert "vertex_credentials" not in params
-
-    def test_litellm_params_with_credentials(self) -> None:
+    def test_litellm_params(self) -> None:
         config = VertexAIConfig(
             model=VertexAIModel.GEMINI_2_5_PRO,
             embedding_model=VertexAIEmbeddingModel.TEXT_EMBEDDING_005,
             vertex_project="proj",
             vertex_location="eu-west1",
             vertex_credentials='{"type": "service_account"}',
+            batch_artifacts_gcs_bucket_name="my-bucket",
         )
-        params = config.litellm_params()
-        assert params["vertex_credentials"] == '{"type": "service_account"}'
-        assert params["vertex_project"] == "proj"
-        assert params["vertex_location"] == "eu-west1"
+        assert config.litellm_params() == {
+            "vertex_project": "proj",
+            "vertex_location": "eu-west1",
+            "vertex_credentials": '{"type": "service_account"}',
+            "gcs_bucket_name": "my-bucket",
+        }
