@@ -1,30 +1,99 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
+import logging
 import os
 import shutil
 import socket
 import subprocess
 import sys
 import time
+import uuid
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
+
+import uvicorn
 
 from context_use.cli import output as out
-from context_use.cli.base import BaseCommand, require_api_key
-from context_use.ext.adk.agent.runner import AdkAgentBackend
+from context_use.cli.base import BaseCommand, prompt_api_key
+from context_use.cli.config import build_ctx, load_config
+from context_use.proxy.app import create_proxy_app
+from context_use.proxy.handler import ContextProxy, PostResponseCallback
+from context_use.proxy.log import (
+    log_generation_done,
+    log_processing_start,
+    setup_proxy_logging,
+)
+
+if TYPE_CHECKING:
+    from context_use.core import ContextUse
+
+logger = logging.getLogger(__name__)
 
 _PID_PATH = Path.home() / ".config" / "context-use" / "proxy.pid"
 _LOG_PATH = Path.home() / ".config" / "context-use" / "proxy.log"
+
+_MAX_CONCURRENT_POST_RESPONSE_PROCESSING = 1
+
+
+async def _post_response_process(
+    ctx: ContextUse,
+    messages: list[dict[str, Any]],
+    session_id: str | None = None,
+) -> None:
+    try:
+        log_processing_start()
+        count_before = await ctx.count_memories()
+        result = await ctx.generate_memories_from_messages(
+            messages, session_id=session_id
+        )
+        if result is None:
+            return
+        count_after = await ctx.count_memories()
+        log_generation_done(count_after - count_before, count_after, result.summary)
+    except Exception:
+        logger.error("Background memory processing failed", exc_info=True)
+
+
+def make_asyncio_post_response_callback() -> PostResponseCallback:
+    semaphore = asyncio.Semaphore(_MAX_CONCURRENT_POST_RESPONSE_PROCESSING)
+    tasks: set[asyncio.Task[None]] = set()
+
+    def callback(
+        ctx: ContextUse, messages: list[dict[str, Any]], session_id: str | None
+    ) -> None:
+        async def _guarded() -> None:
+            async with semaphore:
+                await _post_response_process(ctx, messages, session_id)
+
+        task = asyncio.create_task(_guarded())
+        tasks.add(task)
+        task.add_done_callback(tasks.discard)
+
+    return callback
+
+
+def _parse_upstream_url(value: str) -> str:
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise argparse.ArgumentTypeError(
+            "Expected a full upstream URL starting with http:// or https://"
+        )
+    return value.rstrip("/")
 
 
 class ProxyCommand(BaseCommand):
     name = "proxy"
     help = "Start the context enrichment proxy server"
     description = (
-        "Start an OpenAI-compatible proxy that enriches requests with "
-        "user context from your local memory store. Point any OpenAI "
-        "SDK at http://localhost:<port>/v1 to get context-enriched "
-        "completions via any LLM provider supported by LiteLLM."
+        "Start a transparent proxy that enriches requests with user context "
+        "from your local memory store. The proxy forwards each request to "
+        "either a fixed upstream URL from --upstream-url or the client's Host "
+        "header, while memories are generated using your OpenAI key. "
+        "POST /v1/chat/completions and POST /v1/responses are enriched; "
+        "all other paths are forwarded transparently without modification."
     )
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
@@ -38,6 +107,11 @@ class ProxyCommand(BaseCommand):
             "--host",
             default="0.0.0.0",
             help="Host to bind to (default: 0.0.0.0)",
+        )
+        parser.add_argument(
+            "--upstream-url",
+            type=_parse_upstream_url,
+            help="Fixed upstream URL (skips the need for a Host header)",
         )
         parser.add_argument(
             "--background",
@@ -56,26 +130,16 @@ class ProxyCommand(BaseCommand):
             self._stop()
             return
 
+        cfg = load_config()
+        if not cfg.openai_api_key:
+            cfg = prompt_api_key(cfg)
+        cfg.ensure_dirs()
+
         if args.background:
             self._start_background(args)
             return
 
-        try:
-            import uvicorn
-
-            from context_use.proxy.app import create_app
-        except ImportError:
-            out.error(
-                "Proxy dependencies not installed. Run: pip install context-use[proxy]"
-            )
-            sys.exit(1)
-
-        from context_use.config import build_ctx, load_config
-
-        cfg = load_config()
-        require_api_key(cfg)
-        cfg.ensure_dirs()
-
+        default_session_id = str(uuid.uuid4())
         ctx = build_ctx(cfg, llm_mode="sync")
         await ctx.init()
 
@@ -84,31 +148,44 @@ class ProxyCommand(BaseCommand):
         print()
         out.header("context-use proxy")
         out.kv("Memories loaded", f"{count:,}")
-        out.kv("Endpoint", f"http://localhost:{args.port}/v1/chat/completions")
+        out.kv("Endpoint", f"http://localhost:{args.port}/v1")
+        out.kv("Upstream URL", args.upstream_url or "request Host header")
+        out.kv("Default session ID", default_session_id)
         print()
-        out.info("Point your OpenAI client at this proxy:")
+        out.info("Point your client at this proxy:")
         out.info("")
-        out.info(
-            '  client = OpenAI(base_url="http://localhost:'
-            f'{args.port}/v1", api_key="<provider-key>")'
-        )
+        if args.upstream_url:
+            out.info(
+                '  client = OpenAI(base_url="http://localhost:'
+                f'{args.port}/v1", api_key="<provider-key>")'
+            )
+        else:
+            out.info(
+                '  client = OpenAI(base_url="http://localhost:'
+                f'{args.port}/v1", api_key="<provider-key>", '
+                'default_headers={"Host": "api.openai.com"})'
+            )
         print()
 
-        from context_use.proxy.background import BackgroundMemoryProcessor
-
-        agent_backend = AdkAgentBackend(
-            api_key=cfg.openai_api_key,
-            model=cfg.openai_model,
+        handler = ContextProxy(
+            ctx, post_response_callback=make_asyncio_post_response_callback()
         )
-        processor = BackgroundMemoryProcessor(ctx, agent_backend)
         out.kv("Memory processing", "enabled")
 
-        app = create_app(ctx, processor)
+        setup_proxy_logging()
+
+        app = create_proxy_app(
+            handler,
+            upstream_url=args.upstream_url,
+            session_id=default_session_id,
+        )
+
         config = uvicorn.Config(
             app,
             host=args.host,
             port=args.port,
             log_level="info",
+            access_log=False,
         )
         server = uvicorn.Server(config)
         await server.serve()
@@ -127,7 +204,16 @@ class ProxyCommand(BaseCommand):
             out.error("Could not find the context-use executable in PATH.")
             sys.exit(1)
 
-        cmd: list[str] = [cu, "proxy", "--port", str(args.port), "--host", args.host]
+        cmd: list[str] = [
+            cu,
+            "proxy",
+            "--port",
+            str(args.port),
+            "--host",
+            args.host,
+        ]
+        if args.upstream_url:
+            cmd.extend(["--upstream-url", args.upstream_url])
 
         _PID_PATH.parent.mkdir(parents=True, exist_ok=True)
 
@@ -148,7 +234,13 @@ class ProxyCommand(BaseCommand):
             sys.exit(1)
 
         print()
-        out.success(f"Proxy started — http://localhost:{args.port}/v1/chat/completions")
+        if args.upstream_url:
+            out.success(
+                f"Proxy started - http://localhost:{args.port}/v1"
+                f" -> {args.upstream_url}"
+            )
+        else:
+            out.success(f"Proxy started - http://localhost:{args.port}/v1")
         print()
 
     def _stop(self) -> None:

@@ -10,7 +10,7 @@ from context_use.cli.base import (
     print_ingest_result,
     resolve_archive,
 )
-from context_use.config import Config
+from context_use.cli.config import Config
 
 if TYPE_CHECKING:
     from context_use import ContextUse

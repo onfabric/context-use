@@ -4,9 +4,14 @@
     "media": [],
     "label_values": [
       {
+        "label": "Ad library public URL",
+        "value": "https://www.facebook.com/ads/library/?id=1234567890",
+        "href": "https://www.facebook.com/ads/library/?id=1234567890"
+      },
+      {
         "label": "URL",
-        "value": "https://www.instagram.com/p/SYNTHETIC_AD_VIEW/",
-        "href": "https://www.instagram.com/p/SYNTHETIC_AD_VIEW/"
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_1/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_1/"
       },
       {
         "dict": [
@@ -17,14 +22,74 @@
                 "value": "https://example.com"
               },
               {
-                "label": "Title",
-                "value": "Example Site"
+                "label": "Name",
+                "value": "Example Brand"
+              },
+              {
+                "label": "Username",
+                "value": "example_brand"
               }
-            ]
+            ],
+            "title": ""
           }
-        ]
+        ],
+        "title": "Owner"
       }
-    ]
+    ],
+    "fbid": "17841401108516601:12345:1770753730::DYIImpressionsData"
+  },
+  {
+    "timestamp": 1770840130,
+    "media": [],
+    "label_values": [
+      {
+        "label": "Ad library public URL"
+      },
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_2/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_2/"
+      }
+    ],
+    "fbid": "17841401108516601:67890:1770840130::DYIImpressionsData"
+  },
+  {
+    "timestamp": 1770926530,
+    "media": [],
+    "label_values": [
+      {
+        "label": "Ad library public URL",
+        "value": "https://www.facebook.com/ads/library/?id=9876543210",
+        "href": "https://www.facebook.com/ads/library/?id=9876543210"
+      },
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_3/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_3/"
+      },
+      {
+        "dict": [
+          {
+            "dict": [
+              {
+                "label": "URL",
+                "value": "https://shop.example.com"
+              },
+              {
+                "label": "Name",
+                "value": "Cool Shop"
+              },
+              {
+                "label": "Username",
+                "value": "coolshop"
+              }
+            ],
+            "title": ""
+          }
+        ],
+        "title": "Owner"
+      }
+    ],
+    "fbid": "17841401108516601:11111:1770926530::DYIImpressionsData"
   }
 ]
-

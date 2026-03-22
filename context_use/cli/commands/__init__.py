@@ -10,9 +10,9 @@ from context_use.cli.commands.proxy import ProxyCommand
 from context_use.cli.commands.reset import ResetCommand
 
 TOP_LEVEL_COMMANDS: list[type[BaseCommand]] = [
+    ProxyCommand,
     PipelineCommand,
     IngestCommand,
-    ProxyCommand,
     ResetCommand,
 ]
 

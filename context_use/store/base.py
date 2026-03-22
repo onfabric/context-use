@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from types import TracebackType
 
 from context_use.batch.grouper import ThreadGroup
@@ -13,6 +13,8 @@ from context_use.models import (
     Archive,
     Batch,
     EtlTask,
+    Facet,
+    MemoryFacet,
     TapestryMemory,
     Thread,
 )
@@ -41,8 +43,8 @@ class Store(ABC):
     # ── Lifecycle ────────────────────────────────────────────────────
 
     @abstractmethod
-    async def init(self) -> None:
-        """Create tables / indices (idempotent)."""
+    async def init(self, *, embedding_dimensions: int) -> None:
+        """Create tables / indices."""
         ...
 
     @abstractmethod
@@ -52,7 +54,7 @@ class Store(ABC):
 
     @abstractmethod
     async def close(self) -> None:
-        """Release any held resources (connections, file handles)."""
+        """Release any held resources."""
         ...
 
     async def __aenter__(self) -> Store:
@@ -80,7 +82,7 @@ class Store(ABC):
 
     @abstractmethod
     async def create_archive(self, archive: Archive) -> Archive:
-        """Persist a new archive and return it (``id`` is set)."""
+        """Persist a new archive and return it."""
         ...
 
     @abstractmethod
@@ -118,7 +120,7 @@ class Store(ABC):
     ) -> int:
         """Insert threads, deduplicating on ``unique_key``.
 
-        Returns the number of rows actually inserted (after dedup).
+        Returns the number of rows actually inserted.
         """
         ...
 
@@ -143,6 +145,8 @@ class Store(ABC):
         self,
         *,
         interaction_types: list[str] | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
     ) -> list[Thread]:
         """Return threads not yet assigned to any batch.
 
@@ -181,17 +185,17 @@ class Store(ABC):
 
     @abstractmethod
     async def create_memory(self, memory: TapestryMemory) -> TapestryMemory:
-        """Persist a new memory and return it (``id`` is set)."""
+        """Persist a new memory and return it."""
         ...
 
     @abstractmethod
     async def get_memories(self, ids: list[str]) -> list[TapestryMemory]:
-        """Return memories by ID (missing IDs are silently skipped)."""
+        """Return memories by ID."""
         ...
 
     @abstractmethod
     async def get_unembedded_memories(self, ids: list[str]) -> list[TapestryMemory]:
-        """Return memories from *ids* that have no embedding."""
+        """Return memories that have no embedding."""
         ...
 
     @abstractmethod
@@ -219,15 +223,62 @@ class Store(ABC):
     async def search_memories(
         self,
         *,
-        query_embedding: list[float] | None = None,
+        query_embedding: list[float],
         from_date: date | None = None,
         to_date: date | None = None,
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
-        """Search memories by semantic similarity, date range, or both.
+        """Search memories by semantic similarity, optionally filtered by date range."""
+        ...
 
-        When *query_embedding* is given, results are ordered by cosine
-        similarity (descending).  Otherwise they are ordered by
-        ``from_date`` descending.
+    # ── Memory Facets ────────────────────────────────────────────────
+
+    @abstractmethod
+    async def create_memory_facet(self, facet: MemoryFacet) -> MemoryFacet:
+        """Persist a new memory facet and return it (``id`` is set)."""
+        ...
+
+    @abstractmethod
+    async def get_unembedded_memory_facets(
+        self, *, batch_id: str | None = None
+    ) -> list[MemoryFacet]:
+        """Return memory facets that have no embedding."""
+        ...
+
+    @abstractmethod
+    async def update_memory_facet(self, facet: MemoryFacet) -> None:
+        """Persist changes to an existing memory facet."""
+        ...
+
+    @abstractmethod
+    async def get_unlinked_memory_facets(self) -> list[MemoryFacet]:
+        """Return memory facets that have an embedding but no canonical facet."""
+        ...
+
+    # ── Canonical Facets ─────────────────────────────────────────────
+
+    @abstractmethod
+    async def create_facet(self, facet: Facet) -> Facet:
+        """Persist a new canonical facet and return it."""
+        ...
+
+    @abstractmethod
+    async def create_facet_embedding(
+        self, facet_id: str, embedding: list[float]
+    ) -> None:
+        """Insert an embedding for a canonical facet."""
+        ...
+
+    @abstractmethod
+    async def find_similar_facet(
+        self,
+        facet_type: str,
+        embedding: list[float],
+        threshold: float,
+    ) -> Facet | None:
+        """Return the nearest canonical facet of *facet_type* above *threshold*.
+
+        Uses cosine similarity on the canonical facet embedding.  Returns ``None``
+        when no match exceeds *threshold*.
         """
         ...

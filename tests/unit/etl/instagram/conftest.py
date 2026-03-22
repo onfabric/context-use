@@ -44,6 +44,9 @@ INSTAGRAM_LIKED_POSTS_V1_JSON: list[dict] = load_fixture(
 INSTAGRAM_STORY_LIKES_V0_JSON: dict = load_fixture(
     f"{_V0}/your_instagram_activity/story_interactions/story_likes.json"
 )
+INSTAGRAM_STORY_LIKES_V1_JSON: list[dict] = load_fixture(
+    f"{_V1}/your_instagram_activity/story_interactions/story_likes.json"
+)
 
 INSTAGRAM_POST_COMMENTS_JSON: list[dict] = load_fixture(
     f"{_V1}/your_instagram_activity/comments/post_comments_1.json"
@@ -57,6 +60,14 @@ INSTAGRAM_FOLLOWERS_JSON: list[dict] = load_fixture(
 )
 INSTAGRAM_FOLLOWING_JSON: dict = load_fixture(
     f"{_V1}/connections/followers_and_following/following.json"
+)
+
+INSTAGRAM_ADS_CLICKED_V1_JSON: list[dict] = load_fixture(
+    f"{_V1}/ads_information/ads_and_topics/ads_clicked.json"
+)
+
+INSTAGRAM_ADS_VIEWED_V1_JSON: list[dict] = load_fixture(
+    f"{_V1}/ads_information/ads_and_topics/ads_viewed.json"
 )
 
 INSTAGRAM_SAVED_POSTS_JSON: dict = load_fixture(

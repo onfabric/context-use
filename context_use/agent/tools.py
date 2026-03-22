@@ -1,23 +1,15 @@
 from __future__ import annotations
 
-import logging
 from datetime import date
 from typing import Annotated
 
 from pydantic import Field
 
-from context_use.agent.protocol import MemoryOperations
+from context_use.memories.service import MemoryService
+from context_use.proxy.log import log_tool_action
 
-logger = logging.getLogger(__name__)
 
-
-def make_agent_tools(ops: MemoryOperations) -> list:
-    """Build the memory tool set for the refinement agent.
-
-    Each tool is a thin adapter: it parses LLM-friendly string inputs,
-    delegates to *ops* (any :class:`MemoryOperations` implementation),
-    and serialises the result to a plain dict for the model to read.
-    """
+def make_agent_tools(memory_service: MemoryService) -> list:
 
     async def list_memories(
         from_date: Annotated[
@@ -42,7 +34,7 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         in the requested range. If the window is large or you are unsure how many
         memories exist, use search_memories with a descriptive query instead.
         """
-        rows = await ops.list_memories(
+        rows = await memory_service.list_memories(
             from_date=date.fromisoformat(from_date),
             to_date=date.fromisoformat(to_date),
             limit=limit,
@@ -96,7 +88,7 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         """
         parsed_from = date.fromisoformat(from_date) if from_date else None
         parsed_to = date.fromisoformat(to_date) if to_date else None
-        results = await ops.search_memories(
+        results = await memory_service.search_memories(
             query=query,
             from_date=parsed_from,
             to_date=parsed_to,
@@ -129,7 +121,7 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         Use this to read a memory's complete content before deciding
         whether to update, archive, or merge it.
         """
-        m = await ops.get_memory(memory_id)
+        m = await memory_service.get_memory(memory_id)
         if m is None:
             return {"error": f"Memory {memory_id!r} not found"}
         return {
@@ -174,12 +166,12 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         from_dt = date.fromisoformat(from_date) if from_date else None
         to_dt = date.fromisoformat(to_date) if to_date else None
         try:
-            await ops.update_memory(
+            await memory_service.update_memory(
                 memory_id, content=content, from_date=from_dt, to_date=to_dt
             )
         except ValueError as exc:
             return {"error": str(exc)}
-        logger.info("Updated memory %s", memory_id)
+        log_tool_action("Updated", memory_id)
         return {"updated": memory_id}
 
     async def create_memory(
@@ -214,13 +206,13 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         Do NOT archive the source memories when creating a pattern — they remain
         individually useful.
         """
-        created = await ops.create_memory(
+        created = await memory_service.create_memory(
             content=content,
             from_date=date.fromisoformat(from_date),
             to_date=date.fromisoformat(to_date),
             source_memory_ids=source_memory_ids,
         )
-        logger.info("Created memory %s (sources=%s)", created.id, source_memory_ids)
+        log_tool_action("Created", created.id)
         return {"created_id": created.id}
 
     async def archive_memories(
@@ -246,11 +238,12 @@ def make_agent_tools(ops: MemoryOperations) -> list:
         splitting an over-broad memory, passing the new memory's ID as
         superseded_by.
         """
-        archived = await ops.archive_memories(memory_ids, superseded_by=superseded_by)
-        not_found = [mid for mid in memory_ids if mid not in set(archived)]
-        logger.info(
-            "Archived %d memories (superseded_by=%s)", len(archived), superseded_by
+        archived = await memory_service.archive_memories(
+            memory_ids, superseded_by=superseded_by
         )
+        not_found = [mid for mid in memory_ids if mid not in set(archived)]
+
+        log_tool_action("Archived", count=len(archived))
         result: dict = {"archived": archived}
         if not_found:
             result["not_found"] = not_found

@@ -129,6 +129,7 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
                     if isinstance(lv, InstagramLabelValue) and lv.label == "URL":
                         video_url = lv.value
                         break
+                    # TODO: parse Owner into attributedTo
 
                 yield InstagramVideoWatchedRecord(
                     video_url=video_url,

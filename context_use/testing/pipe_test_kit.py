@@ -9,9 +9,10 @@ from pydantic import BaseModel
 
 from context_use.etl.core.pipe import Pipe
 from context_use.etl.core.types import ThreadRow
+from context_use.etl.payload.core import make_thread_payload
 from context_use.models.etl_task import EtlTask, EtlTaskStatus
 from context_use.storage.base import StorageBackend
-from context_use.storage.disk import DiskStorage
+from context_use.storage.memory import InMemoryStorage
 
 
 class ExtractConformanceTests:
@@ -86,6 +87,12 @@ class TransformConformanceTests:
         for row in transformed_rows:
             assert row.payload["fibreKind"] == self.expected_fibre_kind
 
+    def test_payload_round_trips(self, transformed_rows: list[ThreadRow]) -> None:
+        for row in transformed_rows:
+            parsed = make_thread_payload(row.payload)
+            assert parsed is not None
+            assert parsed.to_dict() == row.payload
+
 
 class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
     """Full Pipe conformance suite covering both extract and transform stages.
@@ -95,8 +102,11 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
     - ``pipe_class``: the :class:`Pipe` subclass under test
     - ``expected_extract_count``: expected number of extracted records
     - ``expected_transform_count``: expected number of transformed rows
-    - ``fixture_data``: JSON-serialisable fixture data
+    - ``fixture_data``: JSON-serialisable fixture data (multi-record)
     - ``fixture_key``: storage key (e.g. ``"archive/path/data.json"``)
+    - ``snapshot_cases``: optional list of ``(raw_input, expected_output)``
+      tuples for ``test_snapshots``; each case runs the pipe on a single
+      input and checks the first row against the expected dict
 
     If ``fixture_data`` and ``fixture_key`` are set, ``pipe_fixture`` is
     auto-generated.  Otherwise, override the ``pipe_fixture`` fixture manually.
@@ -113,10 +123,12 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
 
     expected_fibre_kind: ClassVar[str | None] = None
 
+    snapshot_cases: ClassVar[list[tuple[dict | list, dict]] | None] = None
+
     @pytest.fixture()
-    def pipe_fixture(self, tmp_path) -> tuple[StorageBackend, str]:
+    def pipe_fixture(self) -> tuple[StorageBackend, str]:
         if self.fixture_data is not None and self.fixture_key is not None:
-            storage = DiskStorage(str(tmp_path / "store"))
+            storage = InMemoryStorage()
             storage.write(
                 self.fixture_key,
                 json.dumps(self.fixture_data).encode(),
@@ -173,6 +185,34 @@ class PipeTestKit(ExtractConformanceTests, TransformConformanceTests):
         first = [r.unique_key for r in self.pipe_class().run(task, storage)]
         second = [r.unique_key for r in self.pipe_class().run(task, storage)]
         assert first == second, "unique_keys must be deterministic across runs"
+
+    def test_snapshots(self) -> None:
+        if self.snapshot_cases is None:
+            pytest.skip("snapshot_cases not set")
+        assert self.fixture_key is not None
+        for i, (raw_input, expected) in enumerate(self.snapshot_cases):
+            storage = InMemoryStorage()
+            storage.write(self.fixture_key, json.dumps(raw_input).encode())
+            task = self._make_task(self.fixture_key)
+            rows = list(self.pipe_class().run(task, storage))
+            assert len(rows) >= 1, f"case[{i}]: no rows produced"
+            row = rows[0]
+            label = f"case[{i}]"
+            if "unique_key" in expected:
+                assert row.unique_key == expected["unique_key"], (
+                    f"{label} unique_key: "
+                    f"{row.unique_key!r} != {expected['unique_key']!r}"
+                )
+            if "preview" in expected:
+                assert row.preview == expected["preview"], (
+                    f"{label} preview: {row.preview!r} != {expected['preview']!r}"
+                )
+            if "payload" in expected:
+                assert row.payload == expected["payload"], f"{label} payload mismatch"
+            if "asat" in expected:
+                assert row.asat == expected["asat"], (
+                    f"{label} asat: {row.asat} != {expected['asat']}"
+                )
 
     def test_class_vars_set(self) -> None:
         cls = self.pipe_class

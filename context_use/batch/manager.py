@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeVar
 
 from context_use.batch.states import (
     CurrentState,
@@ -46,27 +46,6 @@ class BatchContext:
     store: Store
     llm_client: BaseLLMClient
     storage: StorageBackend
-
-
-_category_manager_registry: dict[BatchCategory, type[BaseBatchManager]] = {}
-
-
-def register_batch_manager(*categories: BatchCategory):
-    """Decorator: register a manager class for one or more batch categories."""
-
-    def decorator(cls: type[BaseBatchManager]) -> type[BaseBatchManager]:
-        for cat in categories:
-            _category_manager_registry[cat] = cls
-        return cls
-
-    return decorator
-
-
-def get_manager_for_category(category: BatchCategory) -> type[BaseBatchManager]:
-    cls = _category_manager_registry.get(category)
-    if cls is None:
-        raise ValueError(f"No manager registered for category: {category}")
-    return cls
 
 
 class BaseBatchManager(ABC):
@@ -173,3 +152,26 @@ class BaseBatchManager(ABC):
             return ScheduleInstruction(countdown=None)
 
         raise ValueError(f"Unknown state base class for {final_state}")
+
+
+_category_manager_registry: dict[BatchCategory, type[BaseBatchManager]] = {}
+
+_ManagerT = TypeVar("_ManagerT", bound=type[BaseBatchManager])
+
+
+def register_batch_manager(*categories: BatchCategory):
+    """Decorator: register a manager class for one or more batch categories."""
+
+    def decorator(cls: _ManagerT) -> _ManagerT:
+        for cat in categories:
+            _category_manager_registry[cat] = cls
+        return cls
+
+    return decorator
+
+
+def get_manager_for_category(category: BatchCategory) -> type[BaseBatchManager]:
+    cls = _category_manager_registry.get(category)
+    if cls is None:
+        raise ValueError(f"No manager registered for category: {category}")
+    return cls

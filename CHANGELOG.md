@@ -1,3 +1,89 @@
+## [0.12.0] - 2026-03-22
+
+### 🚀 Features
+
+- [**breaking**] Only support `gemini-2.5-pro` for vertex ai models (#252)
+- [**breaking**] Require embedding dimension in to init store (#251)
+- [**breaking**] Switch to litellm base client (#247)
+
+### 🚜 Refactor
+
+- Cleanup (#257)
+- Extract GroupContextBuilder (#255)
+- Change BasePromptBuilder to single GroupContext interface (#254)
+
+## [0.11.1] - 2026-03-21
+
+### 🐛 Bug Fixes
+
+- *(proxy)* Ignore encoding from client (#249)
+- Import configs utils (#248)
+
+### 🚜 Refactor
+
+- Move local ctx setup in cli (#245)
+
+### ⚙️ Miscellaneous Tasks
+
+- Added new available providers and commands in readme (#246)
+
+## [0.11.0] - 2026-03-19
+
+### 🚀 Features
+
+- Autogen pipe for instagram_ads_clicked interaction type (#243)
+- Autogen schemas for v0/v1 story_likes on IG (#240)
+- [**breaking**] Memory service used by both agent and cli (#241)
+- Add instagram_ads_viewed pipe and FibreAd models (#235)
+
+### 🚜 Refactor
+
+- Split pipes for story_likes and liked_posts (#239)
+
+### 🧪 Testing
+
+- Payload test for videos_watched (#224)
+
+### ⚙️ Miscellaneous Tasks
+
+- Do not package json schemas (#242)
+
+## [0.10.0] - 2026-03-19
+
+### 🚀 Features
+
+- [**breaking**] Post response proxy callback (#236)
+- [**breaking**] Move agent inside `ContextUse` (#234)
+
+## [0.9.0] - 2026-03-18
+
+### 🚀 Features
+
+- Add /v1/responses API proxy support alongside /v1/chat/completions (#228)
+
+### 🐛 Bug Fixes
+
+- Proxy rich logging (#231)
+
+### ⚙️ Miscellaneous Tasks
+
+- Skip release commits in changelog (#232)
+
+## [0.8.0] - 2026-03-18
+
+### 🚀 Features
+
+- Generate session id if not set in the header (#229)
+- Add `--upstream-url` to the proxy command (#225)
+- Filters for memory generation (#226)
+- Context proxy as first class citizen (#221)
+- Semantic facets for memories (#222)
+- *(test)* Add payload test to pipe test kit (#223)
+
+### 🐛 Bug Fixes
+
+- Debug log request and more details on memories ops (#227)
+
 ## [0.7.0] - 2026-03-17
 
 ### 🚀 Features

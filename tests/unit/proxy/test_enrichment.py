@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock
 
 from context_use.proxy.enrichment import (
     CONTEXT_PREAMBLE,
-    enrich_messages,
-    extract_last_user_message,
+    enrich_body,
+    extract_last_user_query,
     format_memory_context,
     inject_context,
 )
@@ -28,15 +28,21 @@ def _make_result(
     )
 
 
-class TestExtractLastUserMessage:
-    def test_string_content(self) -> None:
+class TestExtractLastUserQuery:
+    def test_string_input(self) -> None:
+        assert extract_last_user_query("Hello") == "Hello"
+
+    def test_empty_string_returns_none(self) -> None:
+        assert extract_last_user_query("") is None
+
+    def test_messages_with_string_content(self) -> None:
         messages = [
             {"role": "system", "content": "Be helpful"},
             {"role": "user", "content": "What food do I like?"},
         ]
-        assert extract_last_user_message(messages) == "What food do I like?"
+        assert extract_last_user_query(messages) == "What food do I like?"
 
-    def test_list_content_with_text(self) -> None:
+    def test_list_content_with_text_type(self) -> None:
         messages = [
             {
                 "role": "user",
@@ -46,7 +52,16 @@ class TestExtractLastUserMessage:
                 ],
             },
         ]
-        assert extract_last_user_message(messages) == "Describe this image"
+        assert extract_last_user_query(messages) == "Describe this image"
+
+    def test_list_content_with_input_text_type(self) -> None:
+        items = [
+            {
+                "role": "user",
+                "content": [{"type": "input_text", "text": "Describe this"}],
+            },
+        ]
+        assert extract_last_user_query(items) == "Describe this"
 
     def test_list_content_multiple_text_parts(self) -> None:
         messages = [
@@ -58,7 +73,7 @@ class TestExtractLastUserMessage:
                 ],
             },
         ]
-        assert extract_last_user_message(messages) == "Hello world"
+        assert extract_last_user_query(messages) == "Hello world"
 
     def test_list_content_no_text_parts(self) -> None:
         messages = [
@@ -69,17 +84,17 @@ class TestExtractLastUserMessage:
                 ],
             },
         ]
-        assert extract_last_user_message(messages) is None
+        assert extract_last_user_query(messages) is None
 
     def test_no_user_message(self) -> None:
         messages = [
             {"role": "system", "content": "Be helpful"},
             {"role": "assistant", "content": "Hi!"},
         ]
-        assert extract_last_user_message(messages) is None
+        assert extract_last_user_query(messages) is None
 
-    def test_empty_messages(self) -> None:
-        assert extract_last_user_message([]) is None
+    def test_empty_list(self) -> None:
+        assert extract_last_user_query([]) is None
 
     def test_picks_last_user_message(self) -> None:
         messages = [
@@ -87,7 +102,11 @@ class TestExtractLastUserMessage:
             {"role": "assistant", "content": "Answer"},
             {"role": "user", "content": "Follow up"},
         ]
-        assert extract_last_user_message(messages) == "Follow up"
+        assert extract_last_user_query(messages) == "Follow up"
+
+    def test_empty_string_content_returns_none(self) -> None:
+        items = [{"role": "user", "content": ""}]
+        assert extract_last_user_query(items) is None
 
 
 class TestFormatMemoryContext:
@@ -149,45 +168,117 @@ class TestInjectContext:
         assert messages[0]["content"] == "Original"
 
 
-class TestEnrichMessages:
-    async def test_enriches_with_results(self) -> None:
+class TestEnrichBody:
+    async def test_enriches_completions_body(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = [_make_result()]
-        messages = [{"role": "user", "content": "What food do I like?"}]
+        body = {
+            "model": "gpt-5.2",
+            "messages": [{"role": "user", "content": "What food do I like?"}],
+        }
 
-        result = await enrich_messages(messages, ctx, top_k=3)
+        result = await enrich_body(body, ctx, top_k=3)
 
         ctx.search_memories.assert_awaited_once_with(
             query="What food do I like?", top_k=3
         )
-        assert result[0]["role"] == "system"
-        assert "Likes pizza" in result[0]["content"]
-        assert result[1]["role"] == "user"
+        assert result is not body
+        assert "Likes pizza" in str(result["messages"][0].get("content", ""))
+
+    async def test_enriches_responses_body_string_input(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        body = {"model": "gpt-5.2", "input": "What food do I like?"}
+
+        result = await enrich_body(body, ctx, top_k=3)
+
+        ctx.search_memories.assert_awaited_once_with(
+            query="What food do I like?", top_k=3
+        )
+        assert "Likes pizza" in result["instructions"]
+
+    async def test_enriches_responses_body_array_input(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        body = {
+            "model": "gpt-5.2",
+            "input": [{"role": "user", "content": "What food do I like?"}],
+        }
+
+        result = await enrich_body(body, ctx)
+
+        assert "Likes pizza" in result["instructions"]
+
+    async def test_appends_to_existing_instructions(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        body = {
+            "model": "gpt-5.2",
+            "input": "Hello",
+            "instructions": "Be helpful",
+        }
+
+        result = await enrich_body(body, ctx)
+
+        assert result["instructions"].startswith("Be helpful\n\n")
+        assert "Likes pizza" in result["instructions"]
 
     async def test_returns_original_when_no_user_message(self) -> None:
         ctx = AsyncMock()
         messages = [{"role": "system", "content": "Hi"}]
+        body = {"model": "gpt-5.2", "messages": messages}
 
-        result = await enrich_messages(messages, ctx)
+        result = await enrich_body(body, ctx)
 
         ctx.search_memories.assert_not_awaited()
-        assert result is messages
+        assert result is body
+
+    async def test_returns_original_when_no_input(self) -> None:
+        ctx = AsyncMock()
+        body = {"model": "gpt-5.2"}
+
+        result = await enrich_body(body, ctx)
+
+        ctx.search_memories.assert_not_awaited()
+        assert result is body
 
     async def test_returns_original_when_no_results(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.return_value = []
-        messages = [{"role": "user", "content": "Hello"}]
+        body = {"model": "gpt-5.2", "input": "Hello"}
 
-        result = await enrich_messages(messages, ctx)
+        result = await enrich_body(body, ctx)
 
-        assert len(result) == 1
-        assert result[0]["role"] == "user"
+        assert result is body
 
     async def test_returns_original_on_search_error(self) -> None:
         ctx = AsyncMock()
         ctx.search_memories.side_effect = RuntimeError("DB error")
+        body = {
+            "model": "gpt-5.2",
+            "messages": [{"role": "user", "content": "Hello"}],
+        }
+
+        result = await enrich_body(body, ctx)
+
+        assert result is body
+
+    async def test_does_not_mutate_completions_body(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
         messages = [{"role": "user", "content": "Hello"}]
+        body = {"model": "gpt-5.2", "messages": messages}
 
-        result = await enrich_messages(messages, ctx)
+        await enrich_body(body, ctx)
 
-        assert result is messages
+        assert body["messages"] is messages
+
+    async def test_does_not_mutate_responses_body(self) -> None:
+        ctx = AsyncMock()
+        ctx.search_memories.return_value = [_make_result()]
+        body = {"model": "gpt-5.2", "input": "Hello"}
+
+        result = await enrich_body(body, ctx)
+
+        assert "instructions" not in body
+        assert "instructions" in result

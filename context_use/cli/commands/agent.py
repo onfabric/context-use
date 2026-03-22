@@ -5,20 +5,10 @@ from typing import TYPE_CHECKING, ClassVar
 
 from context_use.cli import output as out
 from context_use.cli.base import ApiCommand, CommandGroup
-from context_use.config import Config
+from context_use.cli.config import Config
 
 if TYPE_CHECKING:
     from context_use import ContextUse
-    from context_use.ext.adk.agent.runner import AdkAgentBackend
-
-
-def _build_agent_backend(cfg: Config) -> AdkAgentBackend:
-    from context_use.ext.adk.agent.runner import AdkAgentBackend
-
-    return AdkAgentBackend(
-        api_key=cfg.openai_api_key or "",
-        model=cfg.openai_model,
-    )
 
 
 class BaseAgentSkillCommand(ApiCommand):
@@ -40,13 +30,11 @@ class BaseAgentSkillCommand(ApiCommand):
     ) -> None:
         from context_use.agent.skill import get_skill
 
-        backend = _build_agent_backend(cfg)
-
         out.header(self.header_text)
         out.info(self.info_text + "\n")
 
         skill = get_skill(self.skill_name)
-        result = await ctx.run_agent(backend, skill.prompt)
+        result = await ctx.run_agent(skill.prompt)
 
         out.success(f"{self.header_text} complete")
         print()
@@ -110,13 +98,11 @@ class AgentAskCommand(ApiCommand):
             )
             return
 
-        backend = _build_agent_backend(cfg)
-
         out.header("Running agent")
         out.info(f"Query: {query}\n")
 
         skill = make_adhoc_skill(query)
-        result = await ctx.run_agent(backend, skill.prompt)
+        result = await ctx.run_agent(skill.prompt)
 
         print()
         if result.summary:

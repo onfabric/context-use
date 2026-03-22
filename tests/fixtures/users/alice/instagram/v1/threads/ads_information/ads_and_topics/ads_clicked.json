@@ -1,20 +1,74 @@
-{
-  "timestamp": 1771189528,
-  "media": [],
-  "label_values": [
-    {
-      "label": "Action"
-    },
-    {
-      "label": "Title",
-      "value": "Synthetic Ad Title"
-    },
-    {
-      "label": "URL",
-      "value": "https://www.instagram.com/p/SYNTHETIC_AD/",
-      "href": "https://www.instagram.com/p/SYNTHETIC_AD/"
-    }
-  ],
-  "fbid": "00000000000000000:0000000000000000:000000000000000000:3:AdsHistoryData"
-}
-
+[
+  {
+    "timestamp": 1770753730,
+    "media": [],
+    "label_values": [
+      {
+        "label": "Action",
+        "value": "Click"
+      },
+      {
+        "label": "Title",
+        "value": "Summer sale!"
+      },
+      {
+        "label": "Ad library public URL",
+        "value": "https://www.facebook.com/ads/library/?id=1234567890",
+        "href": "https://www.facebook.com/ads/library/?id=1234567890"
+      },
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_CLICK_1/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_CLICK_1/"
+      }
+    ],
+    "fbid": "17841401108516601:12345:1770753730:3:AdsHistoryData"
+  },
+  {
+    "timestamp": 1770840130,
+    "media": [],
+    "label_values": [
+      {
+        "label": "Action",
+        "value": "Click"
+      },
+      {
+        "label": "Title"
+      },
+      {
+        "label": "Ad library public URL"
+      },
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_CLICK_2/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_CLICK_2/"
+      }
+    ],
+    "fbid": "17841401108516601:67890:1770840130:3:AdsHistoryData"
+  },
+  {
+    "timestamp": 1770926530,
+    "media": [],
+    "label_values": [
+      {
+        "label": "Action",
+        "value": "Click"
+      },
+      {
+        "label": "Title",
+        "value": "New collection"
+      },
+      {
+        "label": "Ad library public URL",
+        "value": "https://www.facebook.com/ads/library/?id=9876543210",
+        "href": "https://www.facebook.com/ads/library/?id=9876543210"
+      },
+      {
+        "label": "URL",
+        "value": "https://www.instagram.com/p/SYNTHETIC_AD_CLICK_3/",
+        "href": "https://www.instagram.com/p/SYNTHETIC_AD_CLICK_3/"
+      }
+    ],
+    "fbid": "17841401108516601:11111:1770926530:3:AdsHistoryData"
+  }
+]

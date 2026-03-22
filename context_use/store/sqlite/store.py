@@ -1,9 +1,10 @@
+import asyncio
 import json
 import logging
 from collections import defaultdict
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 
 import aiosqlite
 import sqlite_vec
@@ -14,6 +15,8 @@ from context_use.models import (
     Archive,
     Batch,
     EtlTask,
+    Facet,
+    MemoryFacet,
     MemoryStatus,
     TapestryMemory,
     Thread,
@@ -24,8 +27,11 @@ from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
     EtlTaskRow,
+    FacetRow,
+    MemoryFacetRow,
     MemoryRow,
     ThreadRow,
+    VecFacetRow,
     VecMemoryRow,
     all_ddl_statements,
     now_utc_iso,
@@ -40,8 +46,10 @@ BULK_INSERT_BATCH_SIZE = 500
 class SqliteStore(Store):
     def __init__(self, path: str) -> None:
         self._path = path
+        self._embedding_dimensions: int | None = None
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
+        self._atomic_lock = asyncio.Lock()
 
     async def _conn(self) -> aiosqlite.Connection:
         if self._db is None:
@@ -52,7 +60,13 @@ class SqliteStore(Store):
         if not self._in_atomic:
             await (await self._conn()).commit()
 
-    async def init(self) -> None:
+    def _ensure_embedding_dimensions(self) -> int:
+        if self._embedding_dimensions is None:
+            raise RuntimeError("SqliteStore not initialized — call init() first")
+        return self._embedding_dimensions
+
+    async def init(self, *, embedding_dimensions: int) -> None:
+        self._embedding_dimensions = embedding_dimensions
         conn = aiosqlite.connect(self._path)
         # Make sure that when the main thread exits,
         # the daemon thread is automatically killed
@@ -66,11 +80,12 @@ class SqliteStore(Store):
         await self._db.load_extension(sqlite_vec.loadable_path())
         await self._db.enable_load_extension(False)
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(embedding_dimensions):
             await self._db.execute(stmt)
         await self._db.commit()
 
     async def reset(self) -> None:
+        dims = self._ensure_embedding_dimensions()
         db = await self._conn()
         await db.execute("PRAGMA foreign_keys=OFF")
         rows = await db.execute_fetchall(
@@ -84,7 +99,7 @@ class SqliteStore(Store):
         await db.execute("PRAGMA foreign_keys=ON")
         await db.commit()
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(dims):
             await db.execute(stmt)
         await db.commit()
 
@@ -95,17 +110,18 @@ class SqliteStore(Store):
 
     @asynccontextmanager
     async def atomic(self) -> AsyncIterator[None]:
-        db = await self._conn()
-        self._in_atomic = True
-        await db.execute("BEGIN")
-        try:
-            yield
-            await db.commit()
-        except Exception:
-            await db.rollback()
-            raise
-        finally:
-            self._in_atomic = False
+        async with self._atomic_lock:
+            db = await self._conn()
+            self._in_atomic = True
+            await db.execute("BEGIN")
+            try:
+                yield
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                raise
+            finally:
+                self._in_atomic = False
 
     async def create_archive(
         self,
@@ -314,6 +330,8 @@ class SqliteStore(Store):
         self,
         *,
         interaction_types: list[str] | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
     ) -> list[Thread]:
         db = await self._conn()
         sql = (
@@ -327,6 +345,12 @@ class SqliteStore(Store):
             ph = ",".join("?" for _ in interaction_types)
             sql += f" AND t.interaction_type IN ({ph})"
             params.extend(interaction_types)
+        if since is not None:
+            sql += " AND t.asat >= ?"
+            params.append(since.isoformat())
+        if before is not None:
+            sql += " AND t.asat < ?"
+            params.append(before.isoformat())
         sql += " ORDER BY t.asat, t.id"
 
         rows = await db.execute_fetchall(sql, params)
@@ -562,28 +586,135 @@ class SqliteStore(Store):
     async def search_memories(
         self,
         *,
-        query_embedding: list[float] | None = None,
+        query_embedding: list[float],
         from_date: date | None = None,
         to_date: date | None = None,
         top_k: int = 5,
     ) -> list[MemorySearchResult]:
         db = await self._conn()
-
-        if query_embedding is not None:
-            return await _search_by_embedding(
-                db,
-                query_embedding,
-                from_date=from_date,
-                to_date=to_date,
-                top_k=top_k,
-            )
-
-        return await _search_by_date(
+        return await _search_by_embedding(
             db,
+            query_embedding,
             from_date=from_date,
             to_date=to_date,
             top_k=top_k,
         )
+
+    async def create_memory_facet(self, facet: MemoryFacet) -> MemoryFacet:
+        db = await self._conn()
+        await db.execute(
+            "INSERT INTO memory_facets "
+            "(id, memory_id, batch_id, facet_type, facet_value, facet_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (
+                facet.id,
+                facet.memory_id,
+                facet.batch_id,
+                facet.facet_type,
+                facet.facet_value,
+                facet.facet_id,
+                facet.created_at.isoformat(),
+            ),
+        )
+        await self._commit_unless_atomic()
+        return facet
+
+    async def get_unembedded_memory_facets(
+        self, *, batch_id: str | None = None
+    ) -> list[MemoryFacet]:
+        db = await self._conn()
+        sql = (
+            "SELECT mf.* FROM memory_facets mf "
+            "LEFT JOIN vec_facets vf ON vf.facet_id = mf.id "
+            "WHERE vf.facet_id IS NULL"
+        )
+        params: list = []
+        if batch_id is not None:
+            sql += " AND mf.batch_id = ?"
+            params.append(batch_id)
+        rows = await db.execute_fetchall(sql, params)
+        return [MemoryFacetRow.from_row(r) for r in rows]
+
+    async def update_memory_facet(self, facet: MemoryFacet) -> None:
+        db = await self._conn()
+        await db.execute(
+            "UPDATE memory_facets SET facet_id = ? WHERE id = ?",
+            (facet.facet_id, facet.id),
+        )
+        await self._commit_unless_atomic()
+
+    async def get_unlinked_memory_facets(self) -> list[MemoryFacet]:
+        db = await self._conn()
+        rows = await db.execute_fetchall(
+            "SELECT mf.* FROM memory_facets mf "
+            "JOIN vec_facets vf ON vf.facet_id = mf.id "
+            "WHERE mf.facet_id IS NULL"
+        )
+        facets = [MemoryFacetRow.from_row(r) for r in rows]
+        await _load_facet_embeddings(db, facets)
+        return facets
+
+    async def create_facet(self, facet: Facet) -> Facet:
+        db = await self._conn()
+        await db.execute(
+            "INSERT INTO facets (id, facet_type, facet_canonical, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (
+                facet.id,
+                facet.facet_type,
+                facet.facet_canonical,
+                facet.created_at.isoformat(),
+            ),
+        )
+        await self._commit_unless_atomic()
+        return facet
+
+    async def create_facet_embedding(
+        self, facet_id: str, embedding: list[float]
+    ) -> None:
+        db = await self._conn()
+        await db.execute(
+            "DELETE FROM vec_facets WHERE facet_id = ?",
+            (facet_id,),
+        )
+        await db.execute(
+            "INSERT INTO vec_facets (facet_id, embedding) VALUES (?, ?)",
+            (facet_id, VecFacetRow.serialize(embedding)),
+        )
+        await self._commit_unless_atomic()
+
+    async def find_similar_facet(
+        self,
+        facet_type: str,
+        embedding: list[float],
+        threshold: float,
+    ) -> Facet | None:
+        db = await self._conn()
+        vec_rows = await db.execute_fetchall(
+            "SELECT facet_id, distance FROM vec_facets "
+            "WHERE embedding MATCH ? AND k = ?",
+            (VecFacetRow.serialize(embedding), 10),
+        )
+        if not vec_rows:
+            return None
+
+        max_distance = 1.0 - threshold
+        candidate_ids = [r[0] for r in vec_rows if r[1] <= max_distance]
+        if not candidate_ids:
+            return None
+
+        distances: dict[str, float] = {r[0]: r[1] for r in vec_rows}
+
+        ph = ",".join("?" for _ in candidate_ids)
+        rows = await db.execute_fetchall(
+            f"SELECT * FROM facets WHERE id IN ({ph}) AND facet_type = ?",
+            [*candidate_ids, facet_type],
+        )
+        if not rows:
+            return None
+
+        best = min(rows, key=lambda r: distances.get(r["id"], 1.0))
+        return FacetRow.from_row(best)
 
     @classmethod
     async def _flush_thread_batch(
@@ -691,25 +822,20 @@ async def _search_by_embedding(
     return results[:top_k]
 
 
-async def _search_by_date(
+async def _load_facet_embeddings(
     db: aiosqlite.Connection,
-    *,
-    from_date: date | None,
-    to_date: date | None,
-    top_k: int,
-) -> list[MemorySearchResult]:
-    sql = (
-        "SELECT id, content, from_date, to_date FROM tapestry_memories WHERE status = ?"
+    facets: list[MemoryFacet],
+) -> None:
+    if not facets:
+        return
+    ids = [f.id for f in facets]
+    ph = ",".join("?" for _ in ids)
+    rows = await db.execute_fetchall(
+        f"SELECT facet_id, embedding FROM vec_facets WHERE facet_id IN ({ph})",
+        ids,
     )
-    params: list = [MemoryStatus.active.value]
-    if from_date is not None:
-        sql += " AND from_date >= ?"
-        params.append(from_date.isoformat())
-    if to_date is not None:
-        sql += " AND to_date <= ?"
-        params.append(to_date.isoformat())
-    sql += " ORDER BY from_date DESC LIMIT ?"
-    params.append(top_k)
-
-    rows = await db.execute_fetchall(sql, params)
-    return [MemoryRow.to_search_result(r, None) for r in rows]
+    emb_map: dict[str, list[float]] = {
+        r[0]: VecMemoryRow.deserialize(r[1]) for r in rows
+    }
+    for f in facets:
+        f.embedding = emb_map.get(f.id)

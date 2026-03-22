@@ -1,7 +1,7 @@
 [project]
 name = "context-use"
-version = "0.7.0"
-description = "Turn your data exports into portable AI memory."
+version = "0.12.0"
+description = "Portable AI memory from your conversations and data exports."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -13,6 +13,7 @@ dependencies = [
     "litellm>=1.81.13",
     "sqlite-vec>=0.1.6",
     "google-adk>=1.22",
+    "uvicorn>=0.41",
 ]
 
 [project.urls]
@@ -23,7 +24,6 @@ Issues = "https://github.com/onfabric/context-use/issues"
 
 [project.optional-dependencies]
 gcs = ["google-cloud-storage>=2.10.0,<3"]
-proxy = ["fastapi>=0.135.1", "uvicorn[standard]>=0.41"]
 
 [dependency-groups]
 dev = [
@@ -34,7 +34,7 @@ dev = [
     "pytest-asyncio",
     "pre-commit>=4.5.1",
     # All optional extras included so Pyright can resolve every import.
-    "context-use[gcs,proxy]",
+    "context-use[gcs]",
     "git-cliff>=2.12.0",
     "twine>=6.2.0",
     "check-wheel-contents>=0.6.3",
@@ -60,6 +60,7 @@ include = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["context_use"]
+exclude = ["context_use/providers/**/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -128,6 +129,17 @@ docstring-code-line-length = "dynamic"
 
 [tool.check-wheel-contents]
 toplevel = ["context_use"]
+package = ["context_use"]
+package_omit = [
+    ".*",
+    "CVS",
+    "RCS",
+    "*.pyc",
+    "*.pyo",
+    "*.egg-info",
+    # Make sure the JSON schemas are not included in the wheel
+    "*.json",
+]
 
 [tool.uv]
 package = true
@@ -173,7 +185,7 @@ commit_parsers = [
     { message = "^style", group = "<!-- 5 -->🎨 Styling" },
     { message = "^test", group = "<!-- 6 -->🧪 Testing" },
     { message = "^build", group = "<!-- 7 -->📦 Build & Dependencies" },
-    { message = "^chore\\(release\\): prepare for", skip = true },
+    { message = "^chore\\(release\\)", skip = true },
     { message = "^chore\\(deps.*\\)", skip = true },
     { message = "^chore\\(pr\\)", skip = true },
     { message = "^chore\\(pull\\)", skip = true },

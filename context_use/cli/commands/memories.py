@@ -19,7 +19,7 @@ from context_use.cli.base import (
     ContextCommand,
     run_batches,
 )
-from context_use.config import Config
+from context_use.cli.config import Config
 
 
 def export_memories_markdown(memories: list[MemorySummary], path: Path) -> None:
@@ -143,7 +143,7 @@ class MemoriesSearchCommand(ApiCommand):
     help = "Semantic search over memories"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
-        parser.add_argument("query", nargs="?", help="Semantic search query")
+        parser.add_argument("query", help="Semantic search query")
         parser.add_argument("--from", dest="from_date", help="Start date (YYYY-MM-DD)")
         parser.add_argument("--to", dest="to_date", help="End date (YYYY-MM-DD)")
         parser.add_argument("--top-k", type=int, default=10, help="Number of results")

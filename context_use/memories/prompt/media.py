@@ -4,6 +4,7 @@ from collections import defaultdict
 from datetime import date
 
 from context_use.batch.grouper import WindowConfig
+from context_use.facets.types import render_facet_types_section
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import (
     BasePromptBuilder,
@@ -12,6 +13,8 @@ from context_use.memories.prompt.base import (
 )
 from context_use.models.thread import Thread
 from context_use.prompt_categories import WHAT_TO_CAPTURE
+
+_FACETS_SECTION = render_facet_types_section()
 
 MEDIA_MEMORIES_PROMPT = (
     """\
@@ -82,65 +85,57 @@ Return a JSON object with a ``memories`` array. Each memory has:
 - ``content``: the memory text (1-2 sentences, detail-rich, first-person).
 - ``from_date``: start date (YYYY-MM-DD).
 - ``to_date``: end date (YYYY-MM-DD, same as from_date for single-day).
+- ``facets``: an array of semantic facets extracted from the memory. Each facet has:
+  - ``facet_type``: one of the types defined below.
+  - ``facet_value``: the specific extracted value.
 """
+    + _FACETS_SECTION
 )
 
 
 class MediaMemoryPromptBuilder(BasePromptBuilder):
-    """Build one ``PromptItem`` per time-window group from media threads."""
+    """Build a ``PromptItem`` for a single time-window group from media threads."""
 
     def __init__(
         self,
-        contexts: list[GroupContext],
+        context: GroupContext,
         config: WindowConfig | None = None,
     ) -> None:
-        super().__init__(contexts)
+        super().__init__(context)
         self.config = config or WindowConfig()
 
-    def has_content(self) -> bool:
-        return any(t.asset_uri for ctx in self.contexts for t in ctx.new_threads)
+    def build(self) -> PromptItem:
+        threads_with_assets = [
+            t for t in self.context.new_threads if t.asset_uri is not None
+        ]
 
-    def build(self) -> list[PromptItem]:
-        response_schema = MemorySchema.json_schema()
+        sorted_threads = sorted(threads_with_assets, key=lambda t: t.asat)
+        from_date = sorted_threads[0].asat.date()
+        to_date = sorted_threads[-1].asat.date()
+        posts_block, asset_uris = self._format_posts(threads_with_assets)
+        context_block = self._format_context(self.context)
 
-        items: list[PromptItem] = []
-        for ctx in self.contexts:
-            threads_with_assets = [
-                t for t in ctx.new_threads if t.asset_uri is not None
-            ]
-            if not threads_with_assets:
-                continue
-
-            sorted_threads = sorted(threads_with_assets, key=lambda t: t.asat)
-            from_date = sorted_threads[0].asat.date()
-            to_date = sorted_threads[-1].asat.date()
-            posts_block, asset_uris = self._format_posts(threads_with_assets)
-            context_block = self._format_context(ctx)
-
-            prompt = (
-                MEDIA_MEMORIES_PROMPT.replace("{{FROM_DATE}}", from_date.isoformat())
-                .replace("{{TO_DATE}}", to_date.isoformat())
-                .replace("{{CONTEXT}}", context_block)
-                .replace("{{POSTS}}", posts_block)
-                .replace(
-                    "{{MIN_MEMORIES}}",
-                    str(self.config.effective_min_memories),
-                )
-                .replace(
-                    "{{MAX_MEMORIES}}",
-                    str(self.config.effective_max_memories),
-                )
+        prompt = (
+            MEDIA_MEMORIES_PROMPT.replace("{{FROM_DATE}}", from_date.isoformat())
+            .replace("{{TO_DATE}}", to_date.isoformat())
+            .replace("{{CONTEXT}}", context_block)
+            .replace("{{POSTS}}", posts_block)
+            .replace(
+                "{{MIN_MEMORIES}}",
+                str(self.config.effective_min_memories),
             )
-
-            items.append(
-                PromptItem(
-                    item_id=ctx.group_id,
-                    prompt=prompt,
-                    response_schema=response_schema,
-                    asset_uris=asset_uris,
-                )
+            .replace(
+                "{{MAX_MEMORIES}}",
+                str(self.config.effective_max_memories),
             )
-        return items
+        )
+
+        return PromptItem(
+            item_id=self.context.group_id,
+            prompt=prompt,
+            response_schema=MemorySchema.json_schema(),
+            asset_uris=asset_uris,
+        )
 
     @staticmethod
     def _format_posts(

@@ -4,7 +4,7 @@ import argparse
 
 from context_use.cli import output as out
 from context_use.cli.base import BaseCommand
-from context_use.config import build_ctx, load_config
+from context_use.cli.config import build_ctx, load_config
 
 
 class ResetCommand(BaseCommand):

@@ -5,8 +5,16 @@ from dataclasses import dataclass, field
 
 from pydantic import BaseModel, Field
 
+from context_use.facets.types import FacetType
 from context_use.llm.base import PromptItem
 from context_use.models.thread import Thread
+
+
+class MemoryFacetExtract(BaseModel):
+    facet_type: FacetType = Field(
+        description="Category of the facet — must be one of the defined facet types"
+    )
+    facet_value: str = Field(description=("Extracted facet value"))
 
 
 class Memory(BaseModel):
@@ -18,6 +26,10 @@ class Memory(BaseModel):
         description=(
             "End date of the memory (YYYY-MM-DD, same as from_date for single-day)"
         )
+    )
+    facets: list[MemoryFacetExtract] = Field(
+        default_factory=list,
+        description="Semantic facets extracted from this memory",
     )
 
 
@@ -41,26 +53,25 @@ class GroupContext:
     recent_threads: list[Thread] = field(default_factory=list)
     user_profile: str | None = None
 
+    def __post_init__(self) -> None:
+        if not self.new_threads:
+            raise ValueError("GroupContext requires at least one thread")
+
 
 class BasePromptBuilder(ABC):
-    """Strategy interface for building LLM prompts from grouped threads.
+    """Strategy interface for building an LLM prompt from a single group.
 
     Each provider / interaction type supplies its own subclass that knows
     how to format threads into a prompt and determine whether the group
     has enough content to process.
     """
 
-    def __init__(self, contexts: list[GroupContext]) -> None:
-        self.contexts = contexts
+    def __init__(self, context: GroupContext) -> None:
+        self.context = context
 
     @abstractmethod
-    def build(self) -> list[PromptItem]:
-        """Return one ``PromptItem`` per processable group."""
-        ...
-
-    @abstractmethod
-    def has_content(self) -> bool:
-        """Return ``True`` if there is anything worth sending to the LLM."""
+    def build(self) -> PromptItem:
+        """Return a ``PromptItem`` for this group."""
         ...
 
     @staticmethod
