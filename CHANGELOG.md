@@ -1,3 +1,10 @@
+## [0.13.0] - 2026-03-22
+
+### 🚀 Features
+
+- *(proxy)* [**breaking**] Switch `host` header to `<prefix>-upstream-host` (#260)
+- *(proxy)* Allow to specify the ctxuse headers prefix (#259)
+
 ## [0.12.0] - 2026-03-22
 
 ### 🚀 Features
