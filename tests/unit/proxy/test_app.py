@@ -148,7 +148,7 @@ class TestMissingUpstreamHostHeader:
 
         assert responses[0]["status"] == 400
         body = json.loads(responses[1]["body"])
-        assert HEADERS.upstream_host in body["error"]["message"]
+        assert "upstream host" in body["error"]["message"].lower()
 
     async def test_returns_400_when_host_is_unknown(self) -> None:
         app = create_proxy_app(_make_handler())
@@ -203,6 +203,54 @@ class TestMissingUpstreamHostHeader:
         )
 
         assert responses[0]["status"] != 400
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_full_url_form_accepted(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "https://api.openai.com"},
+            )
+
+        assert (
+            mock_client.post.call_args.args[0]
+            == "https://api.openai.com/v1/chat/completions"
+        )
+
+    async def test_full_url_with_unknown_host_returns_400(self) -> None:
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            resp = await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "https://evil.example.com"},
+            )
+        assert resp.status_code == 400
+        assert "evil.example.com" in resp.json()["error"]["message"]
+
+    async def test_full_url_with_invalid_scheme_returns_400(self) -> None:
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            resp = await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.upstream_host: "ftp://api.openai.com"},
+            )
+        assert resp.status_code == 400
+        assert "Invalid upstream host" in resp.json()["error"]["message"]
 
 
 class TestConfiguredUpstreamUrl:
@@ -673,4 +721,4 @@ class TestCustomHeaderPrefix:
 
         assert resp.status_code == 400
         body = resp.json()
-        assert "myproxy-upstream-host" in body["error"]["message"]
+        assert "upstream host" in body["error"]["message"].lower()

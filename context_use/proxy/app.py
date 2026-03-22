@@ -151,6 +151,18 @@ def _resolve_upstream_url(
             f"Allowed hosts: {allowed}"
         )
 
+    if "://" in upstream_host:
+        parsed = urlsplit(upstream_host)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return "", (
+                f"Invalid upstream host {upstream_host!r}. Use a bare hostname "
+                "like api.openai.com or a full URL like https://api.openai.com"
+            )
+        hostname = (parsed.hostname or "").lower()
+        if hostname not in _ALLOWED_UPSTREAM_HOSTS:
+            return "", (f"Unknown upstream host {hostname!r}. Allowed hosts: {allowed}")
+        return upstream_host.rstrip("/"), None
+
     hostname = upstream_host.lower().split(":")[0]
     if hostname in _ALLOWED_UPSTREAM_HOSTS:
         return f"https://{upstream_host}", None
