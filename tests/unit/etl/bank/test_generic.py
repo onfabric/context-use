@@ -28,9 +28,7 @@ SPLIT_AMOUNT_CSV = (
 )
 
 CREDIT_CARD_CSV = (
-    "Date,Description,Amount\n"
-    "2026-01-15,Restaurant,25.00\n"
-    "2026-01-16,Payment,-100.00\n"
+    "Date,Description,Amount\n2026-01-15,Restaurant,25.00\n2026-01-16,Payment,-100.00\n"
 )
 
 
@@ -209,9 +207,7 @@ class TestGenericBankPipeSplitAmount:
         storage = DiskStorage(str(tmp_path))  # type: ignore[arg-type]
         key = "archive/bank/statement.csv"
         storage.write(key, SPLIT_AMOUNT_CSV.encode())
-        mapping = _make_mapping(
-            single=None, money_in="Money In", money_out="Money Out"
-        )
+        mapping = _make_mapping(single=None, money_in="Money In", money_out="Money Out")
         pipe = GenericBankPipe(mapping=mapping)
         task = _make_task(key)
         return list(pipe.extract(task, storage))
@@ -345,9 +341,7 @@ class TestGenericBankPipeKit(PipeTestKit):
         task = _make_task(key)
         return list(pipe.run(task, storage))
 
-    def test_counts_tracked(
-        self, pipe_fixture: tuple[DiskStorage, str]
-    ) -> None:
+    def test_counts_tracked(self, pipe_fixture: tuple[DiskStorage, str]) -> None:
         storage, key = pipe_fixture
         pipe = self._make_pipe()
         task = _make_task(key)
