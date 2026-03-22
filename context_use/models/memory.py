@@ -11,9 +11,6 @@ def _utcnow() -> datetime:
     return datetime.now(UTC)
 
 
-EMBEDDING_DIMENSIONS = 3072
-
-
 class MemoryStatus(enum.StrEnum):
     active = "active"
     superseded = "superseded"

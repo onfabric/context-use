@@ -36,6 +36,7 @@ class Thread:
     etl_task_id: str | None = None
     asset_uri: str | None = None
     source: str | None = None
+    collection_id: str | None = None
     created_at: datetime = field(default_factory=_utcnow)
     updated_at: datetime = field(default_factory=_utcnow)
 
@@ -64,3 +65,6 @@ class Thread:
 
     def get_participant_label(self) -> str:
         return self._parsed_payload.get_participant_label()
+
+
+type NonEmptyThreads = tuple[Thread, *tuple[Thread, ...]]

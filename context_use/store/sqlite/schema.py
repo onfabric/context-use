@@ -6,7 +6,6 @@ from sqlite3 import Row
 from typing import ClassVar
 
 from context_use.models import (
-    EMBEDDING_DIMENSIONS,
     Archive,
     Batch,
     EtlTask,
@@ -134,6 +133,7 @@ CREATE TABLE IF NOT EXISTS threads (
     payload           TEXT NOT NULL,
     asset_uri         TEXT,
     source            TEXT,
+    collection_id     TEXT,
     version           TEXT NOT NULL,
     asat              TEXT NOT NULL,
     created_at        TEXT NOT NULL,
@@ -148,6 +148,8 @@ CREATE TABLE IF NOT EXISTS threads (
             "CREATE INDEX IF NOT EXISTS idx_thread_provider ON threads(provider)",
             "CREATE INDEX IF NOT EXISTS idx_thread_type ON threads(interaction_type)",
             "CREATE INDEX IF NOT EXISTS idx_thread_asat ON threads(asat)",
+            "CREATE INDEX IF NOT EXISTS idx_thread_collection "
+            "ON threads(collection_id)",
         ]
 
     @staticmethod
@@ -164,6 +166,7 @@ CREATE TABLE IF NOT EXISTS threads (
             asat=parse_dt(row["asat"]),
             asset_uri=row["asset_uri"],
             source=row["source"],
+            collection_id=row["collection_id"],
             created_at=parse_dt(row["created_at"]),
             updated_at=parse_dt(row["updated_at"]),
         )
@@ -287,12 +290,12 @@ class VecMemoryRow:
     table = "vec_memories"
 
     @classmethod
-    def ddl(cls) -> str:
+    def ddl(cls, embedding_dimensions: int) -> str:
         return (
             "CREATE VIRTUAL TABLE IF NOT EXISTS vec_memories "
             f"USING vec0(\n"
             f"    memory_id TEXT PRIMARY KEY,\n"
-            f"    embedding float[{EMBEDDING_DIMENSIONS}] "
+            f"    embedding float[{embedding_dimensions}] "
             f"distance_metric=cosine\n"
             f")"
         )
@@ -379,12 +382,12 @@ class VecFacetRow:
     table = "vec_facets"
 
     @classmethod
-    def ddl(cls) -> str:
+    def ddl(cls, embedding_dimensions: int) -> str:
         return (
             "CREATE VIRTUAL TABLE IF NOT EXISTS vec_facets "
             f"USING vec0(\n"
             f"    facet_id TEXT PRIMARY KEY,\n"
-            f"    embedding float[{EMBEDDING_DIMENSIONS}] "
+            f"    embedding float[{embedding_dimensions}] "
             f"distance_metric=cosine\n"
             f")"
         )
@@ -408,11 +411,11 @@ _ALL_MODELS: list[type[BaseSqliteModel]] = [
 ]
 
 
-def all_ddl_statements() -> list[str]:
+def all_ddl_statements(embedding_dimensions: int) -> list[str]:
     stmts: list[str] = []
     for model in _ALL_MODELS:
         stmts.append(model.ddl())
         stmts.extend(model.indices())
-    stmts.append(VecMemoryRow.ddl())
-    stmts.append(VecFacetRow.ddl())
+    stmts.append(VecMemoryRow.ddl(embedding_dimensions))
+    stmts.append(VecFacetRow.ddl(embedding_dimensions))
     return stmts

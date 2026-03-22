@@ -11,10 +11,10 @@ from context_use.proxy.handler import (
     ContextProxyResult,
     ContextProxyStreamResult,
 )
+from context_use.proxy.headers import DEFAULT_PREFIX, ProxyHeaders
 
 logger = logging.getLogger(__name__)
 
-SESSION_ID_HEADER = "ctxuse-session-id"
 CONTENT_LENGTH_HEADER = "content-length"
 
 _HOP_BY_HOP = frozenset(
@@ -45,7 +45,10 @@ def create_proxy_app(
     *,
     upstream_url: str | None = None,
     session_id: str | None = None,
+    header_prefix: str = DEFAULT_PREFIX,
 ) -> ASGIApp:
+    ctxuse_headers = ProxyHeaders.from_prefix(header_prefix)
+
     async def app(scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             return
@@ -64,8 +67,10 @@ def create_proxy_app(
         raw = await _read_body(receive)
         headers_dict = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
 
+        upstream_host = headers_dict.get(ctxuse_headers.upstream_host)
         resolved_upstream_url, upstream_error = _resolve_upstream_url(
-            headers_dict, upstream_url=upstream_url
+            upstream_url=upstream_url,
+            upstream_host=upstream_host,
         )
         if upstream_error is not None:
             await _send_json(
@@ -73,17 +78,15 @@ def create_proxy_app(
             )
             return
 
-        resolved_session_id = headers_dict.get(SESSION_ID_HEADER) or session_id
+        resolved_session_id = headers_dict.get(ctxuse_headers.session_id) or session_id
 
-        # Hop-by-hop headers and the session-id header are connection-scoped or internal
-        # and are not meant for the upstream provider.
-        # content-length is also stripped and recomputed from the rewritten body
         forward_headers = [
             (k, v)
             for k, v in scope["headers"]
             if k.lower() not in _HOP_BY_HOP
             and k.lower() != CONTENT_LENGTH_HEADER.encode()
-            and k.lower() != SESSION_ID_HEADER.encode()
+            and k.lower() != ctxuse_headers.session_id.encode()
+            and k.lower() != ctxuse_headers.upstream_host.encode()
         ]
 
         try:
@@ -113,9 +116,9 @@ def create_proxy_app(
 
 
 def _resolve_upstream_url(
-    headers: dict[str, str],
     *,
     upstream_url: str | None,
+    upstream_host: str | None,
 ) -> tuple[str, str | None]:
     if upstream_url is not None:
         parsed = urlsplit(upstream_url)
@@ -125,36 +128,46 @@ def _resolve_upstream_url(
                 "example https://api.openai.com"
             )
 
-        host = parsed.hostname
-        if host is None:
+        parsed_host = parsed.hostname
+        if parsed_host is None:
             return "", (
                 "Invalid upstream URL. Use a full http:// or https:// URL, for "
                 "example https://api.openai.com"
             )
 
         allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
-        if host.lower() not in _ALLOWED_UPSTREAM_HOSTS:
+        if parsed_host.lower() not in _ALLOWED_UPSTREAM_HOSTS:
             return "", (
-                f"Unknown upstream host {host!r} from --upstream-url. "
+                f"Unknown upstream host {parsed_host!r} from --upstream-url. "
                 f"Allowed hosts: {allowed}"
             )
         return upstream_url.rstrip("/"), None
 
-    host = headers.get("host")
     allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
-    if not host:
+    if not upstream_host:
         return "", (
-            "Missing Host header. Set it to your upstream provider, or start the "
-            f"proxy with --upstream-url. Allowed hosts: {allowed}"
+            f"Missing upstream host header. Set it to your upstream "
+            f"provider, or start the proxy with --upstream-url. "
+            f"Allowed hosts: {allowed}"
         )
 
-    hostname = host.lower().split(":")[0]
-    if hostname in _ALLOWED_UPSTREAM_HOSTS:
-        return f"https://{host}", None
+    if "://" in upstream_host:
+        parsed = urlsplit(upstream_host)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return "", (
+                f"Invalid upstream host {upstream_host!r}. Use a bare hostname "
+                "like api.openai.com or a full URL like https://api.openai.com"
+            )
+        hostname = (parsed.hostname or "").lower()
+        if hostname not in _ALLOWED_UPSTREAM_HOSTS:
+            return "", (f"Unknown upstream host {hostname!r}. Allowed hosts: {allowed}")
+        return upstream_host.rstrip("/"), None
 
-    return "", (
-        f"Unknown upstream host {host!r} from Host header. Allowed hosts: {allowed}"
-    )
+    hostname = upstream_host.lower().split(":")[0]
+    if hostname in _ALLOWED_UPSTREAM_HOSTS:
+        return f"https://{upstream_host}", None
+
+    return "", (f"Unknown upstream host {upstream_host!r}. Allowed hosts: {allowed}")
 
 
 async def _read_body(receive: Receive) -> bytes:

@@ -84,7 +84,7 @@ async def thread_store(
     thread_rows = list(pipe.run(task, storage))
 
     store = SqliteStore(path=str(tmp_path_factory.mktemp("store") / "threads.db"))
-    await store.init()
+    await store.init(embedding_dimensions=4)
 
     archive = Archive(id="memories-fixture", provider="claude")
     await store.create_archive(archive)

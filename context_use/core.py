@@ -2,22 +2,33 @@ from __future__ import annotations
 
 import logging
 import zipfile
+from collections import defaultdict
 from pathlib import PurePosixPath
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from context_use.agent.runner import AgentResult, AgentRunner
+from context_use.batch.grouper import ThreadGroup
 from context_use.batch.manager import (
     BatchContext,
     ScheduleInstruction,
     get_manager_for_category,
 )
+from context_use.memories.context import GroupContextBuilder
+from context_use.memories.factory import MemoryBatchFactory
+from context_use.memories.prompt.agent import AgentToolConversationPromptBuilder
 from context_use.memories.service import MemoryService
 from context_use.models import Archive, EtlTask
 from context_use.models.archive import ArchiveStatus
 from context_use.models.batch import Batch, BatchCategory
 from context_use.models.etl_task import EtlTaskStatus
 from context_use.models.memory import MemorySummary, TapestryMemory
+from context_use.models.thread import Thread
+from context_use.providers.registry import (
+    get_memory_config,
+    get_memory_interaction_types,
+)
+from context_use.proxy.threads import messages_to_thread_rows
 from context_use.store.base import MemorySearchResult
 from context_use.types import PipelineResult, TaskBreakdown
 
@@ -25,8 +36,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
     from typing import Any
 
-    from context_use.etl.core.pipe import Pipe
-    from context_use.llm.base import BaseLLMClient
+    from context_use.llm.litellm.clients import LiteLLMBase
     from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
 
@@ -44,7 +54,7 @@ class ContextUse:
         ctx = ContextUse(
             storage=...,   # StorageBackend implementation
             store=...,     # Store implementation
-            llm_client=...,  # BaseLLMClient implementation
+            llm_client=...,  # LiteLLMBase implementation
         )
         await ctx.init()
         from context_use.providers import chatgpt
@@ -55,19 +65,23 @@ class ContextUse:
         self,
         storage: StorageBackend,
         store: Store,
-        llm_client: BaseLLMClient,
+        llm_client: LiteLLMBase,
     ) -> None:
         self._storage = storage
         self._store = store
         self._llm_client = llm_client
         self._memory_service = MemoryService(self._store, self._llm_client)
         self._agent = AgentRunner(
-            memory_service=self._memory_service, llm_client=self._llm_client
+            memory_service=self._memory_service,
+            llm_config=llm_client.config,
         )
+        self._group_context_builder = GroupContextBuilder(store)
 
     async def init(self) -> None:
         """Create missing tables / indices (non-destructive)."""
-        await self._store.init()
+        await self._store.init(
+            embedding_dimensions=self._llm_client.config.embedding_model.embedding_dimensions,
+        )
 
     async def reset(self) -> None:
         """Drop all data and recreate from scratch."""
@@ -200,15 +214,6 @@ class ContextUse:
         Returns persisted :class:`Batch` objects ready to be advanced
         via :meth:`advance_batch`.
         """
-        from collections import defaultdict
-
-        from context_use.batch.grouper import ThreadGroup
-        from context_use.memories.factory import MemoryBatchFactory
-        from context_use.models.thread import Thread
-        from context_use.providers.registry import (
-            get_memory_config,
-            get_memory_interaction_types,
-        )
 
         supported = get_memory_interaction_types()
         if interaction_types is not None:
@@ -265,16 +270,13 @@ class ContextUse:
         *,
         session_id: str | None = None,
     ) -> AgentResult | None:
-        from context_use.agent.skill import make_process_thread_skill
-        from context_use.memories.prompt.conversation import format_transcript
-        from context_use.models.thread import Thread
-        from context_use.proxy.threads import messages_to_thread_rows
 
         rows = messages_to_thread_rows(messages, session_id=session_id)
         if not rows:
             return None
 
         await self.insert_threads(rows)
+
         threads = [
             Thread(
                 unique_key=r.unique_key,
@@ -284,14 +286,18 @@ class ContextUse:
                 payload=r.payload,
                 version=r.version,
                 asat=r.asat,
+                collection_id=r.collection_id,
             )
             for r in rows
         ]
-        transcript = format_transcript(threads)
-        skill = make_process_thread_skill(transcript)
-        return await self.run_agent(skill.prompt)
 
-    # ── Queries ──────────────────────────────────────────────────────
+        thread_group = ThreadGroup(threads=threads)
+        group_context = await self._group_context_builder.build(thread_group)
+        item = AgentToolConversationPromptBuilder(group_context).build()
+
+        return await self.run_agent(item.prompt)
+
+    # ── Memories ──────────────────────────────────────────────────────
 
     async def list_memories(
         self,

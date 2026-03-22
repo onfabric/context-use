@@ -12,6 +12,7 @@ from context_use.batch.states import CompleteState, CreatedState, SkippedState, 
 from context_use.facets.embedding import store_facet_embeddings, submit_facet_embeddings
 from context_use.facets.linker import SemanticFacetLinker
 from context_use.llm.base import BatchResults
+from context_use.memories.context import GroupContextBuilder
 from context_use.memories.embedding import (
     store_memory_embeddings,
     submit_memory_embeddings,
@@ -50,19 +51,12 @@ class MemoryBatchManager(BaseBatchManager):
         self.extractor = MemoryExtractor(ctx.llm_client)
         self.batch_factory = MemoryBatchFactory
         self.linker = SemanticFacetLinker(ctx.store)
+        self.context_builder = GroupContextBuilder(ctx.store)
 
     async def _get_group_contexts(self) -> list[GroupContext]:
         """Load groups from BatchThread and build GroupContexts."""
         groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
-        contexts: list[GroupContext] = []
-        for group in groups:
-            contexts.append(
-                GroupContext(
-                    group_id=group.group_id,
-                    new_threads=group.threads,
-                )
-            )
-        return contexts
+        return await self.context_builder.build_many(groups)
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
@@ -108,36 +102,28 @@ class MemoryBatchManager(BaseBatchManager):
         if not contexts:
             return SkippedState(reason="No groups for memory generation")
 
-        all_threads = [t for ctx in contexts for t in ctx.new_threads]
-        if not all_threads:
-            return SkippedState(reason="No threads for memory generation")
+        from context_use.providers.registry import get_memory_config
 
         prompts = []
-        by_type: dict[str, list[GroupContext]] = {}
         for ctx in contexts:
             it = ctx.new_threads[0].interaction_type
-            by_type.setdefault(it, []).append(ctx)
-
-        for interaction_type, type_contexts in by_type.items():
-            from context_use.providers.registry import get_memory_config
-
-            config = get_memory_config(interaction_type)
-            builder = config.create_prompt_builder(type_contexts)
-            if builder.has_content():
-                prompts.extend(builder.build())
+            config = get_memory_config(it)
+            builder = config.create_prompt_builder(ctx)
+            prompts.append(builder.build())
 
         if not prompts:
             return SkippedState(reason="Prompt builder produced no prompts")
 
+        total_threads = sum(len(ctx.new_threads) for ctx in contexts)
         logger.info(
             "[%s] Submitting batch job for %d groups (%d prompts, %d total threads)",
             self.batch.id,
             len(contexts),
             len(prompts),
-            len(all_threads),
+            total_threads,
         )
 
-        job_key = await self.extractor.submit(self.batch.id, prompts)  # noqa: E501
+        job_key = await self.extractor.submit(self.batch.id, prompts)
         return MemoryGeneratePendingState(job_key=job_key)
 
     async def _check_memory_generation_status(

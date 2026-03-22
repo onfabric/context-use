@@ -22,3 +22,4 @@ class ThreadRow:
     asat: datetime
     source: str | None = None
     asset_uri: str | None = None
+    collection_id: str | None = None

@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import StrEnum
 from types import TracebackType
 
 from context_use.batch.grouper import ThreadGroup
@@ -18,6 +19,11 @@ from context_use.models import (
     TapestryMemory,
     Thread,
 )
+
+
+class SortOrder(StrEnum):
+    ASC = "asc"
+    DESC = "desc"
 
 
 @dataclass(frozen=True)
@@ -43,7 +49,7 @@ class Store(ABC):
     # ── Lifecycle ────────────────────────────────────────────────────
 
     @abstractmethod
-    async def init(self) -> None:
+    async def init(self, *, embedding_dimensions: int) -> None:
         """Create tables / indices."""
         ...
 
@@ -138,6 +144,20 @@ class Store(ABC):
         ``interaction_type`` is in that list are returned.
         Results are ordered by ``asat``, then ``id``.
         """
+        ...
+
+    @abstractmethod
+    async def list_threads(
+        self,
+        *,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        interaction_type: str | None = None,
+        collection_id: str | None = None,
+        limit: int | None = None,
+        asat_order: SortOrder = SortOrder.ASC,
+    ) -> list[Thread]:
+        """Return threads ordered by ``asat`` with optional filters."""
         ...
 
     # ── Batches ──────────────────────────────────────────────────────

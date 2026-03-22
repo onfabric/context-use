@@ -22,7 +22,7 @@ from context_use.models import (
     Thread,
 )
 from context_use.models.utils import generate_uuidv4
-from context_use.store.base import MemorySearchResult, Store
+from context_use.store.base import MemorySearchResult, SortOrder, Store
 from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
@@ -46,6 +46,7 @@ BULK_INSERT_BATCH_SIZE = 500
 class SqliteStore(Store):
     def __init__(self, path: str) -> None:
         self._path = path
+        self._embedding_dimensions: int | None = None
         self._db: aiosqlite.Connection | None = None
         self._in_atomic = False
         self._atomic_lock = asyncio.Lock()
@@ -59,7 +60,13 @@ class SqliteStore(Store):
         if not self._in_atomic:
             await (await self._conn()).commit()
 
-    async def init(self) -> None:
+    def _ensure_embedding_dimensions(self) -> int:
+        if self._embedding_dimensions is None:
+            raise RuntimeError("SqliteStore not initialized — call init() first")
+        return self._embedding_dimensions
+
+    async def init(self, *, embedding_dimensions: int) -> None:
+        self._embedding_dimensions = embedding_dimensions
         conn = aiosqlite.connect(self._path)
         # Make sure that when the main thread exits,
         # the daemon thread is automatically killed
@@ -73,11 +80,12 @@ class SqliteStore(Store):
         await self._db.load_extension(sqlite_vec.loadable_path())
         await self._db.enable_load_extension(False)
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(embedding_dimensions):
             await self._db.execute(stmt)
         await self._db.commit()
 
     async def reset(self) -> None:
+        dims = self._ensure_embedding_dimensions()
         db = await self._conn()
         await db.execute("PRAGMA foreign_keys=OFF")
         rows = await db.execute_fetchall(
@@ -91,7 +99,7 @@ class SqliteStore(Store):
         await db.execute("PRAGMA foreign_keys=ON")
         await db.commit()
 
-        for stmt in all_ddl_statements():
+        for stmt in all_ddl_statements(dims):
             await db.execute(stmt)
         await db.commit()
 
@@ -248,8 +256,8 @@ class SqliteStore(Store):
         "INSERT OR IGNORE INTO threads "
         "(id, unique_key, etl_task_id, provider, "
         "interaction_type, preview, payload, asset_uri, "
-        "source, version, asat, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "source, collection_id, version, asat, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
 
     async def insert_threads(
@@ -276,6 +284,7 @@ class SqliteStore(Store):
                     json.dumps(row.payload),
                     row.asset_uri,
                     row.source,
+                    row.collection_id,
                     row.version,
                     row.asat.isoformat(),
                     now,
@@ -324,6 +333,41 @@ class SqliteStore(Store):
             params.append(before.isoformat())
         sql += " ORDER BY t.asat, t.id"
 
+        rows = await db.execute_fetchall(sql, params)
+        return [ThreadRow.from_row(r) for r in rows]
+
+    async def list_threads(
+        self,
+        *,
+        collection_id: str | None = None,
+        interaction_type: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        limit: int | None = None,
+        asat_order: SortOrder = SortOrder.ASC,
+    ) -> list[Thread]:
+        db = await self._conn()
+        sql = "SELECT * FROM threads WHERE 1=1"
+        params: list = []
+        if collection_id is not None:
+            sql += " AND collection_id = ?"
+            params.append(collection_id)
+        if interaction_type is not None:
+            sql += " AND interaction_type = ?"
+            params.append(interaction_type)
+        if from_date is not None:
+            sql += " AND asat >= ?"
+            params.append(from_date.isoformat())
+        if to_date is not None:
+            sql += " AND asat < ?"
+            params.append(to_date.isoformat())
+        if asat_order == SortOrder.ASC:
+            sql += " ORDER BY asat, id"
+        else:
+            sql += " ORDER BY asat DESC, id DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
         rows = await db.execute_fetchall(sql, params)
         return [ThreadRow.from_row(r) for r in rows]
 
@@ -410,6 +454,7 @@ class SqliteStore(Store):
         return [
             ThreadGroup(threads=threads, group_id=gid)
             for gid, threads in groups_map.items()
+            if threads
         ]
 
     async def create_memory(

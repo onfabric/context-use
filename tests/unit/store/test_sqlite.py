@@ -1,12 +1,12 @@
 from collections.abc import AsyncGenerator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 
 from context_use.batch.grouper import ThreadGroup
 from context_use.etl.core.types import ThreadRow
+from context_use.memories.context import GroupContextBuilder
 from context_use.models import (
-    EMBEDDING_DIMENSIONS,
     Archive,
     ArchiveStatus,
     Batch,
@@ -15,13 +15,16 @@ from context_use.models import (
     MemoryStatus,
     TapestryMemory,
 )
+from context_use.store.base import SortOrder
 from context_use.store.sqlite import SqliteStore
+
+_TEST_EMBEDDING_DIMS = 4
 
 
 @pytest.fixture()
 async def store(tmp_path) -> AsyncGenerator[SqliteStore]:
     s = SqliteStore(path=str(tmp_path / "test.db"))
-    await s.init()
+    await s.init(embedding_dimensions=_TEST_EMBEDDING_DIMS)
     yield s
     await s.close()
 
@@ -167,6 +170,51 @@ async def test_get_unprocessed_threads_interaction_type_filter(
     assert all(t.interaction_type == "type_a" for t in threads)
 
 
+async def test_list_threads_asat_desc_limit(store: SqliteStore, task_id: str) -> None:
+    coll = "https://example.com/c/1"
+    base = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+    rows = [
+        _make_row(
+            f"k{i}",
+            collection_id=coll,
+            asat=base + timedelta(hours=i),
+        )
+        for i in range(5)
+    ]
+    await store.insert_threads(rows, task_id=task_id)
+    got = await store.list_threads(
+        collection_id=coll,
+        limit=3,
+        asat_order=SortOrder.DESC,
+    )
+    assert [t.unique_key for t in got] == ["k4", "k3", "k2"]
+
+
+async def test_group_context_builder_loads_recent_collection_threads(
+    store: SqliteStore,
+    task_id: str,
+) -> None:
+    coll = "https://example.com/c/3"
+    base = datetime(2024, 3, 1, 12, 0, 0, tzinfo=UTC)
+    rows = [
+        _make_row(
+            f"k{i}",
+            collection_id=coll,
+            asat=base + timedelta(hours=i),
+        )
+        for i in range(12)
+    ]
+    await store.insert_threads(rows, task_id=task_id)
+    all_t = await store.list_threads(collection_id=coll)
+    ordered = sorted(all_t, key=lambda t: t.asat)
+    group = ThreadGroup(threads=ordered[-4:], group_id="g1")
+
+    ctx = await GroupContextBuilder(store).build(group)
+    assert len(ctx.new_threads) == 4
+    assert len(ctx.relevant_threads) == 8
+    assert ctx.relevant_threads[0].asat <= ctx.relevant_threads[-1].asat
+
+
 async def test_batch_crud_with_groups(store: SqliteStore, task_id: str) -> None:
     await store.insert_threads(
         [_make_row("k1"), _make_row("k2"), _make_row("k3")],
@@ -218,8 +266,7 @@ async def test_create_batch_with_empty_groups(store: SqliteStore) -> None:
 
 
 def _make_embedding(seed: float = 1.0) -> list[float]:
-    """Create a valid embedding vector of the correct dimension."""
-    return [seed] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
+    return [seed] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
 
 
 def _make_memory(
@@ -256,7 +303,7 @@ async def test_memory_crud(store: SqliteStore) -> None:
     await store.update_memory(mem)
     updated = await store.get_memories([mem.id])
     assert updated[0].embedding is not None
-    assert len(updated[0].embedding) == EMBEDDING_DIMENSIONS
+    assert len(updated[0].embedding) == _TEST_EMBEDDING_DIMS
 
 
 async def test_get_memories_skips_missing(store: SqliteStore) -> None:
@@ -310,8 +357,8 @@ async def test_count_memories(store: SqliteStore) -> None:
 
 
 async def test_search_memories_by_embedding(store: SqliteStore) -> None:
-    emb_similar = [1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
-    emb_different = [0.0, 1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 2)
+    emb_similar = [1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
+    emb_different = [0.0, 1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 2)
     m1 = _make_memory(content="similar", embedding=emb_similar)
     m2 = _make_memory(content="different", embedding=emb_different)
     m3 = _make_memory(content="no embed")
@@ -319,7 +366,7 @@ async def test_search_memories_by_embedding(store: SqliteStore) -> None:
     await store.create_memory(m2)
     await store.create_memory(m3)
 
-    query = [1.0, 0.1] + [0.0] * (EMBEDDING_DIMENSIONS - 2)
+    query = [1.0, 0.1] + [0.0] * (_TEST_EMBEDDING_DIMS - 2)
     results = await store.search_memories(query_embedding=query, top_k=2)
     assert len(results) == 2
     assert results[0].content == "similar"
@@ -331,7 +378,7 @@ async def test_search_memories_by_embedding(store: SqliteStore) -> None:
 async def test_search_memories_by_embedding_with_date_filter(
     store: SqliteStore,
 ) -> None:
-    emb = [1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
+    emb = [1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
     m1 = _make_memory(
         content="jan", embedding=emb, from_d=date(2024, 1, 1), to_d=date(2024, 1, 31)
     )
@@ -376,7 +423,7 @@ async def test_atomic_rolls_back_on_error(store: SqliteStore) -> None:
 
 async def test_async_context_manager(tmp_path) -> None:
     s = SqliteStore(path=str(tmp_path / "cm_test.db"))
-    await s.init()
+    await s.init(embedding_dimensions=_TEST_EMBEDDING_DIMS)
     async with s:
         archive = Archive(provider="test")
         await s.create_archive(archive)

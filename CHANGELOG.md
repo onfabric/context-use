@@ -1,3 +1,47 @@
+## [0.14.0] - 2026-03-22
+
+### 🚀 Features
+
+- Add recent threads from collection to group context (#264)
+- [**breaking**] Add opt collection_id to thread (#262)
+- [**breaking**] Require credentials and bucket name in `VertexAIConfig` (#263)
+
+## [0.13.0] - 2026-03-22
+
+### 🚀 Features
+
+- *(proxy)* [**breaking**] Switch `host` header to `<prefix>-upstream-host` (#260)
+- *(proxy)* Allow to specify the ctxuse headers prefix (#259)
+
+## [0.12.0] - 2026-03-22
+
+### 🚀 Features
+
+- [**breaking**] Only support `gemini-2.5-pro` for vertex ai models (#252)
+- [**breaking**] Require embedding dimension in to init store (#251)
+- [**breaking**] Switch to litellm base client (#247)
+
+### 🚜 Refactor
+
+- Cleanup (#257)
+- Extract GroupContextBuilder (#255)
+- Change BasePromptBuilder to single GroupContext interface (#254)
+
+## [0.11.1] - 2026-03-21
+
+### 🐛 Bug Fixes
+
+- *(proxy)* Ignore encoding from client (#249)
+- Import configs utils (#248)
+
+### 🚜 Refactor
+
+- Move local ctx setup in cli (#245)
+
+### ⚙️ Miscellaneous Tasks
+
+- Added new available providers and commands in readme (#246)
+
 ## [0.11.0] - 2026-03-19
 
 ### 🚀 Features

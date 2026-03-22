@@ -19,6 +19,8 @@ from context_use.proxy.handler import (
     _input_to_messages,
     _response_sse_deltas,
     _should_enrich,
+    _strip_request_encoding_headers,
+    _strip_response_encoding_headers,
 )
 from context_use.store.base import MemorySearchResult
 
@@ -48,7 +50,7 @@ def _make_result() -> MemorySearchResult:
 
 def _completion_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "model": "gpt-4o",
+        "model": "gpt-5.2",
         "messages": [{"role": "user", "content": "Hello"}],
     }
     body.update(overrides)
@@ -111,6 +113,18 @@ def _setup_streaming_client(mock_cls: MagicMock, response: AsyncMock) -> AsyncMo
     return mock_client
 
 
+def _mock_raw_response(
+    status: int = 200,
+    headers: list[tuple[bytes, bytes]] | None = None,
+    content: bytes = b"",
+) -> AsyncMock:
+    resp = AsyncMock()
+    resp.status_code = status
+    resp.headers.raw = headers or [(b"content-type", b"application/json")]
+    resp.aiter_raw = MagicMock(return_value=_aiter(content))
+    return resp
+
+
 class TestShouldEnrich:
     def test_none_returns_true(self) -> None:
         assert _should_enrich(None) is True
@@ -126,6 +140,110 @@ class TestShouldEnrich:
 
     def test_below_threshold_returns_false(self) -> None:
         assert _should_enrich(49) is False
+
+
+class TestStripRequestEncodingHeaders:
+    def test_removes_accept_encoding(self) -> None:
+        headers = [
+            (b"authorization", b"Bearer sk-test"),
+            (b"accept-encoding", b"gzip, deflate, br"),
+            (b"content-type", b"application/json"),
+        ]
+        result = _strip_request_encoding_headers(headers)
+        assert result == [
+            (b"authorization", b"Bearer sk-test"),
+            (b"content-type", b"application/json"),
+        ]
+
+    def test_case_insensitive(self) -> None:
+        headers = [
+            (b"Accept-Encoding", b"gzip"),
+            (b"content-type", b"application/json"),
+        ]
+        result = _strip_request_encoding_headers(headers)
+        assert result == [(b"content-type", b"application/json")]
+
+    def test_no_encoding_headers_unchanged(self) -> None:
+        headers = _default_headers()
+        result = _strip_request_encoding_headers(headers)
+        assert result == headers
+
+    def test_empty_headers(self) -> None:
+        assert _strip_request_encoding_headers([]) == []
+
+
+class TestStripResponseEncodingHeaders:
+    def test_replaces_encoding_and_length(self) -> None:
+        raw_headers = [
+            (b"content-type", b"application/json"),
+            (b"content-encoding", b"gzip"),
+            (b"content-length", b"42"),
+        ]
+        result = _strip_response_encoding_headers(raw_headers, body_length=128)
+        assert (b"content-type", b"application/json") in result
+        assert (b"content-encoding", b"gzip") not in result
+        assert (b"content-length", b"42") not in result
+        assert (b"content-encoding", b"identity") in result
+        assert (b"content-length", b"128") in result
+
+    def test_case_insensitive(self) -> None:
+        raw_headers = [
+            (b"Content-Encoding", b"br"),
+            (b"Content-Length", b"99"),
+        ]
+        result = _strip_response_encoding_headers(raw_headers, body_length=50)
+        names = [k for k, _ in result]
+        assert b"Content-Encoding" not in names
+        assert b"Content-Length" not in names
+        assert (b"content-encoding", b"identity") in result
+        assert (b"content-length", b"50") in result
+
+    def test_adds_headers_when_none_present(self) -> None:
+        raw_headers = [(b"content-type", b"application/json")]
+        result = _strip_response_encoding_headers(raw_headers, body_length=256)
+        assert (b"content-type", b"application/json") in result
+        assert (b"content-encoding", b"identity") in result
+        assert (b"content-length", b"256") in result
+
+    def test_empty_headers(self) -> None:
+        result = _strip_response_encoding_headers([], body_length=0)
+        assert (b"content-encoding", b"identity") in result
+        assert (b"content-length", b"0") in result
+
+
+class TestStripResponseEncodingHeadersWithoutLength:
+    def test_removes_encoding_and_length(self) -> None:
+        raw_headers = [
+            (b"content-type", b"text/event-stream"),
+            (b"content-encoding", b"gzip"),
+            (b"content-length", b"42"),
+        ]
+        result = _strip_response_encoding_headers(raw_headers)
+        assert (b"content-type", b"text/event-stream") in result
+        assert (b"content-encoding", b"gzip") not in result
+        assert (b"content-length", b"42") not in result
+        assert (b"content-encoding", b"identity") in result
+
+    def test_does_not_add_content_length(self) -> None:
+        raw_headers = [(b"content-type", b"text/event-stream")]
+        result = _strip_response_encoding_headers(raw_headers)
+        names = [k for k, _ in result]
+        assert b"content-length" not in names
+
+    def test_case_insensitive(self) -> None:
+        raw_headers = [
+            (b"Content-Encoding", b"br"),
+            (b"Content-Length", b"99"),
+        ]
+        result = _strip_response_encoding_headers(raw_headers)
+        names = [k for k, _ in result]
+        assert b"Content-Encoding" not in names
+        assert b"Content-Length" not in names
+        assert (b"content-encoding", b"identity") in result
+
+    def test_empty_headers(self) -> None:
+        result = _strip_response_encoding_headers([])
+        assert (b"content-encoding", b"identity") in result
 
 
 class TestAccumulateSseText:
@@ -370,10 +488,11 @@ class TestHandle:
     async def test_unknown_path_forwarded_transparently(
         self, MockClient: MagicMock
     ) -> None:
-        upstream_response = _mock_http_response(content=b'{"object":"list","data":[]}')
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value=upstream_response)
-        MockClient.return_value = mock_client
+        content = b'{"object":"list","data":[]}'
+        resp_headers = [(b"content-type", b"application/json")]
+        mock_client = _setup_streaming_client(
+            MockClient, _mock_raw_response(headers=resp_headers, content=content)
+        )
         handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
@@ -386,18 +505,19 @@ class TestHandle:
 
         assert isinstance(result, ContextProxyResult)
         assert result.status == 200
-        call = mock_client.request.call_args
-        assert call.kwargs["method"] == "GET"
-        assert call.kwargs["url"] == "https://api.openai.com/v1/models"
+        assert result.body == content
+        assert result.headers == resp_headers
+        call = mock_client.build_request.call_args
+        assert call.args[0] == "GET"
+        assert call.args[1] == "https://api.openai.com/v1/models"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_wrong_method_for_known_path_forwarded_transparently(
         self, MockClient: MagicMock
     ) -> None:
-        upstream_response = _mock_http_response(content=b"{}")
-        mock_client = AsyncMock()
-        mock_client.request = AsyncMock(return_value=upstream_response)
-        MockClient.return_value = mock_client
+        mock_client = _setup_streaming_client(
+            MockClient, _mock_raw_response(content=b"{}")
+        )
         handler = ContextProxy(_mock_ctx())
 
         result = await handler.handle(
@@ -409,8 +529,8 @@ class TestHandle:
         )
 
         assert isinstance(result, ContextProxyResult)
-        call = mock_client.request.call_args
-        assert call.kwargs["method"] == "GET"
+        call = mock_client.build_request.call_args
+        assert call.args[0] == "GET"
 
     async def test_raises_value_error_on_invalid_json(self) -> None:
         handler = ContextProxy(_mock_ctx())
@@ -439,7 +559,7 @@ class TestHandle:
 
     async def test_raises_value_error_on_missing_messages(self) -> None:
         handler = ContextProxy(_mock_ctx())
-        body = json.dumps({"model": "gpt-4o"}).encode()
+        body = json.dumps({"model": "gpt-5.2"}).encode()
 
         with pytest.raises(ValueError, match="required"):
             await handler.handle(
@@ -569,7 +689,7 @@ class TestBackgroundScheduling:
 
 def _response_body(**overrides: Any) -> dict[str, Any]:
     body: dict[str, Any] = {
-        "model": "gpt-4o",
+        "model": "gpt-5.2",
         "input": "Hello",
     }
     body.update(overrides)
@@ -735,22 +855,22 @@ class TestInputToMessages:
 
 class TestBodyToMessages:
     def test_completions_body(self) -> None:
-        body = {"messages": [{"role": "user", "content": "Hi"}], "model": "gpt-4o"}
+        body = {"messages": [{"role": "user", "content": "Hi"}], "model": "gpt-5.2"}
         assert _body_to_messages(body) == [{"role": "user", "content": "Hi"}]
 
     def test_responses_body_string_input(self) -> None:
-        body = {"input": "Hello", "model": "gpt-4o"}
+        body = {"input": "Hello", "model": "gpt-5.2"}
         assert _body_to_messages(body) == [{"role": "user", "content": "Hello"}]
 
     def test_responses_body_with_instructions(self) -> None:
-        body = {"input": "Hello", "instructions": "Be helpful", "model": "gpt-4o"}
+        body = {"input": "Hello", "instructions": "Be helpful", "model": "gpt-5.2"}
         assert _body_to_messages(body) == [
             {"role": "system", "content": "Be helpful"},
             {"role": "user", "content": "Hello"},
         ]
 
     def test_responses_body_no_input(self) -> None:
-        body = {"model": "gpt-4o"}
+        body = {"model": "gpt-5.2"}
         assert _body_to_messages(body) == []
 
 
@@ -1173,3 +1293,190 @@ class TestResponseBackgroundScheduling:
         )
 
         handler._schedule.assert_not_called()
+
+
+def _headers_with_encoding() -> list[tuple[bytes, bytes]]:
+    return [
+        (b"authorization", b"Bearer sk-test"),
+        (b"accept-encoding", b"gzip, deflate, br"),
+        (b"content-type", b"application/json"),
+    ]
+
+
+class TestEncodingHeaderIntegration:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_chat_completion_strips_accept_encoding_from_request(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        handler = ContextProxy(_mock_ctx())
+
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_headers_with_encoding(),
+            upstream_url="https://api.openai.com",
+        )
+
+        sent_headers = mock_client.post.call_args.kwargs["headers"]
+        sent_header_names = [k for k, _ in sent_headers]
+        assert b"accept-encoding" not in sent_header_names
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_chat_completion_sets_identity_encoding_in_response(
+        self, MockClient: MagicMock
+    ) -> None:
+        upstream_headers = [
+            (b"content-type", b"application/json"),
+            (b"content-encoding", b"gzip"),
+            (b"content-length", b"42"),
+        ]
+        body_content = json.dumps(
+            {"choices": [{"message": {"role": "assistant", "content": "Hi"}}]}
+        ).encode()
+        _setup_non_streaming_client(
+            MockClient,
+            _mock_http_response(headers=upstream_headers, content=body_content),
+        )
+        handler = ContextProxy(_mock_ctx())
+
+        result = await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+        assert (b"content-encoding", b"identity") in result.headers
+        assert (b"content-length", str(len(body_content)).encode()) in result.headers
+        assert (b"content-encoding", b"gzip") not in result.headers
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_passthrough_request_passes_request_headers_through(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_streaming_client(
+            MockClient, _mock_raw_response(content=b'{"ok":true}')
+        )
+        handler = ContextProxy(_mock_ctx())
+
+        await handler.handle(
+            "GET",
+            "/v1/models",
+            _headers_with_encoding(),
+            b"",
+            upstream_url="https://api.openai.com",
+        )
+
+        sent_headers = mock_client.build_request.call_args.kwargs["headers"]
+        assert sent_headers == _headers_with_encoding()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_passthrough_request_passes_response_headers_through(
+        self, MockClient: MagicMock
+    ) -> None:
+        upstream_headers = [
+            (b"content-type", b"application/json"),
+            (b"content-encoding", b"br"),
+            (b"content-length", b"999"),
+        ]
+        _setup_streaming_client(
+            MockClient,
+            _mock_raw_response(headers=upstream_headers, content=b'{"ok":true}'),
+        )
+        handler = ContextProxy(_mock_ctx())
+
+        result = await handler.handle(
+            "GET",
+            "/v1/models",
+            _default_headers(),
+            b"",
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+        assert result.headers == upstream_headers
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_response_api_strips_accept_encoding_from_request(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(
+            MockClient, _mock_response_api_http_response()
+        )
+        handler = ContextProxy(_mock_ctx())
+
+        await handler._response(
+            _response_body(),
+            headers=_headers_with_encoding(),
+            upstream_url="https://api.openai.com",
+        )
+
+        sent_headers = mock_client.post.call_args.kwargs["headers"]
+        sent_header_names = [k for k, _ in sent_headers]
+        assert b"accept-encoding" not in sent_header_names
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_response_api_sets_identity_encoding_in_response(
+        self, MockClient: MagicMock
+    ) -> None:
+        body_content = json.dumps(
+            {
+                "output": [
+                    {
+                        "type": "message",
+                        "content": [{"type": "output_text", "text": "Hi"}],
+                    }
+                ]
+            }
+        ).encode()
+        upstream_headers = [
+            (b"content-type", b"application/json"),
+            (b"content-encoding", b"deflate"),
+            (b"content-length", b"10"),
+        ]
+        _setup_non_streaming_client(
+            MockClient,
+            _mock_response_api_http_response(
+                headers=upstream_headers, content=body_content
+            ),
+        )
+        handler = ContextProxy(_mock_ctx())
+
+        result = await handler._response(
+            _response_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyResult)
+        assert (b"content-encoding", b"identity") in result.headers
+        assert (b"content-length", str(len(body_content)).encode()) in result.headers
+        assert (b"content-encoding", b"deflate") not in result.headers
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_streaming_strips_encoding_headers_without_content_length(
+        self, MockClient: MagicMock
+    ) -> None:
+        chunk = b'data: {"choices":[{"delta":{"content":"Hi"}}]}\n\n'
+        upstream_headers = [
+            (b"content-type", b"text/event-stream"),
+            (b"content-encoding", b"gzip"),
+            (b"content-length", b"999"),
+        ]
+        _setup_streaming_client(
+            MockClient,
+            _mock_streaming_response(headers=upstream_headers, chunks=[chunk]),
+        )
+        handler = ContextProxy(_mock_ctx())
+
+        result = await handler._chat_completion(
+            _completion_body(stream=True),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+        )
+
+        assert isinstance(result, ContextProxyStreamResult)
+        assert (b"content-encoding", b"identity") in result.headers
+        assert (b"content-encoding", b"gzip") not in result.headers
+        header_names = [k for k, _ in result.headers]
+        assert b"content-length" not in header_names

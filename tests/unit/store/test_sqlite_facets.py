@@ -7,21 +7,23 @@ from datetime import date
 
 import pytest
 
-from context_use.models import EMBEDDING_DIMENSIONS, Batch, TapestryMemory
+from context_use.models import Batch, TapestryMemory
 from context_use.models.facet import Facet, MemoryFacet
 from context_use.store.sqlite import SqliteStore
+
+_TEST_EMBEDDING_DIMS = 4
 
 
 @pytest.fixture()
 async def store(tmp_path) -> AsyncGenerator[SqliteStore]:
     s = SqliteStore(path=str(tmp_path / "test.db"))
-    await s.init()
+    await s.init(embedding_dimensions=_TEST_EMBEDDING_DIMS)
     yield s
     await s.close()
 
 
 def _make_embedding(seed: float = 1.0) -> list[float]:
-    return [seed] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
+    return [seed] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
 
 
 async def _make_memory(store: SqliteStore, group_id: str = "g1") -> TapestryMemory:
@@ -170,10 +172,10 @@ async def test_find_similar_facet_hit(store: SqliteStore) -> None:
 async def test_find_similar_facet_miss_below_threshold(store: SqliteStore) -> None:
     canonical = Facet(facet_type="person", facet_canonical="Alice")
     await store.create_facet(canonical)
-    emb = [1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 1)
+    emb = [1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
     await store.create_facet_embedding(canonical.id, emb)
 
-    orthogonal = [0.0, 1.0] + [0.0] * (EMBEDDING_DIMENSIONS - 2)
+    orthogonal = [0.0, 1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 2)
     result = await store.find_similar_facet("person", orthogonal, threshold=0.75)
     assert result is None
 
