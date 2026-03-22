@@ -5,7 +5,6 @@ import json
 import zipfile
 
 import pytest
-
 from pydantic import BaseModel
 
 from context_use.etl.core.types import ThreadRow
@@ -93,30 +92,33 @@ class TestAmountColumns:
             AmountColumns(money_in="In")
 
 
+_SINGLE = AmountColumns(single="Amount")
+
+
 class TestResolveAmount:
     def test_single_positive(self) -> None:
         row = {"Amount": "100.00"}
-        result = _resolve_amount(row, AmountColumns(single="Amount"), is_credit_card=False)
+        result = _resolve_amount(row, _SINGLE, is_credit_card=False)
         assert result == "100.00"
 
     def test_single_negative(self) -> None:
         row = {"Amount": "-50.00"}
-        result = _resolve_amount(row, AmountColumns(single="Amount"), is_credit_card=False)
+        result = _resolve_amount(row, _SINGLE, is_credit_card=False)
         assert result == "-50.00"
 
     def test_single_empty_returns_none(self) -> None:
         row = {"Amount": ""}
-        result = _resolve_amount(row, AmountColumns(single="Amount"), is_credit_card=False)
+        result = _resolve_amount(row, _SINGLE, is_credit_card=False)
         assert result is None
 
     def test_credit_card_flips_sign(self) -> None:
         row = {"Amount": "25.00"}
-        result = _resolve_amount(row, AmountColumns(single="Amount"), is_credit_card=True)
+        result = _resolve_amount(row, _SINGLE, is_credit_card=True)
         assert result == "-25.0"
 
     def test_credit_card_payment_becomes_positive(self) -> None:
         row = {"Amount": "-100.00"}
-        result = _resolve_amount(row, AmountColumns(single="Amount"), is_credit_card=True)
+        result = _resolve_amount(row, _SINGLE, is_credit_card=True)
         assert result == "100.0"
 
     def test_split_money_out(self) -> None:
@@ -147,7 +149,9 @@ class TestGenericBankPipeSingleAmount:
         return storage, key
 
     @pytest.fixture()
-    def records(self, storage_and_key: tuple[DiskStorage, str]) -> list[BankTransactionRecord]:
+    def records(
+        self, storage_and_key: tuple[DiskStorage, str]
+    ) -> list[BankTransactionRecord]:
         storage, key = storage_and_key
         mapping = _make_mapping()
         pipe = GenericBankPipe(mapping=mapping)
@@ -233,10 +237,14 @@ class TestGenericBankPipeCreditCard:
         task = _make_task(key)
         return list(pipe.extract(task, storage))
 
-    def test_charge_becomes_negative(self, records: list[BankTransactionRecord]) -> None:
+    def test_charge_becomes_negative(
+        self, records: list[BankTransactionRecord]
+    ) -> None:
         assert records[0].amount == "-25.0"
 
-    def test_payment_becomes_positive(self, records: list[BankTransactionRecord]) -> None:
+    def test_payment_becomes_positive(
+        self, records: list[BankTransactionRecord]
+    ) -> None:
         assert records[1].amount == "100.0"
 
 
@@ -320,20 +328,26 @@ class TestGenericBankPipeKit(PipeTestKit):
         return GenericBankPipe(mapping=_DEFAULT_MAPPING)
 
     @pytest.fixture()
-    def extracted_records(self, pipe_fixture: tuple[DiskStorage, str]) -> list[BaseModel]:
+    def extracted_records(
+        self, pipe_fixture: tuple[DiskStorage, str]
+    ) -> list[BaseModel]:
         storage, key = pipe_fixture
         pipe = self._make_pipe()
         task = _make_task(key)
         return list(pipe.extract(task, storage))
 
     @pytest.fixture()
-    def transformed_rows(self, pipe_fixture: tuple[DiskStorage, str]) -> list[ThreadRow]:
+    def transformed_rows(
+        self, pipe_fixture: tuple[DiskStorage, str]
+    ) -> list[ThreadRow]:
         storage, key = pipe_fixture
         pipe = self._make_pipe()
         task = _make_task(key)
         return list(pipe.run(task, storage))
 
-    def test_counts_tracked(self, pipe_fixture: tuple[DiskStorage, str]) -> None:
+    def test_counts_tracked(
+        self, pipe_fixture: tuple[DiskStorage, str]
+    ) -> None:
         storage, key = pipe_fixture
         pipe = self._make_pipe()
         task = _make_task(key)
@@ -342,7 +356,9 @@ class TestGenericBankPipeKit(PipeTestKit):
         assert pipe.transformed_count == self.expected_transform_count
         assert pipe.error_count == 0
 
-    def test_unique_keys_are_stable(self, pipe_fixture: tuple[DiskStorage, str]) -> None:
+    def test_unique_keys_are_stable(
+        self, pipe_fixture: tuple[DiskStorage, str]
+    ) -> None:
         storage, key = pipe_fixture
         task = _make_task(key)
         first = [r.unique_key for r in self._make_pipe().run(task, storage)]

@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import zipfile
 from collections import defaultdict
-from pathlib import PurePosixPath
 from collections.abc import Callable
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from context_use.agent.runner import AgentResult, AgentRunner
