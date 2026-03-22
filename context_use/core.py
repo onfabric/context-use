@@ -292,7 +292,7 @@ class ContextUse:
 
         return await self.run_agent(item.prompt)
 
-    # ── Queries ──────────────────────────────────────────────────────
+    # ── Memories ──────────────────────────────────────────────────────
 
     async def list_memories(
         self,
