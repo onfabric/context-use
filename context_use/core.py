@@ -36,6 +36,7 @@ if TYPE_CHECKING:
     from datetime import date, datetime
     from typing import Any
 
+    from context_use.etl.core.pipe import Pipe
     from context_use.llm.litellm.clients import LiteLLMBase
     from context_use.storage.base import StorageBackend
     from context_use.store.base import Store
