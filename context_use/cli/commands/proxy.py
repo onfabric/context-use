@@ -21,7 +21,6 @@ from context_use.cli.base import BaseCommand, prompt_api_key
 from context_use.cli.config import build_ctx, load_config
 from context_use.proxy.app import create_proxy_app
 from context_use.proxy.handler import ContextProxy, PostResponseCallback
-from context_use.proxy.headers import DEFAULT_PREFIX
 from context_use.proxy.log import (
     log_generation_done,
     log_processing_start,
@@ -91,9 +90,8 @@ class ProxyCommand(BaseCommand):
     description = (
         "Start a transparent proxy that enriches requests with user context "
         "from your local memory store. The proxy forwards each request to "
-        "either a fixed upstream URL from --upstream-url or the host specified "
-        f"in the `{DEFAULT_PREFIX}-upstream-host` header, while memories are "
-        "generated using your OpenAI key. "
+        "either a fixed upstream URL from --upstream-url or the client's Host "
+        "header, while memories are generated using your OpenAI key. "
         "POST /v1/chat/completions and POST /v1/responses are enriched; "
         "all other paths are forwarded transparently without modification."
     )
@@ -113,10 +111,7 @@ class ProxyCommand(BaseCommand):
         parser.add_argument(
             "--upstream-url",
             type=_parse_upstream_url,
-            help=(
-                "Fixed upstream URL (skips the need for a "
-                f"`{DEFAULT_PREFIX}-upstream-host` header)"
-            ),
+            help="Fixed upstream URL (skips the need for a Host header)",
         )
         parser.add_argument(
             "--background",
@@ -154,10 +149,7 @@ class ProxyCommand(BaseCommand):
         out.header("context-use proxy")
         out.kv("Memories loaded", f"{count:,}")
         out.kv("Endpoint", f"http://localhost:{args.port}/v1")
-        out.kv(
-            "Upstream URL",
-            args.upstream_url or f"request `{DEFAULT_PREFIX}-upstream-host` header",
-        )
+        out.kv("Upstream URL", args.upstream_url or "request Host header")
         out.kv("Default session ID", default_session_id)
         print()
         out.info("Point your client at this proxy:")
@@ -171,9 +163,7 @@ class ProxyCommand(BaseCommand):
             out.info(
                 '  client = OpenAI(base_url="http://localhost:'
                 f'{args.port}/v1", api_key="<provider-key>", '
-                "default_headers={"
-                f'"{DEFAULT_PREFIX}-upstream-host": "api.openai.com"'
-                "})"
+                'default_headers={"Host": "api.openai.com"})'
             )
         print()
 
@@ -188,7 +178,6 @@ class ProxyCommand(BaseCommand):
             handler,
             upstream_url=args.upstream_url,
             session_id=default_session_id,
-            header_prefix=DEFAULT_PREFIX,
         )
 
         config = uvicorn.Config(
