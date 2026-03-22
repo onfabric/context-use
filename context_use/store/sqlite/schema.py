@@ -319,10 +319,12 @@ class FacetRow(BaseSqliteModel):
     def ddl(cls) -> str:
         return """\
 CREATE TABLE IF NOT EXISTS facets (
-    id              TEXT PRIMARY KEY,
-    facet_type      TEXT NOT NULL,
-    facet_canonical TEXT NOT NULL,
-    created_at      TEXT NOT NULL
+    id                TEXT PRIMARY KEY,
+    facet_type        TEXT NOT NULL,
+    facet_canonical   TEXT NOT NULL,
+    short_description TEXT,
+    long_description  TEXT,
+    created_at        TEXT NOT NULL
 )"""
 
     @classmethod
@@ -337,6 +339,8 @@ CREATE TABLE IF NOT EXISTS facets (
             id=row["id"],
             facet_type=row["facet_type"],
             facet_canonical=row["facet_canonical"],
+            short_description=row["short_description"],
+            long_description=row["long_description"],
             created_at=parse_dt(row["created_at"]),
         )
 

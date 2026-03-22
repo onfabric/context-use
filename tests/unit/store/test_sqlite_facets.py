@@ -192,3 +192,113 @@ async def test_find_similar_facet_cross_type_isolation(store: SqliteStore) -> No
 
     result = await store.find_similar_facet("person", query, threshold=0.75)
     assert result is not None
+
+
+async def test_get_facets_returns_by_id(store: SqliteStore) -> None:
+    f1 = Facet(facet_type="person", facet_canonical="Alice")
+    f2 = Facet(facet_type="location", facet_canonical="London")
+    await store.create_facet(f1)
+    await store.create_facet(f2)
+
+    results = await store.get_facets([f1.id, f2.id])
+    assert {r.id for r in results} == {f1.id, f2.id}
+
+
+async def test_get_facets_returns_empty_for_empty_input(store: SqliteStore) -> None:
+    assert await store.get_facets([]) == []
+
+
+async def test_update_facet_persists_descriptions(store: SqliteStore) -> None:
+    facet = Facet(facet_type="person", facet_canonical="Alice")
+    await store.create_facet(facet)
+
+    facet.short_description = "Alice is a close friend."
+    facet.long_description = "Alice is a childhood friend who works in finance."
+    await store.update_facet(facet)
+
+    results = await store.get_facets([facet.id])
+    assert len(results) == 1
+    assert results[0].short_description == "Alice is a close friend."
+    assert (
+        results[0].long_description
+        == "Alice is a childhood friend who works in finance."
+    )
+
+
+async def test_get_facets_for_description_filters_by_min_count(
+    store: SqliteStore,
+) -> None:
+    facet = Facet(facet_type="person", facet_canonical="Alice")
+    await store.create_facet(facet)
+
+    for i in range(4):
+        mem = await _make_memory(store, group_id=f"g{i}")
+        mf = MemoryFacet(memory_id=mem.id, facet_type="person", facet_value="Alice")
+        mf.facet_id = facet.id
+        await store.create_memory_facet(mf)
+        await store.update_memory_facet(mf)
+
+    result = await store.get_facets_for_description([facet.id], min_memory_count=5)
+    assert result == []
+
+    fifth_mem = await _make_memory(store, group_id="g4")
+    fifth_mf = MemoryFacet(
+        memory_id=fifth_mem.id, facet_type="person", facet_value="Alice"
+    )
+    fifth_mf.facet_id = facet.id
+    await store.create_memory_facet(fifth_mf)
+    await store.update_memory_facet(fifth_mf)
+
+    result = await store.get_facets_for_description([facet.id], min_memory_count=5)
+    assert len(result) == 1
+    assert result[0].facet.id == facet.id
+    assert len(result[0].memory_contents) == 5
+
+
+async def test_get_facets_for_description_returns_memory_contents(
+    store: SqliteStore,
+) -> None:
+    facet = Facet(facet_type="topic", facet_canonical="cooking")
+    await store.create_facet(facet)
+
+    contents = ["Tried a new pasta recipe", "Baked sourdough bread", "Made ramen"]
+    for i, content in enumerate(contents):
+        mem = TapestryMemory(
+            content=content,
+            from_date=date(2024, 1, i + 1),
+            to_date=date(2024, 1, i + 1),
+            group_id=f"g{i}",
+        )
+        mem = await store.create_memory(mem)
+        mf = MemoryFacet(memory_id=mem.id, facet_type="topic", facet_value="cooking")
+        mf.facet_id = facet.id
+        await store.create_memory_facet(mf)
+        await store.update_memory_facet(mf)
+
+    result = await store.get_facets_for_description([facet.id], min_memory_count=3)
+    assert len(result) == 1
+    assert set(result[0].memory_contents) == set(contents)
+
+
+async def test_get_facets_for_description_empty_input(store: SqliteStore) -> None:
+    result = await store.get_facets_for_description([], min_memory_count=1)
+    assert result == []
+
+
+async def test_get_facets_for_description_only_includes_requested_facets(
+    store: SqliteStore,
+) -> None:
+    f1 = Facet(facet_type="person", facet_canonical="Alice")
+    f2 = Facet(facet_type="person", facet_canonical="Bob")
+    await store.create_facet(f1)
+    await store.create_facet(f2)
+
+    for i in range(5):
+        mem = await _make_memory(store, group_id=f"a{i}")
+        mf = MemoryFacet(memory_id=mem.id, facet_type="person", facet_value="Alice")
+        mf.facet_id = f1.id
+        await store.create_memory_facet(mf)
+        await store.update_memory_facet(mf)
+
+    result = await store.get_facets_for_description([f2.id], min_memory_count=1)
+    assert result == []

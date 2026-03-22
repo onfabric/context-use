@@ -9,8 +9,13 @@ from context_use.batch.manager import (
     register_batch_manager,
 )
 from context_use.batch.states import CompleteState, CreatedState, SkippedState, State
+from context_use.facets.descriptor import MIN_FACET_MEMORY_COUNT, FacetDescriptor
 from context_use.facets.embedding import store_facet_embeddings, submit_facet_embeddings
 from context_use.facets.linker import SemanticFacetLinker
+from context_use.facets.prompt import (
+    FacetDescriptionSchema,
+    build_facet_description_prompt,
+)
 from context_use.llm.base import BatchResults
 from context_use.memories.context import GroupContextBuilder
 from context_use.memories.embedding import (
@@ -21,6 +26,8 @@ from context_use.memories.extractor import MemoryExtractor
 from context_use.memories.factory import MemoryBatchFactory
 from context_use.memories.prompt import GroupContext, MemorySchema
 from context_use.memories.states import (
+    FacetDescribeCompleteState,
+    FacetDescribePendingState,
     FacetEmbedCompleteState,
     FacetEmbedPendingState,
     MemoryEmbedCompleteState,
@@ -49,6 +56,7 @@ class MemoryBatchManager(BaseBatchManager):
     def __init__(self, batch: Batch, ctx: BatchContext) -> None:
         super().__init__(batch, ctx)
         self.extractor = MemoryExtractor(ctx.llm_client)
+        self.descriptor = FacetDescriptor(ctx.llm_client)
         self.batch_factory = MemoryBatchFactory
         self.linker = SemanticFacetLinker(ctx.store)
         self.context_builder = GroupContextBuilder(ctx.store)
@@ -91,7 +99,15 @@ class MemoryBatchManager(BaseBatchManager):
                 logger.info(
                     "[%s] Facet embedding complete — linking facets", self.batch.id
                 )
-                await self._link_facets()
+                touched_facet_ids = await self._link_facets()
+                return await self._trigger_facet_description(touched_facet_ids)
+
+            case FacetDescribePendingState() as state:
+                logger.info("[%s] Polling facet description", self.batch.id)
+                return await self._check_facet_description_status(state)
+
+            case FacetDescribeCompleteState():
+                logger.info("[%s] Facet description complete", self.batch.id)
                 return CompleteState()
 
             case _:
@@ -223,9 +239,65 @@ class MemoryBatchManager(BaseBatchManager):
         count = await store_facet_embeddings(results, self.batch.id, self.ctx.store)
         return FacetEmbedCompleteState(embedded_count=count)
 
-    async def _link_facets(self) -> None:
+    async def _link_facets(self) -> set[str]:
         unlinked = await self.ctx.store.get_unlinked_memory_facets()
         if not unlinked:
-            return
+            return set()
         logger.info("[%s] Linking %d unlinked facets", self.batch.id, len(unlinked))
-        await self.linker.link(unlinked)
+        return await self.linker.link(unlinked)
+
+    async def _trigger_facet_description(self, touched_facet_ids: set[str]) -> State:
+        if not touched_facet_ids:
+            return CompleteState()
+
+        qualifying = await self.ctx.store.get_facets_for_description(
+            list(touched_facet_ids),
+            min_memory_count=MIN_FACET_MEMORY_COUNT,
+        )
+        if not qualifying:
+            return CompleteState()
+
+        prompts = [
+            build_facet_description_prompt(fw.facet, fw.memory_contents)
+            for fw in qualifying
+        ]
+        logger.info(
+            "[%s] Submitting description batch for %d facets",
+            self.batch.id,
+            len(prompts),
+        )
+        job_key = await self.descriptor.submit(self.batch.id, prompts)
+        return FacetDescribePendingState(job_key=job_key)
+
+    async def _check_facet_description_status(
+        self, state: FacetDescribePendingState
+    ) -> State:
+        results = await self.descriptor.get_results(state.job_key)
+        if results is None:
+            return state
+
+        count = await self._store_facet_descriptions(results)
+        return FacetDescribeCompleteState(described_count=count)
+
+    async def _store_facet_descriptions(
+        self, results: BatchResults[FacetDescriptionSchema]
+    ) -> int:
+        facet_ids = list(results.keys())
+        facets = await self.ctx.store.get_facets(facet_ids)
+        facets_by_id = {f.id: f for f in facets}
+        count = 0
+        for facet_id, schema in results.items():
+            facet = facets_by_id.get(facet_id)
+            if facet is None:
+                logger.warning(
+                    "[%s] Facet %s not found, skipping description",
+                    self.batch.id,
+                    facet_id,
+                )
+                continue
+            facet.short_description = schema.short_description
+            facet.long_description = schema.long_description
+            await self.ctx.store.update_facet(facet)
+            count += 1
+        logger.info("[%s] Stored descriptions for %d facets", self.batch.id, count)
+        return count

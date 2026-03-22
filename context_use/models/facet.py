@@ -27,4 +27,6 @@ class Facet:
     facet_type: str
     facet_canonical: str
     id: str = field(default_factory=generate_uuidv4)
+    short_description: str | None = None
+    long_description: str | None = None
     created_at: datetime = field(default_factory=_utcnow)

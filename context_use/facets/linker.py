@@ -17,7 +17,8 @@ class SemanticFacetLinker:
         self._store = store
         self._threshold = threshold
 
-    async def link(self, facets: list[MemoryFacet]) -> None:
+    async def link(self, facets: list[MemoryFacet]) -> set[str]:
+        touched: set[str] = set()
         for facet in facets:
             if facet.facet_type not in VALID_FACET_TYPES:
                 logger.warning(
@@ -41,6 +42,7 @@ class SemanticFacetLinker:
                 canonical = await self._create_canonical(facet, facet.embedding)
             facet.facet_id = canonical.id
             await self._store.update_memory_facet(facet)
+            touched.add(canonical.id)
             logger.debug(
                 "Linked memory_facet %s → facet %s (%s: %s)",
                 facet.id,
@@ -48,6 +50,7 @@ class SemanticFacetLinker:
                 canonical.facet_type,
                 canonical.facet_canonical,
             )
+        return touched
 
     async def _create_canonical(
         self, facet: MemoryFacet, embedding: list[float]

@@ -37,6 +37,12 @@ class MemorySearchResult:
     similarity: float | None
 
 
+@dataclass(frozen=True)
+class FacetWithMemories:
+    facet: Facet
+    memory_contents: list[str]
+
+
 class Store(ABC):
     """Abstract store for all context_use domain entities.
 
@@ -264,6 +270,26 @@ class Store(ABC):
     @abstractmethod
     async def create_facet(self, facet: Facet) -> Facet:
         """Persist a new canonical facet and return it."""
+        ...
+
+    @abstractmethod
+    async def get_facets(self, ids: list[str]) -> list[Facet]:
+        """Return canonical facets by ID."""
+        ...
+
+    @abstractmethod
+    async def update_facet(self, facet: Facet) -> None:
+        """Persist changes to an existing canonical facet."""
+        ...
+
+    @abstractmethod
+    async def get_facets_for_description(
+        self,
+        facet_ids: list[str],
+        min_memory_count: int,
+    ) -> list[FacetWithMemories]:
+        """Return facets from *facet_ids* that have at least *min_memory_count*
+        linked memories, together with the content of each linked memory."""
         ...
 
     @abstractmethod

@@ -92,6 +92,27 @@ class FacetEmbedCompleteState(NextState):
     embedded_count: int = 0
 
 
+class FacetDescribePendingState(CurrentState):
+    """Facet description batch job submitted — polling for results."""
+
+    status: Literal["FACET_DESCRIBE_PENDING"] = "FACET_DESCRIBE_PENDING"
+    job_key: str
+    submitted_at: datetime = Field(default_factory=_utc_now)
+
+    @property
+    def poll_next_countdown(self) -> int:
+        jitter = random.randint(-10, 10)
+        return max(0, MEMORY_POLL_INTERVAL_SECS + jitter)
+
+
+class FacetDescribeCompleteState(NextState):
+    """Facet descriptions generated and stored on canonical facets."""
+
+    status: Literal["FACET_DESCRIBE_COMPLETE"] = "FACET_DESCRIBE_COMPLETE"
+    completed_at: datetime = Field(default_factory=_utc_now)
+    described_count: int = 0
+
+
 MemoryBatchState = (
     CreatedState
     | MemoryGeneratePendingState
@@ -100,6 +121,8 @@ MemoryBatchState = (
     | MemoryEmbedCompleteState
     | FacetEmbedPendingState
     | FacetEmbedCompleteState
+    | FacetDescribePendingState
+    | FacetDescribeCompleteState
     | CompleteState
     | SkippedState
     | FailedState
@@ -113,6 +136,8 @@ _state_map: dict[str, type[State]] = {
     "MEMORY_EMBED_COMPLETE": MemoryEmbedCompleteState,
     "FACET_EMBED_PENDING": FacetEmbedPendingState,
     "FACET_EMBED_COMPLETE": FacetEmbedCompleteState,
+    "FACET_DESCRIBE_PENDING": FacetDescribePendingState,
+    "FACET_DESCRIBE_COMPLETE": FacetDescribeCompleteState,
     "COMPLETE": CompleteState,
     "SKIPPED": SkippedState,
     "FAILED": FailedState,

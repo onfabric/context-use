@@ -6,14 +6,18 @@ from unittest.mock import AsyncMock, MagicMock
 
 from context_use.batch.manager import BatchContext
 from context_use.batch.states import CompleteState
+from context_use.facets.prompt import FacetDescriptionSchema
 from context_use.memories.manager import MemoryBatchManager
 from context_use.memories.prompt.base import Memory, MemoryFacetExtract, MemorySchema
 from context_use.memories.states import (
+    FacetDescribeCompleteState,
+    FacetDescribePendingState,
     FacetEmbedCompleteState,
     FacetEmbedPendingState,
 )
 from context_use.models.batch import Batch, BatchCategory
-from context_use.models.facet import MemoryFacet
+from context_use.models.facet import Facet, MemoryFacet
+from context_use.store.base import FacetWithMemories
 
 
 def _make_batch() -> Batch:
@@ -32,6 +36,9 @@ def _make_store() -> MagicMock:
     store.create_memory_facet = AsyncMock(side_effect=lambda f: f)
     store.get_unembedded_memory_facets = AsyncMock(return_value=[])
     store.get_unlinked_memory_facets = AsyncMock(return_value=[])
+    store.get_facets_for_description = AsyncMock(return_value=[])
+    store.get_facets = AsyncMock(return_value=[])
+    store.update_facet = AsyncMock()
     store.get_batch = AsyncMock()
     store.update_batch = AsyncMock()
     store.atomic = MagicMock(return_value=_async_ctx_manager())
@@ -180,7 +187,7 @@ async def test_check_facet_embedding_status_complete() -> None:
     assert result.embedded_count == 2
 
 
-async def test_link_facets_calls_linker() -> None:
+async def test_link_facets_calls_linker_and_returns_touched_ids() -> None:
     store = _make_store()
     llm = _make_llm()
     batch = _make_batch()
@@ -190,13 +197,15 @@ async def test_link_facets_calls_linker() -> None:
         MemoryFacet(memory_id="m1", facet_type="person", facet_value="Alice"),
     ]
     unlinked[0].embedding = [1.0, 0.0, 0.0]
+    touched = {"canonical-id-1"}
     store.get_unlinked_memory_facets = AsyncMock(return_value=unlinked)
-    mgr.linker.link = AsyncMock()
+    mgr.linker.link = AsyncMock(return_value=touched)
 
-    await mgr._link_facets()
+    result = await mgr._link_facets()
 
     store.get_unlinked_memory_facets.assert_awaited_once()
     mgr.linker.link.assert_awaited_once_with(unlinked)
+    assert result == touched
 
 
 async def test_link_facets_noop_when_empty() -> None:
@@ -208,12 +217,13 @@ async def test_link_facets_noop_when_empty() -> None:
     store.get_unlinked_memory_facets = AsyncMock(return_value=[])
     mgr.linker.link = AsyncMock()
 
-    await mgr._link_facets()
+    result = await mgr._link_facets()
 
     mgr.linker.link.assert_not_awaited()
+    assert result == set()
 
 
-async def test_transition_facet_embed_complete_returns_complete() -> None:
+async def test_transition_facet_embed_complete_no_unlinked_returns_complete() -> None:
     store = _make_store()
     llm = _make_llm()
     batch = _make_batch()
@@ -222,5 +232,90 @@ async def test_transition_facet_embed_complete_returns_complete() -> None:
     store.get_unlinked_memory_facets = AsyncMock(return_value=[])
 
     result = await mgr._transition(FacetEmbedCompleteState(embedded_count=5))
+
+    assert isinstance(result, CompleteState)
+
+
+async def test_trigger_facet_description_no_qualifying_returns_complete() -> None:
+    store = _make_store()
+    llm = _make_llm()
+    batch = _make_batch()
+    mgr: MemoryBatchManager = MemoryBatchManager(batch, _make_ctx(store, llm))
+
+    store.get_facets_for_description = AsyncMock(return_value=[])
+
+    result = await mgr._trigger_facet_description({"facet-1"})
+
+    assert isinstance(result, CompleteState)
+    store.get_facets_for_description.assert_awaited_once()
+
+
+async def test_trigger_facet_description_qualifying_submits_batch() -> None:
+    store = _make_store()
+    llm = _make_llm()
+    batch = _make_batch()
+    mgr: MemoryBatchManager = MemoryBatchManager(batch, _make_ctx(store, llm))
+
+    facet = Facet(facet_type="person", facet_canonical="Alice")
+    fw = FacetWithMemories(
+        facet=facet,
+        memory_contents=["memory one", "memory two", "memory three"],
+    )
+    store.get_facets_for_description = AsyncMock(return_value=[fw])
+    llm.batch_submit = AsyncMock(return_value="desc-job-1")
+
+    result = await mgr._trigger_facet_description({"facet-1"})
+
+    assert isinstance(result, FacetDescribePendingState)
+    assert result.job_key == "desc-job-1"
+    llm.batch_submit.assert_awaited_once()
+
+
+async def test_check_facet_description_status_pending_returns_state() -> None:
+    store = _make_store()
+    llm = _make_llm()
+    batch = _make_batch()
+    mgr: MemoryBatchManager = MemoryBatchManager(batch, _make_ctx(store, llm))
+
+    llm.batch_get_results = AsyncMock(return_value=None)
+    state = FacetDescribePendingState(job_key="desc-job-1")
+
+    result = await mgr._check_facet_description_status(state)
+
+    assert result is state
+
+
+async def test_check_facet_description_status_complete_stores_descriptions() -> None:
+    store = _make_store()
+    llm = _make_llm()
+    batch = _make_batch()
+    mgr: MemoryBatchManager = MemoryBatchManager(batch, _make_ctx(store, llm))
+
+    facet = Facet(facet_type="person", facet_canonical="Alice")
+    schema = FacetDescriptionSchema(
+        short_description="Alice is a close friend.",
+        long_description="Detailed profile of Alice.",
+    )
+    llm.batch_get_results = AsyncMock(return_value={facet.id: schema})
+    store.get_facets = AsyncMock(return_value=[facet])
+
+    state = FacetDescribePendingState(job_key="desc-job-1")
+    result = await mgr._check_facet_description_status(state)
+
+    assert isinstance(result, FacetDescribeCompleteState)
+    assert result.described_count == 1
+    store.update_facet.assert_awaited_once()
+    updated: Facet = store.update_facet.call_args[0][0]
+    assert updated.short_description == "Alice is a close friend."
+    assert updated.long_description == "Detailed profile of Alice."
+
+
+async def test_transition_facet_describe_complete_returns_complete() -> None:
+    store = _make_store()
+    llm = _make_llm()
+    batch = _make_batch()
+    mgr: MemoryBatchManager = MemoryBatchManager(batch, _make_ctx(store, llm))
+
+    result = await mgr._transition(FacetDescribeCompleteState(described_count=3))
 
     assert isinstance(result, CompleteState)

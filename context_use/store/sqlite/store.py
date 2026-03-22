@@ -22,7 +22,12 @@ from context_use.models import (
     Thread,
 )
 from context_use.models.utils import generate_uuidv4
-from context_use.store.base import MemorySearchResult, SortOrder, Store
+from context_use.store.base import (
+    FacetWithMemories,
+    MemorySearchResult,
+    SortOrder,
+    Store,
+)
 from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
@@ -673,17 +678,85 @@ class SqliteStore(Store):
     async def create_facet(self, facet: Facet) -> Facet:
         db = await self._conn()
         await db.execute(
-            "INSERT INTO facets (id, facet_type, facet_canonical, created_at) "
-            "VALUES (?, ?, ?, ?)",
+            "INSERT INTO facets "
+            "(id, facet_type, facet_canonical, short_description, "
+            "long_description, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
             (
                 facet.id,
                 facet.facet_type,
                 facet.facet_canonical,
+                facet.short_description,
+                facet.long_description,
                 facet.created_at.isoformat(),
             ),
         )
         await self._commit_unless_atomic()
         return facet
+
+    async def get_facets(self, ids: list[str]) -> list[Facet]:
+        if not ids:
+            return []
+        db = await self._conn()
+        ph = ",".join("?" for _ in ids)
+        rows = await db.execute_fetchall(
+            f"SELECT * FROM facets WHERE id IN ({ph})", ids
+        )
+        return [FacetRow.from_row(r) for r in rows]
+
+    async def update_facet(self, facet: Facet) -> None:
+        db = await self._conn()
+        await db.execute(
+            "UPDATE facets "
+            "SET facet_canonical = ?, short_description = ?, long_description = ? "
+            "WHERE id = ?",
+            (
+                facet.facet_canonical,
+                facet.short_description,
+                facet.long_description,
+                facet.id,
+            ),
+        )
+        await self._commit_unless_atomic()
+
+    async def get_facets_for_description(
+        self,
+        facet_ids: list[str],
+        min_memory_count: int,
+    ) -> list[FacetWithMemories]:
+        if not facet_ids:
+            return []
+        db = await self._conn()
+        ph = ",".join("?" for _ in facet_ids)
+        qualifying_rows = await db.execute_fetchall(
+            f"SELECT f.*, COUNT(DISTINCT mf.memory_id) AS memory_count "
+            f"FROM facets f "
+            f"JOIN memory_facets mf ON mf.facet_id = f.id "
+            f"WHERE f.id IN ({ph}) "
+            f"GROUP BY f.id "
+            f"HAVING memory_count >= ?",
+            [*facet_ids, min_memory_count],
+        )
+        if not qualifying_rows:
+            return []
+
+        result: list[FacetWithMemories] = []
+        for row in qualifying_rows:
+            facet = FacetRow.from_row(row)
+            memory_rows = await db.execute_fetchall(
+                "SELECT m.content FROM tapestry_memories m "
+                "JOIN memory_facets mf ON mf.memory_id = m.id "
+                "WHERE mf.facet_id = ? "
+                "GROUP BY m.id",
+                (facet.id,),
+            )
+            result.append(
+                FacetWithMemories(
+                    facet=facet,
+                    memory_contents=[r[0] for r in memory_rows],
+                )
+            )
+        return result
 
     async def create_facet_embedding(
         self, facet_id: str, embedding: list[float]
