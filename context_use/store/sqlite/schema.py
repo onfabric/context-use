@@ -133,6 +133,7 @@ CREATE TABLE IF NOT EXISTS threads (
     payload           TEXT NOT NULL,
     asset_uri         TEXT,
     source            TEXT,
+    collection_id     TEXT,
     version           TEXT NOT NULL,
     asat              TEXT NOT NULL,
     created_at        TEXT NOT NULL,
@@ -147,6 +148,8 @@ CREATE TABLE IF NOT EXISTS threads (
             "CREATE INDEX IF NOT EXISTS idx_thread_provider ON threads(provider)",
             "CREATE INDEX IF NOT EXISTS idx_thread_type ON threads(interaction_type)",
             "CREATE INDEX IF NOT EXISTS idx_thread_asat ON threads(asat)",
+            "CREATE INDEX IF NOT EXISTS idx_thread_collection "
+            "ON threads(collection_id)",
         ]
 
     @staticmethod
@@ -163,6 +166,7 @@ CREATE TABLE IF NOT EXISTS threads (
             asat=parse_dt(row["asat"]),
             asset_uri=row["asset_uri"],
             source=row["source"],
+            collection_id=row["collection_id"],
             created_at=parse_dt(row["created_at"]),
             updated_at=parse_dt(row["updated_at"]),
         )

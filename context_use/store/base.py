@@ -140,6 +140,19 @@ class Store(ABC):
         """
         ...
 
+    @abstractmethod
+    async def list_threads(
+        self,
+        *,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        interaction_type: str | None = None,
+        collection_id: str | None = None,
+        limit: int | None = None,
+    ) -> list[Thread]:
+        """Return threads ordered by ``asat``, with optional filters."""
+        ...
+
     # ── Batches ──────────────────────────────────────────────────────
 
     @abstractmethod

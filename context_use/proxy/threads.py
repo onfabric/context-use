@@ -88,6 +88,7 @@ def messages_to_thread_rows(
                 payload=payload.to_dict(),
                 version=CURRENT_THREAD_PAYLOAD_VERSION,
                 asat=ts,
+                collection_id=payload.get_collection(),
             )
         )
 

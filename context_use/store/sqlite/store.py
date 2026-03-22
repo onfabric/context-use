@@ -256,8 +256,8 @@ class SqliteStore(Store):
         "INSERT OR IGNORE INTO threads "
         "(id, unique_key, etl_task_id, provider, "
         "interaction_type, preview, payload, asset_uri, "
-        "source, version, asat, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "source, collection_id, version, asat, created_at, updated_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
 
     async def insert_threads(
@@ -284,6 +284,7 @@ class SqliteStore(Store):
                     json.dumps(row.payload),
                     row.asset_uri,
                     row.source,
+                    row.collection_id,
                     row.version,
                     row.asat.isoformat(),
                     now,
@@ -332,6 +333,37 @@ class SqliteStore(Store):
             params.append(before.isoformat())
         sql += " ORDER BY t.asat, t.id"
 
+        rows = await db.execute_fetchall(sql, params)
+        return [ThreadRow.from_row(r) for r in rows]
+
+    async def list_threads(
+        self,
+        *,
+        collection_id: str | None = None,
+        interaction_type: str | None = None,
+        from_date: datetime | None = None,
+        to_date: datetime | None = None,
+        limit: int | None = None,
+    ) -> list[Thread]:
+        db = await self._conn()
+        sql = "SELECT * FROM threads WHERE 1=1"
+        params: list = []
+        if collection_id is not None:
+            sql += " AND collection_id = ?"
+            params.append(collection_id)
+        if interaction_type is not None:
+            sql += " AND interaction_type = ?"
+            params.append(interaction_type)
+        if from_date is not None:
+            sql += " AND asat >= ?"
+            params.append(from_date.isoformat())
+        if to_date is not None:
+            sql += " AND asat < ?"
+            params.append(to_date.isoformat())
+        sql += " ORDER BY asat, id"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
         rows = await db.execute_fetchall(sql, params)
         return [ThreadRow.from_row(r) for r in rows]
 

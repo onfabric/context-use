@@ -160,6 +160,7 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
             version=CURRENT_THREAD_PAYLOAD_VERSION,
             asat=asat,
             source=record.source,
+            collection_id=payload.get_collection(),
         )
 
 
