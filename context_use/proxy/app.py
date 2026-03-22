@@ -67,8 +67,11 @@ def create_proxy_app(
         raw = await _read_body(receive)
         headers_dict = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
 
+        header_host = headers_dict.get(ctxuse_headers.upstream_host)
         resolved_upstream_url, upstream_error = _resolve_upstream_url(
-            headers_dict, upstream_url=upstream_url
+            upstream_url=upstream_url,
+            host=header_host,
+            upstream_host_header=ctxuse_headers.upstream_host,
         )
         if upstream_error is not None:
             await _send_json(
@@ -84,6 +87,7 @@ def create_proxy_app(
             if k.lower() not in _HOP_BY_HOP
             and k.lower() != CONTENT_LENGTH_HEADER.encode()
             and k.lower() != ctxuse_headers.session_id.encode()
+            and k.lower() != ctxuse_headers.upstream_host.encode()
         ]
 
         try:
@@ -113,9 +117,10 @@ def create_proxy_app(
 
 
 def _resolve_upstream_url(
-    headers: dict[str, str],
     *,
     upstream_url: str | None,
+    host: str | None,
+    upstream_host_header: str,
 ) -> tuple[str, str | None]:
     if upstream_url is not None:
         parsed = urlsplit(upstream_url)
@@ -125,27 +130,27 @@ def _resolve_upstream_url(
                 "example https://api.openai.com"
             )
 
-        host = parsed.hostname
-        if host is None:
+        parsed_host = parsed.hostname
+        if parsed_host is None:
             return "", (
                 "Invalid upstream URL. Use a full http:// or https:// URL, for "
                 "example https://api.openai.com"
             )
 
         allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
-        if host.lower() not in _ALLOWED_UPSTREAM_HOSTS:
+        if parsed_host.lower() not in _ALLOWED_UPSTREAM_HOSTS:
             return "", (
-                f"Unknown upstream host {host!r} from --upstream-url. "
+                f"Unknown upstream host {parsed_host!r} from --upstream-url. "
                 f"Allowed hosts: {allowed}"
             )
         return upstream_url.rstrip("/"), None
 
-    host = headers.get("host")
     allowed = ", ".join(sorted(_ALLOWED_UPSTREAM_HOSTS))
     if not host:
         return "", (
-            "Missing Host header. Set it to your upstream provider, or start the "
-            f"proxy with --upstream-url. Allowed hosts: {allowed}"
+            f"Missing {upstream_host_header} header. Set it to your upstream "
+            f"provider, or start the proxy with --upstream-url. "
+            f"Allowed hosts: {allowed}"
         )
 
     hostname = host.lower().split(":")[0]
@@ -153,7 +158,8 @@ def _resolve_upstream_url(
         return f"https://{host}", None
 
     return "", (
-        f"Unknown upstream host {host!r} from Host header. Allowed hosts: {allowed}"
+        f"Unknown upstream host {host!r} from {upstream_host_header} header. "
+        f"Allowed hosts: {allowed}"
     )
 
 
