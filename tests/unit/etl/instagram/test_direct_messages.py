@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.direct_messages.pipe import (
@@ -23,6 +24,103 @@ class TestInstagramDirectMessagesPipe(PipeTestKit):
         "archive/your_instagram_activity/messages/inbox/"
         "bobsmith_1234567890/message_1.json"
     )
+    snapshot_cases = [
+        (
+            {
+                "participants": [
+                    {"name": "synthetic_friend"},
+                    {"name": "alice_synthetic"},
+                ],
+                "messages": [
+                    {
+                        "sender_name": "alice_synthetic",
+                        "timestamp_ms": 1725022880969,
+                        "content": (
+                            "Hey synthetic friend, are we still on for coffee tomorrow?"
+                        ),
+                        "is_geoblocked_for_viewer": False,
+                        "is_unsent_image_by_messenger_kid_parent": False,
+                    }
+                ],
+                "title": "synthetic_friend",
+                "is_still_participant": True,
+                "thread_path": "inbox/synthetic_friend_1234567890",
+                "magic_words": [],
+            },
+            {
+                "preview": (
+                    'Sent message "Hey synthetic friend, are we still on for '
+                    'coffee tomorrow?" to synthetic_friend on Instagram'
+                ),
+                "asat": datetime(2024, 8, 30, 13, 1, 20, 969000, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "SendMessage",
+                    "type": "Create",
+                    "published": "2024-08-30T13:01:20.969000Z",
+                    "target": {"name": "synthetic_friend", "type": "Profile"},
+                    "object": {
+                        "content": (
+                            "Hey synthetic friend, are we still on for coffee tomorrow?"
+                        ),
+                        "context": {
+                            "id": "https://www.instagram.com/direct/inbox/synthetic_friend_1234567890",
+                            "name": "synthetic_friend",
+                            "type": "Collection",
+                        },
+                        "fibreKind": "TextMessage",
+                        "type": "Note",
+                    },
+                },
+            },
+        ),
+        (
+            {
+                "participants": [
+                    {"name": "synthetic_friend"},
+                    {"name": "alice_synthetic"},
+                ],
+                "messages": [
+                    {
+                        "sender_name": "synthetic_friend",
+                        "timestamp_ms": 1724700000000,
+                        "share": {
+                            "link": "https://www.instagram.com/stories/synthetic_story_author/9876543210987654321"
+                        },
+                        "is_geoblocked_for_viewer": False,
+                        "is_unsent_image_by_messenger_kid_parent": False,
+                    }
+                ],
+                "title": "synthetic_friend",
+                "is_still_participant": True,
+                "thread_path": "inbox/synthetic_friend_1234567890",
+                "magic_words": [],
+            },
+            {
+                "preview": (
+                    'Received message "Replied to a story" from '
+                    "synthetic_friend on Instagram"
+                ),
+                "asat": datetime(2024, 8, 26, 19, 20, tzinfo=UTC),
+                "payload": {
+                    "actor": {"name": "synthetic_friend", "type": "Profile"},
+                    "fibreKind": "ReceiveMessage",
+                    "type": "Create",
+                    "published": "2024-08-26T19:20:00Z",
+                    "object": {
+                        "content": "Replied to a story",
+                        "context": {
+                            "id": "https://www.instagram.com/direct/inbox/synthetic_friend_1234567890",
+                            "name": "synthetic_friend",
+                            "type": "Collection",
+                        },
+                        "fibreKind": "TextMessage",
+                        "type": "Note",
+                        "url": "https://www.instagram.com/stories/synthetic_story_author/9876543210987654321",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_thread_path(self, tmp_path: Path):
         data = {

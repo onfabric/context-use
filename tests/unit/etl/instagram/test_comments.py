@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.comments.pipe import (
@@ -24,6 +25,45 @@ class TestInstagramCommentPostsPipe(PipeTestKit):
     expected_fibre_kind = "Comment"
     fixture_data = INSTAGRAM_POST_COMMENTS_JSON
     fixture_key = f"archive/{POST_COMMENTS_ARCHIVE_PATH}"
+    snapshot_cases = [
+        (
+            [
+                {
+                    "media_list_data": [{"uri": ""}],
+                    "string_map_data": {
+                        "Comment": {"value": "Yo this is good"},
+                        "Media Owner": {"value": "synthetic_food_creator"},
+                        "Time": {"timestamp": 1705268476},
+                    },
+                }
+            ],
+            {
+                "preview": (
+                    'Commented "Yo this is good"'
+                    " on synthetic_food_creator's post on instagram"
+                ),
+                "asat": datetime(2024, 1, 14, 21, 41, 16, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "Comment",
+                    "type": "Create",
+                    "published": "2024-01-14T21:41:16Z",
+                    "inReplyTo": {
+                        "attributedTo": {
+                            "name": "synthetic_food_creator",
+                            "type": "Profile",
+                        },
+                        "fibreKind": "Post",
+                        "type": "Note",
+                    },
+                    "object": {
+                        "content": "Yo this is good",
+                        "published": "2024-01-14T21:41:16Z",
+                        "type": "Note",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
@@ -104,6 +144,46 @@ class TestInstagramCommentReelsPipe(PipeTestKit):
     expected_fibre_kind = "Comment"
     fixture_data = INSTAGRAM_REELS_COMMENTS_JSON
     fixture_key = "archive/your_instagram_activity/comments/reels_comments.json"
+    snapshot_cases = [
+        (
+            {
+                "comments_reels_comments": [
+                    {
+                        "string_map_data": {
+                            "Comment": {"value": "Where is that?"},
+                            "Media Owner": {"value": "synthetic_travel_creator"},
+                            "Time": {"timestamp": 1571442547},
+                        }
+                    }
+                ]
+            },
+            {
+                "preview": (
+                    'Commented "Where is that?"'
+                    " on synthetic_travel_creator's post on instagram"
+                ),
+                "asat": datetime(2019, 10, 18, 23, 49, 7, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "Comment",
+                    "type": "Create",
+                    "published": "2019-10-18T23:49:07Z",
+                    "inReplyTo": {
+                        "attributedTo": {
+                            "name": "synthetic_travel_creator",
+                            "type": "Profile",
+                        },
+                        "fibreKind": "Post",
+                        "type": "Note",
+                    },
+                    "object": {
+                        "content": "Where is that?",
+                        "published": "2019-10-18T23:49:07Z",
+                        "type": "Note",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))

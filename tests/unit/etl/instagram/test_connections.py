@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.connections.pipe import (
@@ -21,6 +22,37 @@ class TestInstagramFollowersPipe(PipeTestKit):
     expected_fibre_kind = "FollowedBy"
     fixture_data = INSTAGRAM_FOLLOWERS_JSON
     fixture_key = "archive/connections/followers_and_following/followers_1.json"
+    snapshot_cases = [
+        (
+            [
+                {
+                    "title": "",
+                    "media_list_data": [],
+                    "string_list_data": [
+                        {
+                            "href": "https://www.instagram.com/synthetic_follower_snapshot",
+                            "value": "synthetic_follower_snapshot",
+                            "timestamp": 1749947057,
+                        }
+                    ],
+                }
+            ],
+            {
+                "preview": "Followed by synthetic_follower_snapshot on instagram",
+                "asat": datetime(2025, 6, 15, 0, 24, 17, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "FollowedBy",
+                    "type": "Follow",
+                    "published": "2025-06-15T00:24:17Z",
+                    "actor": {
+                        "name": "synthetic_follower_snapshot",
+                        "type": "Person",
+                        "url": "https://www.instagram.com/synthetic_follower_snapshot",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_non_array_produces_no_rows(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
@@ -64,6 +96,39 @@ class TestInstagramFollowingPipe(PipeTestKit):
     expected_fibre_kind = "Following"
     fixture_data = INSTAGRAM_FOLLOWING_JSON
     fixture_key = "archive/connections/followers_and_following/following.json"
+    snapshot_cases = [
+        (
+            {
+                "relationships_following": [
+                    {
+                        "title": "",
+                        "media_list_data": [],
+                        "string_list_data": [
+                            {
+                                "href": "https://www.instagram.com/synthetic_following_snapshot",
+                                "value": "synthetic_following_snapshot",
+                                "timestamp": 1749319371,
+                            }
+                        ],
+                    }
+                ]
+            },
+            {
+                "preview": "Following synthetic_following_snapshot on instagram",
+                "asat": datetime(2025, 6, 7, 18, 2, 51, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "Following",
+                    "type": "Follow",
+                    "published": "2025-06-07T18:02:51Z",
+                    "object": {
+                        "name": "synthetic_following_snapshot",
+                        "type": "Profile",
+                        "url": "https://www.instagram.com/synthetic_following_snapshot",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))

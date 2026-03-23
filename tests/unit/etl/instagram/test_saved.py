@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.saved.pipe import (
@@ -27,6 +28,46 @@ class TestInstagramSavedPostsPipe(
     fixture_data = INSTAGRAM_SAVED_POSTS_JSON
     fixture_key = f"archive/{SAVED_POSTS_ARCHIVE_PATH}"
     expected_fibre_kind = "AddToCollection"
+    snapshot_cases = [
+        (
+            {
+                "saved_saved_media": [
+                    {
+                        "title": "synthetic_style_house",
+                        "string_map_data": {
+                            "Saved on": {
+                                "href": "https://www.instagram.com/p/SYNTHETIC_SAVE_POST_1/",
+                                "timestamp": 1749479390,
+                            }
+                        },
+                    }
+                ]
+            },
+            {
+                "preview": "Saved post by synthetic_style_house on instagram",
+                "asat": datetime(2025, 6, 9, 14, 29, 50, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "AddToCollection",
+                    "type": "Add",
+                    "published": "2025-06-09T14:29:50Z",
+                    "object": {
+                        "attributedTo": {
+                            "name": "synthetic_style_house",
+                            "type": "Profile",
+                        },
+                        "fibreKind": "Post",
+                        "type": "Note",
+                        "url": "https://www.instagram.com/p/SYNTHETIC_SAVE_POST_1/",
+                    },
+                    "target": {
+                        "fibreKind": "CollectionFavourites",
+                        "name": "Favourites",
+                        "type": "Collection",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
@@ -93,6 +134,57 @@ class TestInstagramSavedCollectionsPipe(
     fixture_data = INSTAGRAM_SAVED_COLLECTIONS_JSON
     fixture_key = f"archive/{SAVED_COLLECTIONS_ARCHIVE_PATH}"
     expected_fibre_kind = "AddToCollection"
+    snapshot_cases = [
+        (
+            {
+                "saved_saved_collections": [
+                    {
+                        "title": "Collection",
+                        "string_map_data": {
+                            "Name": {"value": "Test"},
+                            "Creation Time": {"timestamp": 1749330070},
+                            "Update Time": {"timestamp": 1749330070},
+                        },
+                    },
+                    {
+                        "string_map_data": {
+                            "Name": {
+                                "href": "https://www.instagram.com/p/SYNTHETIC_COLLECTION_POST_1/",
+                                "value": "synthetic_collection_author",
+                            },
+                            "Added Time": {"timestamp": 1749330093},
+                        }
+                    },
+                ]
+            },
+            {
+                "preview": (
+                    'Saved to "Test" post by synthetic_collection_author on instagram'
+                ),
+                "asat": datetime(2025, 6, 7, 21, 1, 33, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "AddToCollection",
+                    "type": "Add",
+                    "published": "2025-06-07T21:01:33Z",
+                    "object": {
+                        "attributedTo": {
+                            "name": "synthetic_collection_author",
+                            "type": "Profile",
+                        },
+                        "fibreKind": "Post",
+                        "type": "Note",
+                        "url": "https://www.instagram.com/p/SYNTHETIC_COLLECTION_POST_1/",
+                    },
+                    "target": {
+                        "fibreKind": "Collection",
+                        "name": "Test",
+                        "published": "2025-06-07T21:01:10Z",
+                        "type": "Collection",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))

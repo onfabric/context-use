@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from context_use.providers.instagram.profile_searches.pipe import (
@@ -20,6 +21,39 @@ class TestInstagramProfileSearchesPipe(PipeTestKit):
     expected_fibre_kind = "Search"
     fixture_data = INSTAGRAM_PROFILE_SEARCHES_JSON
     fixture_key = f"archive/{ARCHIVE_PATH}"
+    snapshot_cases = [
+        (
+            {
+                "searches_user": [
+                    {
+                        "title": "synthetic_profile_query",
+                        "string_list_data": [
+                            {
+                                "href": "https://www.instagram.com/_u/synthetic_profile_query",
+                                "timestamp": 1750714235,
+                            }
+                        ],
+                    }
+                ]
+            },
+            {
+                "preview": (
+                    'Searched for profile "synthetic_profile_query" on instagram'
+                ),
+                "asat": datetime(2025, 6, 23, 21, 30, 35, tzinfo=UTC),
+                "payload": {
+                    "fibreKind": "Search",
+                    "type": "View",
+                    "published": "2025-06-23T21:30:35Z",
+                    "object": {
+                        "name": "synthetic_profile_query",
+                        "type": "Profile",
+                        "url": "https://www.instagram.com/_u/synthetic_profile_query",
+                    },
+                },
+            },
+        ),
+    ]
 
     def test_file_schema_gates_missing_key(self, tmp_path: Path):
         storage = DiskStorage(str(tmp_path / "store"))
