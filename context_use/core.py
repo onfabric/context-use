@@ -380,7 +380,7 @@ class ContextUse:
         self,
         rows: list,
         task_id: str | None = None,
-    ) -> int:
+    ) -> list[str]:
         """Insert thread rows into the store, deduplicating on ``unique_key``."""
         return await self._store.insert_threads(rows, task_id)
 
@@ -406,8 +406,8 @@ class ContextUse:
                 f"({pipe.extract_error_count} error(s))"
             )
 
-        count = await self._store.insert_threads(rows, etl_task.id)
-        return count
+        inserted_ids = await self._store.insert_threads(rows, etl_task.id)
+        return len(inserted_ids)
 
     def _unzip(self, zip_path: str, prefix: str) -> None:
         """Extract a zip archive into storage under *prefix*."""

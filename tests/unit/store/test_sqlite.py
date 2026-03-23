@@ -114,12 +114,14 @@ def _make_row(unique_key: str, **kwargs) -> ThreadRow:
 
 async def test_insert_threads_deduplicates(store: SqliteStore, task_id: str) -> None:
     rows = [_make_row("k1"), _make_row("k2"), _make_row("k1")]
-    count = await store.insert_threads(rows, task_id=task_id)
-    assert count == 2
+    ids = await store.insert_threads(rows, task_id=task_id)
+    assert len(ids) == 2
+    assert len(set(ids)) == 2
 
     rows2 = [_make_row("k1"), _make_row("k3")]
-    count2 = await store.insert_threads(rows2, task_id=task_id)
-    assert count2 == 1
+    ids2 = await store.insert_threads(rows2, task_id=task_id)
+    assert len(ids2) == 1
+    assert ids2[0] not in ids
 
 
 async def test_get_unprocessed_threads_ordered_by_asat(
