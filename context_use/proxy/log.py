@@ -62,8 +62,10 @@ def log_response(status: int, *, chunks: int | None = None) -> None:
     _console.print("  ".join(parts), highlight=False)
 
 
-def log_processing_start() -> None:
-    _console.print("  [dim]⚙ Processing…[/dim]", highlight=False)
+def log_processing_start(thread_ids: list[str]) -> None:
+    _console.print(
+        f"  [dim]⚙ Processing {len(thread_ids)} threads[/dim]", highlight=False
+    )
 
 
 def log_generation_done(new_count: int, total: int, summary: str) -> None:

@@ -147,6 +147,11 @@ class Store(ABC):
         ...
 
     @abstractmethod
+    async def list_threads_by_ids(self, ids: list[str]) -> list[Thread]:
+        """Return threads whose ``id`` is in *ids*."""
+        ...
+
+    @abstractmethod
     async def list_threads(
         self,
         *,

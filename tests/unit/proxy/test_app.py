@@ -506,7 +506,7 @@ class TestSessionIdHeader:
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
-        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        handler._store_and_schedule = AsyncMock()  # type: ignore[method-assign]
         app = create_proxy_app(handler)
         transport = _transport(app)
 
@@ -519,8 +519,8 @@ class TestSessionIdHeader:
                 headers={HEADERS.session_id: "sess-abc", **_UPSTREAM},
             )
 
-        handler._schedule.assert_called_once()
-        assert handler._schedule.call_args.kwargs["session_id"] == "sess-abc"
+        handler._store_and_schedule.assert_called_once()
+        assert handler._store_and_schedule.call_args.kwargs["session_id"] == "sess-abc"
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_configured_session_id_used_when_header_absent(
@@ -528,7 +528,7 @@ class TestSessionIdHeader:
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
-        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        handler._store_and_schedule = AsyncMock()  # type: ignore[method-assign]
         app = create_proxy_app(handler, session_id="sess-fixed")
         transport = _transport(app)
 
@@ -541,8 +541,10 @@ class TestSessionIdHeader:
                 headers=_UPSTREAM,
             )
 
-        handler._schedule.assert_called_once()
-        assert handler._schedule.call_args.kwargs["session_id"] == "sess-fixed"
+        handler._store_and_schedule.assert_called_once()
+        assert (
+            handler._store_and_schedule.call_args.kwargs["session_id"] == "sess-fixed"
+        )
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_header_session_id_overrides_default_session_id(
@@ -550,7 +552,7 @@ class TestSessionIdHeader:
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
-        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        handler._store_and_schedule = AsyncMock()  # type: ignore[method-assign]
         app = create_proxy_app(handler, session_id="sess-fixed")
         transport = _transport(app)
 
@@ -563,8 +565,10 @@ class TestSessionIdHeader:
                 headers={HEADERS.session_id: "sess-header", **_UPSTREAM},
             )
 
-        handler._schedule.assert_called_once()
-        assert handler._schedule.call_args.kwargs["session_id"] == "sess-header"
+        handler._store_and_schedule.assert_called_once()
+        assert (
+            handler._store_and_schedule.call_args.kwargs["session_id"] == "sess-header"
+        )
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_session_id_header_not_forwarded_to_upstream(
@@ -700,7 +704,7 @@ class TestCustomHeaderPrefix:
     async def test_custom_prefix_session_id(self, MockClient: MagicMock) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
-        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        handler._store_and_schedule = AsyncMock()  # type: ignore[method-assign]
         custom = ProxyHeaders.from_prefix("myproxy")
         app = create_proxy_app(handler, header_prefix="myproxy")
         transport = _transport(app)
@@ -717,8 +721,10 @@ class TestCustomHeaderPrefix:
                 },
             )
 
-        handler._schedule.assert_called_once()
-        assert handler._schedule.call_args.kwargs["session_id"] == "sess-custom"
+        handler._store_and_schedule.assert_called_once()
+        assert (
+            handler._store_and_schedule.call_args.kwargs["session_id"] == "sess-custom"
+        )
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_default_session_id_header_ignored_with_custom_prefix(
@@ -726,7 +732,7 @@ class TestCustomHeaderPrefix:
     ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
         handler = ContextProxy(_mock_ctx())
-        handler._schedule = MagicMock()  # type: ignore[method-assign]
+        handler._store_and_schedule = AsyncMock()  # type: ignore[method-assign]
         custom = ProxyHeaders.from_prefix("myproxy")
         app = create_proxy_app(
             handler, session_id="sess-default", header_prefix="myproxy"
@@ -745,8 +751,10 @@ class TestCustomHeaderPrefix:
                 },
             )
 
-        handler._schedule.assert_called_once()
-        assert handler._schedule.call_args.kwargs["session_id"] == "sess-default"
+        handler._store_and_schedule.assert_called_once()
+        assert (
+            handler._store_and_schedule.call_args.kwargs["session_id"] == "sess-default"
+        )
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_custom_prefix_upstream_host(self, MockClient: MagicMock) -> None:

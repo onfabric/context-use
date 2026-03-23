@@ -11,7 +11,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from urllib.parse import urlsplit
 
 import uvicorn
@@ -40,15 +40,12 @@ _MAX_CONCURRENT_POST_RESPONSE_PROCESSING = 1
 
 async def _post_response_process(
     ctx: ContextUse,
-    messages: list[dict[str, Any]],
-    session_id: str | None = None,
+    thread_ids: list[str],
 ) -> None:
     try:
-        log_processing_start()
+        log_processing_start(thread_ids)
         count_before = await ctx.count_memories()
-        result = await ctx.generate_memories_from_messages(
-            messages, session_id=session_id
-        )
+        result = await ctx.generate_memories_from_threads(thread_ids)
         if result is None:
             return
         count_after = await ctx.count_memories()
@@ -61,12 +58,10 @@ def make_asyncio_post_response_callback() -> PostResponseCallback:
     semaphore = asyncio.Semaphore(_MAX_CONCURRENT_POST_RESPONSE_PROCESSING)
     tasks: set[asyncio.Task[None]] = set()
 
-    def callback(
-        ctx: ContextUse, messages: list[dict[str, Any]], session_id: str | None
-    ) -> None:
+    def callback(ctx: ContextUse, thread_ids: list[str]) -> None:
         async def _guarded() -> None:
             async with semaphore:
-                await _post_response_process(ctx, messages, session_id)
+                await _post_response_process(ctx, thread_ids)
 
         task = asyncio.create_task(_guarded())
         tasks.add(task)

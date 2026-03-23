@@ -10,6 +10,7 @@ from httpx import AsyncClient, Timeout
 
 from context_use.proxy.enrichment import enrich_body
 from context_use.proxy.log import log_request, log_response
+from context_use.proxy.threads import messages_to_thread_rows
 
 if TYPE_CHECKING:
     from context_use.core import ContextUse
@@ -43,24 +44,20 @@ class ContextProxyStreamResult:
     chunks: AsyncGenerator[bytes, None]
 
 
-type PostResponseCallback = Callable[
-    [ContextUse, list[dict[str, Any]], str | None], None
-]
-"""Called after a proxied response completes with the ``ContextUse`` instance,
-the full conversation (including the assistant reply), and the session ID.
+type PostResponseCallback = Callable[[ContextUse, list[str]], None]
+"""Called after a proxied response completes with the ``ContextUse`` instance
+and the IDs of the newly inserted threads.
 
-Messages and session ID are JSON-serializable, so the callback can dispatch
-to an async task runner, a Celery queue, or any other backend.
+Threads are inserted by the proxy before the callback is fired, so the
+callback can safely dispatch the IDs to a task queue or any other backend
+without carrying the full message payloads.
 
 Example::
 
-    def my_callback(
-        ctx: ContextUse, messages: list[dict[str, Any]], session_id: str | None
-    ) -> None:
+    def my_callback(ctx: ContextUse, thread_ids: list[str]) -> None:
         import asyncio
-        print(f"[{session_id}] {len(messages)} messages")
         asyncio.create_task(
-            ctx.generate_memories_from_messages(messages, session_id=session_id),
+            ctx.generate_memories_from_threads(thread_ids),
         )
 
     proxy = ContextProxy(ctx, post_response_callback=my_callback)
@@ -225,7 +222,9 @@ class ContextProxy:
             logger.error("Failed to extract assistant text: %s", exc, exc_info=True)
             assistant_text = ""
         if assistant_text:
-            self._schedule(
+            # TODO: consider fire-and-forget (e.g. asyncio.create_task) to avoid
+            # blocking the response on the DB write.
+            await self._store_and_schedule(
                 scheduling_messages,
                 assistant_text,
                 session_id=session_id,
@@ -266,25 +265,34 @@ class ContextProxy:
 
         assistant_text = "".join(assistant_parts)
         if assistant_text:
-            self._schedule(messages, assistant_text, session_id=session_id)
+            await self._store_and_schedule(
+                messages, assistant_text, session_id=session_id
+            )
         else:
             logger.warning(
                 "Skipping scheduling: no assistant text found in response: %s",
                 assistant_parts,
             )
 
-    def _schedule(
+    async def _store_and_schedule(
         self,
         messages: list[dict[str, Any]],
         assistant_text: str,
         *,
         session_id: str | None,
     ) -> None:
+        full_messages = [*messages, {"role": "assistant", "content": assistant_text}]
+        rows = messages_to_thread_rows(full_messages, session_id=session_id)
+        if not rows:
+            return
+        thread_ids = await self._ctx.insert_threads(rows)
         if self._post_response_callback is None:
             logger.warning("Skipping scheduling: no post response callback")
             return
-        full_messages = [*messages, {"role": "assistant", "content": assistant_text}]
-        self._post_response_callback(self._ctx, full_messages, session_id)
+        if not thread_ids:
+            logger.warning("Skipping scheduling: all threads were duplicates")
+            return
+        self._post_response_callback(self._ctx, thread_ids)
 
 
 async def _passthrough_request(

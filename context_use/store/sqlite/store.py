@@ -330,6 +330,16 @@ class SqliteStore(Store):
         rows = await db.execute_fetchall(sql, params)
         return [ThreadRow.from_row(r) for r in rows]
 
+    async def list_threads_by_ids(self, ids: list[str]) -> list[Thread]:
+        if not ids:
+            return []
+        db = await self._conn()
+        ph = ",".join("?" for _ in ids)
+        rows = await db.execute_fetchall(
+            f"SELECT * FROM threads WHERE id IN ({ph})", ids
+        )
+        return [ThreadRow.from_row(r) for r in rows]
+
     async def list_threads(
         self,
         *,
