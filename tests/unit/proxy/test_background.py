@@ -8,7 +8,9 @@ from context_use.proxy.handler import ContextProxy
 
 def _mock_ctx(thread_ids: list[str] | None = None) -> AsyncMock:
     ctx = AsyncMock()
-    ctx.insert_threads = AsyncMock(return_value=thread_ids if thread_ids is not None else ["tid-1"])
+    ctx.insert_threads = AsyncMock(
+        return_value=thread_ids if thread_ids is not None else ["tid-1"]
+    )
     ctx.count_memories = AsyncMock(return_value=5)
     return ctx
 
@@ -16,9 +18,7 @@ def _mock_ctx(thread_ids: list[str] | None = None) -> AsyncMock:
 def _make_test_callback() -> tuple[MagicMock, MagicMock]:
     process_called = MagicMock()
 
-    def callback(
-        ctx: object, thread_ids: list[str], session_id: str | None
-    ) -> None:
+    def callback(ctx: object, thread_ids: list[str]) -> None:
         async def _run() -> None:
             await ctx.generate_memories_from_threads(thread_ids)  # type: ignore[union-attr]
             process_called()
@@ -68,7 +68,7 @@ class TestScheduleEndToEnd:
             session_id="sess-1",
         )
 
-        custom.assert_called_once_with(ctx, ["tid-42"], "sess-1")
+        custom.assert_called_once_with(ctx, ["tid-42"])
 
     async def test_all_duplicates_skips_callback(self) -> None:
         ctx = _mock_ctx(thread_ids=[])

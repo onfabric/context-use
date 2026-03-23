@@ -58,9 +58,7 @@ def make_asyncio_post_response_callback() -> PostResponseCallback:
     semaphore = asyncio.Semaphore(_MAX_CONCURRENT_POST_RESPONSE_PROCESSING)
     tasks: set[asyncio.Task[None]] = set()
 
-    def callback(
-        ctx: ContextUse, thread_ids: list[str], session_id: str | None
-    ) -> None:
+    def callback(ctx: ContextUse, thread_ids: list[str]) -> None:
         async def _guarded() -> None:
             async with semaphore:
                 await _post_response_process(ctx, thread_ids)

@@ -44,9 +44,9 @@ class ContextProxyStreamResult:
     chunks: AsyncGenerator[bytes, None]
 
 
-type PostResponseCallback = Callable[[ContextUse, list[str], str | None], None]
-"""Called after a proxied response completes with the ``ContextUse`` instance,
-the IDs of the newly inserted threads, and the session ID.
+type PostResponseCallback = Callable[[ContextUse, list[str]], None]
+"""Called after a proxied response completes with the ``ContextUse`` instance
+and the IDs of the newly inserted threads.
 
 Threads are inserted by the proxy before the callback is fired, so the
 callback can safely dispatch the IDs to a task queue or any other backend
@@ -54,9 +54,7 @@ without carrying the full message payloads.
 
 Example::
 
-    def my_callback(
-        ctx: ContextUse, thread_ids: list[str], session_id: str | None
-    ) -> None:
+    def my_callback(ctx: ContextUse, thread_ids: list[str]) -> None:
         import asyncio
         asyncio.create_task(
             ctx.generate_memories_from_threads(thread_ids),
@@ -294,7 +292,7 @@ class ContextProxy:
         if not thread_ids:
             logger.warning("Skipping scheduling: all threads were duplicates")
             return
-        self._post_response_callback(self._ctx, thread_ids, session_id)
+        self._post_response_callback(self._ctx, thread_ids)
 
 
 async def _passthrough_request(
