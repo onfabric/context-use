@@ -18,7 +18,7 @@ from context_use.proxy.handler import (
     _extract_response_output_text,
     _input_to_messages,
     _response_sse_deltas,
-    _should_enrich,
+    _should_enrich_request,
     _strip_request_encoding_headers,
     _strip_response_encoding_headers,
 )
@@ -125,21 +125,21 @@ def _mock_raw_response(
     return resp
 
 
-class TestShouldEnrich:
+class TestShouldEnrichRequest:
     def test_none_returns_true(self) -> None:
-        assert _should_enrich(None) is True
+        assert _should_enrich_request(None) is True
 
     def test_high_value_returns_true(self) -> None:
-        assert _should_enrich(200) is True
+        assert _should_enrich_request(200) is True
 
     def test_threshold_returns_true(self) -> None:
-        assert _should_enrich(50) is True
+        assert _should_enrich_request(50) is True
 
     def test_low_value_returns_false(self) -> None:
-        assert _should_enrich(1) is False
+        assert _should_enrich_request(1) is False
 
     def test_below_threshold_returns_false(self) -> None:
-        assert _should_enrich(49) is False
+        assert _should_enrich_request(49) is False
 
 
 class TestStripRequestEncodingHeaders:
@@ -590,6 +590,80 @@ class TestHandle:
         assert handler._schedule.call_args.kwargs["session_id"] == "sess-xyz"
 
 
+class TestEnrichEnabledFlag:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_false_skips_enrichment(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx)
+
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+            enrich_enabled=False,
+        )
+
+        ctx.search_memories.assert_not_awaited()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_false_still_schedules(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        handler = ContextProxy(_mock_ctx())
+        handler._schedule = MagicMock()  # type: ignore[method-assign]
+
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+            enrich_enabled=False,
+        )
+
+        handler._schedule.assert_called_once()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_true_still_enriches(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx)
+
+        await handler._chat_completion(
+            _completion_body(),
+            headers=_default_headers(),
+            upstream_url="https://api.openai.com",
+            enrich_enabled=True,
+        )
+
+        ctx.search_memories.assert_awaited_once()
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert any(
+            "Likes pizza" in str(m.get("content", "")) for m in sent_body["messages"]
+        )
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_false_via_handle(self, MockClient: MagicMock) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx)
+
+        await handler.handle(
+            "POST",
+            "/v1/chat/completions",
+            _default_headers(),
+            _completion_bytes(),
+            upstream_url="https://api.openai.com",
+            enrich_enabled=False,
+        )
+
+        ctx.search_memories.assert_not_awaited()
+
+
 class TestBackgroundScheduling:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_non_streaming_schedules_processing(
@@ -653,9 +727,12 @@ class TestBackgroundScheduling:
         assert handler._schedule.call_args.kwargs["session_id"] == "sess-abc"
 
     @patch("context_use.proxy.handler.AsyncClient")
-    async def test_skips_processing_for_probe(self, MockClient: MagicMock) -> None:
+    async def test_skips_enrichment_but_still_schedules_for_probe(
+        self, MockClient: MagicMock
+    ) -> None:
         _setup_non_streaming_client(MockClient, _mock_http_response())
-        handler = ContextProxy(_mock_ctx())
+        ctx = _mock_ctx()
+        handler = ContextProxy(ctx)
         handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._chat_completion(
@@ -664,7 +741,8 @@ class TestBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        handler._schedule.assert_not_called()
+        ctx.search_memories.assert_not_awaited()
+        handler._schedule.assert_called_once()
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_scheduling_when_assistant_text_empty(
@@ -1261,9 +1339,12 @@ class TestResponseBackgroundScheduling:
         assert handler._schedule.call_args.kwargs["session_id"] == "sess-abc"
 
     @patch("context_use.proxy.handler.AsyncClient")
-    async def test_skips_processing_for_probe(self, MockClient: MagicMock) -> None:
+    async def test_skips_enrichment_but_still_schedules_for_probe(
+        self, MockClient: MagicMock
+    ) -> None:
         _setup_non_streaming_client(MockClient, _mock_response_api_http_response())
-        handler = ContextProxy(_mock_ctx())
+        ctx = _mock_ctx()
+        handler = ContextProxy(ctx)
         handler._schedule = MagicMock()  # type: ignore[method-assign]
 
         await handler._response(
@@ -1272,7 +1353,8 @@ class TestResponseBackgroundScheduling:
             upstream_url="https://api.openai.com",
         )
 
-        handler._schedule.assert_not_called()
+        ctx.search_memories.assert_not_awaited()
+        handler._schedule.assert_called_once()
 
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_skips_scheduling_when_output_text_empty(

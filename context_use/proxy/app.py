@@ -33,6 +33,8 @@ _HOP_BY_HOP = frozenset(
 
 _ALLOWED_UPSTREAM_HOSTS = frozenset(["api.openai.com"])
 
+_DEFAULT_ENRICH_ENABLED = True
+
 Message = dict[str, Any]
 Scope = dict[str, Any]
 Receive = Callable[[], Awaitable[Message]]
@@ -79,6 +81,10 @@ def create_proxy_app(
             return
 
         resolved_session_id = headers_dict.get(ctxuse_headers.session_id) or session_id
+        enrich_enabled = _parse_bool_header(
+            headers_dict.get(ctxuse_headers.enrich_enabled),
+            default=_DEFAULT_ENRICH_ENABLED,
+        )
 
         forward_headers = [
             (k, v)
@@ -87,6 +93,7 @@ def create_proxy_app(
             and k.lower() != CONTENT_LENGTH_HEADER.encode()
             and k.lower() != ctxuse_headers.session_id.encode()
             and k.lower() != ctxuse_headers.upstream_host.encode()
+            and k.lower() != ctxuse_headers.enrich_enabled.encode()
         ]
 
         try:
@@ -97,6 +104,7 @@ def create_proxy_app(
                 raw,
                 upstream_url=resolved_upstream_url,
                 session_id=resolved_session_id,
+                enrich_enabled=enrich_enabled,
             )
         except ValueError as exc:
             await _send_json(send, 400, _error_body(str(exc), "invalid_request_error"))
@@ -232,3 +240,9 @@ def _filter_response_headers(
 
 def _error_body(message: str, error_type: str) -> dict[str, Any]:
     return {"error": {"message": message, "type": error_type}}
+
+
+def _parse_bool_header(value: str | None, *, default: bool) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() not in {"false", "0", "no"}
