@@ -264,7 +264,7 @@ class ContextUse:
         self,
         thread_ids: list[str],
     ) -> AgentResult | None:
-        threads = await self._store.get_threads_by_ids(thread_ids)
+        threads = await self._store.list_threads_by_ids(thread_ids)
         if not threads:
             return None
 

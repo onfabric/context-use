@@ -131,11 +131,6 @@ class Store(ABC):
         ...
 
     @abstractmethod
-    async def get_threads_by_ids(self, ids: list[str]) -> list[Thread]:
-        """Return threads whose ``id`` is in *ids*."""
-        ...
-
-    @abstractmethod
     async def get_unprocessed_threads(
         self,
         *,
@@ -149,6 +144,11 @@ class Store(ABC):
         ``interaction_type`` is in that list are returned.
         Results are ordered by ``asat``, then ``id``.
         """
+        ...
+
+    @abstractmethod
+    async def list_threads_by_ids(self, ids: list[str]) -> list[Thread]:
+        """Return threads whose ``id`` is in *ids*."""
         ...
 
     @abstractmethod
