@@ -1,3 +1,11 @@
+## [0.15.0] - 2026-03-23
+
+### 🚀 Features
+
+- [**breaking**] Store threads before callback (#269)
+- [**breaking**] Return inserted thread ids from `insert_threads` (#268)
+- *(proxy)* Allow clients to control enrichment (#267)
+
 ## [0.14.0] - 2026-03-22
 
 ### 🚀 Features
