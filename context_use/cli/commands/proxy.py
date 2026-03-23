@@ -43,7 +43,7 @@ async def _post_response_process(
     thread_ids: list[str],
 ) -> None:
     try:
-        log_processing_start()
+        log_processing_start(thread_ids)
         count_before = await ctx.count_memories()
         result = await ctx.generate_memories_from_threads(thread_ids)
         if result is None:
