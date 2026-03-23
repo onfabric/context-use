@@ -27,13 +27,11 @@ from context_use.providers.registry import (
     get_memory_config,
     get_memory_interaction_types,
 )
-from context_use.proxy.threads import messages_to_thread_rows
 from context_use.store.base import MemorySearchResult
 from context_use.types import PipelineResult, TaskBreakdown
 
 if TYPE_CHECKING:
     from datetime import date, datetime
-    from typing import Any
 
     from context_use.llm.litellm.clients import LiteLLMBase
     from context_use.storage.base import StorageBackend
@@ -262,32 +260,13 @@ class ContextUse:
     async def run_agent(self, message: str) -> AgentResult:
         return await self._agent.run(message)
 
-    async def generate_memories_from_messages(
+    async def generate_memories_from_threads(
         self,
-        messages: list[dict[str, Any]],
-        *,
-        session_id: str | None = None,
+        thread_ids: list[str],
     ) -> AgentResult | None:
-
-        rows = messages_to_thread_rows(messages, session_id=session_id)
-        if not rows:
+        threads = await self._store.get_threads_by_ids(thread_ids)
+        if not threads:
             return None
-
-        await self.insert_threads(rows)
-
-        threads = [
-            Thread(
-                unique_key=r.unique_key,
-                provider=r.provider,
-                interaction_type=r.interaction_type,
-                preview=r.preview,
-                payload=r.payload,
-                version=r.version,
-                asat=r.asat,
-                collection_id=r.collection_id,
-            )
-            for r in rows
-        ]
 
         thread_group = ThreadGroup(threads=threads)
         group_context = await self._group_context_builder.build(thread_group)
