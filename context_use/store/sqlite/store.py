@@ -264,12 +264,12 @@ class SqliteStore(Store):
         self,
         rows: list[EtlThreadRow],
         task_id: str | None = None,
-    ) -> int:
+    ) -> list[str]:
         if not rows:
-            return 0
+            return []
         db = await self._conn()
         now = now_utc_iso()
-        total = 0
+        inserted_ids: list[str] = []
 
         batch: list[tuple] = []
         for row in rows:
@@ -292,19 +292,13 @@ class SqliteStore(Store):
                 )
             )
             if len(batch) >= BULK_INSERT_BATCH_SIZE:
-                total += await self._flush_thread_batch(
-                    db,
-                    batch,
-                )
+                inserted_ids.extend(await self._flush_thread_batch(db, batch))
                 batch = []
         if batch:
-            total += await self._flush_thread_batch(
-                db,
-                batch,
-            )
+            inserted_ids.extend(await self._flush_thread_batch(db, batch))
 
         await self._commit_unless_atomic()
-        return total
+        return inserted_ids
 
     async def get_unprocessed_threads(
         self,
@@ -737,12 +731,17 @@ class SqliteStore(Store):
         cls,
         db: aiosqlite.Connection,
         batch: list[tuple],
-    ) -> int:
-        rows = list(await db.execute_fetchall("SELECT COUNT(*) FROM threads"))
-        before = rows[0][0]
+    ) -> list[str]:
+        candidate_ids: list[str] = [row[0] for row in batch]
         await db.executemany(cls._THREAD_INSERT, batch)
-        rows = list(await db.execute_fetchall("SELECT COUNT(*) FROM threads"))
-        return rows[0][0] - before
+        ph = ",".join("?" for _ in candidate_ids)
+        rows = list(
+            await db.execute_fetchall(
+                f"SELECT id FROM threads WHERE id IN ({ph})",
+                candidate_ids,
+            )
+        )
+        return [row[0] for row in rows]
 
 
 async def _upsert_embedding(
