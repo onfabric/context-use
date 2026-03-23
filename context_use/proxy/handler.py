@@ -90,6 +90,7 @@ class ContextProxy:
         *,
         upstream_url: str,
         session_id: str | None = None,
+        enrich_enabled: bool = True,
     ) -> ContextProxyResult | ContextProxyStreamResult:
         routes = {
             ("POST", "/v1/chat/completions"): self._chat_completion,
@@ -105,7 +106,11 @@ class ContextProxy:
         except Exception:
             raise ValueError("Invalid JSON body") from None
         return await handler(
-            parsed, headers=headers, upstream_url=upstream_url, session_id=session_id
+            parsed,
+            headers=headers,
+            upstream_url=upstream_url,
+            session_id=session_id,
+            enrich_enabled=enrich_enabled,
         )
 
     async def _chat_completion(
@@ -115,6 +120,7 @@ class ContextProxy:
         headers: list[tuple[bytes, bytes]],
         upstream_url: str,
         session_id: str | None = None,
+        enrich_enabled: bool = True,
     ) -> ContextProxyResult | ContextProxyStreamResult:
         if "model" not in body or "messages" not in body:
             raise ValueError("'model' and 'messages' are required")
@@ -123,6 +129,7 @@ class ContextProxy:
             headers=headers,
             upstream_url=upstream_url,
             session_id=session_id,
+            enrich_enabled=enrich_enabled,
             path="/v1/chat/completions",
             max_tokens_key="max_tokens",
             extract_text=_extract_assistant_text,
@@ -136,6 +143,7 @@ class ContextProxy:
         headers: list[tuple[bytes, bytes]],
         upstream_url: str,
         session_id: str | None = None,
+        enrich_enabled: bool = True,
     ) -> ContextProxyResult | ContextProxyStreamResult:
         if "model" not in body:
             raise ValueError("'model' is required")
@@ -144,6 +152,7 @@ class ContextProxy:
             headers=headers,
             upstream_url=upstream_url,
             session_id=session_id,
+            enrich_enabled=enrich_enabled,
             path="/v1/responses",
             max_tokens_key="max_output_tokens",
             extract_text=_extract_response_output_text,
@@ -157,6 +166,7 @@ class ContextProxy:
         headers: list[tuple[bytes, bytes]],
         upstream_url: str,
         session_id: str | None,
+        enrich_enabled: bool,
         path: str,
         max_tokens_key: str,
         extract_text: Callable[[dict[str, Any]], str],
@@ -164,7 +174,7 @@ class ContextProxy:
     ) -> ContextProxyResult | ContextProxyStreamResult:
         stream: bool = body.get("stream", False)
         max_tokens = body.get(max_tokens_key)
-        should_process = _should_enrich(max_tokens)
+        should_enrich_request = enrich_enabled and _should_enrich_request(max_tokens)
         scheduling_messages = _body_to_messages(body)
 
         log_request(
@@ -175,7 +185,7 @@ class ContextProxy:
             stream=stream,
         )
 
-        if should_process:
+        if should_enrich_request:
             body = await enrich_body(body, self._ctx)
         else:
             logger.debug("Skipping enrichment (%s=%s)", max_tokens_key, max_tokens)
@@ -200,7 +210,6 @@ class ContextProxy:
                     sse_extract=sse_extract,
                     messages=scheduling_messages,
                     session_id=session_id,
-                    should_process=should_process,
                 ),
             )
 
@@ -210,23 +219,22 @@ class ContextProxy:
 
         log_response(resp.status_code)
 
-        if should_process:
-            try:
-                assistant_text = extract_text(resp.json())
-            except Exception as exc:
-                logger.error("Failed to extract assistant text: %s", exc, exc_info=True)
-                assistant_text = ""
-            if assistant_text:
-                self._schedule(
-                    scheduling_messages,
-                    assistant_text,
-                    session_id=session_id,
-                )
-            else:
-                logger.warning(
-                    "Skipping scheduling: no assistant text found in response: %s",
-                    resp.json(),
-                )
+        try:
+            assistant_text = extract_text(resp.json())
+        except Exception as exc:
+            logger.error("Failed to extract assistant text: %s", exc, exc_info=True)
+            assistant_text = ""
+        if assistant_text:
+            self._schedule(
+                scheduling_messages,
+                assistant_text,
+                session_id=session_id,
+            )
+        else:
+            logger.warning(
+                "Skipping scheduling: no assistant text found in response: %s",
+                resp.json(),
+            )
 
         return ContextProxyResult(
             status=resp.status_code,
@@ -244,29 +252,26 @@ class ContextProxy:
         sse_extract: Callable[[dict[str, Any]], list[str]],
         messages: list[dict[str, Any]],
         session_id: str | None,
-        should_process: bool,
     ) -> AsyncGenerator[bytes, None]:
         assistant_parts: list[str] = []
         chunk_count = 0
         try:
             async for chunk in chunks:
-                if should_process:
-                    _accumulate_sse_text(chunk, assistant_parts, sse_extract)
+                _accumulate_sse_text(chunk, assistant_parts, sse_extract)
                 chunk_count += 1
                 yield chunk
         except Exception:
             logger.error("Streaming error", exc_info=True)
         log_response(status, chunks=chunk_count)
 
-        if should_process:
-            assistant_text = "".join(assistant_parts)
-            if assistant_text:
-                self._schedule(messages, assistant_text, session_id=session_id)
-            else:
-                logger.warning(
-                    "Skipping scheduling: no assistant text found in response: %s",
-                    assistant_parts,
-                )
+        assistant_text = "".join(assistant_parts)
+        if assistant_text:
+            self._schedule(messages, assistant_text, session_id=session_id)
+        else:
+            logger.warning(
+                "Skipping scheduling: no assistant text found in response: %s",
+                assistant_parts,
+            )
 
     def _schedule(
         self,
@@ -333,7 +338,7 @@ async def _start_upstream_stream(
     )
 
 
-def _should_enrich(max_tokens: int | None) -> bool:
+def _should_enrich_request(max_tokens: int | None) -> bool:
     if max_tokens is None:
         return True
     return max_tokens >= _MIN_MAX_TOKENS_FOR_ENRICHMENT

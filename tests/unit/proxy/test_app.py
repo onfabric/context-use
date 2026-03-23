@@ -629,6 +629,72 @@ class TestPassThrough:
         assert resp.status_code == 500
 
 
+class TestEnrichEnabledHeader:
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_header_not_forwarded(
+        self, MockClient: MagicMock
+    ) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        app = create_proxy_app(_make_handler())
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.enrich_enabled: "true", **_UPSTREAM},
+            )
+
+        forwarded_keys = [k for k, _ in mock_client.post.call_args.kwargs["headers"]]
+        assert HEADERS.enrich_enabled.encode() not in forwarded_keys
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_false_skips_enrichment(
+        self, MockClient: MagicMock
+    ) -> None:
+        _setup_non_streaming_client(MockClient, _mock_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx)
+        app = create_proxy_app(handler)
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers={HEADERS.enrich_enabled: "false", **_UPSTREAM},
+            )
+
+        ctx.search_memories.assert_not_awaited()
+
+    @patch("context_use.proxy.handler.AsyncClient")
+    async def test_enrich_enabled_defaults_to_true(self, MockClient: MagicMock) -> None:
+        mock_client = _setup_non_streaming_client(MockClient, _mock_http_response())
+        ctx = _mock_ctx(memories=[_make_result()])
+        handler = ContextProxy(ctx)
+        app = create_proxy_app(handler)
+        transport = _transport(app)
+
+        async with httpx.AsyncClient(
+            transport=transport, base_url="http://testserver"
+        ) as client:
+            await client.post(
+                "/v1/chat/completions",
+                json=_completion_body(),
+                headers=_UPSTREAM,
+            )
+
+        ctx.search_memories.assert_awaited_once()
+        sent_body = json.loads(mock_client.post.call_args.kwargs["content"])
+        assert any(
+            "Likes pizza" in str(m.get("content", "")) for m in sent_body["messages"]
+        )
+
+
 class TestCustomHeaderPrefix:
     @patch("context_use.proxy.handler.AsyncClient")
     async def test_custom_prefix_session_id(self, MockClient: MagicMock) -> None:
