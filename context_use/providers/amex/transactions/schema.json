@@ -1,0 +1,40 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "Cardmember": {
+      "type": "string"
+    },
+    "Transaction Date": {
+      "type": "string"
+    },
+    "Process Date": {
+      "type": "string"
+    },
+    "Description": {
+      "type": "string"
+    },
+    "Foreign Spend Amount": {
+      "type": "string"
+    },
+    "Foreign Spend Currency": {
+      "type": "string"
+    },
+    "Amount": {
+      "type": "string"
+    },
+    "CR": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "Amount",
+    "CR",
+    "Cardmember",
+    "Description",
+    "Foreign Spend Amount",
+    "Foreign Spend Currency",
+    "Process Date",
+    "Transaction Date"
+  ]
+}

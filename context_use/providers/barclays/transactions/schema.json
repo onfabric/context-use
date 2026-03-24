@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "Date": {
+      "type": "string"
+    },
+    "Description": {
+      "type": "string"
+    },
+    "Money Out": {
+      "type": "string"
+    },
+    "Money In": {
+      "type": "string"
+    },
+    "Balance": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "Balance",
+    "Date",
+    "Description",
+    "Money In",
+    "Money Out"
+  ]
+}

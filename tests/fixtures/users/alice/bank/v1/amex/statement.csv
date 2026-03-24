@@ -1,0 +1,4 @@
+Cardmember,Transaction Date,Process Date,Description,Foreign Spend Amount,Foreign Spend Currency,Amount,CR
+Alice Smith,2025-11-01,2025-11-01,PAYMENT RECEIVED - THANK YOU,,,500.00,CR
+Alice Smith,2025-11-02,2025-11-03,RESTAURANT LONDON,,,35.00,
+Bob Smith,2025-11-04,2025-11-05,ONLINE STORE,12.50,USD,10.00,

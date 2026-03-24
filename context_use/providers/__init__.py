@@ -1,10 +1,14 @@
 from context_use.providers import (  # noqa: F401 — triggers provider registration
     airbnb,
+    amex,
+    bank,
+    barclays,
     chatgpt,
     claude,
     google,
     instagram,
     netflix,
+    revolut,
 )
 from context_use.providers.registry import (
     get_memory_config,

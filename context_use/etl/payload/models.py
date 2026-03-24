@@ -435,6 +435,33 @@ class FibreFollowing(Follow, _BaseFibreMixin, _BaseFibreFollowXORMixin):
         return parts
 
 
+class FibreTransaction(Create, _BaseFibreMixin):
+    fibreKind: Literal["Transaction"] = Field("Transaction", alias="fibre_kind")
+    object: Note  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+    actor: Person | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_preview(self, provider: str | None) -> str | None:
+        amount = str(self.object.name) if self.object.name else ""
+        desc = str(self.object.content) if self.object.content else ""
+        if amount.startswith("-"):
+            verb, prep = "Spent", "at"
+            display_amount = amount[1:]
+        elif amount.startswith("+"):
+            verb, prep = "Received", "from"
+            display_amount = amount[1:]
+        else:
+            verb, prep = "Transacted", "at"
+            display_amount = amount
+        parts = f"{verb} {display_amount}"
+        if desc:
+            parts += f" {prep} {desc}"
+        if self.actor and self.actor.name:
+            parts += f" (by {self.actor.name})"
+        if provider:
+            parts += f" via {provider}"
+        return parts
+
+
 # --- Discriminated unions ---
 
 FibreReactionByType = Annotated[
@@ -455,7 +482,8 @@ FibreByType = Annotated[
     | FibreCollection
     | FibreSendMessage
     | FibreReceiveMessage
-    | FibreComment,
+    | FibreComment
+    | FibreTransaction,
     Field(discriminator="fibreKind"),
 ]
 
@@ -484,5 +512,6 @@ FibreDislike.model_rebuild()
 FibreComment.model_rebuild()
 FibreSearch.model_rebuild()
 FibreAddObjectToCollection.model_rebuild()
+FibreTransaction.model_rebuild()
 FibreFollowedBy.model_rebuild()
 FibreFollowing.model_rebuild()

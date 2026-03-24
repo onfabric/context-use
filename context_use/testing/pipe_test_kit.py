@@ -41,6 +41,7 @@ class TransformConformanceTests:
     pipe_class: ClassVar[type[Pipe]]
     expected_transform_count: ClassVar[int]
     expected_fibre_kind: ClassVar[str | None]
+    per_record_interaction_type: ClassVar[bool] = False
 
     def test_run_yields_well_formed_thread_rows(
         self, transformed_rows: list[ThreadRow]
@@ -54,11 +55,14 @@ class TransformConformanceTests:
             assert row.provider == self.pipe_class.provider, (
                 f"provider mismatch: {row.provider!r} != {self.pipe_class.provider!r}"
             )
-            assert row.interaction_type == self.pipe_class.interaction_type, (
-                f"interaction_type mismatch: "
-                f"{row.interaction_type!r} "
-                f"!= {self.pipe_class.interaction_type!r}"
-            )
+            if self.per_record_interaction_type:
+                assert row.interaction_type, "interaction_type must be set"
+            else:
+                assert row.interaction_type == self.pipe_class.interaction_type, (
+                    f"interaction_type mismatch: "
+                    f"{row.interaction_type!r} "
+                    f"!= {self.pipe_class.interaction_type!r}"
+                )
 
             assert row.version, "ThreadRow.version must be set"
             assert row.asat is not None, "ThreadRow.asat must be set"

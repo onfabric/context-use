@@ -1,0 +1,4 @@
+Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
+Transfer,Current,2025-11-01 10:00:00,2025-11-01 10:00:00,From GBP Savings,100.00,0.00,GBP,COMPLETED,200.00
+Card Payment,Current,2025-11-02 14:30:00,2025-11-02 15:00:00,Coffee Shop,-4.50,0.00,GBP,COMPLETED,195.50
+Card Payment,Current,2025-11-03 09:00:00,,Grocery Store,-25.00,0.00,GBP,REVERTED,
