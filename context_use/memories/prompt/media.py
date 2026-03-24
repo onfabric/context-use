@@ -7,7 +7,6 @@ from context_use.facets.types import render_facet_types_section
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import (
     BasePromptBuilder,
-    GroupContext,
     MemorySchema,
 )
 from context_use.models.thread import Thread
