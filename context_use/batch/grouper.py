@@ -17,8 +17,6 @@ class WindowConfig:
 
     window_days: int = 5
     overlap_days: int = 1
-    max_memories: int | None = None
-    min_memories: int | None = None
 
     def __post_init__(self) -> None:
         if self.overlap_days >= self.window_days:
@@ -27,18 +25,6 @@ class WindowConfig:
     @property
     def step_days(self) -> int:
         return self.window_days - self.overlap_days
-
-    @property
-    def effective_max_memories(self) -> int:
-        if self.max_memories is not None:
-            return self.max_memories
-        return max(5, self.window_days * 3)
-
-    @property
-    def effective_min_memories(self) -> int:
-        if self.min_memories is not None:
-            return self.min_memories
-        return max(1, self.window_days)
 
 
 @dataclass(init=False)
