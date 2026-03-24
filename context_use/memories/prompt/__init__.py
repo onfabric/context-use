@@ -18,3 +18,7 @@ from context_use.memories.prompt.media import (  # noqa: F401
     MEDIA_MEMORIES_PROMPT,
     MediaMemoryPromptBuilder,
 )
+from context_use.memories.prompt.search import (  # noqa: F401
+    SEARCH_MEMORIES_PROMPT,
+    GoogleSearchMemoryPromptBuilder,
+)

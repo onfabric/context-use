@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from context_use.batch.grouper import WindowGrouper
 from context_use.etl.payload.models import (
     FibreSearch,
     FibreViewObject,
     Page,
     ThreadPayload,
 )
+from context_use.memories.config import MemoryConfig
+from context_use.memories.prompt.search import GoogleSearchMemoryPromptBuilder
 from context_use.providers.google.base import _BaseGooglePipe
 from context_use.providers.google.record import GoogleRecord
 from context_use.providers.registry import declare_interaction
@@ -56,6 +59,17 @@ class GoogleImageSearchPipe(_BaseGoogleSearchPipe):
     archive_path_pattern = "Portability/My Activity/Image Search/MyActivity.json"
 
 
-declare_interaction(InteractionConfig(pipe=GoogleSearchPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=GoogleVideoSearchPipe, memory=None))
-declare_interaction(InteractionConfig(pipe=GoogleImageSearchPipe, memory=None))
+SEARCH_MEMORY_CONFIG = MemoryConfig(
+    prompt_builder=GoogleSearchMemoryPromptBuilder,
+    grouper=WindowGrouper,
+)
+
+declare_interaction(
+    InteractionConfig(pipe=GoogleSearchPipe, memory=SEARCH_MEMORY_CONFIG)
+)
+declare_interaction(
+    InteractionConfig(pipe=GoogleVideoSearchPipe, memory=SEARCH_MEMORY_CONFIG)
+)
+declare_interaction(
+    InteractionConfig(pipe=GoogleImageSearchPipe, memory=SEARCH_MEMORY_CONFIG)
+)
