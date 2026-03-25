@@ -17,6 +17,7 @@ from context_use.etl.payload.models import (
     Video,
 )
 from context_use.providers.google.base import _BaseGooglePipe
+from context_use.providers.google.search.pipe import SEARCH_MEMORY_CONFIG
 from context_use.providers.google.youtube.record import GoogleYoutubeRecord
 from context_use.providers.registry import declare_interaction
 from context_use.providers.types import InteractionConfig
@@ -129,4 +130,6 @@ def _make_video(
     return Video(**kwargs)  # type: ignore[reportCallIssue]
 
 
-declare_interaction(InteractionConfig(pipe=GoogleYoutubePipe, memory=None))
+declare_interaction(
+    InteractionConfig(pipe=GoogleYoutubePipe, memory=SEARCH_MEMORY_CONFIG)
+)
