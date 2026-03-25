@@ -92,6 +92,6 @@ class VertexAIConfig(BaseLlmConfig):
             "vertex_project": self._vertex_project,
             "vertex_location": self._vertex_location,
             "vertex_credentials": self._vertex_credentials,
-            "gcs_bucket_name": self._batch_artifacts_gcs_bucket_name,
+            "bucket_name": self._batch_artifacts_gcs_bucket_name,
         }
         return params
