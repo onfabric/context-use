@@ -2,11 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from context_use.llm.litellm.config import (
-    BaseLlmConfig,
-    OpenAIConfig,
-    VertexAIConfig,
-)
+from context_use.llm.litellm.config import BaseLlmConfig, OpenAIConfig, VertexAIConfig
 from context_use.llm.litellm.models import (
     OpenAIEmbeddingModel,
     OpenAIModel,
@@ -76,5 +72,5 @@ class TestVertexAIConfig:
             "vertex_project": "proj",
             "vertex_location": "eu-west1",
             "vertex_credentials": '{"type": "service_account"}',
-            "gcs_bucket_name": "my-bucket",
+            "bucket_name": "my-bucket",
         }
