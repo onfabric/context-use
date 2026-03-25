@@ -1,3 +1,9 @@
+## [0.16.1] - 2026-03-25
+
+### 🐛 Bug Fixes
+
+- Vertex ai lite llm gcs config (#275)
+
 ## [0.16.0] - 2026-03-25
 
 ### 🚀 Features
