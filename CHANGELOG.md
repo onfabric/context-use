@@ -1,3 +1,14 @@
+## [0.16.0] - 2026-03-25
+
+### 🚀 Features
+
+- Basic memory pipeline for google (#273)
+- Do not bound memory generation (#272)
+
+### 🧪 Testing
+
+- Add snapshot tests to remaining IG Pipes (#266)
+
 ## [0.15.0] - 2026-03-23
 
 ### 🚀 Features
