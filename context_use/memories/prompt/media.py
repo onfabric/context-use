@@ -3,12 +3,10 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import date
 
-from context_use.batch.grouper import WindowConfig
 from context_use.facets.types import render_facet_types_section
 from context_use.llm.base import PromptItem
 from context_use.memories.prompt.base import (
     BasePromptBuilder,
-    GroupContext,
     MemorySchema,
 )
 from context_use.models.thread import Thread
@@ -51,7 +49,7 @@ Let the data guide you:
 spanning the relevant dates.
 - The same post can feed multiple memories at different granularities.
 
-Generate between {{MIN_MEMORIES}} and {{MAX_MEMORIES}} memories.
+Generate as many memories as the content warrants.
 
 ### Detail level
 
@@ -96,14 +94,6 @@ Return a JSON object with a ``memories`` array. Each memory has:
 class MediaMemoryPromptBuilder(BasePromptBuilder):
     """Build a ``PromptItem`` for a single time-window group from media threads."""
 
-    def __init__(
-        self,
-        context: GroupContext,
-        config: WindowConfig | None = None,
-    ) -> None:
-        super().__init__(context)
-        self.config = config or WindowConfig()
-
     def build(self) -> PromptItem:
         threads_with_assets = [
             t for t in self.context.new_threads if t.asset_uri is not None
@@ -120,14 +110,6 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
             .replace("{{TO_DATE}}", to_date.isoformat())
             .replace("{{CONTEXT}}", context_block)
             .replace("{{POSTS}}", posts_block)
-            .replace(
-                "{{MIN_MEMORIES}}",
-                str(self.config.effective_min_memories),
-            )
-            .replace(
-                "{{MAX_MEMORIES}}",
-                str(self.config.effective_max_memories),
-            )
         )
 
         return PromptItem(
