@@ -1,0 +1,286 @@
+{
+  "type": "object",
+  "properties": {
+    "type": {
+      "type": "string"
+    },
+    "id": {
+      "type": "integer"
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "type": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "date_unixtime": {
+            "type": "string"
+          },
+          "from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "from_id": {
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "type": {
+                          "type": "string"
+                        },
+                        "text": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "type"
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "text_entities": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string"
+                },
+                "text": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "text",
+                "type"
+              ]
+            }
+          },
+          "forwarded_from": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "forwarded_from_id": {
+            "type": "string"
+          },
+          "photo": {
+            "type": "string"
+          },
+          "photo_file_size": {
+            "type": "integer"
+          },
+          "width": {
+            "type": "integer"
+          },
+          "height": {
+            "type": "integer"
+          },
+          "file": {
+            "type": "string"
+          },
+          "file_name": {
+            "type": "string"
+          },
+          "file_size": {
+            "type": "integer"
+          },
+          "mime_type": {
+            "type": "string"
+          },
+          "saved_from": {
+            "type": "string"
+          },
+          "edited": {
+            "type": "string"
+          },
+          "edited_unixtime": {
+            "type": "string"
+          },
+          "reply_to_message_id": {
+            "type": "integer"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": "integer"
+          },
+          "thumbnail": {
+            "type": "string"
+          },
+          "thumbnail_file_size": {
+            "type": "integer"
+          },
+          "sticker_emoji": {
+            "type": "string"
+          },
+          "reactions": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "performer": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "actor": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "emoticon": {
+            "type": "string"
+          },
+          "inline_bot_buttons": {
+            "type": "array",
+            "items": {
+              "type": "array"
+            }
+          },
+          "poll": {
+            "type": "object"
+          },
+          "discard_reason": {
+            "type": "string"
+          },
+          "location_information": {
+            "type": "object"
+          },
+          "live_location_period_seconds": {
+            "type": "integer"
+          },
+          "contact_information": {
+            "type": "object"
+          },
+          "inviter": {
+            "type": "string"
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": [
+                "null",
+                "string"
+              ]
+            }
+          },
+          "message_id": {
+            "type": "integer"
+          },
+          "via_bot": {
+            "type": "string"
+          },
+          "game_title": {
+            "type": "string"
+          },
+          "game_description": {
+            "type": "string"
+          },
+          "game_link": {
+            "type": "string"
+          },
+          "game_message_id": {
+            "type": "integer"
+          },
+          "score": {
+            "type": "integer"
+          },
+          "duration": {
+            "type": "integer"
+          },
+          "schedule_date": {
+            "type": "integer"
+          },
+          "invoice_information": {
+            "type": "string"
+          },
+          "media_spoiler": {
+            "type": "boolean"
+          },
+          "boosts": {
+            "type": "integer"
+          },
+          "contact_vcard": {
+            "type": "string"
+          },
+          "contact_vcard_file_size": {
+            "type": "integer"
+          },
+          "reply_to_peer_id": {
+            "type": "string"
+          },
+          "todo_list": {
+            "type": "object"
+          },
+          "completed": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "incompleted": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        },
+        "required": [
+          "date",
+          "date_unixtime",
+          "id",
+          "text",
+          "text_entities",
+          "type"
+        ]
+      }
+    },
+    "name": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "messages",
+    "type"
+  ]
+}

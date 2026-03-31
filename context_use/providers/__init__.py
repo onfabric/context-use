@@ -5,6 +5,7 @@ from context_use.providers import (  # noqa: F401 — triggers provider registra
     google,
     instagram,
     netflix,
+    telegram,
 )
 from context_use.providers.registry import (
     get_memory_config,

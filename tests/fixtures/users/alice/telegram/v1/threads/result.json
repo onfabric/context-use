@@ -1,0 +1,173 @@
+{
+  "personal_information": {
+    "user_id": 12345678,
+    "first_name": "Alice",
+    "last_name": "Smith",
+    "phone_number": "+1 555 123 4567",
+    "username": "@alice_smith"
+  },
+  "chats": {
+    "list": [
+      {
+        "type": "personal_chat",
+        "id": 100200300,
+        "name": "Bob Johnson",
+        "messages": [
+          {
+            "id": 1001,
+            "type": "service",
+            "date": "2025-01-15T10:00:00",
+            "date_unixtime": "1736935200",
+            "actor": "Bob Johnson",
+            "actor_id": "user87654321",
+            "action": "joined_telegram",
+            "text": "",
+            "text_entities": []
+          },
+          {
+            "id": 1002,
+            "type": "message",
+            "date": "2025-01-15T10:05:00",
+            "date_unixtime": "1736935500",
+            "from": "Alice Smith",
+            "from_id": "user12345678",
+            "text": "Hey Bob! How are you?",
+            "text_entities": [
+              {
+                "type": "plain",
+                "text": "Hey Bob! How are you?"
+              }
+            ]
+          },
+          {
+            "id": 1003,
+            "type": "message",
+            "date": "2025-01-15T10:06:00",
+            "date_unixtime": "1736935560",
+            "from": "Bob Johnson",
+            "from_id": "user87654321",
+            "text": "Hi Alice! I'm good, thanks. Check this out:",
+            "text_entities": [
+              {
+                "type": "plain",
+                "text": "Hi Alice! I'm good, thanks. Check this out:"
+              }
+            ]
+          },
+          {
+            "id": 1004,
+            "type": "message",
+            "date": "2025-01-15T10:07:00",
+            "date_unixtime": "1736935620",
+            "from": "Bob Johnson",
+            "from_id": "user87654321",
+            "text": [
+              "Look at this link: ",
+              {
+                "type": "link",
+                "text": "https://example.com/cool-article"
+              },
+              " pretty interesting!"
+            ],
+            "text_entities": [
+              {
+                "type": "plain",
+                "text": "Look at this link: "
+              },
+              {
+                "type": "link",
+                "text": "https://example.com/cool-article"
+              },
+              {
+                "type": "plain",
+                "text": " pretty interesting!"
+              }
+            ]
+          },
+          {
+            "id": 1005,
+            "type": "message",
+            "date": "2025-01-15T10:08:00",
+            "date_unixtime": "1736935680",
+            "from": "Alice Smith",
+            "from_id": "user12345678",
+            "photo": "chats/chat_100200300/photos/photo_1.jpg",
+            "photo_file_size": 45000,
+            "width": 1024,
+            "height": 768,
+            "text": "",
+            "text_entities": []
+          },
+          {
+            "id": 1006,
+            "type": "message",
+            "date": "2025-01-15T10:10:00",
+            "date_unixtime": "1736935800",
+            "from": "Alice Smith",
+            "from_id": "user12345678",
+            "text": "Thanks for sharing!",
+            "text_entities": [
+              {
+                "type": "plain",
+                "text": "Thanks for sharing!"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "personal_chat",
+        "id": 200300400,
+        "name": "Carol Davis",
+        "messages": [
+          {
+            "id": 2001,
+            "type": "message",
+            "date": "2025-02-01T14:00:00",
+            "date_unixtime": "1738414800",
+            "from": "Carol Davis",
+            "from_id": "user11112222",
+            "text": [
+              "Hey, have you seen ",
+              {
+                "type": "bold",
+                "text": "this announcement"
+              },
+              "?"
+            ],
+            "text_entities": [
+              {
+                "type": "plain",
+                "text": "Hey, have you seen "
+              },
+              {
+                "type": "bold",
+                "text": "this announcement"
+              },
+              {
+                "type": "plain",
+                "text": "?"
+              }
+            ]
+          },
+          {
+            "id": 2002,
+            "type": "message",
+            "date": "2025-02-01T14:05:00",
+            "date_unixtime": "1738415100",
+            "from": "Alice Smith",
+            "from_id": "user12345678",
+            "reply_to_message_id": 2001,
+            "text": "Yes, exciting news!",
+            "text_entities": [
+              {
+                "type": "plain",
+                "text": "Yes, exciting news!"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
