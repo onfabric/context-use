@@ -15,12 +15,14 @@ from context_use.etl.payload.models import (
     FibreDislike,
     FibreFollowedBy,
     FibreFollowing,
+    FibreImage,
     FibreLike,
     FibrePost,
     FibreReceiveMessage,
     FibreSearch,
     FibreSendMessage,
     FibreTextMessage,
+    FibreVideo,
     FibreViewObject,
     Image,
     Note,
@@ -79,6 +81,22 @@ class TestFibreModels:
 
 
 class TestFibreGetContent:
+    def test_image_content(self):
+        img = FibreImage(url="http://example.com/pic.jpg", content="sunset")  # pyright: ignore[reportCallIssue]
+        assert img.get_content() == "sunset"
+
+    def test_image_no_content(self):
+        img = FibreImage(url="http://example.com/pic.jpg")  # pyright: ignore[reportCallIssue]
+        assert img.get_content() is None
+
+    def test_video_content(self):
+        vid = FibreVideo(url="http://example.com/vid.mp4", content="cooking tutorial")  # pyright: ignore[reportCallIssue]
+        assert vid.get_content() == "cooking tutorial"
+
+    def test_video_no_content(self):
+        vid = FibreVideo(url="http://example.com/vid.mp4")  # pyright: ignore[reportCallIssue]
+        assert vid.get_content() is None
+
     def test_text_message_content(self):
         msg = FibreTextMessage(content="Hello World")  # pyright: ignore[reportCallIssue]
         assert msg.get_content() == "Hello World"

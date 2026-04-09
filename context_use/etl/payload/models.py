@@ -122,6 +122,9 @@ class FibreImage(Image, _BaseFibreMixin):
     fibreKind: Literal["Image"] = Field("Image", alias="fibre_kind")
     context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
+    def _get_content(self) -> str | None:
+        return self.content if isinstance(self.content, str) else None
+
     def _get_preview(self, provider: str | None) -> str | None:
         return "image"
 
@@ -134,6 +137,9 @@ class FibreImage(Image, _BaseFibreMixin):
 class FibreVideo(Video, _BaseFibreMixin):
     fibreKind: Literal["Video"] = Field("Video", alias="fibre_kind")
     context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_content(self) -> str | None:
+        return self.content if isinstance(self.content, str) else None
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "video"
