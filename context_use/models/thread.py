@@ -67,12 +67,15 @@ class Thread:
 
     @property
     def is_inbound(self) -> bool:
+        """Whether this thread was performed by someone else toward the user."""
         return self._parsed_payload.is_inbound()
 
     def get_message_content(self) -> str | None:
+        """Get the text content of a message thread (None for non-message threads)."""
         return self._parsed_payload.get_message_content()
 
     def get_collection(self) -> str | None:
+        """Get collection ID for this thread."""
         return self._parsed_payload.get_collection()
 
     def get_participant_label(self) -> str:
