@@ -141,10 +141,10 @@ class MediaMemoryPromptBuilder(BasePromptBuilder):
                 ts = t.asat.strftime("%H:%M")
                 if t.asset_uri:
                     img_idx += 1
-                    lines.append(f"- [{ts}] [Image {img_idx}] {t.preview}")
+                    lines.append(f"- [{ts}] [Image {img_idx}] {t.get_content()}")
                     asset_uris.append(t.asset_uri)
                 else:
-                    lines.append(f"- [{ts}] {t.preview}")
+                    lines.append(f"- [{ts}] {t.get_content()}")
             sections.append("\n".join(lines))
 
         return "\n\n".join(sections), asset_uris

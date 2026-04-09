@@ -78,6 +78,97 @@ class TestFibreModels:
         assert create.get_preview() == "Posted video"
 
 
+class TestFibreGetContent:
+    def test_text_message_content(self):
+        msg = FibreTextMessage(content="Hello World")  # pyright: ignore[reportCallIssue]
+        assert msg.get_content() == "Hello World"
+
+    def test_text_message_no_content(self):
+        msg = FibreTextMessage()  # pyright: ignore[reportCallIssue]
+        assert msg.get_content() is None
+
+    def test_create_object_with_caption(self):
+        img = Image(url="http://example.com/pic.jpg", content="latte art")  # pyright: ignore[reportCallIssue]
+        create = FibreCreateObject(object=img)  # pyright: ignore[reportCallIssue]
+        assert create.get_content() == "latte art"
+
+    def test_create_object_no_caption(self):
+        img = Image(url="http://example.com/pic.jpg")  # pyright: ignore[reportCallIssue]
+        create = FibreCreateObject(object=img)  # pyright: ignore[reportCallIssue]
+        assert create.get_content() is None
+
+    def test_send_message_content(self):
+        msg = FibreTextMessage(content="hi")  # pyright: ignore[reportCallIssue]
+        target = Application(name="assistant")  # pyright: ignore[reportCallIssue]
+        send = FibreSendMessage(object=msg, target=target)  # pyright: ignore[reportCallIssue]
+        assert send.get_content() == "hi"
+
+    def test_receive_message_content(self):
+        msg = FibreTextMessage(content="world")  # pyright: ignore[reportCallIssue]
+        actor = Application(name="bot")  # pyright: ignore[reportCallIssue]
+        recv = FibreReceiveMessage(object=msg, actor=actor)  # pyright: ignore[reportCallIssue]
+        assert recv.get_content() == "world"
+
+    def test_view_object_content(self):
+        page = Page(name="Python asyncio docs", url="http://example.com")  # pyright: ignore[reportCallIssue]
+        view = FibreViewObject(object=page)  # pyright: ignore[reportCallIssue]
+        assert view.get_content() == "Python asyncio docs"
+
+    def test_view_object_with_author(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        view = FibreViewObject(object=post)  # pyright: ignore[reportCallIssue]
+        assert view.get_content() == "by alice"
+
+    def test_like_post_content(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        like = FibreLike(object=post)  # pyright: ignore[reportCallIssue]
+        assert like.get_content() == "alice"
+
+    def test_like_video_content(self):
+        vid = Video(name="cool clip")  # pyright: ignore[reportCallIssue]
+        like = FibreLike(object=vid)  # pyright: ignore[reportCallIssue]
+        assert like.get_content() == "cool clip"
+
+    def test_comment_content(self):
+        note = Note(content="amazing!")  # pyright: ignore[reportCallIssue]
+        comment = FibreComment(object=note)  # pyright: ignore[reportCallIssue]
+        assert comment.get_content() == "amazing!"
+
+    def test_search_profile_content(self):
+        profile = Profile(name="alice")  # pyright: ignore[reportCallIssue]
+        search = FibreSearch(object=profile)  # pyright: ignore[reportCallIssue]
+        assert search.get_content() == "alice"
+
+    def test_search_page_content(self):
+        page = Page(name="python tutorial")  # pyright: ignore[reportCallIssue]
+        search = FibreSearch(object=page)  # pyright: ignore[reportCallIssue]
+        assert search.get_content() == "python tutorial"
+
+    def test_add_to_collection_post_content(self):
+        post = FibrePost(  # pyright: ignore[reportCallIssue]
+            attributedTo=Profile(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        fav = FibreCollectionFavourites()  # pyright: ignore[reportCallIssue]
+        add = FibreAddObjectToCollection(object=post, target=fav)  # pyright: ignore[reportCallIssue]
+        assert add.get_content() == "alice"
+
+    def test_followed_by_content(self):
+        fb = FibreFollowedBy(  # pyright: ignore[reportCallIssue]
+            actor=Person(name="alice"),  # pyright: ignore[reportCallIssue]
+        )
+        assert fb.get_content() == "alice"
+
+    def test_following_content(self):
+        fg = FibreFollowing(  # pyright: ignore[reportCallIssue]
+            object=Profile(name="bob"),  # pyright: ignore[reportCallIssue]
+        )
+        assert fg.get_content() == "bob"
+
+
 class TestMakeThreadPayload:
     def test_send_message(self):
         data = {

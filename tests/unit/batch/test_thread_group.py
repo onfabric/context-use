@@ -13,7 +13,6 @@ def _thread(unique_key: str = "k") -> Thread:
         unique_key=unique_key,
         provider="p",
         interaction_type="t",
-        preview="",
         payload={"fibre_kind": "TextMessage", "content": "x"},
         version="1",
         asat=datetime.now(UTC),
