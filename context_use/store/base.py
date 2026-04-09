@@ -134,11 +134,17 @@ class Store(ABC):
     async def get_unprocessed_threads(
         self,
         *,
+        batch_category: str | None = None,
         interaction_types: list[str] | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
     ) -> list[Thread]:
-        """Return threads not yet assigned to any batch.
+        """Return threads not yet assigned to a batch.
+
+        If *batch_category* is given, only batches of that category are
+        considered — threads assigned to batches of *other* categories
+        are still returned.  When ``None``, any batch assignment
+        excludes the thread.
 
         If *interaction_types* is given, only threads whose
         ``interaction_type`` is in that list are returned.

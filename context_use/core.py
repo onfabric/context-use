@@ -215,6 +215,7 @@ class ContextUse:
         if interaction_types is not None:
             supported = [t for t in supported if t in interaction_types]
         threads = await self._store.get_unprocessed_threads(
+            batch_category=BatchCategory.memories,
             interaction_types=supported,
             since=since,
             before=before,

@@ -154,6 +154,31 @@ async def test_get_unprocessed_threads_excludes_batched(
     assert all_threads[0].id not in {t.id for t in remaining}
 
 
+async def test_get_unprocessed_threads_scoped_by_category(
+    store: SqliteStore, task_id: str
+) -> None:
+    await store.insert_threads(
+        [_make_row("k1"), _make_row("k2"), _make_row("k3")], task_id=task_id
+    )
+    all_threads = await store.get_unprocessed_threads()
+
+    group = ThreadGroup(threads=all_threads[:1], group_id="g1")
+    batch = Batch(batch_number=1, category="other_category", states=[])
+    await store.create_batch(batch, [group])
+
+    remaining_any = await store.get_unprocessed_threads()
+    assert len(remaining_any) == 2
+
+    remaining_memories = await store.get_unprocessed_threads(batch_category="memories")
+    assert len(remaining_memories) == 3
+
+    remaining_other = await store.get_unprocessed_threads(
+        batch_category="other_category"
+    )
+    assert len(remaining_other) == 2
+    assert all_threads[0].id not in {t.id for t in remaining_other}
+
+
 async def test_get_unprocessed_threads_interaction_type_filter(
     store: SqliteStore,
     task_id: str,
