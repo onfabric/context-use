@@ -5,6 +5,7 @@ import asyncio
 import sys
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -23,6 +24,7 @@ if TYPE_CHECKING:
 def _batch_detail_from_state(state: State | None) -> str:
     if state is None:
         return ""
+    from context_use.asset_description.states import DescGenerateCompleteState
     from context_use.batch.states import FailedState
     from context_use.memories.states import (
         MemoryEmbedCompleteState,
@@ -44,6 +46,9 @@ def _batch_detail_from_state(state: State | None) -> str:
 
     if isinstance(state, MemoryEmbedCompleteState):
         return f"{state.embedded_count} memories embedded"
+
+    if isinstance(state, DescGenerateCompleteState):
+        return f"{state.descriptions_count} descriptions generated"
 
     return ""
 
@@ -121,18 +126,28 @@ async def _advance_and_update(
     return instruction
 
 
+def create_batch_reporter(batches: list[Batch]) -> out.BatchReporter:
+    """Generic reporter using base styles only — works for any batch category."""
+    rows = _build_batch_rows(batches)
+    if sys.stdout.isatty():
+        return out.BatchStatusSpinner(rows)
+    return out.LogBatchReporter(rows)
+
+
 async def run_batches(
     ctx: ContextUse,
     batches: list[Batch],
     *,
     should_sleep_after_each_batch: bool = True,
+    reporter_factory: (Callable[[list[Batch]], out.BatchReporter] | None) = None,
 ) -> None:
     if not batches:
         return
 
+    factory = reporter_factory or create_memory_reporter
     next_due: dict[str, float] = {b.id: 0.0 for b in batches}
 
-    with create_memory_reporter(batches) as reporter:
+    with factory(batches) as reporter:
         pending = reporter.pending_ids
         while pending:
             advanced_any = False

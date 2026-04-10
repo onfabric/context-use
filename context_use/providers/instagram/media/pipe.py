@@ -147,11 +147,23 @@ _MEDIA_MEMORY_CONFIG = MemoryConfig(
 )
 
 declare_interaction(
-    InteractionConfig(pipe=InstagramStoriesPipe, memory=_MEDIA_MEMORY_CONFIG)
+    InteractionConfig(
+        pipe=InstagramStoriesPipe,
+        memory=_MEDIA_MEMORY_CONFIG,
+        asset_description=True,
+    )
 )
 declare_interaction(
-    InteractionConfig(pipe=InstagramReelsPipe, memory=_MEDIA_MEMORY_CONFIG)
+    InteractionConfig(
+        pipe=InstagramReelsPipe,
+        memory=_MEDIA_MEMORY_CONFIG,
+        asset_description=True,
+    )
 )
 declare_interaction(
-    InteractionConfig(pipe=InstagramPostsPipe, memory=_MEDIA_MEMORY_CONFIG)
+    InteractionConfig(
+        pipe=InstagramPostsPipe,
+        memory=_MEDIA_MEMORY_CONFIG,
+        asset_description=True,
+    )
 )

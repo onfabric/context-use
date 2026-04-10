@@ -14,6 +14,7 @@ class InteractionConfig:
 
     pipe: type[Pipe]
     memory: MemoryConfig | None = None
+    asset_description: bool = False
 
 
 @dataclass

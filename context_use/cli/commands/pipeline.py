@@ -153,7 +153,6 @@ class PipelineCommand(ApiCommand):
             args.last_days if args.last_days is not None else _QUICK_DEFAULT_DAYS
         )
 
-        # Phase 1: Ingest
         print()
         out.header(f"Phase 1/2 · Ingesting {provider_str} archive")
         out.kv("File", zip_path)
@@ -169,7 +168,6 @@ class PipelineCommand(ApiCommand):
             out.error(f"{result.tasks_failed} tasks failed — stopping")
             return
 
-        # Phase 2: Memories (real-time API)
         out.header("Phase 2/2 · Generating memories")
         out.info("Using real-time API.")
         if since:

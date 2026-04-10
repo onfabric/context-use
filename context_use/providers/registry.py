@@ -98,3 +98,13 @@ def get_memory_interaction_types() -> list[str]:
         for ic in config.interactions
         if ic.memory is not None
     ]
+
+
+def get_asset_description_interaction_types() -> list[str]:
+    """Return all interaction types opted in to asset description."""
+    return [
+        ic.pipe.interaction_type
+        for config in _provider_registry.values()
+        for ic in config.interactions
+        if ic.asset_description
+    ]
