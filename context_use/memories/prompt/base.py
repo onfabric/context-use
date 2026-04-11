@@ -111,7 +111,7 @@ class BasePromptBuilder(ABC):
             lines: list[str] = []
             for t in sorted(ctx.relevant_threads, key=lambda t: t.asat):
                 ts = t.asat.strftime("%H:%M")
-                lines.append(f"- [{ts}] {t.preview}")
+                lines.append(f"- [{ts}] {t.get_content()}")
             sections.append(
                 "## Relevant threads (for context only — already processed)\n"
                 + "\n".join(lines)

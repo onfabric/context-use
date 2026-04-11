@@ -14,10 +14,10 @@ def _thread(preview: str, dt: datetime) -> Thread:
         unique_key=preview[:16],
         provider="google",
         interaction_type="google_search",
-        preview=preview,
         payload={},
         version="1.1.0",
         asat=dt,
+        content=preview,
     )
 
 
@@ -59,12 +59,12 @@ def test_prompt_contains_date_range(group_context: GroupContext) -> None:
     assert "2025-01-03" in item.prompt
 
 
-def test_prompt_contains_search_previews(
+def test_prompt_contains_search_content(
     group_context: GroupContext, multi_day_threads: list[Thread]
 ) -> None:
     item = GoogleSearchMemoryPromptBuilder(group_context).build()
     for thread in multi_day_threads:
-        assert thread.preview in item.prompt
+        assert thread.get_content() in item.prompt
 
 
 def test_searches_grouped_by_day(group_context: GroupContext) -> None:

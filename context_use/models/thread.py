@@ -27,13 +27,13 @@ class Thread:
     unique_key: str
     provider: str
     interaction_type: str
-    preview: str
     payload: dict
     version: str
     asat: datetime
 
     id: str = field(default_factory=generate_uuidv4)
     etl_task_id: str | None = None
+    content: str | None = None
     asset_uri: str | None = None
     source: str | None = None
     collection_id: str | None = None
@@ -45,6 +45,21 @@ class Thread:
         from context_use.etl.payload.core import make_thread_payload
 
         return make_thread_payload(self.payload)
+
+    @property
+    def preview(self) -> str:
+        return self._parsed_payload.get_preview(self.provider) or ""
+
+    def get_content(self) -> str:
+        """Return the best available semantic content for this thread.
+
+        If enriched content has been stored (e.g. by the asset description
+        pipeline), returns that.  Otherwise falls back to extracting
+        semantic content from the payload.
+        """
+        if self.content is not None:
+            return self.content
+        return self._parsed_payload.get_content() or ""
 
     @property
     def is_asset(self) -> bool:

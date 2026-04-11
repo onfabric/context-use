@@ -62,6 +62,16 @@ class _BaseFibreMixin:
     def _get_preview(self, provider: str | None) -> str | None:
         return None
 
+    def get_content(self) -> str | None:
+        try:
+            return self._get_content()
+        except Exception as e:
+            logger.error("Error getting content: %s", e)
+            return None
+
+    def _get_content(self) -> str | None:
+        return None
+
     def get_asat(self) -> datetime | None:
         published = cast("Object", self).published
         if not published:
@@ -99,6 +109,9 @@ class FibreTextMessage(Note, _BaseFibreMixin):
         truncated = content[:100] + ("..." if len(content) > 100 else "")
         return f'message "{truncated}"'
 
+    def _get_content(self) -> str | None:
+        return self.content if isinstance(self.content, str) else None
+
     def get_collection(self) -> str | None:
         if self.context and self.context.id:
             return str(self.context.id)
@@ -108,6 +121,9 @@ class FibreTextMessage(Note, _BaseFibreMixin):
 class FibreImage(Image, _BaseFibreMixin):
     fibreKind: Literal["Image"] = Field("Image", alias="fibre_kind")
     context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_content(self) -> str | None:
+        return self.content if isinstance(self.content, str) else None
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "image"
@@ -121,6 +137,9 @@ class FibreImage(Image, _BaseFibreMixin):
 class FibreVideo(Video, _BaseFibreMixin):
     fibreKind: Literal["Video"] = Field("Video", alias="fibre_kind")
     context: Collection | None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_content(self) -> str | None:
+        return self.content if isinstance(self.content, str) else None
 
     def _get_preview(self, provider: str | None) -> str | None:
         return "video"
@@ -139,6 +158,9 @@ class FibreCollection(Collection, _BaseFibreMixin):
         if self.name:
             parts.append(f'"{self.name}"')
         return " ".join(parts)
+
+    def _get_content(self) -> str | None:
+        return self.name if isinstance(self.name, str) else None
 
 
 class FibrePost(Note, _BaseFibreMixin):
@@ -159,6 +181,14 @@ class FibreAd(Object, _BaseFibreMixin):
         if self.attributedTo and self.attributedTo.name:
             parts.append(f"by {self.attributedTo.name}")
         return " ".join(parts)
+
+    def _get_content(self) -> str | None:
+        parts: list[str] = []
+        if isinstance(self.name, str):
+            parts.append(self.name)
+        if self.attributedTo and isinstance(self.attributedTo.name, str):
+            parts.append(f"by {self.attributedTo.name}")
+        return " ".join(parts) if parts else None
 
 
 class FibreCollectionFavourites(FibreCollection):
@@ -213,6 +243,9 @@ class FibreCreateObject(Create, _BaseFibreMixin):
             parts += f" on {provider}"
         return parts
 
+    def _get_content(self) -> str | None:
+        return self.object.content if isinstance(self.object.content, str) else None
+
 
 class FibreSendMessage(Create, _BaseFibreMixin):
     fibreKind: Literal["SendMessage"] = Field("SendMessage", alias="fibre_kind")
@@ -225,6 +258,9 @@ class FibreSendMessage(Create, _BaseFibreMixin):
         if provider:
             parts += f" on {provider}"
         return parts
+
+    def _get_content(self) -> str | None:
+        return self.object.content if isinstance(self.object.content, str) else None
 
     def get_message_content(self) -> str | None:
         return self.object.content if isinstance(self.object.content, str) else None
@@ -254,6 +290,9 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
             parts += f" on {provider}"
         return parts
 
+    def _get_content(self) -> str | None:
+        return self.object.content if isinstance(self.object.content, str) else None
+
     def get_message_content(self) -> str | None:
         return self.object.content if isinstance(self.object.content, str) else None
 
@@ -264,6 +303,20 @@ class FibreReceiveMessage(Create, _BaseFibreMixin):
 class FibreViewObject(View, _BaseFibreMixin):
     fibreKind: Literal["View"] = Field("View", alias="fibre_kind")
     object: Page | Video | FibrePost | Event  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_content(self) -> str | None:
+        parts: list[str] = []
+        if isinstance(self.object.name, str):
+            parts.append(self.object.name)
+        elif self.object.url:
+            parts.append(str(self.object.url))
+        if self.object.attributedTo:
+            attr = self.object.attributedTo
+            if isinstance(attr, list):
+                attr = attr[0]
+            if isinstance(attr.name, str):
+                parts.append(f"by {attr.name}")
+        return " ".join(parts) if parts else None
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, FibrePost):
@@ -293,6 +346,9 @@ class FibreViewAdObject(FibreViewObject):
     fibreKind: Literal["ViewAd"] = Field("ViewAd", alias="fibre_kind")  # type: ignore[reportIncompatibleVariableOverride]
     object: FibreAd  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
+    def _get_content(self) -> str | None:
+        return self.object.get_content()
+
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Viewed {self.object.get_preview(provider)}"
         if provider:
@@ -304,6 +360,9 @@ class FibreClickAdObject(FibreViewAdObject):
     fibreKind: Literal["ClickAd"] = Field("ClickAd", alias="fibre_kind")  # type: ignore[reportIncompatibleVariableOverride]
     object: FibreAd  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
 
+    def _get_content(self) -> str | None:
+        return self.object.get_content()
+
     def _get_preview(self, provider: str | None) -> str | None:
         parts = f"Clicked {self.object.get_preview(provider)}"
         if provider:
@@ -313,6 +372,17 @@ class FibreClickAdObject(FibreViewAdObject):
 
 class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
     """Inherits fibreKind="Reaction" from FibreReaction, type="Like" from Like."""
+
+    def _get_content(self) -> str | None:
+        if isinstance(self.object, FibrePost) and self.object.attributedTo:
+            return (
+                str(self.object.attributedTo.name)
+                if self.object.attributedTo.name
+                else None
+            )
+        if isinstance(self.object.name, str):
+            return self.object.name
+        return None
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, FibrePost):
@@ -330,6 +400,17 @@ class FibreLike(FibreReaction, Like, _BaseFibreMixin):  # type: ignore[reportInc
 
 class FibreDislike(FibreReaction, Dislike, _BaseFibreMixin):  # type: ignore[reportIncompatibleVariableOverride]
     """Inherits fibreKind="Reaction" from FibreReaction, type="Dislike" from Dislike."""
+
+    def _get_content(self) -> str | None:
+        if isinstance(self.object, FibrePost) and self.object.attributedTo:
+            return (
+                str(self.object.attributedTo.name)
+                if self.object.attributedTo.name
+                else None
+            )
+        if isinstance(self.object.name, str):
+            return self.object.name
+        return None
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, FibrePost):
@@ -350,6 +431,9 @@ class FibreComment(Create, _BaseFibreMixin):
     object: Note  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     inReplyTo: FibrePost | Page | None = None  # type: ignore[reportIncompatibleVariableOverride]
 
+    def _get_content(self) -> str | None:
+        return self.object.content if isinstance(self.object.content, str) else None
+
     def _get_preview(self, provider: str | None) -> str | None:
         content = self.object.content if isinstance(self.object.content, str) else ""
         truncated = content[:80] + ("..." if len(content) > 80 else "")
@@ -366,6 +450,11 @@ class FibreComment(Create, _BaseFibreMixin):
 class FibreSearch(View, _BaseFibreMixin):
     fibreKind: Literal["Search"] = Field("Search", alias="fibre_kind")
     object: FibrePost | Page | Profile  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_content(self) -> str | None:
+        if isinstance(self.object.name, str):
+            return self.object.name
+        return None
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.object, Profile):
@@ -384,6 +473,19 @@ class FibreAddObjectToCollection(Add, _BaseFibreMixin):
     fibreKind: Literal["AddToCollection"] = Field("AddToCollection", alias="fibre_kind")
     object: Video | Image | Page | FibrePost  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     target: FibreCollectionFavourites | FibreCollection | Collection  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
+
+    def _get_content(self) -> str | None:
+        if isinstance(self.object, FibrePost):
+            if self.object.attributedTo:
+                return (
+                    str(self.object.attributedTo.name)
+                    if self.object.attributedTo.name
+                    else None
+                )
+            return None
+        if isinstance(self.object.name, str):
+            return self.object.name
+        return None
 
     def _get_preview(self, provider: str | None) -> str | None:
         if isinstance(self.target, FibreCollectionFavourites):
@@ -414,6 +516,9 @@ class FibreFollowedBy(Follow, _BaseFibreMixin, _BaseFibreFollowXORMixin):
     def is_inbound(self) -> bool:
         return True
 
+    def _get_content(self) -> str | None:
+        return str(self.actor.name) if self.actor and self.actor.name else None
+
     def _get_preview(self, provider: str | None) -> str | None:
         name = self.actor.name if self.actor else "someone"
         parts = f"Followed by {name}"
@@ -426,6 +531,9 @@ class FibreFollowing(Follow, _BaseFibreMixin, _BaseFibreFollowXORMixin):
     fibreKind: Literal["Following"] = Field("Following", alias="fibre_kind")
     object: Profile | Page  # type: ignore[reportIncompatibleVariableOverride, reportGeneralTypeIssues]
     actor: None = None  # type: ignore[reportIncompatibleVariableOverride]
+
+    def _get_content(self) -> str | None:
+        return str(self.object.name) if self.object and self.object.name else None
 
     def _get_preview(self, provider: str | None) -> str | None:
         name = self.object.name if self.object else "someone"

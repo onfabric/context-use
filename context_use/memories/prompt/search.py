@@ -108,7 +108,7 @@ class GoogleSearchMemoryPromptBuilder(BasePromptBuilder):
             lines = [f"### {day.isoformat()}"]
             for t in sorted(day_threads, key=lambda t: t.asat):
                 ts = t.asat.strftime("%H:%M")
-                lines.append(f"- [{ts}] {t.preview}")
+                lines.append(f"- [{ts}] {t.get_content()}")
             sections.append("\n".join(lines))
 
         return "\n\n".join(sections)

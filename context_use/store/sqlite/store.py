@@ -83,6 +83,7 @@ class SqliteStore(Store):
         for stmt in all_ddl_statements(embedding_dimensions):
             await self._db.execute(stmt)
         await self._db.commit()
+        await self._migrate(self._db)
 
     async def reset(self) -> None:
         dims = self._ensure_embedding_dimensions()
@@ -255,9 +256,9 @@ class SqliteStore(Store):
     _THREAD_INSERT = (
         "INSERT OR IGNORE INTO threads "
         "(id, unique_key, etl_task_id, provider, "
-        "interaction_type, preview, payload, asset_uri, "
+        "interaction_type, preview, payload, content, asset_uri, "
         "source, collection_id, version, asat, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     )
 
     async def insert_threads(
@@ -282,6 +283,7 @@ class SqliteStore(Store):
                     row.interaction_type,
                     row.preview,
                     json.dumps(row.payload),
+                    None,
                     row.asset_uri,
                     row.source,
                     row.collection_id,
@@ -735,6 +737,14 @@ class SqliteStore(Store):
 
         best = min(rows, key=lambda r: distances.get(r["id"], 1.0))
         return FacetRow.from_row(best)
+
+    @staticmethod
+    async def _migrate(db: aiosqlite.Connection) -> None:
+        cursor = await db.execute("PRAGMA table_info(threads)")
+        columns = {row[1] for row in await cursor.fetchall()}
+        if "content" not in columns:
+            await db.execute("ALTER TABLE threads ADD COLUMN content TEXT")
+            await db.commit()
 
     @classmethod
     async def _flush_thread_batch(

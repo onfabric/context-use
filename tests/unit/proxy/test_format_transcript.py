@@ -21,7 +21,6 @@ def _make_thread(
         unique_key=rows[0].unique_key,
         provider=rows[0].provider,
         interaction_type=rows[0].interaction_type,
-        preview=rows[0].preview,
         payload=rows[0].payload,
         version=rows[0].version,
         asat=rows[0].asat,
