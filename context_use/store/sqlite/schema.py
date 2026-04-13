@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS etl_tasks (
     status            TEXT NOT NULL,
     extracted_count   INTEGER NOT NULL DEFAULT 0,
     transformed_count INTEGER NOT NULL DEFAULT 0,
+    error_count       INTEGER NOT NULL DEFAULT 0,
     uploaded_count    INTEGER NOT NULL DEFAULT 0,
     created_at        TEXT NOT NULL,
     updated_at        TEXT NOT NULL
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS etl_tasks (
             status=row["status"],
             extracted_count=row["extracted_count"],
             transformed_count=row["transformed_count"],
+            error_count=row["error_count"],
             uploaded_count=row["uploaded_count"],
             created_at=parse_dt(row["created_at"]),
             updated_at=parse_dt(row["updated_at"]),
