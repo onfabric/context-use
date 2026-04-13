@@ -244,7 +244,11 @@ class FibreCreateObject(Create, _BaseFibreMixin):
         return parts
 
     def _get_content(self) -> str | None:
-        return self.object.content if isinstance(self.object.content, str) else None
+        if isinstance(self.object.content, str):
+            return self.object.content
+        if isinstance(self.object.name, str):
+            return self.object.name
+        return None
 
 
 class FibreSendMessage(Create, _BaseFibreMixin):

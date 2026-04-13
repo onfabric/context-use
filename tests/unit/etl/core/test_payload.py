@@ -110,6 +110,18 @@ class TestFibreGetContent:
         create = FibreCreateObject(object=img)  # pyright: ignore[reportCallIssue]
         assert create.get_content() == "latte art"
 
+    def test_create_object_name_fallback(self):
+        img = Image(url="http://example.com/pic.jpg", name="Beach sunset")  # pyright: ignore[reportCallIssue]
+        create = FibreCreateObject(object=img)  # pyright: ignore[reportCallIssue]
+        assert create.get_content() == "Beach sunset"
+
+    def test_create_object_content_preferred_over_name(self):
+        img = Image(
+            url="http://example.com/pic.jpg", content="latte art", name="Photo title"
+        )  # pyright: ignore[reportCallIssue]
+        create = FibreCreateObject(object=img)  # pyright: ignore[reportCallIssue]
+        assert create.get_content() == "latte art"
+
     def test_create_object_no_caption(self):
         img = Image(url="http://example.com/pic.jpg")  # pyright: ignore[reportCallIssue]
         create = FibreCreateObject(object=img)  # pyright: ignore[reportCallIssue]
