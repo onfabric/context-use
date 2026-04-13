@@ -122,8 +122,9 @@ class InstagramVideosWatchedPipe(_InstagramVideosWatchedPipe):
     ) -> Iterator[InstagramVideoWatchedRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                item = InstagramV1ActivityItem.model_validate(raw)
+            for item in self._validated_items(
+                ijson.items(stream, "item"), InstagramV1ActivityItem
+            ):
                 video_url: str | None = None
                 for lv in item.label_values:
                     if isinstance(lv, InstagramLabelValue) and lv.label == "URL":

@@ -265,3 +265,48 @@ class TestPipe:
                 interaction_type="test_conversations",
                 source_uris=[],
             )
+
+
+class TestValidatedItems:
+    def _make_pipe(self) -> MockPipe:
+        pipe = MockPipe()
+        pipe.error_count = 0
+        return pipe
+
+    def test_yields_valid_items(self):
+        pipe = self._make_pipe()
+        raw = [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+        ]
+        results = list(pipe._validated_items(iter(raw), MockRecord))
+        assert len(results) == 2
+        assert results[0].role == "user"
+        assert results[1].content == "hello"
+        assert pipe.error_count == 0
+
+    def test_skips_invalid_items(self):
+        pipe = self._make_pipe()
+        raw = [
+            {"role": "user", "content": "good"},
+            {"bad_key": "no role or content"},
+            {"role": "assistant", "content": "also good"},
+        ]
+        results = list(pipe._validated_items(iter(raw), MockRecord))
+        assert len(results) == 2
+        assert results[0].content == "good"
+        assert results[1].content == "also good"
+        assert pipe.error_count == 1
+
+    def test_all_invalid_yields_nothing(self):
+        pipe = self._make_pipe()
+        raw = [{"nope": 1}, {"also_nope": 2}]
+        results = list(pipe._validated_items(iter(raw), MockRecord))
+        assert results == []
+        assert pipe.error_count == 2
+
+    def test_empty_iterator(self):
+        pipe = self._make_pipe()
+        results = list(pipe._validated_items(iter([]), MockRecord))
+        assert results == []
+        assert pipe.error_count == 0

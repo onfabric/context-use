@@ -3,13 +3,15 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
-from typing import ClassVar
+from typing import Any, ClassVar, TypeVar
 
 from pydantic import BaseModel
 
 from context_use.etl.core.types import ThreadRow
 from context_use.models.etl_task import EtlTask
 from context_use.storage.base import StorageBackend
+
+_M = TypeVar("_M", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +82,26 @@ class Pipe[Record: BaseModel](ABC):
         """
         ...
 
+    def _validated_items(
+        self, raw_iter: Iterator[Any], schema: type[_M]
+    ) -> Iterator[_M]:
+        """Validate each raw item against *schema*, skipping failures.
+
+        Exceptions from ``schema.model_validate(raw)`` are caught
+        per-item so the generator stays alive and subsequent items are
+        still processed.
+        """
+        for raw in raw_iter:
+            try:
+                yield schema.model_validate(raw)
+            except Exception:
+                self.error_count += 1
+                logger.warning(
+                    "%s: skipping invalid item: %.200s",
+                    self.__class__.__name__,
+                    str(raw),
+                )
+
     def extract(self, task: EtlTask, storage: StorageBackend) -> Iterator[Record]:
         """Iterate over all source URIs, delegating to :meth:`extract_file`.
 
@@ -97,7 +119,7 @@ class Pipe[Record: BaseModel](ABC):
                     yield record
             except Exception:
                 self.error_count += 1
-                logger.warning(
+                logger.info(
                     "%s: error extracting from %s — skipping rest of file",
                     self.__class__.__name__,
                     uri,

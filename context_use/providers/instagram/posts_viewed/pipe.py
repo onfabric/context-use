@@ -125,8 +125,9 @@ class InstagramPostsViewedPipe(_InstagramPostsViewedPipe):
     ) -> Iterator[InstagramPostsViewedRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                item = InstagramV1ActivityItem.model_validate(raw)
+            for item in self._validated_items(
+                ijson.items(stream, "item"), InstagramV1ActivityItem
+            ):
                 post_url: str | None = None
                 author: str | None = None
 

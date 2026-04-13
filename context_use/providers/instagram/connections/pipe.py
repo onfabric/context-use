@@ -116,8 +116,9 @@ class InstagramFollowersPipe(_InstagramConnectionPipe):
     ) -> Iterator[InstagramConnectionRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                item = InstagramConnectionItem.model_validate(raw)
+            for item in self._validated_items(
+                ijson.items(stream, "item"), InstagramConnectionItem
+            ):
                 yield _parse_connection_item(item)
         finally:
             stream.close()

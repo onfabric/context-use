@@ -188,4 +188,4 @@ class TestClaudeConversationFileSchema:
         )
         rows = list(pipe.run(task, storage))
         assert rows == []
-        assert pipe.error_count == 1
+        assert pipe.error_count == 2

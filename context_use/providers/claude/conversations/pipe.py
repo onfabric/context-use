@@ -103,9 +103,9 @@ class ClaudeConversationsPipe(Pipe[ClaudeConversationRecord]):
         stream = storage.open_stream(source_uri)
 
         try:
-            for raw_conversation in ijson.items(stream, "item"):
-                conversation = Model.model_validate(raw_conversation)
-
+            for conversation in self._validated_items(
+                ijson.items(stream, "item"), Model
+            ):
                 for message in conversation.chat_messages:
                     if message.sender not in ClaudeRole:
                         continue

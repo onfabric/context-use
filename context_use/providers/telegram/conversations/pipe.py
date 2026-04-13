@@ -111,8 +111,9 @@ class TelegramConversationsPipe(Pipe[TelegramConversationRecord]):
 
         stream = storage.open_stream(source_uri)
         try:
-            for raw_chat in ijson.items(stream, "chats.list.item"):
-                chat = Model.model_validate(raw_chat)
+            for chat in self._validated_items(
+                ijson.items(stream, "chats.list.item"), Model
+            ):
                 for msg in chat.messages:
                     if msg.type != _MESSAGE_TYPE:
                         continue

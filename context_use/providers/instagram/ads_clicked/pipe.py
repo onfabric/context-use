@@ -37,8 +37,10 @@ class InstagramAdsClickedPipe(Pipe[InstagramAdsClickedRecord]):
     ) -> Iterator[InstagramAdsClickedRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                item = Model.model_validate(_fix_strings_recursive(raw))
+            for item in self._validated_items(
+                (_fix_strings_recursive(raw) for raw in ijson.items(stream, "item")),
+                Model,
+            ):
                 ad_url: str | None = None
                 title: str | None = None
 

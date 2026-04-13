@@ -46,8 +46,7 @@ class AirbnbSearchHistoryPipe(Pipe[AirbnbSearchRecord]):
     ) -> Iterator[AirbnbSearchRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw_item in ijson.items(stream, "item"):
-                envelope = Model.model_validate(raw_item)
+            for envelope in self._validated_items(ijson.items(stream, "item"), Model):
                 for datum in envelope.servicedata:
                     yield AirbnbSearchRecord(
                         city=datum.city,
