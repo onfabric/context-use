@@ -36,21 +36,14 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
     ) -> Iterator[GoogleRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                try:
-                    self.file_schema.model_validate(raw)
-                    record = cast(
-                        GoogleRecord,
-                        self.record_schema.model_validate(raw),
-                    )
-                except Exception:
-                    self.error_count += 1
-                    logger.warning(
-                        "%s: skipping invalid item: %.200s",
-                        self.__class__.__name__,
-                        str(raw),
-                    )
-                    continue
+            for model in self._validated_items(
+                ijson.items(stream, "item"), self.file_schema
+            ):
+                raw = model.model_dump()
+                record = cast(
+                    GoogleRecord,
+                    self.record_schema.model_validate(raw),
+                )
                 record.source = json.dumps(raw, default=str)
                 if self._recognised_prefixes and not any(
                     record.title.startswith(p) for p in self._recognised_prefixes
