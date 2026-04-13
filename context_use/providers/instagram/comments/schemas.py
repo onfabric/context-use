@@ -9,14 +9,19 @@ from context_use.providers.instagram.schemas import (
 )
 
 
+class InstagramCommentMediaItem(InstagramBaseModel):
+    uri: str
+
+
 class InstagramCommentStringMapData(InstagramBaseModel):
-    Comment: InstagramValueSchema
+    Comment: InstagramValueSchema | None = None
     Time: InstagramTimestampSchema
     Media_Owner: InstagramValueSchema | None = Field(None, alias="Media Owner")
 
 
 class InstagramCommentFileItem(InstagramBaseModel):
     string_map_data: InstagramCommentStringMapData
+    media_list_data: list[InstagramCommentMediaItem] = []
 
 
 class InstagramReelsCommentsManifest(InstagramBaseModel):

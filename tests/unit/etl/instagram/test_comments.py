@@ -136,6 +136,83 @@ class TestInstagramCommentPostsPipe(PipeTestKit):
         assert len(records) == 1
         assert records[0].comment == "Valid comment"
 
+    def test_gif_comment_without_text(self, tmp_path: Path):
+        """Entries with media but no Comment are extracted as GIF comments."""
+        gif_url = "https://media0.giphy.com/media/abc123/200.gif"
+        data = [
+            {
+                "media_list_data": [{"uri": gif_url}],
+                "string_map_data": {
+                    "Media Owner": {"value": "someone"},
+                    "Time": {"timestamp": 1774353629},
+                },
+            },
+            {
+                "string_map_data": {
+                    "Comment": {"value": "Normal comment"},
+                    "Media Owner": {"value": "someone"},
+                    "Time": {"timestamp": 1774353630},
+                },
+            },
+        ]
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = f"archive/{POST_COMMENTS_ARCHIVE_PATH}"
+        storage.write(key, json.dumps(data).encode())
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        records = list(pipe.extract(task, storage))
+        assert len(records) == 2
+        assert records[0].comment == "[GIF]"
+        assert records[0].media_url == gif_url
+        assert records[0].media_owner == "someone"
+        assert records[1].comment == "Normal comment"
+        assert records[1].media_url is None
+
+    def test_gif_comment_transforms_with_url(self, tmp_path: Path):
+        """GIF comments produce a Note with the GIF URL."""
+        gif_url = "https://media0.giphy.com/media/abc123/200.gif"
+        data = [
+            {
+                "media_list_data": [{"uri": gif_url}],
+                "string_map_data": {
+                    "Media Owner": {"value": "creator"},
+                    "Time": {"timestamp": 1774353629},
+                },
+            },
+        ]
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = f"archive/{POST_COMMENTS_ARCHIVE_PATH}"
+        storage.write(key, json.dumps(data).encode())
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        rows = list(pipe.run(task, storage))
+        assert len(rows) == 1
+        payload = rows[0].payload
+        assert payload["object"]["content"] == "[GIF]"
+        assert payload["object"]["url"] == gif_url
+        assert payload["inReplyTo"]["attributedTo"]["name"] == "creator"
+
+    def test_skips_entry_with_no_comment_and_no_media(self, tmp_path: Path):
+        """Entries with neither Comment nor media_list_data are skipped."""
+        data = [
+            {
+                "string_map_data": {
+                    "Media Owner": {"value": "someone"},
+                    "Time": {"timestamp": 1774353629},
+                },
+            },
+        ]
+        storage = DiskStorage(str(tmp_path / "store"))
+        key = f"archive/{POST_COMMENTS_ARCHIVE_PATH}"
+        storage.write(key, json.dumps(data).encode())
+        pipe = self.pipe_class()
+        task = self._make_task(key)
+
+        records = list(pipe.extract(task, storage))
+        assert len(records) == 0
+
 
 class TestInstagramCommentReelsPipe(PipeTestKit):
     pipe_class = InstagramCommentReelsPipe
