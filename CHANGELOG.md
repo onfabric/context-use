@@ -1,3 +1,16 @@
+## [0.17.0] - 2026-04-13
+
+### 🚀 Features
+
+- Asset descriptions pipeline (#280)
+- Add thread.content for semantic representation (#277)
+- Add autogen pipe for telegram conversations (#271)
+
+### 🐛 Bug Fixes
+
+- Use image.name as create content (#279)
+- Only consider memories batches for memories (#278)
+
 ## [0.16.1] - 2026-03-25
 
 ### 🐛 Bug Fixes
