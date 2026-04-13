@@ -19,6 +19,7 @@ class BatchCategory(enum.StrEnum):
     """Extensible registry of pipeline categories."""
 
     memories = "memories"
+    asset_description = "asset_description"
 
 
 @dataclass

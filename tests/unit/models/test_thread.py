@@ -99,3 +99,28 @@ class TestThreadGetContent:
             asat=datetime(2025, 1, 1, tzinfo=UTC),
         )
         assert thread.get_content() == "sunset at the beach"
+
+
+class TestThreadGetRawContent:
+    def test_returns_payload_content_even_when_content_is_set(self) -> None:
+        thread = Thread(
+            unique_key="k1",
+            provider="Instagram",
+            interaction_type="instagram_posts",
+            payload=_make_create_object_payload(caption="original caption"),
+            version="1.1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+            content="enriched description\n\noriginal caption",
+        )
+        assert thread.get_raw_content() == "original caption"
+
+    def test_returns_empty_string_when_payload_has_no_content(self) -> None:
+        thread = Thread(
+            unique_key="k2",
+            provider="Instagram",
+            interaction_type="instagram_posts",
+            payload=_make_create_object_payload(),
+            version="1.1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+        assert thread.get_raw_content() == ""

@@ -153,6 +153,11 @@ class Store(ABC):
         ...
 
     @abstractmethod
+    async def update_thread_content(self, thread_id: str, content: str) -> None:
+        """Set the enriched ``content`` column for a single thread."""
+        ...
+
+    @abstractmethod
     async def list_threads_by_ids(self, ids: list[str]) -> list[Thread]:
         """Return threads whose ``id`` is in *ids*."""
         ...

@@ -345,6 +345,15 @@ class SqliteStore(Store):
         rows = await db.execute_fetchall(sql, params)
         return [ThreadRow.from_row(r) for r in rows]
 
+    async def update_thread_content(self, thread_id: str, content: str) -> None:
+        db = await self._conn()
+        now = now_utc_iso()
+        await db.execute(
+            "UPDATE threads SET content = ?, updated_at = ? WHERE id = ?",
+            (content, now, thread_id),
+        )
+        await self._commit_unless_atomic()
+
     async def list_threads_by_ids(self, ids: list[str]) -> list[Thread]:
         if not ids:
             return []

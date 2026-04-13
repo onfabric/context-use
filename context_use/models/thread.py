@@ -78,6 +78,10 @@ class Thread:
         """Get collection ID for this thread."""
         return self._parsed_payload.get_collection()
 
+    def get_raw_content(self) -> str:
+        """Return semantic content from the payload, ignoring any enriched content."""
+        return self._parsed_payload.get_content() or ""
+
     def get_participant_label(self) -> str:
         return self._parsed_payload.get_participant_label()
 

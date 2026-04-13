@@ -24,6 +24,7 @@ from context_use.models.etl_task import EtlTaskStatus
 from context_use.models.memory import MemorySummary, TapestryMemory
 from context_use.models.thread import Thread
 from context_use.providers.registry import (
+    get_asset_description_interaction_types,
     get_memory_config,
     get_memory_interaction_types,
 )
@@ -189,6 +190,40 @@ class ContextUse:
         await self._store.update_archive(archive)
 
         return result
+
+    # ── Asset description batches ────────────────────────────────────
+
+    async def create_asset_description_batches(
+        self,
+        *,
+        since: datetime | None = None,
+        before: datetime | None = None,
+    ) -> list[Batch]:
+        """Create batches for asset description generation.
+
+        Only threads for interaction types opted in via
+        ``InteractionConfig.asset_description`` are considered, further
+        filtered to threads that actually have an ``asset_uri``.
+        """
+        from context_use.asset_description.factory import AssetDescriptionBatchFactory
+
+        supported = get_asset_description_interaction_types()
+        if not supported:
+            return []
+
+        threads = await self._store.get_unprocessed_threads(
+            batch_category=BatchCategory.asset_description.value,
+            interaction_types=supported,
+            since=since,
+            before=before,
+        )
+
+        asset_threads = [t for t in threads if t.asset_uri is not None]
+        if not asset_threads:
+            return []
+
+        groups = [ThreadGroup(threads=[t], group_id=t.id) for t in asset_threads]
+        return await AssetDescriptionBatchFactory.create_batches(groups, self._store)
 
     # ── Memory batches ────────────────────────────────────────────────
 
@@ -403,4 +438,5 @@ class ContextUse:
 
 def _ensure_managers_registered() -> None:
     """Import manager modules to trigger their @register_batch_manager decorators."""
+    import context_use.asset_description.manager  # noqa: F401
     import context_use.memories.manager  # noqa: F401
