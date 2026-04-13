@@ -45,13 +45,19 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
         item: InstagramCommentFileItem,
     ) -> InstagramCommentRecord | None:
         smd = item.string_map_data
-        comment_val = smd.Comment.value
+        comment_val = smd.Comment.value if smd.Comment else None
+        media_url: str | None = None
         if not comment_val:
-            return None
+            if item.media_list_data:
+                media_url = item.media_list_data[0].uri
+                comment_val = "[GIF]"
+            else:
+                return None
         media_owner = smd.Media_Owner.value if smd.Media_Owner else None
         return InstagramCommentRecord(
             comment=comment_val,
             media_owner=media_owner,
+            media_url=media_url,
             timestamp=smd.Time.timestamp,
             source=item.model_dump_json(),
         )
@@ -63,7 +69,7 @@ class _InstagramCommentPipe(Pipe[InstagramCommentRecord]):
     ) -> ThreadRow:
         published = datetime.fromtimestamp(float(record.timestamp), tz=UTC)
 
-        note = Note(content=record.comment, published=published)  # type: ignore[reportCallIssue]
+        note = Note(content=record.comment, url=record.media_url, published=published)  # type: ignore[reportCallIssue]
 
         in_reply_to: FibrePost | None = None
         if record.media_owner:
