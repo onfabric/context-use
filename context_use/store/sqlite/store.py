@@ -305,18 +305,31 @@ class SqliteStore(Store):
     async def get_unprocessed_threads(
         self,
         *,
+        batch_category: str | None = None,
         interaction_types: list[str] | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
     ) -> list[Thread]:
         db = await self._conn()
-        sql = (
-            "SELECT t.* FROM threads t "
-            "LEFT JOIN batch_threads bt "
-            "ON bt.thread_id = t.id "
-            "WHERE bt.thread_id IS NULL"
-        )
         params: list = []
+
+        if batch_category is not None:
+            sql = (
+                "SELECT t.* FROM threads t "
+                "WHERE NOT EXISTS ("
+                "  SELECT 1 FROM batch_threads bt"
+                "  JOIN batches b ON bt.batch_id = b.id"
+                "  WHERE bt.thread_id = t.id AND b.category = ?"
+                ")"
+            )
+            params.append(batch_category)
+        else:
+            sql = (
+                "SELECT t.* FROM threads t "
+                "LEFT JOIN batch_threads bt ON bt.thread_id = t.id "
+                "WHERE bt.thread_id IS NULL"
+            )
+
         if interaction_types is not None:
             ph = ",".join("?" for _ in interaction_types)
             sql += f" AND t.interaction_type IN ({ph})"
