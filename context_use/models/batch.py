@@ -20,6 +20,7 @@ class BatchCategory(enum.StrEnum):
 
     memories = "memories"
     asset_description = "asset_description"
+    thread_embedding = "thread_embedding"
 
 
 @dataclass

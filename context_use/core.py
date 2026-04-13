@@ -28,7 +28,7 @@ from context_use.providers.registry import (
     get_memory_config,
     get_memory_interaction_types,
 )
-from context_use.store.base import MemorySearchResult
+from context_use.store.base import MemorySearchResult, ThreadSearchResult
 from context_use.types import PipelineResult, TaskBreakdown
 
 if TYPE_CHECKING:
@@ -272,6 +272,47 @@ class ContextUse:
 
         return await MemoryBatchFactory.create_batches(all_groups, self._store)
 
+    # ── Thread embedding batches ────────────────────────────────────
+
+    async def create_thread_embedding_batches(
+        self,
+        *,
+        since: datetime | None = None,
+        before: datetime | None = None,
+    ) -> list[Batch]:
+        """Create batches that embed thread content for semantic search.
+
+        All thread types are eligible — no interaction_type gating.
+        """
+        from context_use.thread_embedding.factory import ThreadEmbeddingBatchFactory
+
+        threads = await self._store.get_unprocessed_threads(
+            batch_category=BatchCategory.thread_embedding.value,
+            since=since,
+            before=before,
+        )
+
+        if not threads:
+            return []
+
+        groups = [ThreadGroup(threads=[t], group_id=t.id) for t in threads]
+        return await ThreadEmbeddingBatchFactory.create_batches(groups, self._store)
+
+    async def search_threads(
+        self,
+        query: str,
+        *,
+        top_k: int = 10,
+        interaction_types: list[str] | None = None,
+    ) -> list[ThreadSearchResult]:
+        """Embed *query* and search threads by semantic similarity."""
+        query_embedding = await self._llm_client.embed_query(query)
+        return await self._store.search_threads(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            interaction_types=interaction_types,
+        )
+
     async def advance_batch(self, batch_id: str) -> ScheduleInstruction:
         """Advance a batch one step through its state machine.
 
@@ -440,3 +481,4 @@ def _ensure_managers_registered() -> None:
     """Import manager modules to trigger their @register_batch_manager decorators."""
     import context_use.asset_description.manager  # noqa: F401
     import context_use.memories.manager  # noqa: F401
+    import context_use.thread_embedding.manager  # noqa: F401

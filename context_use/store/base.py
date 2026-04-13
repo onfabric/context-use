@@ -37,6 +37,15 @@ class MemorySearchResult:
     similarity: float | None
 
 
+@dataclass(frozen=True)
+class ThreadSearchResult:
+    id: str
+    content: str
+    interaction_type: str
+    asat: datetime
+    similarity: float | None
+
+
 class Store(ABC):
     """Abstract store for all context_use domain entities.
 
@@ -301,4 +310,24 @@ class Store(ABC):
         Uses cosine similarity on the canonical facet embedding.  Returns ``None``
         when no match exceeds *threshold*.
         """
+        ...
+
+    # ── Thread Embeddings ────────────────────────────────────────────
+
+    @abstractmethod
+    async def upsert_thread_embedding(
+        self, thread_id: str, embedding: list[float]
+    ) -> None:
+        """Insert or replace the embedding vector for a thread."""
+        ...
+
+    @abstractmethod
+    async def search_threads(
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int = 10,
+        interaction_types: list[str] | None = None,
+    ) -> list[ThreadSearchResult]:
+        """Search threads by semantic similarity on their embeddings."""
         ...

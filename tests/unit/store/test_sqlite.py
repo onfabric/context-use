@@ -455,3 +455,63 @@ async def test_async_context_manager(tmp_path) -> None:
         archive = Archive(provider="test")
         await s.create_archive(archive)
         assert await s.get_archive(archive.id) is not None
+
+
+async def test_upsert_thread_embedding(store: SqliteStore, task_id: str) -> None:
+    row = _make_row("embed-key-1")
+    ids = await store.insert_threads([row], task_id=task_id)
+    tid = ids[0]
+    await store.update_thread_content(tid, "embeddable")
+
+    emb = _make_embedding(0.5)
+    await store.upsert_thread_embedding(tid, emb)
+
+    emb2 = _make_embedding(0.9)
+    await store.upsert_thread_embedding(tid, emb2)
+
+    query = _make_embedding(0.9)
+    results = await store.search_threads(query_embedding=query, top_k=1)
+    assert len(results) == 1
+    assert results[0].id == tid
+
+
+async def test_search_threads_by_embedding(store: SqliteStore, task_id: str) -> None:
+    r1 = _make_row("search-1", interaction_type="posts")
+    r2 = _make_row("search-2", interaction_type="posts")
+    ids = await store.insert_threads([r1, r2], task_id=task_id)
+    await store.update_thread_content(ids[0], "alpha")
+    await store.update_thread_content(ids[1], "beta")
+
+    emb_alpha = [1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
+    emb_beta = [0.0, 1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 2)
+
+    await store.upsert_thread_embedding(ids[0], emb_alpha)
+    await store.upsert_thread_embedding(ids[1], emb_beta)
+
+    query = [1.0, 0.1] + [0.0] * (_TEST_EMBEDDING_DIMS - 2)
+    results = await store.search_threads(query_embedding=query, top_k=2)
+    assert len(results) == 2
+    assert results[0].id == ids[0]
+    assert results[0].similarity is not None
+    assert results[1].similarity is not None
+    assert results[0].similarity > results[1].similarity
+
+
+async def test_search_threads_with_interaction_type_filter(
+    store: SqliteStore, task_id: str
+) -> None:
+    r1 = _make_row("filter-1", interaction_type="posts")
+    r2 = _make_row("filter-2", interaction_type="messages")
+    ids = await store.insert_threads([r1, r2], task_id=task_id)
+    await store.update_thread_content(ids[0], "post content")
+    await store.update_thread_content(ids[1], "dm content")
+
+    emb = [1.0] + [0.0] * (_TEST_EMBEDDING_DIMS - 1)
+    await store.upsert_thread_embedding(ids[0], emb)
+    await store.upsert_thread_embedding(ids[1], emb)
+
+    results = await store.search_threads(
+        query_embedding=emb, top_k=10, interaction_types=["messages"]
+    )
+    assert len(results) == 1
+    assert results[0].interaction_type == "messages"

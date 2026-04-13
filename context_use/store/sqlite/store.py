@@ -22,7 +22,12 @@ from context_use.models import (
     Thread,
 )
 from context_use.models.utils import generate_uuidv4
-from context_use.store.base import MemorySearchResult, SortOrder, Store
+from context_use.store.base import (
+    MemorySearchResult,
+    SortOrder,
+    Store,
+    ThreadSearchResult,
+)
 from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
@@ -33,6 +38,7 @@ from context_use.store.sqlite.schema import (
     ThreadRow,
     VecFacetRow,
     VecMemoryRow,
+    VecThreadRow,
     all_ddl_statements,
     now_utc_iso,
     parse_dt,
@@ -760,6 +766,28 @@ class SqliteStore(Store):
         best = min(rows, key=lambda r: distances.get(r["id"], 1.0))
         return FacetRow.from_row(best)
 
+    async def upsert_thread_embedding(
+        self, thread_id: str, embedding: list[float]
+    ) -> None:
+        db = await self._conn()
+        await _upsert_thread_embedding(db, thread_id, embedding)
+        await self._commit_unless_atomic()
+
+    async def search_threads(
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int = 10,
+        interaction_types: list[str] | None = None,
+    ) -> list[ThreadSearchResult]:
+        db = await self._conn()
+        return await _search_threads_by_embedding(
+            db,
+            query_embedding,
+            top_k=top_k,
+            interaction_types=interaction_types,
+        )
+
     @staticmethod
     async def _migrate(db: aiosqlite.Connection) -> None:
         cursor = await db.execute("PRAGMA table_info(threads)")
@@ -896,3 +924,61 @@ async def _load_facet_embeddings(
     }
     for f in facets:
         f.embedding = emb_map.get(f.id)
+
+
+async def _upsert_thread_embedding(
+    db: aiosqlite.Connection,
+    thread_id: str,
+    embedding: list[float],
+) -> None:
+    await db.execute(
+        "DELETE FROM vec_threads WHERE thread_id = ?",
+        (thread_id,),
+    )
+    await db.execute(
+        "INSERT INTO vec_threads (thread_id, embedding) VALUES (?, ?)",
+        (thread_id, VecThreadRow.serialize(embedding)),
+    )
+
+
+async def _search_threads_by_embedding(
+    db: aiosqlite.Connection,
+    query_embedding: list[float],
+    *,
+    top_k: int,
+    interaction_types: list[str] | None,
+) -> list[ThreadSearchResult]:
+    vec_rows = await db.execute_fetchall(
+        "SELECT thread_id, distance FROM vec_threads WHERE embedding MATCH ? AND k = ?",
+        (VecThreadRow.serialize(query_embedding), top_k * 4),
+    )
+    if not vec_rows:
+        return []
+
+    candidate_ids = [r[0] for r in vec_rows]
+    distances: dict[str, float] = {r[0]: r[1] for r in vec_rows}
+
+    ph = ",".join("?" for _ in candidate_ids)
+    sql = f"SELECT id, content, interaction_type, asat FROM threads WHERE id IN ({ph})"
+    params: list[str] = [*candidate_ids]
+
+    if interaction_types:
+        type_ph = ",".join("?" for _ in interaction_types)
+        sql += f" AND interaction_type IN ({type_ph})"
+        params.extend(interaction_types)
+
+    thread_rows = await db.execute_fetchall(sql, params)
+
+    results = [
+        ThreadSearchResult(
+            id=r["id"],
+            content=r["content"] or "",
+            interaction_type=r["interaction_type"],
+            asat=parse_dt(r["asat"]),
+            similarity=1.0 - distances[r["id"]],
+        )
+        for r in thread_rows
+        if r["id"] in distances
+    ]
+    results.sort(key=lambda x: x.similarity or 0.0, reverse=True)
+    return results[:top_k]

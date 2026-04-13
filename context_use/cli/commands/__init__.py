@@ -4,6 +4,7 @@ from context_use.cli.base import BaseCommand, CommandGroup
 from context_use.cli.commands.agent import AgentGroup
 from context_use.cli.commands.config import ConfigGroup
 from context_use.cli.commands.describe import DescribeCommand
+from context_use.cli.commands.embed import EmbedCommand
 from context_use.cli.commands.ingest import IngestCommand
 from context_use.cli.commands.memories import MemoriesGroup
 from context_use.cli.commands.pipeline import PipelineCommand
@@ -15,6 +16,7 @@ TOP_LEVEL_COMMANDS: list[type[BaseCommand]] = [
     PipelineCommand,
     IngestCommand,
     DescribeCommand,
+    EmbedCommand,
     ResetCommand,
 ]
 

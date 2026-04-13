@@ -400,6 +400,32 @@ class VecFacetRow:
         return serialize_float32(embedding)
 
 
+class VecThreadRow:
+    table = "vec_threads"
+
+    @classmethod
+    def ddl(cls, embedding_dimensions: int) -> str:
+        return (
+            "CREATE VIRTUAL TABLE IF NOT EXISTS vec_threads "
+            f"USING vec0(\n"
+            f"    thread_id TEXT PRIMARY KEY,\n"
+            f"    embedding float[{embedding_dimensions}] "
+            f"distance_metric=cosine\n"
+            f")"
+        )
+
+    @staticmethod
+    def serialize(embedding: list[float]) -> bytes:
+        from sqlite_vec import serialize_float32
+
+        return serialize_float32(embedding)
+
+    @staticmethod
+    def deserialize(blob: bytes) -> list[float]:
+        n = len(blob) // 4
+        return list(struct.unpack(f"<{n}f", blob))
+
+
 _ALL_MODELS: list[type[BaseSqliteModel]] = [
     ArchiveRow,
     EtlTaskRow,
@@ -419,4 +445,5 @@ def all_ddl_statements(embedding_dimensions: int) -> list[str]:
         stmts.extend(model.indices())
     stmts.append(VecMemoryRow.ddl(embedding_dimensions))
     stmts.append(VecFacetRow.ddl(embedding_dimensions))
+    stmts.append(VecThreadRow.ddl(embedding_dimensions))
     return stmts

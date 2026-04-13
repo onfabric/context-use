@@ -50,6 +50,11 @@ def _batch_detail_from_state(state: State | None) -> str:
     if isinstance(state, DescGenerateCompleteState):
         return f"{state.descriptions_count} descriptions generated"
 
+    from context_use.thread_embedding.states import ThreadEmbedCompleteState
+
+    if isinstance(state, ThreadEmbedCompleteState):
+        return f"{state.embedded_count} threads embedded"
+
     return ""
 
 
