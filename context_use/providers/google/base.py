@@ -45,7 +45,7 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
                     )
                 except Exception:
                     self.error_count += 1
-                    logger.debug(
+                    logger.warning(
                         "%s: skipping invalid item: %.200s",
                         self.__class__.__name__,
                         str(raw),
