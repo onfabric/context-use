@@ -20,7 +20,7 @@ class DescribeCommand(ApiCommand):
         "(images and videos). Processes all unprocessed threads by default. "
         "Use --last-days or --since to limit the date range."
     )
-    llm_mode = "sync"
+    llm_mode = "batch"
 
     def add_arguments(self, parser: argparse.ArgumentParser) -> None:
         parser.add_argument(

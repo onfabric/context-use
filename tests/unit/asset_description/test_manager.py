@@ -7,7 +7,10 @@ import pytest
 
 from context_use.asset_description.manager import AssetDescriptionBatchManager
 from context_use.asset_description.prompt import AssetDescriptionSchema
-from context_use.asset_description.states import DescGenerateCompleteState
+from context_use.asset_description.states import (
+    DescGenerateCompleteState,
+    DescGeneratePendingState,
+)
 from context_use.batch.grouper import ThreadGroup
 from context_use.batch.manager import BatchContext
 from context_use.batch.states import CompleteState, CreatedState, SkippedState
@@ -69,6 +72,12 @@ class TestAssetDescriptionBatchManager:
         store = _make_store()
         store.list_threads_by_ids = AsyncMock(return_value=[thread])
         ctx = _make_ctx(store)
+        ctx.llm_client.batch_submit = AsyncMock(return_value="openai-batch-123")
+        ctx.llm_client.batch_get_results = AsyncMock(
+            return_value={
+                thread.id: AssetDescriptionSchema(description="A sunset over the ocean")
+            }
+        )
 
         manager = AssetDescriptionBatchManager(batch, ctx)
 
@@ -78,12 +87,30 @@ class TestAssetDescriptionBatchManager:
             return_value=[ThreadGroup(threads=[thread], group_id=thread.id)],
         ):
             state = await manager._transition(CreatedState())
-        assert isinstance(state, DescGenerateCompleteState)
-        assert state.descriptions_count == 1
-        store.update_thread_content.assert_called_once()
+        assert isinstance(state, DescGeneratePendingState)
+        assert state.job_key == "openai-batch-123"
+        ctx.llm_client.batch_submit.assert_called_once()
 
         state2 = await manager._transition(state)
-        assert isinstance(state2, CompleteState)
+        assert isinstance(state2, DescGenerateCompleteState)
+        assert state2.descriptions_count == 1
+        store.update_thread_content.assert_called_once()
+
+        state3 = await manager._transition(state2)
+        assert isinstance(state3, CompleteState)
+
+    @pytest.mark.asyncio
+    async def test_polls_while_results_none(self) -> None:
+        batch = _make_batch()
+        ctx = _make_ctx()
+        ctx.llm_client.batch_get_results = AsyncMock(return_value=None)
+
+        manager = AssetDescriptionBatchManager(batch, ctx)
+        pending = DescGeneratePendingState(job_key="job-1")
+
+        state = await manager._transition(pending)
+        assert isinstance(state, DescGeneratePendingState)
+        assert state.job_key == "job-1"
 
     @pytest.mark.asyncio
     async def test_skip_when_no_asset_threads(self) -> None:
@@ -115,7 +142,8 @@ class TestAssetDescriptionBatchManager:
         await manager._store_descriptions(results)
 
         store.update_thread_content.assert_called_once_with(
-            thread.id, "A golden sunset over the ocean\n\nBeautiful sunset"
+            thread.id,
+            "A golden sunset over the ocean\n\nBeautiful sunset",
         )
 
     @pytest.mark.asyncio

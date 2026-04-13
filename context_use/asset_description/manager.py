@@ -2,16 +2,15 @@ from __future__ import annotations
 
 import logging
 
-from context_use.asset_description.extractor import (
-    AssetDescriptionExtractor,
-    DescriptionExtractor,
-)
 from context_use.asset_description.factory import AssetDescriptionBatchFactory
 from context_use.asset_description.prompt import (
     AssetDescriptionPromptBuilder,
     AssetDescriptionSchema,
 )
-from context_use.asset_description.states import DescGenerateCompleteState
+from context_use.asset_description.states import (
+    DescGenerateCompleteState,
+    DescGeneratePendingState,
+)
 from context_use.batch.manager import (
     BaseBatchManager,
     BatchContext,
@@ -26,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 @register_batch_manager(BatchCategory.asset_description)
 class AssetDescriptionBatchManager(BaseBatchManager):
-    """Generates AI descriptions for asset threads (images/videos).
+    """Generates AI descriptions for image asset threads.
 
     State machine:
         CREATED → DESC_GENERATE_PENDING → DESC_GENERATE_COMPLETE → COMPLETE
@@ -34,14 +33,17 @@ class AssetDescriptionBatchManager(BaseBatchManager):
 
     def __init__(self, batch: Batch, ctx: BatchContext) -> None:
         super().__init__(batch, ctx)
-        self.extractor: DescriptionExtractor = AssetDescriptionExtractor(ctx.llm_client)
         self.batch_factory = AssetDescriptionBatchFactory
 
     async def _transition(self, current_state: State) -> State | None:
         match current_state:
             case CreatedState():
                 logger.info("[%s] Starting asset description generation", self.batch.id)
-                return await self._generate_descriptions()
+                return await self._submit_description_batch()
+
+            case DescGeneratePendingState() as state:
+                logger.info("[%s] Polling description generation status", self.batch.id)
+                return await self._check_description_results(state)
 
             case DescGenerateCompleteState():
                 logger.info("[%s] Asset description generation complete", self.batch.id)
@@ -52,7 +54,7 @@ class AssetDescriptionBatchManager(BaseBatchManager):
                     f"Invalid state for asset description batch: {current_state}"
                 )
 
-    async def _generate_descriptions(self) -> State:
+    async def _submit_description_batch(self) -> State:
         groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
         threads = [t for g in groups for t in g.threads if t.asset_uri is not None]
 
@@ -66,16 +68,22 @@ class AssetDescriptionBatchManager(BaseBatchManager):
             return SkippedState(reason="No prompts built from asset threads")
 
         logger.info(
-            "[%s] Generating descriptions for %d asset threads",
+            "[%s] Submitting batch job for %d asset threads",
             self.batch.id,
             len(prompts),
         )
 
-        job_key = await self.extractor.submit(self.batch.id, prompts)
-        results = await self.extractor.get_results(job_key)
+        job_key = await self.ctx.llm_client.batch_submit(self.batch.id, prompts)
+        return DescGeneratePendingState(job_key=job_key)
 
+    async def _check_description_results(
+        self, state: DescGeneratePendingState
+    ) -> State:
+        results = await self.ctx.llm_client.batch_get_results(
+            state.job_key, AssetDescriptionSchema
+        )
         if results is None:
-            return SkippedState(reason="Extractor returned no results")
+            return state
 
         count = await self._store_descriptions(results)
         return DescGenerateCompleteState(descriptions_count=count)
