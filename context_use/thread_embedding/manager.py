@@ -51,9 +51,9 @@ class ThreadEmbeddingBatchManager(BaseBatchManager):
         groups = await self.batch_factory.get_batch_groups(self.batch, self.ctx.store)
         threads = [t for g in groups for t in g.threads]
 
-        embeddable = [t for t in threads if t.get_content().strip()]
+        embeddable = [t for t in threads if t.get_embeddable_content() is not None]
         if not embeddable:
-            return SkippedState(reason="No threads with content to embed")
+            return SkippedState(reason="No threads with embeddable content")
 
         logger.info(
             "[%s] Submitting embed batch for %d threads",

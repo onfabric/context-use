@@ -25,23 +25,39 @@ def _make_batch() -> Batch:
     )
 
 
+def _comment_payload(text: str) -> dict:
+    return {
+        "type": "Create",
+        "fibre_kind": "Comment",
+        "object": {"type": "Note", "content": text},
+    }
+
+
+def _asset_payload() -> dict:
+    return {
+        "type": "Create",
+        "fibre_kind": "Create",
+        "object": {"type": "Image"},
+    }
+
+
 def _make_thread(
     thread_id: str = "t1",
-    content: str | None = "Some content to embed",
+    content: str | None = None,
+    asset_uri: str | None = None,
+    payload_content: str = "some raw content",
 ) -> Thread:
+    payload = _asset_payload() if asset_uri else _comment_payload(payload_content)
     return Thread(
         id=thread_id,
         unique_key=f"uk-{thread_id}",
         provider="test",
         interaction_type="test_type",
-        payload={
-            "type": "Create",
-            "fibre_kind": "Create",
-            "object": {"type": "Note", "content": content or ""},
-        },
+        payload=payload,
         version="1.0.0",
         asat=datetime(2025, 1, 1, tzinfo=UTC),
         content=content,
+        asset_uri=asset_uri,
     )
 
 
@@ -57,7 +73,7 @@ class TestThreadEmbeddingBatchManager:
     @pytest.mark.asyncio
     async def test_full_state_machine(self) -> None:
         batch = _make_batch()
-        thread = _make_thread()
+        thread = _make_thread("t1", payload_content="embeddable text")
         ctx = _make_ctx()
         ctx.llm_client.embed_batch_submit = AsyncMock(return_value="embed-job-1")
         ctx.llm_client.embed_batch_get_results = AsyncMock(
@@ -96,7 +112,7 @@ class TestThreadEmbeddingBatchManager:
     @pytest.mark.asyncio
     async def test_skip_when_all_empty_content(self) -> None:
         batch = _make_batch()
-        thread = _make_thread(content="")
+        thread = _make_thread(payload_content="")
         ctx = _make_ctx()
         manager = ThreadEmbeddingBatchManager(batch, ctx)
 
@@ -107,6 +123,42 @@ class TestThreadEmbeddingBatchManager:
         ):
             state = await manager._transition(CreatedState())
         assert isinstance(state, SkippedState)
+
+    @pytest.mark.asyncio
+    async def test_skip_undescribed_asset_threads(self) -> None:
+        batch = _make_batch()
+        thread = _make_thread(
+            asset_uri="archive/pic.jpg", content=None, payload_content="caption"
+        )
+        ctx = _make_ctx()
+        manager = ThreadEmbeddingBatchManager(batch, ctx)
+
+        with patch.object(
+            manager.batch_factory,
+            "get_batch_groups",
+            return_value=[ThreadGroup(threads=[thread], group_id=thread.id)],
+        ):
+            state = await manager._transition(CreatedState())
+        assert isinstance(state, SkippedState)
+
+    @pytest.mark.asyncio
+    async def test_embeds_described_asset_thread(self) -> None:
+        batch = _make_batch()
+        thread = _make_thread(
+            asset_uri="archive/pic.jpg",
+            content="A sunset over the ocean",
+        )
+        ctx = _make_ctx()
+        ctx.llm_client.embed_batch_submit = AsyncMock(return_value="job-asset")
+        manager = ThreadEmbeddingBatchManager(batch, ctx)
+
+        with patch.object(
+            manager.batch_factory,
+            "get_batch_groups",
+            return_value=[ThreadGroup(threads=[thread], group_id=thread.id)],
+        ):
+            state = await manager._transition(CreatedState())
+        assert isinstance(state, ThreadEmbedPendingState)
 
     @pytest.mark.asyncio
     async def test_polling_returns_same_state(self) -> None:

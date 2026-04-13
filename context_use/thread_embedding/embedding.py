@@ -18,12 +18,12 @@ async def submit_thread_embeddings(
     llm_client: BaseLLMClient,
 ) -> str:
     items = [
-        EmbedItem(item_id=t.id, text=t.get_content())
+        EmbedItem(item_id=t.id, text=text)
         for t in threads
-        if t.get_content().strip()
+        if (text := t.get_embeddable_content()) is not None
     ]
     if not items:
-        raise ValueError("No threads with non-empty content to embed")
+        raise ValueError("No threads with embeddable content")
     logger.info("[%s] Submitting embed batch for %d threads", batch_id, len(items))
     return await llm_client.embed_batch_submit(batch_id, items)
 

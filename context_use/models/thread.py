@@ -82,6 +82,20 @@ class Thread:
         """Return semantic content from the payload, ignoring any enriched content."""
         return self._parsed_payload.get_content() or ""
 
+    def get_embeddable_content(self) -> str | None:
+        """Return content suitable for embedding, or ``None`` if not embeddable.
+
+        Non-asset threads use raw payload content.  Asset threads use
+        the enriched description (set by the asset-description pipeline);
+        if no description exists yet, the thread is not embeddable.
+        """
+        if self.is_asset:
+            if self.content is not None and self.content.strip():
+                return self.content
+            return None
+        raw = self.get_raw_content()
+        return raw if raw.strip() else None
+
     def get_participant_label(self) -> str:
         return self._parsed_payload.get_participant_label()
 
