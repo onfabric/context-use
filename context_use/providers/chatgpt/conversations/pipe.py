@@ -98,9 +98,9 @@ class ChatGPTConversationsPipe(Pipe[ChatGPTConversationRecord]):
         stream = storage.open_stream(source_uri)
 
         try:
-            for raw_conversation in ijson.items(stream, "item"):
-                conversation = Model.model_validate(raw_conversation)
-
+            for conversation in self._validated_items(
+                ijson.items(stream, "item"), Model
+            ):
                 for _node_id, node in conversation.mapping.items():
                     message = node.message
                     if message is None:

@@ -122,9 +122,10 @@ class InstagramStoryLikesPipe(_InstagramStoryLikePipe):
     ) -> Iterator[InstagramStoryLikeRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                fixed = _fix_strings_recursive(raw)
-                item = Model.model_validate(fixed)
+            for item in self._validated_items(
+                (_fix_strings_recursive(raw) for raw in ijson.items(stream, "item")),
+                Model,
+            ):
                 href: str | None = None
                 title: str | None = None
 
@@ -138,7 +139,7 @@ class InstagramStoryLikesPipe(_InstagramStoryLikePipe):
                     title=title or "",
                     href=href,
                     timestamp=item.timestamp,
-                    source=json.dumps(fixed),
+                    source=item.model_dump_json(),
                 )
         finally:
             stream.close()

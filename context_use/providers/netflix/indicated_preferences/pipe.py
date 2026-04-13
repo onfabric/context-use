@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
@@ -49,15 +48,14 @@ class NetflixIndicatedPreferencesPipe(Pipe[NetflixIndicatedPreferencesRecord]):
         stream = storage.open_stream(source_uri)
         try:
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
-            for raw_row in reader:
-                row = Model.model_validate(raw_row)
+            for row in self._validated_items(reader, Model):
                 yield NetflixIndicatedPreferencesRecord(
                     profile_name=row.profile_name,
                     show=row.show,
                     is_interested=row.is_interested,
                     event_date=row.event_date,
                     has_watched=row.has_watched,
-                    source=json.dumps(raw_row),
+                    source=row.model_dump_json(),
                 )
         finally:
             stream.close()

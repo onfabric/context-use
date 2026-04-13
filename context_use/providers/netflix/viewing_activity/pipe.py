@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
@@ -51,8 +50,7 @@ class NetflixViewingActivityPipe(Pipe[NetflixViewingActivityRecord]):
         stream = storage.open_stream(source_uri)
         try:
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
-            for raw_row in reader:
-                row = Model.model_validate(raw_row)
+            for row in self._validated_items(reader, Model):
                 if row.supplemental_video_type:
                     continue
                 yield NetflixViewingActivityRecord(
@@ -64,7 +62,7 @@ class NetflixViewingActivityPipe(Pipe[NetflixViewingActivityRecord]):
                     device_type=row.device_type,
                     bookmark=row.bookmark,
                     attributes=row.attributes,
-                    source=json.dumps(raw_row),
+                    source=row.model_dump_json(),
                 )
         finally:
             stream.close()

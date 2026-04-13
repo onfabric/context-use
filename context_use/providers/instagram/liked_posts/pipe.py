@@ -121,8 +121,10 @@ class InstagramLikedPostsPipe(_InstagramLikedPostPipe):
     ) -> Iterator[InstagramLikedPostRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                yield _extract_like_item(InstagramV1ActivityItem.model_validate(raw))
+            for item in self._validated_items(
+                ijson.items(stream, "item"), InstagramV1ActivityItem
+            ):
+                yield _extract_like_item(item)
         finally:
             stream.close()
 

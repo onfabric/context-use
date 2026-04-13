@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 from collections.abc import Iterator
 from datetime import UTC, datetime
 
@@ -50,8 +49,7 @@ class NetflixRatingsPipe(Pipe[NetflixRatingsRecord]):
         stream = storage.open_stream(source_uri)
         try:
             reader = csv.DictReader(io.TextIOWrapper(stream, encoding="utf-8"))
-            for raw_row in reader:
-                row = Model.model_validate(raw_row)
+            for row in self._validated_items(reader, Model):
                 if row.thumbs_value not in _LIKE_VALUES | _DISLIKE_VALUES:
                     continue
                 yield NetflixRatingsRecord(
@@ -61,7 +59,7 @@ class NetflixRatingsPipe(Pipe[NetflixRatingsRecord]):
                     rating_type=row.rating_type,
                     event_utc_ts=row.event_utc_ts,
                     device_model=row.device_model,
-                    source=json.dumps(raw_row),
+                    source=row.model_dump_json(),
                 )
         finally:
             stream.close()

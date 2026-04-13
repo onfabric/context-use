@@ -110,8 +110,7 @@ class AirbnbMessagesPipe(Pipe[AirbnbMessageRecord]):
     ) -> Iterator[AirbnbMessageRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw_item in ijson.items(stream, "item"):
-                item = Model.model_validate(raw_item)
+            for item in self._validated_items(ijson.items(stream, "item"), Model):
                 for thread in item.messageThreads:
                     for mac in thread.messagesAndContents:
                         msg = mac.message

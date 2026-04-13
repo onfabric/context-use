@@ -100,10 +100,10 @@ class InstagramCommentPostsPipe(_InstagramCommentPipe):
     ) -> Iterator[InstagramCommentRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                record = self._extract_item(
-                    InstagramCommentFileItem.model_validate(raw)
-                )
+            for item in self._validated_items(
+                ijson.items(stream, "item"), InstagramCommentFileItem
+            ):
+                record = self._extract_item(item)
                 if record is not None:
                     yield record
         finally:

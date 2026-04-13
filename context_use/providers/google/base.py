@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import urllib.parse
 from collections.abc import Iterator
 from typing import ClassVar, cast
@@ -15,6 +16,8 @@ from context_use.models.etl_task import EtlTask
 from context_use.providers.google.record import GoogleRecord
 from context_use.providers.google.schemas import Model
 from context_use.storage.base import StorageBackend
+
+logger = logging.getLogger(__name__)
 
 PROVIDER = "google"
 
@@ -34,13 +37,21 @@ class _BaseGooglePipe(Pipe[GoogleRecord]):
         stream = storage.open_stream(source_uri)
         try:
             for raw in ijson.items(stream, "item"):
-                self.file_schema.model_validate(raw)
-                source_json = json.dumps(raw, default=str)
-                record = cast(
-                    GoogleRecord,
-                    self.record_schema.model_validate(raw),
-                )
-                record.source = source_json
+                try:
+                    self.file_schema.model_validate(raw)
+                    record = cast(
+                        GoogleRecord,
+                        self.record_schema.model_validate(raw),
+                    )
+                except Exception:
+                    self.error_count += 1
+                    logger.debug(
+                        "%s: skipping invalid item: %.200s",
+                        self.__class__.__name__,
+                        str(raw),
+                    )
+                    continue
+                record.source = json.dumps(raw, default=str)
                 if self._recognised_prefixes and not any(
                     record.title.startswith(p) for p in self._recognised_prefixes
                 ):

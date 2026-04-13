@@ -43,8 +43,7 @@ class AirbnbReviewsPipe(Pipe[AirbnbReviewRecord]):
     ) -> Iterator[AirbnbReviewRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw_item in ijson.items(stream, "item"):
-                envelope = Model.model_validate(raw_item)
+            for envelope in self._validated_items(ijson.items(stream, "item"), Model):
                 for entry in envelope.reviewsProvided:
                     review = entry.review
                     yield AirbnbReviewRecord(

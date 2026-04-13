@@ -134,8 +134,9 @@ class InstagramPostsPipe(_InstagramMediaPipe):
     ) -> Iterator[InstagramMediaRecord]:
         stream = storage.open_stream(source_uri)
         try:
-            for raw in ijson.items(stream, "item"):
-                entry = InstagramPostsEntry.model_validate(raw)
+            for entry in self._validated_items(
+                ijson.items(stream, "item"), InstagramPostsEntry
+            ):
                 yield from _items_to_records(entry.media)
         finally:
             stream.close()
