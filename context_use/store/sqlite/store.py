@@ -309,6 +309,7 @@ class SqliteStore(Store):
         *,
         batch_category: str | None = None,
         interaction_types: list[str] | None = None,
+        task_id: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
     ) -> list[Thread]:
@@ -336,6 +337,9 @@ class SqliteStore(Store):
             ph = ",".join("?" for _ in interaction_types)
             sql += f" AND t.interaction_type IN ({ph})"
             params.extend(interaction_types)
+        if task_id is not None:
+            sql += " AND t.etl_task_id = ?"
+            params.append(task_id)
         if since is not None:
             sql += " AND t.asat >= ?"
             params.append(since.isoformat())

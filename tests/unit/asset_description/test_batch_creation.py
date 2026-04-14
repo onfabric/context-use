@@ -125,3 +125,20 @@ class TestCreateAssetDescriptionBatches:
 
         group_ids = [g.group_id for g in groups]
         assert group_ids == ["img"]
+
+    @pytest.mark.asyncio
+    async def test_forwards_task_id_to_store(self) -> None:
+        ctx = _make_ctx(threads=[])
+        await ctx.create_asset_description_batches(task_id="task-42")
+
+        mock: AsyncMock = ctx._store.get_unprocessed_threads  # type: ignore[assignment]
+        mock.assert_awaited_once()
+        assert mock.call_args.kwargs["task_id"] == "task-42"
+
+    @pytest.mark.asyncio
+    async def test_task_id_defaults_to_none(self) -> None:
+        ctx = _make_ctx(threads=[])
+        await ctx.create_asset_description_batches()
+
+        mock: AsyncMock = ctx._store.get_unprocessed_threads  # type: ignore[assignment]
+        assert mock.call_args.kwargs["task_id"] is None

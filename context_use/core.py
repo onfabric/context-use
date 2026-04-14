@@ -196,6 +196,7 @@ class ContextUse:
     async def create_asset_description_batches(
         self,
         *,
+        task_id: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
     ) -> list[Batch]:
@@ -216,6 +217,7 @@ class ContextUse:
         threads = await self._store.get_unprocessed_threads(
             batch_category=BatchCategory.asset_description.value,
             interaction_types=supported,
+            task_id=task_id,
             since=since,
             before=before,
         )
@@ -238,6 +240,7 @@ class ContextUse:
     async def create_memory_batches(
         self,
         *,
+        task_id: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
         interaction_types: list[str] | None = None,
@@ -260,6 +263,7 @@ class ContextUse:
         threads = await self._store.get_unprocessed_threads(
             batch_category=BatchCategory.memories,
             interaction_types=supported,
+            task_id=task_id,
             since=since,
             before=before,
         )
