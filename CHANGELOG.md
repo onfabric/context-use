@@ -1,3 +1,20 @@
+## [0.18.0] - 2026-04-14
+
+### 🚀 Features
+
+- Store error count on ETLTask (#285)
+- Add per-item model validation in pipes (#283)
+
+### 🐛 Bug Fixes
+
+- Only store llm generated asset description (#287)
+- Reuse validated_items helper in google pipe (#286)
+- Parse IG comments with gif as comment (#284)
+
+### 🚜 Refactor
+
+- Get supported MIME from base llm client (#288)
+
 ## [0.17.0] - 2026-04-13
 
 ### 🚀 Features
