@@ -143,7 +143,7 @@ class TestAssetDescriptionBatchManager:
 
         store.update_thread_content.assert_called_once_with(
             thread.id,
-            "A golden sunset over the ocean\n\nBeautiful sunset",
+            "A golden sunset over the ocean",
         )
 
     @pytest.mark.asyncio
