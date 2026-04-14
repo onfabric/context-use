@@ -414,11 +414,11 @@ class ContextUse:
 
         etl_task.extracted_count = pipe.extracted_count
         etl_task.transformed_count = pipe.transformed_count
+        etl_task.error_count = pipe.error_count
 
         if pipe.extracted_count == 0 and pipe.error_count > 0:
             raise RuntimeError(
-                f"All source files failed extraction "
-                f"({pipe.extract_error_count} error(s))"
+                f"All source files failed extraction ({pipe.error_count} error(s))"
             )
 
         inserted_ids = await self._store.insert_threads(rows, etl_task.id)

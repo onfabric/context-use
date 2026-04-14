@@ -197,9 +197,9 @@ class SqliteStore(Store):
             "INSERT INTO etl_tasks "
             "(id, archive_id, provider, interaction_type, "
             "source_uris, status, extracted_count, "
-            "transformed_count, uploaded_count, "
+            "transformed_count, error_count, uploaded_count, "
             "created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 task.id,
                 task.archive_id,
@@ -209,6 +209,7 @@ class SqliteStore(Store):
                 task.status,
                 task.extracted_count,
                 task.transformed_count,
+                task.error_count,
                 task.uploaded_count,
                 now,
                 now,
@@ -239,13 +240,14 @@ class SqliteStore(Store):
         await db.execute(
             "UPDATE etl_tasks "
             "SET status = ?, extracted_count = ?, "
-            "transformed_count = ?, uploaded_count = ?, "
-            "updated_at = ? "
+            "transformed_count = ?, error_count = ?, "
+            "uploaded_count = ?, updated_at = ? "
             "WHERE id = ?",
             (
                 task.status,
                 task.extracted_count,
                 task.transformed_count,
+                task.error_count,
                 task.uploaded_count,
                 now,
                 task.id,
@@ -766,6 +768,15 @@ class SqliteStore(Store):
         columns = {row[1] for row in await cursor.fetchall()}
         if "content" not in columns:
             await db.execute("ALTER TABLE threads ADD COLUMN content TEXT")
+            await db.commit()
+
+        cursor = await db.execute("PRAGMA table_info(etl_tasks)")
+        task_columns = {row[1] for row in await cursor.fetchall()}
+        if "error_count" not in task_columns:
+            await db.execute(
+                "ALTER TABLE etl_tasks "
+                "ADD COLUMN error_count INTEGER NOT NULL DEFAULT 0"
+            )
             await db.commit()
 
     @classmethod

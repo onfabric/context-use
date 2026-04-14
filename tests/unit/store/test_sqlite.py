@@ -93,10 +93,12 @@ async def test_task_crud(store: SqliteStore) -> None:
     assert fetched.source_uri == "archive/conversations.json"
 
     task.status = EtlTaskStatus.COMPLETED.value
+    task.error_count = 3
     await store.update_task(task)
     updated = await store.get_task(task.id)
     assert updated is not None
     assert updated.status == EtlTaskStatus.COMPLETED.value
+    assert updated.error_count == 3
 
 
 def _make_row(unique_key: str, **kwargs) -> ThreadRow:
