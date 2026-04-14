@@ -8,9 +8,9 @@ from context_use.llm.base import PromptItem
 from context_use.models.thread import Thread
 
 
-def _is_image_uri(uri: str) -> bool:
+def is_supported_media(uri: str, prefixes: tuple[str, ...]) -> bool:
     mime, _ = mimetypes.guess_type(uri)
-    return mime is not None and mime.startswith("image/")
+    return mime is not None and any(mime.startswith(p) for p in prefixes)
 
 
 ASSET_DESCRIPTION_PROMPT = """Describe this image or video focusing on:
@@ -54,9 +54,7 @@ class AssetDescriptionSchema(BaseModel):
 
 class AssetDescriptionPromptBuilder:
     def __init__(self, threads: list[Thread]) -> None:
-        self.threads = [
-            t for t in threads if t.asset_uri is not None and _is_image_uri(t.asset_uri)
-        ]
+        self.threads = [t for t in threads if t.asset_uri is not None]
 
     def build(self) -> list[PromptItem]:
         response_schema = AssetDescriptionSchema.json_schema()

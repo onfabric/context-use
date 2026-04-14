@@ -203,9 +203,11 @@ class ContextUse:
 
         Only threads for interaction types opted in via
         ``InteractionConfig.asset_description`` are considered, further
-        filtered to threads that actually have an ``asset_uri``.
+        filtered to threads whose ``asset_uri`` matches one of the LLM
+        client's :attr:`~BaseLLMClient.supported_media_prefixes`.
         """
         from context_use.asset_description.factory import AssetDescriptionBatchFactory
+        from context_use.asset_description.prompt import is_supported_media
 
         supported = get_asset_description_interaction_types()
         if not supported:
@@ -218,7 +220,13 @@ class ContextUse:
             before=before,
         )
 
-        asset_threads = [t for t in threads if t.asset_uri is not None]
+        media_prefixes = self._llm_client.supported_media_prefixes
+        asset_threads = [
+            t
+            for t in threads
+            if t.asset_uri is not None
+            and is_supported_media(t.asset_uri, media_prefixes)
+        ]
         if not asset_threads:
             return []
 

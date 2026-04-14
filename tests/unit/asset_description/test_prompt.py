@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from context_use.asset_description.prompt import (
     AssetDescriptionPromptBuilder,
     AssetDescriptionSchema,
+    is_supported_media,
 )
 from context_use.models.thread import Thread
 
@@ -44,18 +45,16 @@ class TestAssetDescriptionPromptBuilder:
         assert len(prompts) == 1
         assert prompts[0].item_id == "a1"
 
-    def test_filters_video_assets(self) -> None:
+    def test_builds_prompts_for_all_asset_threads(self) -> None:
         threads = [
             _make_thread(thread_id="img", asset_uri="archive/pic.jpg"),
             _make_thread(thread_id="mp4", asset_uri="archive/clip.mp4"),
-            _make_thread(thread_id="mov", asset_uri="archive/clip.mov"),
-            _make_thread(thread_id="webm", asset_uri="archive/clip.webm"),
             _make_thread(thread_id="png", asset_uri="archive/shot.png"),
         ]
         builder = AssetDescriptionPromptBuilder(threads)
         prompts = builder.build()
         ids = [p.item_id for p in prompts]
-        assert ids == ["img", "png"]
+        assert ids == ["img", "mp4", "png"]
 
     def test_uses_raw_content_not_enriched(self) -> None:
         thread = _make_thread(
@@ -88,6 +87,24 @@ class TestAssetDescriptionPromptBuilder:
     def test_empty_threads_yields_no_prompts(self) -> None:
         prompts = AssetDescriptionPromptBuilder([]).build()
         assert prompts == []
+
+
+class TestIsSupportedMedia:
+    def test_image_matches_image_prefix(self) -> None:
+        assert is_supported_media("photo.jpg", ("image/",)) is True
+
+    def test_video_does_not_match_image_prefix(self) -> None:
+        assert is_supported_media("clip.mp4", ("image/",)) is False
+
+    def test_video_matches_video_prefix(self) -> None:
+        assert is_supported_media("clip.mp4", ("video/",)) is True
+
+    def test_matches_any_prefix(self) -> None:
+        assert is_supported_media("clip.mp4", ("image/", "video/")) is True
+        assert is_supported_media("photo.jpg", ("image/", "video/")) is True
+
+    def test_unknown_extension_returns_false(self) -> None:
+        assert is_supported_media("data.xyz", ("image/",)) is False
 
 
 class TestAssetDescriptionSchema:

@@ -51,6 +51,10 @@ class BaseLLMClient(ABC):
     while the job is still running.
     """
 
+    @property
+    def supported_media_prefixes(self) -> tuple[str, ...]:
+        return ("image/",)
+
     @abstractmethod
     async def batch_submit(self, batch_id: str, prompts: list[PromptItem]) -> str: ...
 
