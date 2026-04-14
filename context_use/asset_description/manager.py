@@ -91,24 +91,11 @@ class AssetDescriptionBatchManager(BaseBatchManager):
     async def _store_descriptions(
         self, results: BatchResults[AssetDescriptionSchema]
     ) -> int:
-        threads = await self.ctx.store.list_threads_by_ids(list(results.keys()))
-        thread_map = {t.id: t for t in threads}
-
         count = 0
         for thread_id, schema in results.items():
             if not schema.description:
                 continue
-            thread = thread_map.get(thread_id)
-            if thread is None:
-                continue
-
-            caption = thread.get_raw_content()
-            if caption:
-                composed = f"{schema.description}\n\n{caption}"
-            else:
-                composed = schema.description
-
-            await self.ctx.store.update_thread_content(thread_id, composed)
+            await self.ctx.store.update_thread_content(thread_id, schema.description)
             count += 1
 
         logger.info("[%s] Stored %d asset descriptions", self.batch.id, count)
