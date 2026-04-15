@@ -1,3 +1,9 @@
+## [0.18.1] - 2026-04-15
+
+### 🐛 Bug Fixes
+
+- Add task_id filtering to get_unprocessed_threads (#290)
+
 ## [0.18.0] - 2026-04-14
 
 ### 🚀 Features
