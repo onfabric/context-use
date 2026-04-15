@@ -136,6 +136,7 @@ class Store(ABC):
         *,
         batch_category: str | None = None,
         interaction_types: list[str] | None = None,
+        task_id: str | None = None,
         since: datetime | None = None,
         before: datetime | None = None,
     ) -> list[Thread]:
@@ -148,6 +149,10 @@ class Store(ABC):
 
         If *interaction_types* is given, only threads whose
         ``interaction_type`` is in that list are returned.
+
+        If *task_id* is given, only threads whose ``etl_task_id``
+        matches are returned.
+
         Results are ordered by ``asat``, then ``id``.
         """
         ...
