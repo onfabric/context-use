@@ -515,6 +515,121 @@ async def test_upsert_thread_embedding_replaces_existing(store: SqliteStore) -> 
     assert len(result) == 1
 
 
+async def _insert_thread_with_embedding(
+    store: SqliteStore,
+    *,
+    unique_key: str,
+    interaction_type: str = "test_type",
+    content: str | None = None,
+    embedding: list[float],
+) -> str:
+    """Helper: insert a thread and its embedding, return the thread ID."""
+    archive = Archive(provider="test")
+    await store.create_archive(archive)
+    task = EtlTask(
+        archive_id=archive.id,
+        provider="test",
+        interaction_type=interaction_type,
+        source_uris=["test.json"],
+    )
+    await store.create_task(task)
+    rows = [
+        ThreadRow(
+            unique_key=unique_key,
+            provider="test",
+            interaction_type=interaction_type,
+            preview="p",
+            payload={
+                "type": "Create",
+                "fibre_kind": "Create",
+                "object": {"type": "Note"},
+            },
+            version="1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+    ]
+    ids = await store.insert_threads(rows, task.id)
+    thread_id = ids[0]
+    if content is not None:
+        await store.update_thread_content(thread_id, content)
+    await store.upsert_thread_embedding(thread_id, embedding)
+    return thread_id
+
+
+async def test_search_threads_by_embedding(store: SqliteStore) -> None:
+    emb_similar = [1.0, 0.0, 0.0, 0.0]
+    emb_different = [0.0, 0.0, 0.0, 1.0]
+
+    id_similar = await _insert_thread_with_embedding(
+        store,
+        unique_key="uk-similar",
+        content="similar content",
+        embedding=emb_similar,
+    )
+    await _insert_thread_with_embedding(
+        store,
+        unique_key="uk-different",
+        content="different content",
+        embedding=emb_different,
+    )
+
+    query_emb = [0.9, 0.1, 0.0, 0.0]
+    results = await store.search_threads(query_embedding=query_emb, top_k=1)
+
+    assert len(results) == 1
+    assert results[0].id == id_similar
+    assert results[0].content == "similar content"
+    assert results[0].similarity > 0.0
+
+
+async def test_search_threads_filters_by_interaction_type(store: SqliteStore) -> None:
+    emb = [1.0, 0.0, 0.0, 0.0]
+
+    await _insert_thread_with_embedding(
+        store,
+        unique_key="uk-type-a",
+        interaction_type="type_a",
+        content="content a",
+        embedding=emb,
+    )
+    id_b = await _insert_thread_with_embedding(
+        store,
+        unique_key="uk-type-b",
+        interaction_type="type_b",
+        content="content b",
+        embedding=emb,
+    )
+
+    results = await store.search_threads(
+        query_embedding=emb,
+        top_k=10,
+        interaction_types=["type_b"],
+    )
+
+    assert len(results) == 1
+    assert results[0].id == id_b
+
+
+async def test_search_threads_returns_empty_when_no_embeddings(
+    store: SqliteStore,
+) -> None:
+    results = await store.search_threads(query_embedding=[1.0, 0.0, 0.0, 0.0], top_k=5)
+    assert results == []
+
+
+async def test_search_threads_respects_top_k(store: SqliteStore) -> None:
+    for i in range(5):
+        await _insert_thread_with_embedding(
+            store,
+            unique_key=f"uk-topk-{i}",
+            content=f"content {i}",
+            embedding=[1.0, 0.0, 0.0, 0.0],
+        )
+
+    results = await store.search_threads(query_embedding=[1.0, 0.0, 0.0, 0.0], top_k=3)
+    assert len(results) == 3
+
+
 async def test_atomic_commits_on_success(store: SqliteStore) -> None:
     async with store.atomic():
         archive = Archive(provider="test")

@@ -37,6 +37,17 @@ class MemorySearchResult:
     similarity: float | None
 
 
+@dataclass(frozen=True)
+class ThreadSearchResult:
+    """A thread search hit with similarity score."""
+
+    id: str
+    interaction_type: str
+    content: str
+    asat: datetime
+    similarity: float
+
+
 class Store(ABC):
     """Abstract store for all context_use domain entities.
 
@@ -263,6 +274,21 @@ class Store(ABC):
         self, thread_id: str, embedding: list[float]
     ) -> None:
         """Insert or replace the embedding vector for a thread."""
+        ...
+
+    @abstractmethod
+    async def search_threads(
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int = 10,
+        interaction_types: list[str] | None = None,
+    ) -> list[ThreadSearchResult]:
+        """Search threads by semantic similarity.
+
+        If *interaction_types* is given, only threads whose
+        ``interaction_type`` is in that list are returned.
+        """
         ...
 
     # ── Memory Facets ────────────────────────────────────────────────

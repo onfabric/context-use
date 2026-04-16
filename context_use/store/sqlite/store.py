@@ -22,7 +22,12 @@ from context_use.models import (
     Thread,
 )
 from context_use.models.utils import generate_uuidv4
-from context_use.store.base import MemorySearchResult, SortOrder, Store
+from context_use.store.base import (
+    MemorySearchResult,
+    SortOrder,
+    Store,
+    ThreadSearchResult,
+)
 from context_use.store.sqlite.schema import (
     ArchiveRow,
     BatchRow,
@@ -664,6 +669,52 @@ class SqliteStore(Store):
             (thread_id, VecThreadRow.serialize(embedding)),
         )
         await self._commit_unless_atomic()
+
+    async def search_threads(
+        self,
+        *,
+        query_embedding: list[float],
+        top_k: int = 10,
+        interaction_types: list[str] | None = None,
+    ) -> list[ThreadSearchResult]:
+        db = await self._conn()
+        vec_rows = await db.execute_fetchall(
+            "SELECT thread_id, distance FROM vec_threads "
+            "WHERE embedding MATCH ? AND k = ?",
+            (VecThreadRow.serialize(query_embedding), top_k * 4),
+        )
+        if not vec_rows:
+            return []
+
+        candidate_ids = [r[0] for r in vec_rows]
+        distances: dict[str, float] = {r[0]: r[1] for r in vec_rows}
+
+        ph = ",".join("?" for _ in candidate_ids)
+        sql = (
+            "SELECT id, interaction_type, content, asat "
+            f"FROM threads WHERE id IN ({ph})"
+        )
+        params: list = list(candidate_ids)
+        if interaction_types is not None:
+            type_ph = ",".join("?" for _ in interaction_types)
+            sql += f" AND interaction_type IN ({type_ph})"
+            params.extend(interaction_types)
+
+        thread_rows = await db.execute_fetchall(sql, params)
+
+        results = [
+            ThreadSearchResult(
+                id=r["id"],
+                interaction_type=r["interaction_type"],
+                content=r["content"] or "",
+                asat=parse_dt(r["asat"]),
+                similarity=1.0 - distances[r["id"]],
+            )
+            for r in thread_rows
+            if r["id"] in distances
+        ]
+        results.sort(key=lambda x: x.similarity, reverse=True)
+        return results[:top_k]
 
     async def create_memory_facet(self, facet: MemoryFacet) -> MemoryFacet:
         db = await self._conn()
