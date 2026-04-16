@@ -30,6 +30,7 @@ def _batch_detail_from_state(state: State | None) -> str:
         MemoryEmbedCompleteState,
         MemoryGenerateCompleteState,
     )
+    from context_use.thread_embedding.states import ThreadEmbedCompleteState
 
     if isinstance(state, FailedState):
         message = state.error_message.strip()
@@ -49,6 +50,9 @@ def _batch_detail_from_state(state: State | None) -> str:
 
     if isinstance(state, DescGenerateCompleteState):
         return f"{state.descriptions_count} descriptions generated"
+
+    if isinstance(state, ThreadEmbedCompleteState):
+        return f"{state.embedded_count} threads embedded"
 
     return ""
 
