@@ -235,6 +235,37 @@ class ContextUse:
         groups = [ThreadGroup(threads=[t], group_id=t.id) for t in asset_threads]
         return await AssetDescriptionBatchFactory.create_batches(groups, self._store)
 
+    # ── Thread embedding batches ─────────────────────────────────────
+
+    async def create_thread_embedding_batches(
+        self,
+        *,
+        task_id: str | None = None,
+        since: datetime | None = None,
+        before: datetime | None = None,
+    ) -> list[Batch]:
+        """Create batches for thread embedding.
+
+        Every thread with embeddable content is included.  Asset threads
+        without a description yet are silently skipped (their
+        ``get_embeddable_content()`` returns ``None``).
+        """
+        from context_use.thread_embedding.factory import ThreadEmbeddingBatchFactory
+
+        threads = await self._store.get_unprocessed_threads(
+            batch_category=BatchCategory.thread_embedding.value,
+            task_id=task_id,
+            since=since,
+            before=before,
+        )
+
+        embeddable = [t for t in threads if t.get_embeddable_content() is not None]
+        if not embeddable:
+            return []
+
+        groups = [ThreadGroup(threads=[t], group_id=t.id) for t in embeddable]
+        return await ThreadEmbeddingBatchFactory.create_batches(groups, self._store)
+
     # ── Memory batches ────────────────────────────────────────────────
 
     async def create_memory_batches(
@@ -452,3 +483,4 @@ def _ensure_managers_registered() -> None:
     """Import manager modules to trigger their @register_batch_manager decorators."""
     import context_use.asset_description.manager  # noqa: F401
     import context_use.memories.manager  # noqa: F401
+    import context_use.thread_embedding.manager  # noqa: F401

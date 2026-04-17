@@ -432,6 +432,89 @@ async def test_search_memories_by_embedding_with_date_filter(
     assert results[0].similarity is not None
 
 
+async def test_upsert_thread_embedding(store: SqliteStore) -> None:
+    archive = Archive(provider="test")
+    await store.create_archive(archive)
+    task = EtlTask(
+        archive_id=archive.id,
+        provider="test",
+        interaction_type="test_type",
+        source_uris=["test.json"],
+    )
+    await store.create_task(task)
+    rows = [
+        ThreadRow(
+            unique_key="uk-embed-1",
+            provider="test",
+            interaction_type="test_type",
+            preview="p",
+            payload={
+                "type": "Create",
+                "fibre_kind": "Create",
+                "object": {"type": "Note"},
+            },
+            version="1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+    ]
+    ids = await store.insert_threads(rows, task.id)
+    thread_id = ids[0]
+
+    embedding = [1.0, 0.0, 0.0, 0.0]
+    await store.upsert_thread_embedding(thread_id, embedding)
+
+    db = await store._conn()
+    result = list(
+        await db.execute_fetchall(
+            "SELECT thread_id FROM vec_threads WHERE thread_id = ?",
+            (thread_id,),
+        )
+    )
+    assert len(result) == 1
+    assert result[0][0] == thread_id
+
+
+async def test_upsert_thread_embedding_replaces_existing(store: SqliteStore) -> None:
+    archive = Archive(provider="test")
+    await store.create_archive(archive)
+    task = EtlTask(
+        archive_id=archive.id,
+        provider="test",
+        interaction_type="test_type",
+        source_uris=["test.json"],
+    )
+    await store.create_task(task)
+    rows = [
+        ThreadRow(
+            unique_key="uk-embed-replace",
+            provider="test",
+            interaction_type="test_type",
+            preview="p",
+            payload={
+                "type": "Create",
+                "fibre_kind": "Create",
+                "object": {"type": "Note"},
+            },
+            version="1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+    ]
+    ids = await store.insert_threads(rows, task.id)
+    thread_id = ids[0]
+
+    await store.upsert_thread_embedding(thread_id, [1.0, 0.0, 0.0, 0.0])
+    await store.upsert_thread_embedding(thread_id, [0.0, 1.0, 0.0, 0.0])
+
+    db = await store._conn()
+    result = list(
+        await db.execute_fetchall(
+            "SELECT thread_id FROM vec_threads WHERE thread_id = ?",
+            (thread_id,),
+        )
+    )
+    assert len(result) == 1
+
+
 async def test_atomic_commits_on_success(store: SqliteStore) -> None:
     async with store.atomic():
         archive = Archive(provider="test")

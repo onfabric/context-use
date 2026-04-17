@@ -101,6 +101,55 @@ class TestThreadGetContent:
         assert thread.get_content() == "sunset at the beach"
 
 
+class TestThreadGetEmbeddableContent:
+    def test_non_asset_returns_raw_content(self) -> None:
+        thread = Thread(
+            unique_key="k1",
+            provider="ChatGPT",
+            interaction_type="chatgpt_conversations",
+            payload=_make_send_message_payload(),
+            version="1.1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+        assert thread.get_embeddable_content() == "hello world"
+
+    def test_non_asset_returns_none_when_empty(self) -> None:
+        thread = Thread(
+            unique_key="k2",
+            provider="Instagram",
+            interaction_type="instagram_posts",
+            payload=_make_create_object_payload(),
+            version="1.1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+        )
+        assert thread.get_embeddable_content() is None
+
+    def test_asset_returns_enriched_content(self) -> None:
+        thread = Thread(
+            unique_key="k3",
+            provider="Instagram",
+            interaction_type="instagram_posts",
+            payload=_make_create_object_payload(),
+            version="1.1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+            asset_uri="archive/pic.jpg",
+            content="A sunset over the ocean",
+        )
+        assert thread.get_embeddable_content() == "A sunset over the ocean"
+
+    def test_asset_returns_none_when_not_described(self) -> None:
+        thread = Thread(
+            unique_key="k4",
+            provider="Instagram",
+            interaction_type="instagram_posts",
+            payload=_make_create_object_payload(caption="sunset"),
+            version="1.1.0",
+            asat=datetime(2025, 1, 1, tzinfo=UTC),
+            asset_uri="archive/pic.jpg",
+        )
+        assert thread.get_embeddable_content() is None
+
+
 class TestThreadGetRawContent:
     def test_returns_payload_content_even_when_content_is_set(self) -> None:
         thread = Thread(

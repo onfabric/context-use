@@ -256,6 +256,15 @@ class Store(ABC):
         """Search memories by semantic similarity, optionally filtered by date range."""
         ...
 
+    # ── Thread Embeddings ─────────────────────────────────────────────
+
+    @abstractmethod
+    async def upsert_thread_embedding(
+        self, thread_id: str, embedding: list[float]
+    ) -> None:
+        """Insert or replace the embedding vector for a thread."""
+        ...
+
     # ── Memory Facets ────────────────────────────────────────────────
 
     @abstractmethod

@@ -33,6 +33,7 @@ from context_use.store.sqlite.schema import (
     ThreadRow,
     VecFacetRow,
     VecMemoryRow,
+    VecThreadRow,
     all_ddl_statements,
     now_utc_iso,
     parse_dt,
@@ -649,6 +650,20 @@ class SqliteStore(Store):
             to_date=to_date,
             top_k=top_k,
         )
+
+    async def upsert_thread_embedding(
+        self, thread_id: str, embedding: list[float]
+    ) -> None:
+        db = await self._conn()
+        await db.execute(
+            "DELETE FROM vec_threads WHERE thread_id = ?",
+            (thread_id,),
+        )
+        await db.execute(
+            "INSERT INTO vec_threads (thread_id, embedding) VALUES (?, ?)",
+            (thread_id, VecThreadRow.serialize(embedding)),
+        )
+        await self._commit_unless_atomic()
 
     async def create_memory_facet(self, facet: MemoryFacet) -> MemoryFacet:
         db = await self._conn()
