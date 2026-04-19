@@ -28,7 +28,7 @@ from context_use.providers.registry import (
     get_memory_config,
     get_memory_interaction_types,
 )
-from context_use.store.base import MemorySearchResult
+from context_use.store.base import MemorySearchResult, ThreadSearchResult
 from context_use.types import PipelineResult, TaskBreakdown
 
 if TYPE_CHECKING:
@@ -441,6 +441,21 @@ class ContextUse:
     ) -> list[str]:
         """Insert thread rows into the store, deduplicating on ``unique_key``."""
         return await self._store.insert_threads(rows, task_id)
+
+    async def search_threads(
+        self,
+        query: str,
+        *,
+        top_k: int = 10,
+        interaction_types: list[str] | None = None,
+    ) -> list[ThreadSearchResult]:
+        """Search threads by semantic similarity."""
+        query_embedding = await self._llm_client.embed_query(query)
+        return await self._store.search_threads(
+            query_embedding=query_embedding,
+            top_k=top_k,
+            interaction_types=interaction_types,
+        )
 
     # ── Private helpers ──────────────────────────────────────────────
 
