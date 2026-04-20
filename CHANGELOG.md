@@ -1,3 +1,10 @@
+## [0.19.0] - 2026-04-20
+
+### 🚀 Features
+
+- Add embedding search methods (#293)
+- Batch embedding pipeline (#292)
+
 ## [0.18.1] - 2026-04-15
 
 ### 🐛 Bug Fixes
