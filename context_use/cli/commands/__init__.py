@@ -10,6 +10,7 @@ from context_use.cli.commands.memories import MemoriesGroup
 from context_use.cli.commands.pipeline import PipelineCommand
 from context_use.cli.commands.proxy import ProxyCommand
 from context_use.cli.commands.reset import ResetCommand
+from context_use.cli.commands.search import SearchCommand
 
 TOP_LEVEL_COMMANDS: list[type[BaseCommand]] = [
     ProxyCommand,
@@ -17,6 +18,7 @@ TOP_LEVEL_COMMANDS: list[type[BaseCommand]] = [
     IngestCommand,
     DescribeCommand,
     EmbedCommand,
+    SearchCommand,
     ResetCommand,
 ]
 
